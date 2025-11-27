@@ -1,0 +1,22 @@
+CREATE TABLE llx_equipmentmanager_equipment (
+    rowid integer AUTO_INCREMENT PRIMARY KEY,
+    ref varchar(128) NOT NULL,
+    equipment_number varchar(128) NOT NULL,
+    equipment_number_mode varchar(10) DEFAULT 'auto',
+    label varchar(255) NOT NULL,
+    equipment_type varchar(50) NOT NULL,
+    manufacturer varchar(255),
+    fk_soc integer,
+    location_note text,
+    serial_number varchar(255),
+    installation_date date,
+    status integer DEFAULT 1,
+    note_public text,
+    note_private text,
+    date_creation datetime NOT NULL,
+    tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat integer,
+    fk_user_modif integer,
+    import_key varchar(14),
+    entity integer DEFAULT 1
+) ENGINE=innodb;

@@ -1,0 +1,53 @@
+# Module
+Module500100Name=Equipment Manager
+Module500100Desc=Equipment and Service Report Management
+
+# Permissions
+Permission500101=Read equipment
+Permission500102=Create/Update equipment
+Permission500103=Delete equipment
+Permission500104=Read service reports
+Permission500105=Create/Update service reports
+Permission500106=Delete service reports
+
+# Menu
+Equipment=Equipment
+EquipmentList=Equipment List
+NewEquipment=New Equipment
+ServiceReports=Service Reports
+
+# Fields
+EquipmentNumber=Equipment Number
+EquipmentNumberMode=Mode
+EquipmentNumberAuto=Automatic
+EquipmentNumberManual=Manual
+Label=Label
+Type=Category/Type
+DoorSwing=Swing Door Drive
+DoorSliding=Sliding Door Drive
+FireDoor=Fire Door
+DoorCloser=Door Closer
+HoldOpen=Hold-Open System
+RWS=RWS
+RWA=RWA
+Other=Other
+LocationNote=Location / Note
+SerialNumber=Serial Number
+InstallationDate=Installation Date
+ServiceDate=Service Date
+ReportText=Report Text
+TechnicianName=Technician
+HoursSpent=Hours Spent
+NextServiceDate=Next Service Date
+ManageEquipmentAndServiceReports=Manage equipment and service reports for doors and fire protection systems
+NoConfigurationRequired=No configuration required
+
+# Messages
+EquipmentCreated=Equipment created
+EquipmentUpdated=Equipment updated
+EquipmentDeleted=Equipment deleted
+ServiceReportCreated=Service report created
+ServiceReportUpdated=Service report updated
+ServiceReportDeleted=Service report deleted
+ConfirmDeleteEquipment=Are you sure you want to delete this equipment?
+DeleteEquipment=Delete Equipment
