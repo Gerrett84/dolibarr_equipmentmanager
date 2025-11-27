@@ -1,0 +1,58 @@
+# Module
+Module500100Name=Equipment Manager
+Module500100Desc=Verwaltung von Anlagen und Serviceberichten
+
+# Permissions
+Permission500101=Equipment lesen
+Permission500102=Equipment erstellen/bearbeiten
+Permission500103=Equipment löschen
+Permission500104=Serviceberichte lesen
+Permission500105=Serviceberichte erstellen/bearbeiten
+Permission500106=Serviceberichte löschen
+
+# Menu
+Equipment=Anlagen
+EquipmentList=Anlagenliste
+NewEquipment=Neue Anlage
+ServiceReports=Serviceberichte
+
+# Fields
+EquipmentNumber=Anlagen-Nummer
+EquipmentNumberMode=Modus
+EquipmentNumberAuto=Automatisch
+EquipmentNumberManual=Manuell
+Label=Bezeichnung
+Type=Kategorie/Typ
+DoorSwing=Drehtürantrieb
+DoorSliding=Schiebetürantrieb
+FireDoor=Brandschutztür
+DoorCloser=Türschließer
+HoldOpen=Feststellanlage
+RWS=RWS
+RWA=RWA
+Other=Sonstiges
+Manufacturer=Hersteller
+DoorWings=Türflügel
+LocationNote=Standort / Bemerkung
+SerialNumber=Seriennummer
+InstallationDate=Datum in Betrieb
+MaintenanceContract=Wartungsvertrag
+ActiveContract=Aktiver Vertrag
+NoContract=Kein Vertrag
+ServiceDate=Servicedatum
+ReportText=Berichtstext
+TechnicianName=Techniker
+HoursSpent=Arbeitsstunden
+NextServiceDate=Nächster Service
+ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
+NoConfigurationRequired=Keine Konfiguration erforderlich
+
+# Messages
+EquipmentCreated=Anlage erstellt
+EquipmentUpdated=Anlage aktualisiert
+EquipmentDeleted=Anlage gelöscht
+ServiceReportCreated=Servicebericht erstellt
+ServiceReportUpdated=Servicebericht aktualisiert
+ServiceReportDeleted=Servicebericht gelöscht
+ConfirmDeleteEquipment=Sind Sie sicher, dass Sie diese Anlage löschen möchten?
+DeleteEquipment=Anlage löschen
