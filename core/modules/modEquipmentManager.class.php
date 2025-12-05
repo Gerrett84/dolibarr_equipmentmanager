@@ -42,7 +42,7 @@ class modEquipmentManager extends DolibarrModules
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports";
         
         // Versionsnummer
-        $this->version = '1.1';
+        $this->version = '1.2';
         
         // Konstanten Name
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
