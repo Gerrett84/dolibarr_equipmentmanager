@@ -17,6 +17,7 @@ class Equipment extends CommonObject
         'equipment_number_mode' => array('type' => 'varchar(10)', 'label' => 'Mode', 'enabled' => 1, 'visible' => 0, 'position' => 21, 'default' => 'auto'),
         'label' => array('type' => 'varchar(255)', 'label' => 'Label', 'enabled' => 1, 'visible' => 1, 'position' => 30, 'notnull' => 1, 'searchall' => 1),
         'fk_soc' => array('type' => 'integer:Societe:societe/class/societe.class.php', 'label' => 'ThirdParty', 'enabled' => 1, 'visible' => 1, 'position' => 40),
+        'fk_address' => array('type' => 'integer', 'label' => 'ObjectAddress', 'enabled' => 1, 'visible' => 1, 'position' => 45),
         'location_note' => array('type' => 'text', 'label' => 'LocationNote', 'enabled' => 1, 'visible' => 1, 'position' => 50),
         'equipment_type' => array('type' => 'varchar(50)', 'label' => 'Type', 'enabled' => 1, 'visible' => 1, 'position' => 60, 'notnull' => 1, 'arrayofkeyval' => array(
             'door_swing' => 'DoorSwing',
@@ -50,6 +51,7 @@ class Equipment extends CommonObject
     public $manufacturer;
     public $door_wings;
     public $fk_soc;
+    public $fk_address;
     public $location_note;
     public $serial_number;
     public $installation_date;
@@ -97,6 +99,7 @@ class Equipment extends CommonObject
         $sql .= "manufacturer,";
         $sql .= "door_wings,";
         $sql .= "fk_soc,";
+        $sql .= "fk_address,";
         $sql .= "location_note,";
         $sql .= "serial_number,";
         $sql .= "installation_date,";
@@ -115,6 +118,7 @@ class Equipment extends CommonObject
         $sql .= ($this->manufacturer ? "'".$this->db->escape($this->manufacturer)."'" : 'NULL').",";
         $sql .= ($this->door_wings ? "'".$this->db->escape($this->door_wings)."'" : 'NULL').",";
         $sql .= ($this->fk_soc > 0 ? $this->fk_soc : 'NULL').",";
+        $sql .= ($this->fk_address > 0 ? $this->fk_address : 'NULL').",";
         $sql .= ($this->location_note ? "'".$this->db->escape($this->location_note)."'" : 'NULL').",";
         $sql .= ($this->serial_number ? "'".$this->db->escape($this->serial_number)."'" : 'NULL').",";
         $sql .= ($this->installation_date ? "'".$this->db->idate($this->installation_date)."'" : 'NULL').",";
@@ -172,6 +176,7 @@ class Equipment extends CommonObject
                 $this->manufacturer = $obj->manufacturer;
                 $this->door_wings = $obj->door_wings;
                 $this->fk_soc = $obj->fk_soc;
+                $this->fk_address = $obj->fk_address;
                 $this->location_note = $obj->location_note;
                 $this->serial_number = $obj->serial_number;
                 $this->installation_date = $this->db->jdate($obj->installation_date);
@@ -208,6 +213,7 @@ class Equipment extends CommonObject
         $sql .= " manufacturer = ".($this->manufacturer ? "'".$this->db->escape($this->manufacturer)."'" : 'NULL').",";
         $sql .= " door_wings = ".($this->door_wings ? "'".$this->db->escape($this->door_wings)."'" : 'NULL').",";
         $sql .= " fk_soc = ".($this->fk_soc > 0 ? $this->fk_soc : 'NULL').",";
+        $sql .= " fk_address = ".($this->fk_address > 0 ? $this->fk_address : 'NULL').",";
         $sql .= " location_note = ".($this->location_note ? "'".$this->db->escape($this->location_note)."'" : 'NULL').",";
         $sql .= " serial_number = ".($this->serial_number ? "'".$this->db->escape($this->serial_number)."'" : 'NULL').",";
         $sql .= " installation_date = ".($this->installation_date ? "'".$this->db->idate($this->installation_date)."'" : 'NULL').",";

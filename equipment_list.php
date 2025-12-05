@@ -79,11 +79,15 @@ $sql .= " t.equipment_type,";
 $sql .= " t.manufacturer,";
 $sql .= " t.label,";
 $sql .= " t.fk_soc,";
+$sql .= " t.fk_address,";
 $sql .= " t.location_note,";
 $sql .= " t.status,";
-$sql .= " s.nom as company_name";
+$sql .= " s.nom as company_name,";
+$sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
+$sql .= " sp.town as address_town";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 
 // Search filters
@@ -153,14 +157,13 @@ if ($resql) {
     print '<div class="div-table-responsive">';
     print '<table class="tagtable liste">'."\n";
     
-    // Fields title - Neue Reihenfolge: Anlagennummer, Typ, Hersteller, Bezeichnung, Standort, Kunde, Wartungsvertrag
+    // Fields title - Neue Reihenfolge: Anlagennummer, Typ, Hersteller, Bezeichnung, Objektadresse, Wartungsvertrag
     print '<tr class="liste_titre">';
     print_liste_field_titre("EquipmentNumber", $_SERVER["PHP_SELF"], "t.equipment_number", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Type", $_SERVER["PHP_SELF"], "t.equipment_type", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Manufacturer", $_SERVER["PHP_SELF"], "t.manufacturer", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Label", $_SERVER["PHP_SELF"], "t.label", "", $param, '', $sortfield, $sortorder);
-    print_liste_field_titre("LocationNote", $_SERVER["PHP_SELF"], "t.location_note", "", $param, '', $sortfield, $sortorder);
-    print_liste_field_titre("ThirdParty", $_SERVER["PHP_SELF"], "s.nom", "", $param, '', $sortfield, $sortorder);
+    print_liste_field_titre("ObjectAddress", $_SERVER["PHP_SELF"], "a.label", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("MaintenanceContract", $_SERVER["PHP_SELF"], "t.status", "", $param, '', $sortfield, $sortorder, 'center ');
     print_liste_field_titre('', $_SERVER["PHP_SELF"], "", '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
     print "</tr>\n";
@@ -192,11 +195,8 @@ if ($resql) {
     // Label
     print '<td class="liste_titre"><input type="text" class="flat maxwidth100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
     
-    // Location
-    print '<td class="liste_titre"><input type="text" class="flat maxwidth75" name="search_location" value="'.dol_escape_htmltag($search_location).'"></td>';
-    
-    // Company
-    print '<td class="liste_titre"><input type="text" class="flat maxwidth75" name="search_company" value="'.dol_escape_htmltag($search_company).'"></td>';
+    // Object Address
+    print '<td class="liste_titre"></td>';
     
     // Status
     print '<td class="liste_titre center">';
@@ -254,19 +254,15 @@ if ($resql) {
         // Label
         print '<td>'.dol_escape_htmltag($obj->label).'</td>';
         
-        // Location
+        // Object Address
         print '<td>';
-        $location_short = dol_trunc($obj->location_note, 50);
-        print dol_escape_htmltag($location_short);
-        print '</td>';
-        
-        // Company
-        print '<td>';
-        if ($obj->fk_soc > 0) {
-            $companystatic = new Societe($db);
-            $companystatic->id = $obj->fk_soc;
-            $companystatic->name = $obj->company_name;
-            print $companystatic->getNomUrl(1);
+        if ($obj->address_label) {
+            print '<strong>'.dol_escape_htmltag($obj->address_label).'</strong>';
+            if ($obj->address_town) {
+                print '<br><span class="opacitymedium">'.dol_escape_htmltag($obj->address_town).'</span>';
+            }
+        } else {
+            print '<span class="opacitymedium">-</span>';
         }
         print '</td>';
         
@@ -291,7 +287,7 @@ if ($resql) {
     }
     
     if ($num == 0) {
-        $colspan = 8;
+        $colspan = 7;
         print '<tr><td colspan="'.$colspan.'"><span class="opacitymedium">'.$langs->trans("NoRecordFound").'</span></td></tr>';
     }
     
