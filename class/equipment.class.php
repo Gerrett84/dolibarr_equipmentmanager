@@ -1,4 +1,11 @@
 <?php
+/* Copyright (C) 2024 Equipment Manager
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ */
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/commonobject.class.php';
 
@@ -316,5 +323,45 @@ class Equipment extends CommonObject
         $result .= '</a>';
 
         return $result;
+    }
+    
+    /**
+     * Get equipment list for a third party (static method for use in other modules)
+     *
+     * @param DoliDB $db Database handler
+     * @param int $socid Third party ID
+     * @return array Array of Equipment objects
+     */
+    public static function fetchAllBySoc($db, $socid)
+    {
+        $equipments = array();
+        
+        $sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
+        $sql .= " WHERE fk_soc = ".(int)$socid;
+        $sql .= " AND status = 1";  // Nur aktive Equipments
+        $sql .= " ORDER BY equipment_number ASC";
+        
+        dol_syslog("Equipment::fetchAllBySoc - socid=".$socid, LOG_DEBUG);
+        
+        $resql = $db->query($sql);
+        if ($resql) {
+            $num = $db->num_rows($resql);
+            dol_syslog("Equipment::fetchAllBySoc - found ".$num." equipments", LOG_DEBUG);
+            
+            $i = 0;
+            while ($i < $num) {
+                $obj = $db->fetch_object($resql);
+                $equipment = new Equipment($db);
+                if ($equipment->fetch($obj->rowid) > 0) {
+                    $equipments[] = $equipment;
+                }
+                $i++;
+            }
+            $db->free($resql);
+        } else {
+            dol_syslog("Equipment::fetchAllBySoc - SQL Error: ".$db->lasterror(), LOG_ERR);
+        }
+        
+        return $equipments;
     }
 }
