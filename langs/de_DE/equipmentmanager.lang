@@ -49,6 +49,27 @@ NextServiceDate=Nächster Service
 ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
 NoConfigurationRequired=Keine Konfiguration erforderlich
 
+# Intervention Integration
+ServicedEquipments=Gewartete Equipments
+AvailableEquipmentsForCustomer=Verfügbare Equipments für diesen Kunden
+Link=Verknüpfen
+Unlink=Trennen
+EquipmentLinked=Equipment verknüpft
+EquipmentUnlinked=Equipment-Verknüpfung entfernt
+EquipmentAlreadyLinked=Equipment ist bereits verknüpft
+NoLinkedEquipment=Keine Equipments verknüpft
+LinkEquipmentFromListBelow=Verknüpfe Equipments aus der Liste unten
+NoInterventionsLinked=Keine Serviceaufträge verknüpft
+PleaseAssignThirdPartyToInterventionFirst=Bitte zuerst einen Auftraggeber dem Serviceauftrag zuweisen
+
+# History
+EquipmentHistory=Anlagen-Historie
+RelatedDocuments=Zugehörige Dokumente
+ComingSoon=Demnächst
+Proposals=Angebote
+Orders=Aufträge
+Contracts=Verträge
+
 # Messages
 EquipmentCreated=Anlage erstellt
 EquipmentUpdated=Anlage aktualisiert

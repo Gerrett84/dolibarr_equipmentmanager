@@ -42,7 +42,7 @@ class modEquipmentManager extends DolibarrModules
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports";
         
         // Versionsnummer
-        $this->version = '1.2';
+        $this->version = '1.3';
         
         // Konstanten Name
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
@@ -194,7 +194,13 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // Tabs
-        $this->tabs = array();
+        $this->tabs = array(
+            // Equipment tab auf Intervention
+            'intervention:+equipmentmanager_equipment:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/intervention_equipment.php?id=__ID__',
+
+            // Interventionen tab auf Equipment
+            'equipment:+interventions:Interventions:equipmentmanager@equipmentmanager:$user->hasRight("ficheinter", "lire"):/equipmentmanager/equipment_interventions.php?id=__ID__'
+        );
 
         // Dictionaries
         $this->dictionaries = array();

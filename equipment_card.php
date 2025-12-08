@@ -21,9 +21,10 @@ if (!$res) {
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
+require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 
-$langs->loadLangs(array("equipmentmanager@equipmentmanager", "companies", "other"));
+$langs->loadLangs(array('equipmentmanager@equipmentmanager', 'companies', 'other', 'interventions'));
 
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
@@ -178,25 +179,22 @@ jQuery(document).ready(function() {
         if (socid > 0) {
             // Load addresses via AJAX
             jQuery.ajax({
-                url: "'.DOL_URL_ROOT.'/core/ajax/objectonoff.php",
+                url: "'.DOL_URL_ROOT.'/core/ajax/contacts.php?action=fetch&htmlname=fk_address&socid=" + socid,
                 type: "GET",
-                data: {
-                    action: "getaddresses",
-                    id: socid
-                },
                 success: function(data) {
-                    // This is a fallback - we need a custom endpoint
-                    // For now, reload page or use simpler approach
+                    addressSelect.html(data);
                 }
             });
         } else {
-            addressSelect.html("<option value=\"\">---</option>");
+            addressSelect.html("<option value=\'\'>---</option>");
         }
     });
 });
 </script>';
 
-// Create mode
+// ============================================================================
+// CREATE MODE
+// ============================================================================
 if ($action == 'create') {
     print load_fiche_titre($langs->trans("NewEquipment"), '', 'object_generic');
     
@@ -246,7 +244,7 @@ if ($action == 'create') {
     print '<input type="text" name="manufacturer" size="30" placeholder="'.$langs->trans('Manufacturer').'" value="">';
     print '</td></tr>';
     
-    // Door Wings (1-flüglig / 2-flüglig)
+    // Door Wings
     print '<tr><td>'.$langs->trans("DoorWings").'</td><td>';
     print '<select name="door_wings" class="flat">';
     print '<option value=""></option>';
@@ -260,7 +258,7 @@ if ($action == 'create') {
     print $form->select_company(0, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
     print '</td></tr>';
     
-    // Object Address (Lieferadresse)
+    // Object Address
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
     print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
     print '<option value="">---</option>';
@@ -283,7 +281,7 @@ if ($action == 'create') {
     print $form->selectDate('', 'installation_date', 0, 0, 1, '', 1, 0);
     print '</td></tr>';
     
-    // Maintenance Contract Status
+    // Status
     print '<tr><td>'.$langs->trans("MaintenanceContract").'</td><td>';
     print '<select name="status" class="flat">';
     print '<option value="1" selected>'.$langs->trans('ActiveContract').'</option>';
@@ -304,7 +302,9 @@ if ($action == 'create') {
     print '</form>';
 }
 
-// Edit mode
+// ============================================================================
+// EDIT MODE
+// ============================================================================
 if (($id || $ref) && $action == 'edit') {
     print load_fiche_titre($langs->trans("Equipment"), '', 'object_generic');
     
@@ -370,13 +370,13 @@ if (($id || $ref) && $action == 'edit') {
     print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
     print '</td></tr>';
     
-    // Object Address (Lieferadresse)
+    // Object Address
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
     if ($object->fk_soc > 0) {
         print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
         print '<option value="">---</option>';
         
-        // Lade Kontakte (als Objektadressen) des Geschäftspartners
+        // Load contacts (addresses) of the third party
         $sql = "SELECT rowid, CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
         $sql .= " WHERE fk_soc = ".(int)$object->fk_soc;
         $sql .= " ORDER BY lastname, firstname";
@@ -414,7 +414,7 @@ if (($id || $ref) && $action == 'edit') {
     print $form->selectDate($object->installation_date, 'installation_date', 0, 0, 1, '', 1, 0);
     print '</td></tr>';
     
-    // Maintenance Contract Status
+    // Status
     print '<tr><td>'.$langs->trans("MaintenanceContract").'</td><td>';
     print '<select name="status" class="flat">';
     print '<option value="1"'.($object->status == 1 ? ' selected' : '').'>'.$langs->trans('ActiveContract').'</option>';
@@ -435,7 +435,9 @@ if (($id || $ref) && $action == 'edit') {
     print '</form>';
 }
 
-// View mode
+// ============================================================================
+// VIEW MODE
+// ============================================================================
 if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'create'))) {
     $head = array();
     $head[0][0] = DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$object->id;
@@ -451,7 +453,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     
     $linkback = '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_list.php?restore_lastsearch_values=1">'.$langs->trans("BackToList").'</a>';
     
-    // Banner-Titel ist die Equipment-Nummer
+    // Banner: Equipment Number as ref
     $object->ref = $object->equipment_number;
     
     dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', '', '', 0, '', '', 1);
@@ -520,7 +522,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     }
     print '</td></tr>';
     
-    // Object Address (Lieferadresse)
+    // Object Address
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
     if ($object->fk_address > 0) {
         $sql = "SELECT CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
@@ -552,7 +554,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     print $object->installation_date ? dol_print_date($object->installation_date, 'day') : '<span class="opacitymedium">-</span>';
     print '</td></tr>';
     
-    // Maintenance Contract Status
+    // Status
     print '<tr><td>'.$langs->trans("MaintenanceContract").'</td><td>';
     if ($object->status == 1) {
         print '<span class="badge badge-status4 badge-status">'.$langs->trans('ActiveContract').'</span>';
@@ -569,6 +571,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     
     print dol_get_fiche_end();
     
+    // Actions buttons
     if ($action != 'edit') {
         print '<div class="tabsAction">'."\n";
         
@@ -582,6 +585,79 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         
         print '</div>'."\n";
     }
+    
+    // ============================================================================
+    // HISTORY SECTION - Anlagen-Historie (untereinander)
+    // ============================================================================
+    
+    print '<br><br>';
+    
+    // SECTION 1: Serviceaufträge
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+    
+    print '<tr class="liste_titre">';
+    print '<th colspan="4"><span class="fa fa-history paddingright"></span>'.$langs->trans('EquipmentHistory').'</th>';
+    print '</tr>';
+    
+    print '<tr class="liste_titre">';
+    print '<th>'.$langs->trans('Ref').'</th>';
+    print '<th>'.$langs->trans('Date').'</th>';
+    print '<th>'.$langs->trans('Customer').'</th>';
+    print '<th>'.$langs->trans('Status').'</th>';
+    print '</tr>';
+    
+    // Get linked interventions
+    $sql = "SELECT l.fk_intervention, l.date_creation";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as l";
+    $sql .= " WHERE l.fk_equipment = ".(int)$object->id;
+    $sql .= " ORDER BY l.date_creation DESC";
+    
+    $resql = $db->query($sql);
+    
+    if ($resql && $db->num_rows($resql) > 0) {
+        while ($obj = $db->fetch_object($resql)) {
+            $intervention = new Fichinter($db);
+            if ($intervention->fetch($obj->fk_intervention) > 0) {
+                $intervention->fetch_thirdparty();
+                
+                print '<tr class="oddeven">';
+                print '<td>'.$intervention->getNomUrl(1).'</td>';
+                print '<td>'.dol_print_date($intervention->datec, 'day').'</td>';
+                print '<td>';
+                if ($intervention->thirdparty) {
+                    print $intervention->thirdparty->getNomUrl(1);
+                }
+                print '</td>';
+                print '<td>'.$intervention->getLibStatut(5).'</td>';
+                print '</tr>';
+            }
+        }
+    } else {
+        print '<tr><td colspan="4" class="opacitymedium center">';
+        print $langs->trans('NoInterventionsLinked');
+        print '</td></tr>';
+    }
+    
+    print '</table>';
+    print '</div>';
+    
+    print '<br>';
+    
+    // SECTION 2: Zugehörige Dokumente (Platzhalter)
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+    
+    print '<tr class="liste_titre">';
+    print '<th colspan="4"><span class="fa fa-file-text-o paddingright"></span>'.$langs->trans('RelatedDocuments').'</th>';
+    print '</tr>';
+    
+    print '<tr><td colspan="4" class="opacitymedium center" style="padding: 20px;">';
+    print '<em>'.$langs->trans('ComingSoon').': '.$langs->trans('Proposals').', '.$langs->trans('Orders').', '.$langs->trans('Contracts').'</em>';
+    print '</td></tr>';
+    
+    print '</table>';
+    print '</div>';
 }
 
 llxFooter();
