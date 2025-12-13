@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-Ein Dolibarr-Modul zur Verwaltung von Equipment/Geräten mit Zuordnung zu Dritten (Third Parties).
+Ein Dolibarr-Modul zur Verwaltung von Equipment/Geräten mit Zuordnung zu Dritten (Third Parties) und Serviceaufträgen.
 
 ## 🌟 Features
 
@@ -13,19 +13,40 @@ Ein Dolibarr-Modul zur Verwaltung von Equipment/Geräten mit Zuordnung zu Dritte
 - ✅ Notizen und Beschreibungen
 - ✅ Equipment-Karte auf der Third Party Seite
 
-### Version 1.2 (Aktuell)
+### Version 1.2
 - ✅ Alle Features von v1.1
-- ✅ **NEU:** Objektadresse - Separate Adressverwaltung für Equipment
+- ✅ Objektadresse - Separate Adressverwaltung für Equipment
 - ✅ Vollständige Adressfelder (Straße, PLZ, Stadt, Land, etc.)
 - ✅ Unabhängige Standortverwaltung vom Third Party
 
+### Version 1.3
+- ✅ Alle Features von v1.2
+- ✅ Equipment-Nummerierung (automatisch: A000001, A000002, ... oder manuell)
+- ✅ Equipment-Typ erweitert (Drehtür, Schiebetür, Brandschutztür, etc.)
+- ✅ Hersteller-Feld
+- ✅ Türflügel-Anzahl (1-flüglig, 2-flüglig)
+- ✅ Verknüpfung mit Serviceaufträgen (Interventionen)
+- ✅ Equipment-Historie auf Equipment Card
+- ✅ Equipment-Tab auf Intervention Card
+
+### Version 1.4 (Aktuell)
+- ✅ Alle Features von v1.3
+- ✅ **NEU:** Zweistufige Equipment-Verknüpfung (Wartung / Service)
+- ✅ **NEU:** Gesplittete Equipment Card (View / Edit getrennt)
+- ✅ **NEU:** Suche nach Objektadresse in der Anlagenliste
+- ✅ **NEU:** Übersicht "Anlagen nach Objektadresse" (gruppierte Ansicht)
+- ✅ Farbkodierung für Wartung (grün) und Service (orange)
+- ✅ Verbesserte Code-Organisation und Performance
+
 ## 📋 Voraussetzungen
 
-- Dolibarr 15.0 oder höher
+- Dolibarr 22.0 oder höher
 - PHP 7.4 oder höher
 - MySQL/MariaDB Datenbank
 
 ## 🚀 Installation
+
+### Neu-Installation
 
 1. **Download**
    ```bash
@@ -49,28 +70,42 @@ Ein Dolibarr-Modul zur Verwaltung von Equipment/Geräten mit Zuordnung zu Dritte
    - Gehe zu: `Home → Setup → Users & Groups`
    - Weise Benutzern die gewünschten Equipment-Berechtigungen zu
 
+### Update von v1.3 auf v1.4
+
+Siehe [Migrations-Guide](#migrations-guide-v13--v14) weiter unten.
+
 ## 📖 Verwendung
 
 ### Equipment erstellen
 1. Navigiere zu `Equipment Manager → New Equipment`
 2. Fülle die erforderlichen Felder aus:
-   - **Name**: Bezeichnung des Equipments
-   - **Third Party**: Zugehöriger Kunde/Lieferant
-   - **Serial Number**: Eindeutige Seriennummer
-   - **Description**: Detaillierte Beschreibung
-   - **Status**: Aktiv/Inaktiv
-
-### Equipment mit Adresse erstellen (v1.2)
-3. Optional: Füge eine Objektadresse hinzu:
-   - **Address**: Straße und Hausnummer
-   - **ZIP**: Postleitzahl
-   - **Town**: Stadt
-   - **State**: Bundesland/Kanton
-   - **Country**: Land
+   - **Equipment-Nummer-Modus**: Automatisch (A000001, A000002, ...) oder Manuell
+   - **Bezeichnung**: Name/Beschreibung des Equipments
+   - **Typ**: Art des Equipments (Drehtür, Schiebetür, Brandschutztür, etc.)
+   - **Hersteller**: Hersteller des Equipments
+   - **Türflügel**: 1-flüglig oder 2-flüglig
+   - **Auftraggeber**: Zugehöriger Kunde/Lieferant
+   - **Objektadresse**: Standort-Kontakt aus dem Auftraggeber
+   - **Standort/Bemerkung**: Zusätzliche Standortinformationen
+   - **Seriennummer**: Eindeutige Seriennummer
+   - **Datum in Betrieb**: Installationsdatum
+   - **Wartungsvertrag**: Aktiv/Inaktiv
 
 ### Equipment anzeigen
 - **Listen-Ansicht**: `Equipment Manager → List`
+  - Durchsuchbar nach: Nummer, Typ, Hersteller, Bezeichnung, Objektadresse
+- **Anlagen nach Objektadresse**: `Equipment Manager → Equipment by Address`
+  - Gruppierte Ansicht nach Standorten
+  - Perfekt für Wartungsrunden und Übersichten
 - **Equipment eines Dritten**: Auf der Third Party Karte unter dem Tab "Equipment"
+
+### Equipment mit Serviceaufträgen verknüpfen
+1. Öffne einen Serviceauftrag (Intervention)
+2. Wechsle zum Tab "Equipment"
+3. Wähle Equipment aus der Liste:
+   - **Als Wartung verknüpfen** (grün) - für regelmäßige Wartungen nach DIN
+   - **Als Service verknüpfen** (orange) - für Reparaturen, Störungen, Umbauten
+4. Verknüpfte Equipments werden in separaten Sektionen angezeigt
 
 ### Equipment bearbeiten
 - Klicke auf ein Equipment in der Liste
@@ -84,19 +119,37 @@ Ein Dolibarr-Modul zur Verwaltung von Equipment/Geräten mit Zuordnung zu Dritte
 |------|-----|--------------|
 | rowid | int(11) | Primärschlüssel |
 | entity | int(11) | Multi-Company Entity |
-| ref | varchar(128) | Equipment Referenz |
-| label | varchar(255) | Equipment Name |
+| ref | varchar(128) | Equipment Referenz (EQU-0001, ...) |
+| equipment_number | varchar(128) | Anlagen-Nummer (A000001, ...) |
+| equipment_number_mode | varchar(10) | Modus (auto/manual) |
+| label | varchar(255) | Bezeichnung |
+| equipment_type | varchar(50) | Typ (door_swing, fire_door, ...) |
+| manufacturer | varchar(255) | Hersteller |
+| door_wings | varchar(20) | Türflügel (1/2) |
 | fk_soc | int(11) | Third Party ID |
+| fk_address | int(11) | Objektadresse (Contact ID) |
+| location_note | text | Standort/Bemerkung |
 | serial_number | varchar(255) | Seriennummer |
-| description | text | Beschreibung |
+| installation_date | date | Installationsdatum |
+| status | int(11) | Status (0=Inaktiv, 1=Aktiv) |
 | note_public | text | Öffentliche Notizen |
 | note_private | text | Private Notizen |
-| status | int(11) | Status (0=Inaktiv, 1=Aktiv) |
-| address | varchar(255) | Straße (v1.2) |
-| zip | varchar(25) | PLZ (v1.2) |
-| town | varchar(50) | Stadt (v1.2) |
-| state_id | int(11) | Bundesland ID (v1.2) |
-| country_id | int(11) | Land ID (v1.2) |
+| date_creation | datetime | Erstelldatum |
+| tms | timestamp | Letzte Änderung |
+| fk_user_creat | int(11) | Ersteller |
+| fk_user_modif | int(11) | Letzter Bearbeiter |
+
+### Tabelle: `llx_equipmentmanager_intervention_link`
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| rowid | int(11) | Primärschlüssel |
+| fk_intervention | int(11) | Serviceauftrag ID |
+| fk_equipment | int(11) | Equipment ID |
+| link_type | varchar(20) | Typ (maintenance/service) |
+| date_creation | datetime | Verknüpfungsdatum |
+| fk_user_creat | int(11) | Ersteller |
+| note | text | Notizen |
 
 ## 🔒 Berechtigungen
 
@@ -107,42 +160,106 @@ Das Modul unterstützt folgende Berechtigungen:
 
 ## 🛠️ Entwicklung
 
-### Dateistruktur
+### Dateistruktur v1.4
 ```
 equipmentmanager/
-├── core/
-│   ├── modules/
-│   │   └── modEquipmentManager.class.php
-│   └── boxes/
+├── equipment_list.php              # Liste mit Suche
+├── equipment_view.php              # Anzeige (Read-Only)
+├── equipment_edit.php              # Erstellen/Bearbeiten
+├── equipment_by_address.php        # Gruppierte Übersicht nach Adresse
+├── intervention_equipment.php      # Equipment-Tab auf Intervention
 ├── class/
-│   └── equipment.class.php
+│   └── equipment.class.php         # Equipment-Klasse
+├── core/modules/
+│   └── modEquipmentManager.class.php
 ├── lib/
 │   └── equipmentmanager.lib.php
-├── sql/
-│   ├── llx_equipmentmanager_equipment.sql
-│   └── llx_equipmentmanager_equipment.key.sql
-├── card.php
-├── list.php
-└── equipment_card.php
+├── langs/
+│   ├── de_DE/equipmentmanager.lang
+│   └── en_US/equipmentmanager.lang
+└── sql/
+    ├── llx_equipmentmanager_equipment.sql
+    ├── llx_equipmentmanager_equipment.key.sql
+    ├── llx_equipmentmanager_intervention_link.sql
+    ├── llx_equipmentmanager_v1.3.sql
+    └── llx_equipmentmanager_v1.4.sql
 ```
 
-### Migrieren von v1.1 zu v1.2
+### Migrations-Guide v1.3 → v1.4
 
-**SQL Migration ausführen:**
+#### 1. SQL Update ausführen
 ```sql
-ALTER TABLE llx_equipmentmanager_equipment 
-ADD COLUMN address varchar(255) DEFAULT NULL,
-ADD COLUMN zip varchar(25) DEFAULT NULL,
-ADD COLUMN town varchar(50) DEFAULT NULL,
-ADD COLUMN state_id int(11) DEFAULT NULL,
-ADD COLUMN country_id int(11) DEFAULT NULL;
+-- Neue Spalte link_type hinzufügen
+ALTER TABLE llx_equipmentmanager_intervention_link 
+ADD COLUMN link_type varchar(20) DEFAULT 'maintenance' AFTER fk_equipment;
+
+-- Index auf link_type
+ALTER TABLE llx_equipmentmanager_intervention_link 
+ADD INDEX idx_link_type (link_type);
+
+-- Bestehende Einträge aktualisieren
+UPDATE llx_equipmentmanager_intervention_link 
+SET link_type = 'maintenance' 
+WHERE link_type IS NULL;
 ```
+
+#### 2. Dateien anpassen
+```bash
+# Alte equipment_card.php sichern
+mv equipment_card.php equipment_card.php.backup
+
+# Neue Dateien erstellen
+# - equipment_view.php (nur Anzeige)
+# - equipment_edit.php (Bearbeitung/Erstellen)
+# - equipment_by_address.php (Gruppierte Übersicht)
+```
+
+#### 3. Dateien aktualisieren
+- `equipment_list.php` → v1.4 (Suchfeld Objektadresse)
+- `intervention_equipment.php` → v1.4 (Wartung/Service-Trennung)
+- `class/equipment.class.php` → v1.4 (getNomUrl → view.php)
+- `core/modules/modEquipmentManager.class.php` → v1.4 (Menü-Links + neuer Eintrag)
+- `langs/de_DE/equipmentmanager.lang` → v1.4 (neue Übersetzungen)
+
+#### 4. Cache leeren
+```bash
+rm -rf /var/www/dolibarr/documents/install/temp/*
+```
+
+#### 5. Modul neu laden (optional)
+Falls nötig: Deaktivieren → Aktivieren
 
 ## 🐛 Bekannte Probleme
 
 - Keine bekannten Probleme in der aktuellen Version
 
 ## 📝 Changelog
+
+### Version 1.4 (Dezember 2025)
+**Added:**
+- Zweistufige Equipment-Verknüpfung (Wartung/Service)
+- Separate View- und Edit-Seiten für Equipment
+- Suche nach Objektadresse in der Anlagenliste
+- Gruppierte Übersicht "Anlagen nach Objektadresse"
+- Farbkodierung für Verknüpfungstypen (grün=Wartung, orange=Service)
+
+**Changed:**
+- `equipment_card.php` aufgeteilt in `equipment_view.php` und `equipment_edit.php`
+- `intervention_equipment.php` komplett überarbeitet
+- Alle internen Links angepasst
+- Menü-Einträge aktualisiert
+
+**Database:**
+- Neue Spalte `link_type` in `llx_equipmentmanager_intervention_link`
+
+### Version 1.3
+- Hinzugefügt: Equipment-Nummerierung (automatisch/manuell)
+- Hinzugefügt: Equipment-Typen (Drehtür, Schiebetür, etc.)
+- Hinzugefügt: Hersteller-Feld
+- Hinzugefügt: Türflügel-Anzahl
+- Hinzugefügt: Verknüpfung mit Serviceaufträgen
+- Hinzugefügt: Equipment-Historie
+- Hinzugefügt: Equipment-Tab auf Intervention
 
 ### Version 1.2
 - Hinzugefügt: Objektadresse-Funktion
@@ -184,6 +301,6 @@ Bei Fragen oder Problemen:
 - Öffne ein [Issue](https://github.com/Gerrett84/dolibarr_equipmentmanager/issues)
 - Kontaktiere mich über GitHub
 
----
-
-**Made with ❤️ for the Dolibarr Community**
+**Version:** 1.4  
+**Release:** Dezember 2025  
+**Kompatibilität:** Dolibarr 22.0+
