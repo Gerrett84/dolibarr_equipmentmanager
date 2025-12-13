@@ -42,7 +42,7 @@ class modEquipmentManager extends DolibarrModules
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports";
         
         // Versionsnummer
-        $this->version = '1.3';
+        $this->version = '1.4';
         
         // Konstanten Name
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
@@ -142,7 +142,7 @@ class modEquipmentManager extends DolibarrModules
         $this->menu = array();
         $r = 0;
 
-        // Top Menu
+        // Top Menu - GEÄNDERT zu equipment_list.php
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => '',
@@ -159,7 +159,7 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Equipment List
+        // Left Menu - Equipment List - GEÄNDERT zu equipment_list.php
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager',
@@ -176,7 +176,7 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - New Equipment
+        // Left Menu - New Equipment - GEÄNDERT zu equipment_edit.php
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_equipment',
@@ -184,7 +184,24 @@ class modEquipmentManager extends DolibarrModules
             'titre' => 'NewEquipment',
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
-            'url' => '/equipmentmanager/equipment_card.php?action=create',
+            'url' => '/equipmentmanager/equipment_edit.php?action=create',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Left Menu - Equipment by Address - NEU in v1.4
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_equipment',
+            'type' => 'left',
+            'titre' => 'EquipmentByAddress',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/equipment_by_address.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
@@ -198,7 +215,7 @@ class modEquipmentManager extends DolibarrModules
             // Equipment tab auf Intervention
             'intervention:+equipmentmanager_equipment:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/intervention_equipment.php?id=__ID__',
 
-            // Interventionen tab auf Equipment
+            // Interventionen tab auf Equipment - GEÄNDERT zu equipment_view.php
             'equipment:+interventions:Interventions:equipmentmanager@equipmentmanager:$user->hasRight("ficheinter", "lire"):/equipmentmanager/equipment_interventions.php?id=__ID__'
         );
 

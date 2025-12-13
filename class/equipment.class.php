@@ -305,12 +305,16 @@ class Equipment extends CommonObject
         return 'A000001';
     }
 
+    /**
+     * Return a link to the object card (with optionaly the picto)
+     * GEÄNDERT: Verweist jetzt auf equipment_view.php
+     */
     public function getNomUrl($withpicto = 0, $option = '', $notooltip = 0, $maxlen = 24)
     {
         global $conf, $langs;
 
         $result = '';
-        $url = DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$this->id;
+        $url = DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$this->id;
 
         if ($withpicto) {
             $result .= '<a href="'.$url.'">';

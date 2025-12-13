@@ -14,6 +14,7 @@ Permission500106=Serviceberichte löschen
 Equipment=Anlagen
 EquipmentList=Anlagenliste
 NewEquipment=Neue Anlage
+EquipmentByAddress=Anlagen nach Objektadresse
 ServiceReports=Serviceberichte
 
 # Fields
@@ -49,16 +50,36 @@ NextServiceDate=Nächster Service
 ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
 NoConfigurationRequired=Keine Konfiguration erforderlich
 
-# Intervention Integration
-ServicedEquipments=Gewartete Equipments
-AvailableEquipmentsForCustomer=Verfügbare Equipments für diesen Kunden
-Link=Verknüpfen
-Unlink=Trennen
+# Intervention Integration v1.4
+MaintenanceWork=Gewartete Anlagen
+MaintenanceWorkDescription=Regelmäßige Wartung nach DIN/Wartungsvertrag
+ServiceWork=Bearbeitete Anlagen
+ServiceWorkDescription=Reparatur, Störungsbehebung, Umbau
+Maintenance=Wartung
+Service=Service/Reparatur
+
+LinkAsMaintenance=Als Wartung verknüpfen
+LinkAsService=Als Service verknüpfen
+AvailableEquipmentsForCustomer=Verfügbare Anlagen für diesen Kunden
+
 EquipmentLinked=Equipment verknüpft
+EquipmentLinkedMaintenance=Anlage als Wartung verknüpft
+EquipmentLinkedService=Anlage als Service verknüpft
 EquipmentUnlinked=Equipment-Verknüpfung entfernt
 EquipmentAlreadyLinked=Equipment ist bereits verknüpft
-NoLinkedEquipment=Keine Equipments verknüpft
-LinkEquipmentFromListBelow=Verknüpfe Equipments aus der Liste unten
+
+NoMaintenanceEquipment=Keine Wartungsarbeiten verknüpft
+LinkMaintenanceEquipmentFromListBelow=Verknüpfe Wartungsarbeiten aus der Liste unten
+NoServiceEquipment=Keine Servicearbeiten verknüpft
+LinkServiceEquipmentFromListBelow=Verknüpfe Servicearbeiten aus der Liste unten
+
+# Equipment by Address
+EquipmentWithoutAddress=Anlagen ohne Objektadresse
+PleaseSelectThirdParty=Bitte wählen Sie einen Auftraggeber aus
+Addresses=Adressen
+WithoutAddress=Ohne Adresse
+Total=Gesamt
+
 NoInterventionsLinked=Keine Serviceaufträge verknüpft
 PleaseAssignThirdPartyToInterventionFirst=Bitte zuerst einen Auftraggeber dem Serviceauftrag zuweisen
 

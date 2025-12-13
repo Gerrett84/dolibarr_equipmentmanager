@@ -39,7 +39,7 @@ $search_equipment_number = GETPOST('search_equipment_number', 'alpha');
 $search_type = GETPOST('search_type', 'alpha');
 $search_manufacturer = GETPOST('search_manufacturer', 'alpha');
 $search_label = GETPOST('search_label', 'alpha');
-$search_location = GETPOST('search_location', 'alpha');
+$search_address = GETPOST('search_address', 'alpha');
 $search_company = GETPOST('search_company', 'alpha');
 $search_status = GETPOST('search_status', 'int');
 
@@ -84,7 +84,8 @@ $sql .= " t.location_note,";
 $sql .= " t.status,";
 $sql .= " s.nom as company_name,";
 $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-$sql .= " sp.town as address_town";
+$sql .= " sp.town as address_town,";
+$sql .= " sp.zip as address_zip";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
@@ -103,8 +104,13 @@ if ($search_manufacturer) {
 if ($search_label) {
     $sql .= " AND t.label LIKE '%".$db->escape($search_label)."%'";
 }
-if ($search_location) {
-    $sql .= " AND t.location_note LIKE '%".$db->escape($search_location)."%'";
+if ($search_address) {
+    $sql .= " AND (";
+    $sql .= "CONCAT(sp.lastname, ' ', sp.firstname) LIKE '%".$db->escape($search_address)."%'";
+    $sql .= " OR sp.town LIKE '%".$db->escape($search_address)."%'";
+    $sql .= " OR sp.zip LIKE '%".$db->escape($search_address)."%'";
+    $sql .= " OR sp.address LIKE '%".$db->escape($search_address)."%'";
+    $sql .= ")";
 }
 if ($search_company) {
     $sql .= " AND s.nom LIKE '%".$db->escape($search_company)."%'";
@@ -144,7 +150,7 @@ if ($resql) {
     
     $newcardbutton = '';
     if ($user->rights->equipmentmanager->equipment->write) {
-        $newcardbutton = dolGetButtonTitle($langs->trans('NewEquipment'), '', 'fa fa-plus-circle', DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?action=create', '', 1);
+        $newcardbutton = dolGetButtonTitle($langs->trans('NewEquipment'), '', 'fa fa-plus-circle', DOL_URL_ROOT.'/custom/equipmentmanager/equipment_edit.php?action=create', '', 1);
     }
     
     print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
@@ -157,13 +163,13 @@ if ($resql) {
     print '<div class="div-table-responsive">';
     print '<table class="tagtable liste">'."\n";
     
-    // Fields title - Neue Reihenfolge: Anlagennummer, Typ, Hersteller, Bezeichnung, Objektadresse, Wartungsvertrag
+    // Fields title
     print '<tr class="liste_titre">';
     print_liste_field_titre("EquipmentNumber", $_SERVER["PHP_SELF"], "t.equipment_number", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Type", $_SERVER["PHP_SELF"], "t.equipment_type", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Manufacturer", $_SERVER["PHP_SELF"], "t.manufacturer", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Label", $_SERVER["PHP_SELF"], "t.label", "", $param, '', $sortfield, $sortorder);
-    print_liste_field_titre("ObjectAddress", $_SERVER["PHP_SELF"], "a.label", "", $param, '', $sortfield, $sortorder);
+    print_liste_field_titre("ObjectAddress", $_SERVER["PHP_SELF"], "sp.town", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("MaintenanceContract", $_SERVER["PHP_SELF"], "t.status", "", $param, '', $sortfield, $sortorder, 'center ');
     print_liste_field_titre('', $_SERVER["PHP_SELF"], "", '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
     print "</tr>\n";
@@ -195,8 +201,8 @@ if ($resql) {
     // Label
     print '<td class="liste_titre"><input type="text" class="flat maxwidth100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
     
-    // Object Address
-    print '<td class="liste_titre"></td>';
+    // Object Address - NEU: Suchfeld hinzugefügt
+    print '<td class="liste_titre"><input type="text" class="flat maxwidth100" name="search_address" value="'.dol_escape_htmltag($search_address).'" placeholder="'.$langs->trans('Name, Town, ZIP').'"></td>';
     
     // Status
     print '<td class="liste_titre center">';
@@ -234,7 +240,7 @@ if ($resql) {
         
         // Equipment Number (clickable)
         print '<td>';
-        print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$obj->rowid.'">';
+        print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$obj->rowid.'">';
         print '<strong>'.$obj->equipment_number.'</strong>';
         print '</a>';
         print '</td>';
@@ -258,8 +264,11 @@ if ($resql) {
         print '<td>';
         if ($obj->address_label) {
             print '<strong>'.dol_escape_htmltag($obj->address_label).'</strong>';
-            if ($obj->address_town) {
-                print '<br><span class="opacitymedium">'.dol_escape_htmltag($obj->address_town).'</span>';
+            if ($obj->address_zip || $obj->address_town) {
+                print '<br><span class="opacitymedium">';
+                if ($obj->address_zip) print dol_escape_htmltag($obj->address_zip).' ';
+                if ($obj->address_town) print dol_escape_htmltag($obj->address_town);
+                print '</span>';
             }
         } else {
             print '<span class="opacitymedium">-</span>';
@@ -277,7 +286,7 @@ if ($resql) {
         
         // Actions
         print '<td class="center">';
-        print '<a class="editfielda" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$obj->rowid.'&action=edit">';
+        print '<a class="editfielda" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_edit.php?id='.$obj->rowid.'">';
         print img_edit();
         print '</a>';
         print '</td>';
