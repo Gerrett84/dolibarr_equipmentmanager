@@ -39,6 +39,9 @@ class Equipment extends CommonObject
         'serial_number' => array('type' => 'varchar(255)', 'label' => 'SerialNumber', 'enabled' => 1, 'visible' => 1, 'position' => 70),
         'installation_date' => array('type' => 'date', 'label' => 'InstallationDate', 'enabled' => 1, 'visible' => 1, 'position' => 80),
         'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => 1, 'visible' => 1, 'position' => 90, 'default' => '1', 'arrayofkeyval' => array('0' => 'Inactive', '1' => 'Active')),
+        'maintenance_month' => array('type' => 'integer', 'label' => 'MaintenanceMonth', 'enabled' => 1, 'visible' => 1, 'position' => 91),
+        'last_maintenance_date' => array('type' => 'date', 'label' => 'LastMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 92),
+        'next_maintenance_date' => array('type' => 'date', 'label' => 'NextMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 93),
         'note_public' => array('type' => 'html', 'label' => 'NotePublic', 'enabled' => 1, 'visible' => 0, 'position' => 100),
         'note_private' => array('type' => 'html', 'label' => 'NotePrivate', 'enabled' => 1, 'visible' => 0, 'position' => 110),
         'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => 1, 'visible' => -2, 'position' => 500),
@@ -63,6 +66,9 @@ class Equipment extends CommonObject
     public $serial_number;
     public $installation_date;
     public $status;
+    public $maintenance_month;
+    public $last_maintenance_date;
+    public $next_maintenance_date;
     public $note_public;
     public $note_private;
     public $date_creation;
@@ -111,6 +117,7 @@ class Equipment extends CommonObject
         $sql .= "serial_number,";
         $sql .= "installation_date,";
         $sql .= "status,";
+        $sql .= "maintenance_month,";
         $sql .= "note_public,";
         $sql .= "note_private,";
         $sql .= "date_creation,";
@@ -130,6 +137,7 @@ class Equipment extends CommonObject
         $sql .= ($this->serial_number ? "'".$this->db->escape($this->serial_number)."'" : 'NULL').",";
         $sql .= ($this->installation_date ? "'".$this->db->idate($this->installation_date)."'" : 'NULL').",";
         $sql .= (isset($this->status) ? $this->status : 1).",";
+        $sql .= ($this->maintenance_month > 0 ? (int)$this->maintenance_month : 'NULL').",";
         $sql .= ($this->note_public ? "'".$this->db->escape($this->note_public)."'" : 'NULL').",";
         $sql .= ($this->note_private ? "'".$this->db->escape($this->note_private)."'" : 'NULL').",";
         $sql .= "'".$this->db->idate($now)."',";
@@ -188,6 +196,9 @@ class Equipment extends CommonObject
                 $this->serial_number = $obj->serial_number;
                 $this->installation_date = $this->db->jdate($obj->installation_date);
                 $this->status = $obj->status;
+                $this->maintenance_month = $obj->maintenance_month;
+                $this->last_maintenance_date = $this->db->jdate($obj->last_maintenance_date);
+                $this->next_maintenance_date = $this->db->jdate($obj->next_maintenance_date);
                 $this->note_public = $obj->note_public;
                 $this->note_private = $obj->note_private;
                 $this->date_creation = $this->db->jdate($obj->date_creation);
@@ -225,6 +236,7 @@ class Equipment extends CommonObject
         $sql .= " serial_number = ".($this->serial_number ? "'".$this->db->escape($this->serial_number)."'" : 'NULL').",";
         $sql .= " installation_date = ".($this->installation_date ? "'".$this->db->idate($this->installation_date)."'" : 'NULL').",";
         $sql .= " status = ".(isset($this->status) ? $this->status : 1).",";
+        $sql .= " maintenance_month = ".($this->maintenance_month > 0 ? (int)$this->maintenance_month : 'NULL').",";
         $sql .= " note_public = ".($this->note_public ? "'".$this->db->escape($this->note_public)."'" : 'NULL').",";
         $sql .= " note_private = ".($this->note_private ? "'".$this->db->escape($this->note_private)."'" : 'NULL').",";
         $sql .= " fk_user_modif = ".$user->id;

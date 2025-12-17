@@ -42,7 +42,7 @@ class modEquipmentManager extends DolibarrModules
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports";
         
         // Versionsnummer
-        $this->version = '1.4';
+        $this->version = '1.5';
         
         // Konstanten Name
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
@@ -142,7 +142,7 @@ class modEquipmentManager extends DolibarrModules
         $this->menu = array();
         $r = 0;
 
-        // Top Menu - GEÄNDERT zu equipment_list.php
+        // Top Menu - Wartungs-Dashboard als Startseite
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => '',
@@ -150,7 +150,7 @@ class modEquipmentManager extends DolibarrModules
             'titre' => 'Equipment',
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
-            'url' => '/equipmentmanager/equipment_list.php',
+            'url' => '/equipmentmanager/maintenance_dashboard.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
@@ -159,7 +159,24 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Equipment List - GEÄNDERT zu equipment_list.php
+        // Left Menu - Wartungs-Dashboard
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'MaintenanceDashboard',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_maintenance',
+            'url' => '/equipmentmanager/maintenance_dashboard.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Left Menu - Equipment List
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager',
@@ -213,7 +230,7 @@ class modEquipmentManager extends DolibarrModules
         // Tabs
         $this->tabs = array(
             // Equipment tab auf Intervention
-            'intervention:+equipmentmanager_equipment:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/intervention_equipment.php?id=__ID__',
+            'intervention:+equipmentmanager_equipment:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/equipment_interventions.php?id=__ID__',
 
             // Interventionen tab auf Equipment - GEÄNDERT zu equipment_view.php
             'equipment:+interventions:Interventions:equipmentmanager@equipmentmanager:$user->hasRight("ficheinter", "lire"):/equipmentmanager/equipment_interventions.php?id=__ID__'

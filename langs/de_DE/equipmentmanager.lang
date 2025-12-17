@@ -80,6 +80,43 @@ Addresses=Adressen
 WithoutAddress=Ohne Adresse
 Total=Gesamt
 
+# Maintenance Dashboard v1.5
+MaintenanceDashboard=Wartungs-Übersicht
+MaintenanceMonth=Wartungsmonat
+MaintenanceMonthHelp=Monat der jährlichen Wartung
+AnnualMaintenance=Jährliche Wartung
+LastMaintenance=Letzte Wartung
+LastMaintenanceDate=Letzte Wartung am
+NextMaintenanceDate=Nächste Wartung am
+TotalMaintenanceDue=Fällige Wartungen
+CurrentMonth=Aktuell
+NextMonth=Nächster
+InProgress=In Bearbeitung
+CompletedThisMonth=Erledigt
+Pending=Ausstehend
+NoMaintenanceDue=Keine Wartungen fällig
+NoMaintenanceDueDescription=Aktuell sind keine Wartungen fällig. Alle Anlagen sind auf dem neuesten Stand.
+MaintenancePendingDescription=Wartung noch nicht begonnen oder kein offener Serviceauftrag
+MaintenanceInProgressDescription=Wartung ist einem offenen Serviceauftrag zugeordnet
+MaintenanceDashboardHelp=Die Wartungs-Übersicht zeigt alle Anlagen mit fälliger Wartung im aktuellen und nächsten Monat, gruppiert nach Objektadresse.
+MarkCompleted=Erledigt
+MarkAsCompletedManually=Wartung manuell als erledigt markieren (für Sonderfälle)
+ConfirmMarkCompleted=Möchten Sie diese Wartung wirklich als erledigt markieren? Dies sollte nur verwendet werden, wenn die Wartung außerhalb des normalen Workflows durchgeführt wurde.
+MaintenanceMarkedCompleted=Wartung als erledigt markiert
+Actions=Aktionen
+January=Januar
+February=Februar
+March=März
+April=April
+May=Mai
+June=Juni
+July=Juli
+August=August
+September=September
+October=Oktober
+November=November
+December=Dezember
+
 NoInterventionsLinked=Keine Serviceaufträge verknüpft
 PleaseAssignThirdPartyToInterventionFirst=Bitte zuerst einen Auftraggeber dem Serviceauftrag zuweisen
 

@@ -69,6 +69,7 @@ if ($action == 'add' && !$cancel) {
     $object->serial_number = GETPOST('serial_number', 'alpha');
     $object->installation_date = dol_mktime(0, 0, 0, GETPOST('installation_datemonth', 'int'), GETPOST('installation_dateday', 'int'), GETPOST('installation_dateyear', 'int'));
     $object->status = GETPOST('status', 'int');
+    $object->maintenance_month = GETPOST('maintenance_month', 'int'); // NEU in v1.5
     
     if (empty($object->label)) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Label")), null, 'errors');
@@ -110,6 +111,7 @@ if ($action == 'update' && !$cancel) {
     $object->serial_number = GETPOST('serial_number', 'alpha');
     $object->installation_date = dol_mktime(0, 0, 0, GETPOST('installation_datemonth', 'int'), GETPOST('installation_dateday', 'int'), GETPOST('installation_dateyear', 'int'));
     $object->status = GETPOST('status', 'int');
+    $object->maintenance_month = GETPOST('maintenance_month', 'int'); // NEU in v1.5
     
     if (!$error) {
         $result = $object->update($user);
@@ -140,7 +142,8 @@ $title = $object->id > 0 ? $langs->trans("ModifyEquipment") : $langs->trans("New
 llxHeader('', $title, '');
 
 // JavaScript for auto/manual mode and address loading
-print '<script type="text/javascript">
+?>
+<script type="text/javascript">
 function toggleEquipmentNumberMode() {
     var mode = document.getElementById("equipment_number_mode").value;
     var numberField = document.getElementById("equipment_number_field");
@@ -156,19 +159,30 @@ function toggleEquipmentNumberMode() {
     }
 }
 
-// Load addresses when customer changes
+function toggleMaintenanceMonth() {
+    var status = document.getElementById("status_select").value;
+    var maintenanceRow = document.getElementById("maintenance_month_row");
+    
+    if (status == "1") {
+        maintenanceRow.style.display = "table-row";
+    } else {
+        maintenanceRow.style.display = "none";
+    }
+}
+
 jQuery(document).ready(function() {
+    // Initial check for maintenance month visibility on page load
+    toggleMaintenanceMonth();
+    
     jQuery("#fk_soc_select").change(function() {
         var socid = jQuery(this).val();
         var addressSelect = jQuery("#fk_address_select");
         
         if (socid > 0) {
-            // Clear and show loading
-            addressSelect.html("<option value=\'\'>Lädt...</option>");
+            addressSelect.html("<option value=''>Lädt...</option>");
             
-            // Load addresses
             jQuery.ajax({
-                url: "'.DOL_URL_ROOT.'/core/ajax/contacts.php",
+                url: "<?php echo DOL_URL_ROOT; ?>/core/ajax/contacts.php",
                 data: {
                     action: "fetch",
                     htmlname: "fk_address",
@@ -179,19 +193,20 @@ jQuery(document).ready(function() {
                     if (data) {
                         addressSelect.html(data);
                     } else {
-                        addressSelect.html("<option value=\'\'>---</option>");
+                        addressSelect.html("<option value=''>---</option>");
                     }
                 },
                 error: function() {
-                    addressSelect.html("<option value=\'\'>Fehler beim Laden</option>");
+                    addressSelect.html("<option value=''>Fehler beim Laden</option>");
                 }
             });
         } else {
-            addressSelect.html("<option value=\'\'>---</option>");
+            addressSelect.html("<option value=''>---</option>");
         }
     });
 });
-</script>';
+</script>
+<?php
 
 // ============================================================================
 // FORM (CREATE & EDIT)
@@ -315,12 +330,41 @@ print $form->selectDate($object->installation_date, 'installation_date', 0, 0, 1
 print '</td></tr>';
 
 // Status
-print '<tr><td>'.$langs->trans("MaintenanceContract").'</td><td>';
-print '<select name="status" class="flat">';
 $status_value = isset($object->status) ? $object->status : 1;
+print '<tr><td>'.$langs->trans("MaintenanceContract").'</td><td>';
+print '<select name="status" id="status_select" class="flat" onchange="toggleMaintenanceMonth()">';
 print '<option value="1"'.($status_value == 1 ? ' selected' : '').'>'.$langs->trans('ActiveContract').'</option>';
 print '<option value="0"'.($status_value == 0 ? ' selected' : '').'>'.$langs->trans('NoContract').'</option>';
 print '</select>';
+print '</td></tr>';
+
+// Wartungsmonat (nur wenn Vertrag aktiv) - NEU in v1.5
+$display_maintenance = ($status_value == 1) ? 'table-row' : 'none';
+print '<tr id="maintenance_month_row" style="display:'.$display_maintenance.';">';
+print '<td>'.$langs->trans("MaintenanceMonth").'</td><td>';
+print '<select name="maintenance_month" id="maintenance_month_select" class="flat">';
+print '<option value="">---</option>';
+$months = array(
+    1 => $langs->trans('January'),
+    2 => $langs->trans('February'),
+    3 => $langs->trans('March'),
+    4 => $langs->trans('April'),
+    5 => $langs->trans('May'),
+    6 => $langs->trans('June'),
+    7 => $langs->trans('July'),
+    8 => $langs->trans('August'),
+    9 => $langs->trans('September'),
+    10 => $langs->trans('October'),
+    11 => $langs->trans('November'),
+    12 => $langs->trans('December')
+);
+$current_month = isset($object->maintenance_month) ? (int)$object->maintenance_month : 0;
+foreach ($months as $num => $name) {
+    $selected = ($current_month == $num) ? ' selected' : '';
+    print '<option value="'.$num.'"'.$selected.'>'.$name.'</option>';
+}
+print '</select>';
+print ' <span class="opacitymedium">'.$langs->trans('MaintenanceMonthHelp').'</span>';
 print '</td></tr>';
 
 print '</table>';

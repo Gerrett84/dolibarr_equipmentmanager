@@ -14,6 +14,7 @@ Permission500106=Delete service reports
 Equipment=Equipment
 EquipmentList=Equipment List
 NewEquipment=New Equipment
+EquipmentByAddress=Equipment by Location
 ServiceReports=Service Reports
 
 # Fields
@@ -31,9 +32,16 @@ HoldOpen=Hold-Open System
 RWS=RWS
 RWA=RWA
 Other=Other
+Manufacturer=Manufacturer
+DoorWings=Door Wings
+ObjectAddress=Object Address
+SelectThirdPartyFirst=Please select customer first
 LocationNote=Location / Note
 SerialNumber=Serial Number
 InstallationDate=Installation Date
+MaintenanceContract=Maintenance Contract
+ActiveContract=Active Contract
+NoContract=No Contract
 ServiceDate=Service Date
 ReportText=Report Text
 TechnicianName=Technician
@@ -41,6 +49,85 @@ HoursSpent=Hours Spent
 NextServiceDate=Next Service Date
 ManageEquipmentAndServiceReports=Manage equipment and service reports for doors and fire protection systems
 NoConfigurationRequired=No configuration required
+
+# Intervention Integration v1.4
+MaintenanceWork=Serviced Equipment
+MaintenanceWorkDescription=Regular maintenance according to DIN/maintenance contract
+ServiceWork=Repaired Equipment
+ServiceWorkDescription=Troubleshooting, repairs, modifications
+Maintenance=Maintenance
+Service=Service/Repair
+
+LinkAsMaintenance=Link as Maintenance
+LinkAsService=Link as Service
+AvailableEquipmentsForCustomer=Available equipment for this customer
+
+EquipmentLinked=Equipment linked
+EquipmentLinkedMaintenance=Equipment linked as maintenance
+EquipmentLinkedService=Equipment linked as service
+EquipmentUnlinked=Equipment link removed
+EquipmentAlreadyLinked=Equipment is already linked
+
+NoMaintenanceEquipment=No maintenance work linked
+LinkMaintenanceEquipmentFromListBelow=Link maintenance work from list below
+NoServiceEquipment=No service work linked
+LinkServiceEquipmentFromListBelow=Link service work from list below
+
+# Equipment by Address
+EquipmentWithoutAddress=Equipment without address
+PleaseSelectThirdParty=Please select a customer
+Addresses=Addresses
+WithoutAddress=Without Address
+Total=Total
+
+# Maintenance Dashboard v1.5
+MaintenanceDashboard=Maintenance Overview
+MaintenanceMonth=Maintenance Month
+MaintenanceMonthHelp=Month of annual maintenance
+AnnualMaintenance=Annual Maintenance
+LastMaintenance=Last Maintenance
+LastMaintenanceDate=Last Maintenance Date
+NextMaintenanceDate=Next Maintenance Date
+TotalMaintenanceDue=Due Maintenances
+CurrentMonth=Current
+NextMonth=Next
+InProgress=In Progress
+CompletedThisMonth=Completed
+Pending=Pending
+NoMaintenanceDue=No maintenance due
+NoMaintenanceDueDescription=Currently no maintenance is due. All equipment is up to date.
+MaintenancePendingDescription=Maintenance not started or no open service order
+MaintenanceInProgressDescription=Maintenance is assigned to an open service order
+MaintenanceDashboardHelp=The maintenance overview shows all equipment with due maintenance in the current and next month, grouped by location.
+MarkCompleted=Done
+MarkAsCompletedManually=Manually mark maintenance as completed (for special cases)
+ConfirmMarkCompleted=Do you really want to mark this maintenance as completed? This should only be used if the maintenance was performed outside the normal workflow.
+MaintenanceMarkedCompleted=Maintenance marked as completed
+Actions=Actions
+
+# Months
+January=January
+February=February
+March=March
+April=April
+May=May
+June=June
+July=July
+August=August
+September=September
+October=October
+November=November
+December=December
+
+# History
+EquipmentHistory=Equipment History
+RelatedDocuments=Related Documents
+ComingSoon=Coming Soon
+Proposals=Proposals
+Orders=Orders
+Contracts=Contracts
+NoInterventionsLinked=No service orders linked
+PleaseAssignThirdPartyToInterventionFirst=Please assign a customer to the service order first
 
 # Messages
 EquipmentCreated=Equipment created

@@ -198,6 +198,28 @@ if ($object->id > 0) {
     }
     print '</td></tr>';
     
+    // Wartungsmonat - NEU in v1.5
+    if ($object->status == 1 && $object->maintenance_month > 0) {
+        print '<tr><td>'.$langs->trans("MaintenanceMonth").'</td><td>';
+        $months = array(
+            1 => $langs->trans('January'),
+            2 => $langs->trans('February'),
+            3 => $langs->trans('March'),
+            4 => $langs->trans('April'),
+            5 => $langs->trans('May'),
+            6 => $langs->trans('June'),
+            7 => $langs->trans('July'),
+            8 => $langs->trans('August'),
+            9 => $langs->trans('September'),
+            10 => $langs->trans('October'),
+            11 => $langs->trans('November'),
+            12 => $langs->trans('December')
+        );
+        print '<strong>'.$months[$object->maintenance_month].'</strong>';
+        print ' <span class="opacitymedium">('.$langs->trans('AnnualMaintenance').')</span>';
+        print '</td></tr>';
+    }
+    
     print '</table>';
     print '</div>';
     print '</div>';
