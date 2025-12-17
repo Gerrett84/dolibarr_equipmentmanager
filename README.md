@@ -52,12 +52,6 @@ chmod -R 755 equipmentmanager
 - PHP 7.4+
 - MySQL/MariaDB
 
-### 📖 Dokumentation
-
-- [Migrations-Guide](docs/MIGRATION.md)
-- [User Guide](docs/USERGUIDE.md)
-- [API Documentation](docs/API.md)
-
 ### 🤝 Mitwirken
 
 Pull Requests willkommen! Bitte:
@@ -124,12 +118,6 @@ chmod -R 755 equipmentmanager
 - PHP 7.4+
 - MySQL/MariaDB
 
-### 📖 Documentation
-
-- [Migration Guide](docs/MIGRATION.md)
-- [User Guide](docs/USERGUIDE.md)
-- [API Documentation](docs/API.md)
-
 ### 🤝 Contributing
 
 Pull requests welcome! Please:
@@ -145,16 +133,6 @@ GPL v3 - see [LICENSE](LICENSE)
 ### 👤 Author
 
 **Gerrett84** - [GitHub](https://github.com/Gerrett84)
-
----
-
-## 📊 Screenshots
-
-### Maintenance Dashboard
-![Dashboard](docs/images/dashboard.png)
-
-### Equipment Card
-![Equipment](docs/images/equipment.png)
 
 ---
 
