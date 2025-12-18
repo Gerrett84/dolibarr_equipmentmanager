@@ -1,210 +1,188 @@
 # Dolibarr Equipment Manager 🔧
 
-[🇩🇪 Deutsch](#deutsch) | [🇬🇧 English](#english)
+**Version 1.5.1** | Professionelle Anlagenverwaltung mit Wartungsplanung
 
----
+[![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
+[![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
+[![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://www.php.net)
 
-## 🇩🇪 Deutsch {#deutsch}
+-----
 
-### Beschreibung
+## 🎯 Features
 
-Ein leistungsstarkes Dolibarr-Modul zur Verwaltung von Anlagen (Türen, Brandschutz, RWA/RWS) mit intelligenter Wartungsplanung.
-
-### ⭐ Hauptfeatures v1.5
-
-- **Wartungs-Dashboard** - Übersicht fälliger Wartungen nach Standort
-- **Automatische Fälligkeitsprüfung** - 1 Monat Vorlauf, Jahreswechsel-Support
-- **Equipment-Nummerierung** - Automatisch (A000001, A000002, ...) oder manuell
-- **Serviceauftrag-Integration** - Zweistufig (Wartung/Service)
-- **Objektadresse-Verwaltung** - Separate Standorte pro Equipment
+- **Wartungs-Dashboard** - Fällige Wartungen auf einen Blick, gruppiert nach Standort
+- **Automatische Nummerierung** - Equipment-Nummern (A000001, A000002, …) automatisch oder manuell
+- **Objektadressen** - Separate Lieferadressen pro Anlage für optimale Tourenplanung
+- **Serviceauftrag-Integration** - Zweistufig: Wartung/Service mit automatischer Status-Synchronisation
+- **Wartungs-Historie** - Vollständige Dokumentation aller Arbeiten mit Link zu Serviceaufträgen
 - **Status-Tracking** - Ausstehend → In Bearbeitung → Erledigt
+- **Manuelle Erledigung** - Für Sonderfälle außerhalb des Workflows
 
-### 📦 Installation
+### Equipment-Typen
 
-```bash
-cd /var/www/dolibarr/htdocs/custom
-git clone https://github.com/Gerrett84/dolibarr_equipmentmanager.git equipmentmanager
-chown -R www-data:www-data equipmentmanager
-chmod -R 755 equipmentmanager
-```
+Drehtürantrieb • Schiebetürantrieb • Brandschutztür • Türschließer • Feststellanlage • RWS • RWA
 
-**Dolibarr:** `Setup → Modules → Equipment Manager → Activate`
+-----
 
-### 🚀 Schnellstart
-
-1. **Equipment erstellen**
-   - `Equipment Manager → New Equipment`
-   - Wartungsvertrag: Aktiv
-   - Wartungsmonat: z.B. Oktober
-
-2. **Wartungs-Dashboard**
-   - Zeigt fällige Wartungen (aktueller + nächster Monat)
-   - Gruppiert nach Objektadresse
-   - Status: Ausstehend / In Bearbeitung
-
-3. **Serviceauftrag**
-   - Erstellen und Equipment als "Wartung" verknüpfen
-   - Bei Erledigung verschwindet Equipment automatisch
-
-### 📋 Voraussetzungen
-
-- Dolibarr 22.0+
-- PHP 7.4+
-- MySQL/MariaDB
-
-### 🤝 Mitwirken
-
-Pull Requests willkommen! Bitte:
-1. Repository forken
-2. Feature-Branch erstellen
-3. Änderungen committen
-4. Pull Request öffnen
-
-### 📄 Lizenz
-
-GPL v3 - siehe [LICENSE](LICENSE)
-
-### 👤 Autor
-
-**Gerrett84** - [GitHub](https://github.com/Gerrett84)
-
----
-
-## 🇬🇧 English {#english}
-
-### Description
-
-A powerful Dolibarr module for managing equipment (doors, fire protection, RWA/RWS) with intelligent maintenance planning.
-
-### ⭐ Main Features v1.5
-
-- **Maintenance Dashboard** - Overview of due maintenance by location
-- **Automatic Due Date Check** - 1 month advance, year-end support
-- **Equipment Numbering** - Automatic (A000001, A000002, ...) or manual
-- **Service Order Integration** - Two-level (Maintenance/Service)
-- **Object Address Management** - Separate locations per equipment
-- **Status Tracking** - Pending → In Progress → Completed
-
-### 📦 Installation
+## 📦 Installation
 
 ```bash
+# 1. Download
 cd /var/www/dolibarr/htdocs/custom
 git clone https://github.com/Gerrett84/dolibarr_equipmentmanager.git equipmentmanager
+
+# 2. Berechtigungen
 chown -R www-data:www-data equipmentmanager
 chmod -R 755 equipmentmanager
+
+# 3. In Dolibarr aktivieren
+# Setup → Modules → Equipment Manager → Activate
 ```
 
-**Dolibarr:** `Setup → Modules → Equipment Manager → Activate`
+**Voraussetzungen:** Dolibarr 22.0+, PHP 7.4+, MySQL/MariaDB
 
-### 🚀 Quick Start
+-----
 
-1. **Create Equipment**
-   - `Equipment Manager → New Equipment`
-   - Maintenance Contract: Active
-   - Maintenance Month: e.g. October
+## 🚀 Schnellstart
 
-2. **Maintenance Dashboard**
-   - Shows due maintenance (current + next month)
-   - Grouped by object address
-   - Status: Pending / In Progress
+### Equipment anlegen
 
-3. **Service Order**
-   - Create and link equipment as "Maintenance"
-   - Automatically disappears when completed
+1. **Equipment Manager → Neue Anlage**
+1. Ausfüllen: Nummer (auto), Typ, Kunde, Objektadresse, Wartungsmonat
+1. Erstellen
 
-### 📋 Requirements
+### Wartung planen
 
-- Dolibarr 22.0+
-- PHP 7.4+
-- MySQL/MariaDB
+1. **Wartungs-Übersicht** zeigt fällige Wartungen (1 Monat Vorlauf)
+1. **Serviceauftrag** erstellen → Tab “Equipment” → Als “Wartung” verknüpfen
+1. Nach Erledigung: Equipment verschwindet automatisch
 
-### 🤝 Contributing
+-----
 
-Pull requests welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Open a pull request
+## 📝 Changelog
 
-### 📄 License
+### v1.5.1 (2024-12-19)
 
-GPL v3 - see [LICENSE](LICENSE)
+- ✨ **Letzte Wartung** auf Equipment-Karte mit Link zu Serviceauftrag
+- ✨ **Icon in Top Bar** für schnellen Zugriff
+- 🐛 **Fix:** Serviceauftrags-Link verwendet jetzt `ref` statt `id`
+- 🐛 **Fix:** Status “In Bearbeitung” bereits ab Validierung (Status 1)
+- 🎨 **Dark Mode:** Tabellenfarben mit rgba-Transparenz
 
-### 👤 Author
+### v1.5 (2024-12-18)
 
-**Gerrett84** - [GitHub](https://github.com/Gerrett84)
+- ✨ Wartungs-Dashboard mit Standort-Gruppierung
+- ✨ Jährliche Wartungsplanung pro Equipment (Wartungsmonat)
+- ✨ Zweistufige Serviceauftrag-Integration (Wartung/Service)
+- ✨ Manuelle Erledigung für Sonderfälle
+- 🐛 Bug fixes und Performance-Verbesserungen
 
----
+### v1.4 (2024-12-15)
 
-## 🆚 Version Comparison
+- ✨ Getrennte Equipment-Ansicht (View/Edit)
+- ✨ Suche nach Objektadresse
+- ✨ Farbcodierte Status-Badges
 
-| Feature | v1.0 | v1.5 |
-|---------|------|------|
-| Equipment Management | ✅ | ✅ |
-| Object Address | ❌ | ✅ |
-| Maintenance Dashboard | ❌ | ✅ |
-| Automatic Numbering | ❌ | ✅ |
-| Service Integration | ❌ | ✅ |
-| Status Tracking | Basic | Advanced |
+### v1.3 (2024-11)
 
----
+- ✨ Automatische Equipment-Nummerierung
+- ✨ Equipment-Typen erweitert
+- ✨ Serviceauftrag-Verknüpfung
 
-## 🔄 Changelog
+### v1.0 (2024-10)
 
-### v1.5 (2025-12)
-- ✨ Maintenance dashboard with location grouping
-- ✨ Annual maintenance planning per equipment
-- ✨ Two-level service integration (Maintenance/Service)
-- ✨ Manual completion option
-- 🐛 Bug fixes and performance improvements
+- 🎉 Erste Version
+- Equipment-Verwaltung
+- Serviceberichte
 
-### v1.4 (2025-12)
-- ✨ Split equipment card (view/edit)
-- ✨ Search by object address
-- ✨ Color-coded status badges
+-----
 
-### v1.3 (2025-11)
-- ✨ Automatic equipment numbering
-- ✨ Equipment types extended
-- ✨ Service order linking
+## 🔧 Konfiguration
 
-[View Full Changelog](CHANGELOG.md)
+### Wartungsmonat-Logik
 
----
+```
+Equipment: Wartungsmonat Oktober (10)
+Dashboard-Anzeige:
+  ├─ September (9): Vorlauf beginnt
+  ├─ Oktober (10): Hauptmonat
+  └─ Nach Erledigung: Verschwindet
 
-## ⚙️ Configuration
-
-### Database
-```sql
--- Equipment with maintenance month
-ALTER TABLE llx_equipmentmanager_equipment 
-ADD COLUMN maintenance_month INT DEFAULT NULL;
+Jahreswechsel: Januar-Wartung zeigt ab Dezember
 ```
 
-### Maintenance Logic
-- **Current Month** + **Next Month** = Displayed
-- **Completed (Status 3)** = Hidden
-- **1 Month Advance** = Accepted (Dec maintenance can be done in Nov)
+### Status-Bedeutung
 
----
+- 🔴 **Ausstehend** - Noch nicht begonnen
+- 🟢 **In Bearbeitung** - Serviceauftrag zugeordnet (Status 1-2)
+- ✅ **Erledigt** - Serviceauftrag abgeschlossen (Status 3)
+
+-----
+
+## 🔄 Update
+
+```bash
+cd /var/www/dolibarr/htdocs/custom/equipmentmanager
+git pull
+
+# In Dolibarr:
+# 1. Modul deaktivieren
+# 2. Modul aktivieren (führt SQL-Updates aus)
+# 3. Browser-Cache leeren
+```
+
+-----
 
 ## 🐛 Troubleshooting
 
-**Equipment not visible in dashboard?**
-- Check: Maintenance Contract = Active
-- Check: Maintenance Month set (1-12)
-- Check: Current or next month
+**Equipment erscheint nicht im Dashboard?**
 
-**Service order link not shown?**
-- Check: Equipment linked as "Maintenance"
-- Check: Service order status 1-2 (not 0 or 3)
+- Wartungsvertrag = Aktiv? ✓
+- Wartungsmonat gesetzt? ✓
+- Aktueller oder nächster Monat? ✓
 
-**Equipment doesn't disappear?**
-- Check: Service order status = 3 (Completed)
-- Check: Maintenance month matches or -1 month
+**Serviceauftrag-Link fehlt?**
 
----
+- Equipment als “Wartung” verknüpft? ✓
+- Serviceauftrag Status 1-2? ✓
 
-**Current Version:** 1.5  
-**Released:** December 2025  
+**Equipment verschwindet nicht?**
+
+- Serviceauftrag Status 3? ✓
+- Manuelle Erledigung nutzen (✓-Button)
+
+-----
+
+## 🤝 Contributing
+
+Pull Requests sind willkommen!
+
+```bash
+git checkout -b feature/NeuesFeature
+git commit -m 'Add: Tolles Feature'
+git push origin feature/NeuesFeature
+# → Pull Request erstellen
+```
+
+-----
+
+## 📄 Lizenz
+
+GPL v3 oder höher
+
+-----
+
+## 👤 Autor
+
+**Gerrett84** - [GitHub](https://github.com/Gerrett84)
+
+-----
+
+
+**Feedback?** → [GitHub Issues](https://github.com/Gerrett84/dolibarr_equipmentmanager/issues)
+
+-----
+
+**Current Version:** 1.5.1  
+**Released:** December 2024  
 **Compatibility:** Dolibarr 22.0+
