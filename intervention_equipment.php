@@ -1,9 +1,8 @@
 <?php
 /* Copyright (C) 2024 Equipment Manager
  *
- * Equipment-Tab auf Intervention Card v1.4
- * Zeigt: 1) Equipment-Liste des Kunden zur Referenz
- *        2) Verknüpfte Equipments mit Typ (Wartung/Service)
+ * Equipment-Tab auf Intervention Card v1.5.1
+ * FIX: Korrekte SQL-Abfragen und Error-Handling
  */
 
 // Load Dolibarr environment
@@ -13,6 +12,9 @@ if (!$res && file_exists("../../main.inc.php")) {
 }
 if (!$res && file_exists("../../../main.inc.php")) {
     $res = @include "../../../main.inc.php";
+}
+if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) {
+    $res = @include $_SERVER["CONTEXT_DOCUMENT_ROOT"]."/main.inc.php";
 }
 if (!$res) {
     die("Include of main fails");
@@ -28,12 +30,16 @@ $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
 $equipment_id = GETPOST('equipment_id', 'int');
-$link_type = GETPOST('link_type', 'alpha'); // 'maintenance' or 'service'
+$link_type = GETPOST('link_type', 'alpha');
 
 $object = new Fichinter($db);
 
 if ($id > 0 || !empty($ref)) {
-    $object->fetch($id, $ref);
+    $result = $object->fetch($id, $ref);
+    if ($result <= 0) {
+        dol_print_error($db, 'Failed to load intervention');
+        exit;
+    }
 }
 
 $permissiontoread = $user->hasRight('ficheinter', 'lire');
@@ -54,13 +60,16 @@ if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link
     $sql .= " VALUES (".(int)$object->id.", ".(int)$equipment_id.", '".$db->escape($link_type)."', ";
     $sql .= "'".$db->idate(dol_now())."', ".$user->id.")";
     
+    dol_syslog("Linking equipment ".$equipment_id." to intervention ".$object->id." as ".$link_type, LOG_DEBUG);
+    
     if ($db->query($sql)) {
         $msg = ($link_type == 'maintenance') ? 'EquipmentLinkedMaintenance' : 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg), null, 'mesgs');
     } else {
-        if ($db->lasterrno() == 1062) { // Duplicate
+        if ($db->lasterrno() == 1062) {
             setEventMessages($langs->trans('EquipmentAlreadyLinked'), null, 'warnings');
         } else {
+            dol_syslog("Error linking equipment: ".$db->lasterror(), LOG_ERR);
             setEventMessages($db->lasterror(), null, 'errors');
         }
     }
@@ -75,8 +84,13 @@ if ($action == 'unlink' && $permissiontoadd && $equipment_id > 0) {
     $sql .= " WHERE fk_intervention = ".(int)$object->id;
     $sql .= " AND fk_equipment = ".(int)$equipment_id;
     
+    dol_syslog("Unlinking equipment ".$equipment_id." from intervention ".$object->id, LOG_DEBUG);
+    
     if ($db->query($sql)) {
         setEventMessages($langs->trans('EquipmentUnlinked'), null, 'mesgs');
+    } else {
+        dol_syslog("Error unlinking equipment: ".$db->lasterror(), LOG_ERR);
+        setEventMessages($db->lasterror(), null, 'errors');
     }
     
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
@@ -113,30 +127,49 @@ if ($object->id > 0) {
     
     print dol_get_fiche_end();
     
-    // Get linked equipment with types
-    $sql = "SELECT l.fk_equipment, l.link_type, l.date_creation, l.note";
+    // Get linked equipment
+    $sql = "SELECT l.fk_equipment, l.link_type, l.date_creation";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as l";
     $sql .= " WHERE l.fk_intervention = ".(int)$object->id;
     $sql .= " ORDER BY l.link_type, l.date_creation";
     
+    dol_syslog("Getting linked equipment for intervention ".$object->id, LOG_DEBUG);
+    
     $resql = $db->query($sql);
     $linked_equipment = array();
     $linked_equipment_ids = array();
+    
     if ($resql) {
+        $num = $db->num_rows($resql);
+        dol_syslog("Found ".$num." linked equipment", LOG_DEBUG);
+        
         while ($obj = $db->fetch_object($resql)) {
             $linked_equipment[$obj->fk_equipment] = $obj->link_type;
             $linked_equipment_ids[] = $obj->fk_equipment;
         }
+        $db->free($resql);
+    } else {
+        dol_syslog("Error getting linked equipment: ".$db->lasterror(), LOG_ERR);
     }
     
     print '<br>';
     
-    // ========================================================================
-    // Section 1: GEWARTETE EQUIPMENTS (Wartungsarbeiten)
-    // ========================================================================
+    // Type labels
+    $type_labels = array(
+        'door_swing' => $langs->trans('DoorSwing'),
+        'door_sliding' => $langs->trans('DoorSliding'),
+        'fire_door' => $langs->trans('FireDoor'),
+        'door_closer' => $langs->trans('DoorCloser'),
+        'hold_open' => $langs->trans('HoldOpen'),
+        'rws' => $langs->trans('RWS'),
+        'rwa' => $langs->trans('RWA'),
+        'other' => $langs->trans('Other')
+    );
+    
+    // Section 1: MAINTENANCE
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre" style="background-color: #e8f5e9;">';
+    print '<tr class="liste_titre" style="background-color: rgba(76, 175, 80, 0.15);">';
     print '<th colspan="5">';
     print '<span class="fa fa-wrench paddingright"></span>';
     print '<strong>'.$langs->trans('MaintenanceWork').'</strong>';
@@ -153,67 +186,53 @@ if ($object->id > 0) {
     print '</tr>';
     
     $has_maintenance = false;
-    if (count($linked_equipment_ids) > 0) {
-        foreach ($linked_equipment_ids as $eq_id) {
-            if ($linked_equipment[$eq_id] != 'maintenance') continue;
-            $has_maintenance = true;
+    foreach ($linked_equipment_ids as $eq_id) {
+        if ($linked_equipment[$eq_id] != 'maintenance') continue;
+        $has_maintenance = true;
+        
+        $equipment = new Equipment($db);
+        if ($equipment->fetch($eq_id) > 0) {
+            print '<tr class="oddeven">';
             
-            $equipment = new Equipment($db);
-            if ($equipment->fetch($eq_id) > 0) {
-                print '<tr class="oddeven">';
-                
-                // Equipment Number
-                print '<td>';
-                print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$equipment->id.'" target="_blank">';
-                print img_object('', 'generic', 'class="pictofixedwidth"');
-                print '<strong>'.$equipment->equipment_number.'</strong>';
-                print '</a>';
-                print '</td>';
-                
-                // Label
-                print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
-                
-                // Type
-                print '<td>';
-                $type_labels = array(
-                    'door_swing' => 'Drehtürantrieb',
-                    'door_sliding' => 'Schiebetürantrieb',
-                    'fire_door' => 'Brandschutztür',
-                    'door_closer' => 'Türschließer',
-                    'hold_open' => 'Feststellanlage',
-                    'rws' => 'RWS',
-                    'rwa' => 'RWA',
-                    'other' => 'Sonstiges'
-                );
-                print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
-                print '</td>';
-                
-                // Address
-                print '<td>';
-                if ($equipment->fk_address > 0) {
-                    $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                    $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
-                    $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
-                    $resql2 = $db->query($sql2);
-                    if ($resql2 && $db->num_rows($resql2)) {
-                        $addr = $db->fetch_object($resql2);
-                        print dol_escape_htmltag($addr->name);
-                        if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
-                    }
-                } elseif ($equipment->location_note) {
-                    print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+            print '<td>';
+            print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
+            print img_object('', 'generic', 'class="pictofixedwidth"');
+            print '<strong>'.$equipment->equipment_number.'</strong>';
+            print '</a>';
+            print '</td>';
+            
+            print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
+            
+            print '<td>';
+            print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
+            print '</td>';
+            
+            print '<td>';
+            if ($equipment->fk_address > 0) {
+                $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
+                $resql2 = $db->query($sql2);
+                if ($resql2 && $db->num_rows($resql2)) {
+                    $addr = $db->fetch_object($resql2);
+                    print dol_escape_htmltag($addr->name);
+                    if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
+                    $db->free($resql2);
                 }
-                print '</td>';
-                
-                // Actions
-                print '<td class="center">';
+            } elseif ($equipment->location_note) {
+                print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+            }
+            print '</td>';
+            
+            print '<td class="center">';
+            if ($permissiontoadd) {
                 print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=unlink&equipment_id='.$equipment->id.'&token='.newToken().'">';
                 print img_delete($langs->trans('Unlink'));
                 print '</a>';
-                print '</td>';
-                
-                print '</tr>';
             }
+            print '</td>';
+            
+            print '</tr>';
         }
     }
     
@@ -229,12 +248,10 @@ if ($object->id > 0) {
     
     print '<br>';
     
-    // ========================================================================
-    // Section 2: BEARBEITETE EQUIPMENTS (Service/Reparatur)
-    // ========================================================================
+    // Section 2: SERVICE
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
-    print '<tr class="liste_titel" style="background-color: #fff3e0;">';
+    print '<tr class="liste_titre" style="background-color: rgba(255, 152, 0, 0.15);">';
     print '<th colspan="5">';
     print '<span class="fa fa-cog paddingright"></span>';
     print '<strong>'.$langs->trans('ServiceWork').'</strong>';
@@ -251,67 +268,53 @@ if ($object->id > 0) {
     print '</tr>';
     
     $has_service = false;
-    if (count($linked_equipment_ids) > 0) {
-        foreach ($linked_equipment_ids as $eq_id) {
-            if ($linked_equipment[$eq_id] != 'service') continue;
-            $has_service = true;
+    foreach ($linked_equipment_ids as $eq_id) {
+        if ($linked_equipment[$eq_id] != 'service') continue;
+        $has_service = true;
+        
+        $equipment = new Equipment($db);
+        if ($equipment->fetch($eq_id) > 0) {
+            print '<tr class="oddeven">';
             
-            $equipment = new Equipment($db);
-            if ($equipment->fetch($eq_id) > 0) {
-                print '<tr class="oddeven">';
-                
-                // Equipment Number
-                print '<td>';
-                print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$equipment->id.'" target="_blank">';
-                print img_object('', 'generic', 'class="pictofixedwidth"');
-                print '<strong>'.$equipment->equipment_number.'</strong>';
-                print '</a>';
-                print '</td>';
-                
-                // Label
-                print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
-                
-                // Type
-                print '<td>';
-                $type_labels = array(
-                    'door_swing' => 'Drehtürantrieb',
-                    'door_sliding' => 'Schiebetürantrieb',
-                    'fire_door' => 'Brandschutztür',
-                    'door_closer' => 'Türschließer',
-                    'hold_open' => 'Feststellanlage',
-                    'rws' => 'RWS',
-                    'rwa' => 'RWA',
-                    'other' => 'Sonstiges'
-                );
-                print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
-                print '</td>';
-                
-                // Address
-                print '<td>';
-                if ($equipment->fk_address > 0) {
-                    $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                    $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
-                    $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
-                    $resql2 = $db->query($sql2);
-                    if ($resql2 && $db->num_rows($resql2)) {
-                        $addr = $db->fetch_object($resql2);
-                        print dol_escape_htmltag($addr->name);
-                        if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
-                    }
-                } elseif ($equipment->location_note) {
-                    print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+            print '<td>';
+            print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
+            print img_object('', 'generic', 'class="pictofixedwidth"');
+            print '<strong>'.$equipment->equipment_number.'</strong>';
+            print '</a>';
+            print '</td>';
+            
+            print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
+            
+            print '<td>';
+            print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
+            print '</td>';
+            
+            print '<td>';
+            if ($equipment->fk_address > 0) {
+                $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
+                $resql2 = $db->query($sql2);
+                if ($resql2 && $db->num_rows($resql2)) {
+                    $addr = $db->fetch_object($resql2);
+                    print dol_escape_htmltag($addr->name);
+                    if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
+                    $db->free($resql2);
                 }
-                print '</td>';
-                
-                // Actions
-                print '<td class="center">';
+            } elseif ($equipment->location_note) {
+                print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+            }
+            print '</td>';
+            
+            print '<td class="center">';
+            if ($permissiontoadd) {
                 print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=unlink&equipment_id='.$equipment->id.'&token='.newToken().'">';
                 print img_delete($langs->trans('Unlink'));
                 print '</a>';
-                print '</td>';
-                
-                print '</tr>';
             }
+            print '</td>';
+            
+            print '</tr>';
         }
     }
     
@@ -327,9 +330,7 @@ if ($object->id > 0) {
     
     print '<br><br>';
     
-    // ========================================================================
-    // Section 3: VERFÜGBARE EQUIPMENTS (zum Verknüpfen)
-    // ========================================================================
+    // Section 3: AVAILABLE EQUIPMENT
     if ($object->socid > 0) {
         print '<div class="div-table-responsive-no-min">';
         print '<table class="noborder centpercent">';
@@ -345,48 +346,33 @@ if ($object->id > 0) {
         print '<th>'.$langs->trans('Label').'</th>';
         print '<th>'.$langs->trans('Type').'</th>';
         print '<th>'.$langs->trans('ObjectAddress').'</th>';
-        print '<th class="center" width="100">'.$langs->trans('LinkAsMaintenance').'</th>';
-        print '<th class="center" width="100">'.$langs->trans('LinkAsService').'</th>';
+        print '<th class="center" width="120">'.$langs->trans('LinkAsMaintenance').'</th>';
+        print '<th class="center" width="120">'.$langs->trans('LinkAsService').'</th>';
         print '</tr>';
         
         $equipments = Equipment::fetchAllBySoc($db, $object->socid);
         
         if (count($equipments) > 0) {
             foreach ($equipments as $equipment) {
-                // Skip if already linked
                 if (in_array($equipment->id, $linked_equipment_ids)) {
                     continue;
                 }
                 
                 print '<tr class="oddeven">';
                 
-                // Equipment Number
                 print '<td>';
-                print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_card.php?id='.$equipment->id.'" target="_blank">';
+                print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
                 print img_object('', 'generic', 'class="pictofixedwidth"');
                 print '<strong>'.$equipment->equipment_number.'</strong>';
                 print '</a>';
                 print '</td>';
                 
-                // Label
                 print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
                 
-                // Type
                 print '<td>';
-                $type_labels = array(
-                    'door_swing' => 'Drehtürantrieb',
-                    'door_sliding' => 'Schiebetürantrieb',
-                    'fire_door' => 'Brandschutztür',
-                    'door_closer' => 'Türschließer',
-                    'hold_open' => 'Feststellanlage',
-                    'rws' => 'RWS',
-                    'rwa' => 'RWA',
-                    'other' => 'Sonstiges'
-                );
-                print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
+                print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
                 print '</td>';
                 
-                // Address
                 print '<td>';
                 if ($equipment->fk_address > 0) {
                     $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
@@ -397,24 +383,27 @@ if ($object->id > 0) {
                         $addr = $db->fetch_object($resql2);
                         print dol_escape_htmltag($addr->name);
                         if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
+                        $db->free($resql2);
                     }
                 } elseif ($equipment->location_note) {
                     print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
                 }
                 print '</td>';
                 
-                // Actions - Maintenance
                 print '<td class="center">';
-                print '<a class="button smallpaddingimp" style="background: #4caf50; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=maintenance&token='.newToken().'">';
-                print '<span class="fa fa-wrench"></span> '.$langs->trans('Maintenance');
-                print '</a>';
+                if ($permissiontoadd) {
+                    print '<a class="button smallpaddingimp" style="background: #4caf50; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=maintenance&token='.newToken().'">';
+                    print '<span class="fa fa-wrench"></span> '.$langs->trans('Maintenance');
+                    print '</a>';
+                }
                 print '</td>';
                 
-                // Actions - Service
                 print '<td class="center">';
-                print '<a class="button smallpaddingimp" style="background: #ff9800; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=service&token='.newToken().'">';
-                print '<span class="fa fa-cog"></span> '.$langs->trans('Service');
-                print '</a>';
+                if ($permissiontoadd) {
+                    print '<a class="button smallpaddingimp" style="background: #ff9800; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=service&token='.newToken().'">';
+                    print '<span class="fa fa-cog"></span> '.$langs->trans('Service');
+                    print '</a>';
+                }
                 print '</td>';
                 
                 print '</tr>';

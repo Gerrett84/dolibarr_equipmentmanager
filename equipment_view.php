@@ -1,6 +1,7 @@
 <?php
 /* Copyright (C) 2024 Equipment Manager
- * Equipment View Page - Nur Anzeige
+ * Equipment View Page - v1.5.1
+ * Nur Anzeige + Letzte Wartung
  */
 
 // Load Dolibarr environment
@@ -198,7 +199,7 @@ if ($object->id > 0) {
     }
     print '</td></tr>';
     
-    // Wartungsmonat - NEU in v1.5
+    // Wartungsmonat
     if ($object->status == 1 && $object->maintenance_month > 0) {
         print '<tr><td>'.$langs->trans("MaintenanceMonth").'</td><td>';
         $months = array(
@@ -217,6 +218,37 @@ if ($object->id > 0) {
         );
         print '<strong>'.$months[$object->maintenance_month].'</strong>';
         print ' <span class="opacitymedium">('.$langs->trans('AnnualMaintenance').')</span>';
+        print '</td></tr>';
+    }
+    
+    // Letzte Wartung - NEU in v1.5.1
+    if ($object->status == 1) {
+        print '<tr><td>'.$langs->trans("LastMaintenanceDate").'</td><td>';
+        
+        // Suche letzte erledigte Wartung
+        $sql_last = "SELECT f.date_valid, f.ref, f.rowid";
+        $sql_last .= " FROM ".MAIN_DB_PREFIX."fichinter f";
+        $sql_last .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il";
+        $sql_last .= " ON f.rowid = il.fk_intervention";
+        $sql_last .= " WHERE il.fk_equipment = ".(int)$object->id;
+        $sql_last .= " AND il.link_type = 'maintenance'";
+        $sql_last .= " AND f.fk_statut = 3";
+        $sql_last .= " ORDER BY f.date_valid DESC LIMIT 1";
+        
+        $resql_last = $db->query($sql_last);
+        if ($resql_last && $db->num_rows($resql_last) > 0) {
+            $last_obj = $db->fetch_object($resql_last);
+            print '<strong>'.dol_print_date($db->jdate($last_obj->date_valid), 'day').'</strong>';
+            print ' <a href="'.DOL_URL_ROOT.'/fichinter/card.php?ref='.urlencode($last_obj->ref).'" target="_blank">';
+            print '<span class="fa fa-external-link"></span> '.$last_obj->ref;
+            print '</a>';
+            $db->free($resql_last);
+        } elseif ($object->last_maintenance_date) {
+            print dol_print_date($object->last_maintenance_date, 'day');
+            print ' <span class="opacitymedium">('.$langs->trans('ManuallyMarked').')</span>';
+        } else {
+            print '<span class="opacitymedium">-</span>';
+        }
         print '</td></tr>';
     }
     
