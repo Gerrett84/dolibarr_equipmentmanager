@@ -74,20 +74,92 @@ NoServiceEquipment=Keine Servicearbeiten verknüpft
 LinkServiceEquipmentFromListBelow=Verknüpfe Servicearbeiten aus der Liste unten
 
 # Equipment by Address
-EquipmentWithoutAddress=Anlagen ohne Objektadresse
-PleaseSelectThirdParty=Bitte wählen Sie einen Auftraggeber aus
-Addresses=Adressen
-WithoutAddress=Ohne Adresse
-Total=Gesamt
+# Equipment Manager - Deutsche Übersetzung
 
-# Maintenance Dashboard v1.5
+# Version 1.6.1 - KOMPLETT
+
+# Module
+
+Module500100Name=Equipment Manager
+Module500100Desc=Verwaltung von Anlagen und Serviceberichten
+
+# Permissions
+
+Permission500101=Equipment lesen
+Permission500102=Equipment erstellen/bearbeiten
+Permission500103=Equipment löschen
+Permission500104=Serviceberichte lesen
+Permission500105=Serviceberichte erstellen/bearbeiten
+Permission500106=Serviceberichte löschen
+
+# Menu
+
+Equipment=Anlagen
+EquipmentList=Anlagenliste
+NewEquipment=Neue Anlage
+EquipmentByAddress=Anlagen nach Objektadresse
+ServiceReports=Serviceberichte
 MaintenanceDashboard=Wartungs-Übersicht
+
+# Basic Fields
+
+EquipmentNumber=Anlagen-Nummer
+EquipmentNumberMode=Modus
+EquipmentNumberAuto=Automatisch
+EquipmentNumberManual=Manuell
+Label=Bezeichnung
+Description=Beschreibung
+Type=Kategorie/Typ
+Manufacturer=Hersteller
+DoorWings=Türflügel
+SerialNumber=Seriennummer
+InstallationDate=Datum in Betrieb
+Status=Status
+ObjectAddress=Objektadresse
+LocationNote=Standort / Bemerkung
+SelectThirdPartyFirst=Bitte zuerst Auftraggeber auswählen
+
+# Equipment Types
+
+DoorSwing=Drehtürantrieb
+DoorSliding=Schiebetürantrieb
+FireDoor=Brandschutztür
+DoorCloser=Türschließer
+HoldOpen=Feststellanlage
+RWS=RWS
+RWA=RWA
+Other=Sonstiges
+
+# Maintenance
+
+MaintenanceContract=Wartungsvertrag
 MaintenanceMonth=Wartungsmonat
 MaintenanceMonthHelp=Monat der jährlichen Wartung
 AnnualMaintenance=Jährliche Wartung
 LastMaintenance=Letzte Wartung
 LastMaintenanceDate=Letzte Wartung am
 NextMaintenanceDate=Nächste Wartung am
+ManuallyMarked=Manuell markiert
+ActiveContract=Aktiver Vertrag
+NoContract=Kein Vertrag
+
+# Months
+
+January=Januar
+February=Februar
+March=März
+April=April
+May=Mai
+June=Juni
+July=Juli
+August=August
+September=September
+October=Oktober
+November=November
+December=Dezember
+
+# Maintenance Dashboard
+
 TotalMaintenanceDue=Fällige Wartungen
 CurrentMonth=Aktuell
 NextMonth=Nächster
@@ -103,24 +175,90 @@ MarkCompleted=Erledigt
 MarkAsCompletedManually=Wartung manuell als erledigt markieren (für Sonderfälle)
 ConfirmMarkCompleted=Möchten Sie diese Wartung wirklich als erledigt markieren? Dies sollte nur verwendet werden, wenn die Wartung außerhalb des normalen Workflows durchgeführt wurde.
 MaintenanceMarkedCompleted=Wartung als erledigt markiert
-Actions=Aktionen
-January=Januar
-February=Februar
-March=März
-April=April
-May=Mai
-June=Juni
-July=Juli
-August=August
-September=September
-October=Oktober
-November=November
-December=Dezember
 
+# Intervention Integration
+
+MaintenanceWork=Gewartete Anlagen
+MaintenanceWorkDescription=Regelmäßige Wartung nach DIN/Wartungsvertrag
+ServiceWork=Bearbeitete Anlagen
+ServiceWorkDescription=Reparatur, Störungsbehebung, Umbau
+Maintenance=Wartung
+Service=Service/Reparatur
+LinkAsMaintenance=Als Wartung verknüpfen
+LinkAsService=Als Service verknüpfen
+AvailableEquipmentsForCustomer=Verfügbare Anlagen für diesen Kunden
+EquipmentLinked=Equipment verknüpft
+EquipmentLinkedMaintenance=Anlage als Wartung verknüpft
+EquipmentLinkedService=Anlage als Service verknüpft
+EquipmentUnlinked=Equipment-Verknüpfung entfernt
+EquipmentAlreadyLinked=Equipment ist bereits verknüpft
+NoMaintenanceEquipment=Keine Wartungsarbeiten verknüpft
+LinkMaintenanceEquipmentFromListBelow=Verknüpfe Wartungsarbeiten aus der Liste unten
+NoServiceEquipment=Keine Servicearbeiten verknüpft
+LinkServiceEquipmentFromListBelow=Verknüpfe Servicearbeiten aus der Liste unten
 NoInterventionsLinked=Keine Serviceaufträge verknüpft
 PleaseAssignThirdPartyToInterventionFirst=Bitte zuerst einen Auftraggeber dem Serviceauftrag zuweisen
 
-# History
+# Equipment by Address
+
+EquipmentWithoutAddress=Anlagen ohne Objektadresse
+PleaseSelectThirdParty=Bitte wählen Sie einen Auftraggeber aus
+NoEquipmentForThisThirdParty=Keine Anlagen für diesen Auftraggeber
+Addresses=Adressen
+WithoutAddress=Ohne Adresse
+
+# Equipment Details Tab
+
+EquipmentDetails=Anlagen-Details
+EquipmentInformation=Anlagen-Information
+ServiceReport=Servicebericht
+SelectEquipment=Anlage auswählen
+NoEquipmentLinked=Keine Anlagen verknüpft
+PleaseGoToEquipmentTabFirst=Bitte zuerst zum Tab “Equipment” gehen und Anlagen verknüpfen
+
+# Report Fields
+
+WorkDone=Durchgeführte Arbeiten
+IssuesFound=Gefundene Mängel
+Recommendations=Empfehlungen
+Notes=Notizen
+WorkDate=Arbeitsdatum
+WorkDuration=Arbeitszeit
+Hours=Stunden
+Minutes=Minuten
+
+# Material Management
+
+MaterialAndParts=Material & Ersatzteile
+MaterialSummary=Material-Übersicht
+MaterialName=Materialbezeichnung
+MaterialDescription=Materialbeschreibung
+MaterialItems=Material-Positionen
+AddMaterial=Material hinzufügen
+NoMaterialAdded=Kein Material hinzugefügt
+Quantity=Menge
+Unit=Einheit
+UnitPrice=Einzelpreis
+TotalPrice=Gesamtpreis
+TotalCost=Gesamtkosten
+
+# Messages
+
+EquipmentCreated=Anlage erstellt
+EquipmentUpdated=Anlage aktualisiert
+EquipmentDeleted=Anlage gelöscht
+ConfirmDeleteEquipment=Sind Sie sicher, dass Sie diese Anlage löschen möchten?
+DeleteEquipment=Anlage löschen
+DetailSaved=Details gespeichert
+MaterialAdded=Material hinzugefügt
+MaterialDeleted=Material gelöscht
+ConfirmDeleteMaterial=Möchten Sie dieses Material wirklich löschen?
+ServiceReportCreated=Servicebericht erstellt
+ServiceReportUpdated=Servicebericht aktualisiert
+ServiceReportDeleted=Servicebericht gelöscht
+
+# History & Documents
+
 EquipmentHistory=Anlagen-Historie
 RelatedDocuments=Zugehörige Dokumente
 ComingSoon=Demnächst
@@ -128,12 +266,32 @@ Proposals=Angebote
 Orders=Aufträge
 Contracts=Verträge
 
-# Messages
-EquipmentCreated=Anlage erstellt
-EquipmentUpdated=Anlage aktualisiert
-EquipmentDeleted=Anlage gelöscht
-ServiceReportCreated=Servicebericht erstellt
-ServiceReportUpdated=Servicebericht aktualisiert
-ServiceReportDeleted=Servicebericht gelöscht
-ConfirmDeleteEquipment=Sind Sie sicher, dass Sie diese Anlage löschen möchten?
-DeleteEquipment=Anlage löschen
+# General
+
+Actions=Aktionen
+Summary=Zusammenfassung
+Legend=Legende
+Total=Gesamt
+Customer=Kunde
+Date=Datum
+Ref=Referenz
+ThirdParty=Auftraggeber
+NoRecordFound=Keine Einträge gefunden
+BackToList=Zurück zur Liste
+Modify=Bearbeiten
+Create=Erstellen
+Save=Speichern
+Cancel=Abbrechen
+Delete=Löschen
+Add=Hinzufügen
+
+# PDF Export
+
+ServiceReportWithEquipmentDetails=Servicebericht mit Anlagen-Details
+Intervention=Serviceauftrag
+
+# Configuration
+
+ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
+NoConfigurationRequired=Keine Konfiguration erforderlich
+ModuleSetup=Moduleinrichtung

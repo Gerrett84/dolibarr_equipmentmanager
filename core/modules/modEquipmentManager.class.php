@@ -183,10 +183,13 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Tabs - KORRIGIERT
+        // Tabs
         $this->tabs = array(
             // Equipment tab auf Intervention
             'intervention:+equipmentmanager_equipment:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/intervention_equipment.php?id=__ID__',
+            
+            // Equipment Details tab auf Intervention - NEU v1.6
+            'intervention:+equipmentmanager_equipment_details:EquipmentDetails:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/intervention_equipment_details.php?id=__ID__',
         );
 
         $this->dictionaries = array();
