@@ -250,21 +250,48 @@ print "</tr>\n";
 // Include PDF module
 clearstatcache();
 $dir = dol_buildpath('/equipmentmanager/core/modules/fichinter/doc', 0);
+
+// Debug: Show directory path
+print '<tr class="liste_titre">';
+print '<td colspan="6">';
+print '<details><summary style="cursor:pointer;"><small>Debug: Module Loading</small></summary>';
+print '<ul style="margin:5px 0; font-family: monospace; font-size: 11px;">';
+print '<li>Directory: <code>'.$dir.'</code></li>';
+print '<li>Directory exists: '.(is_dir($dir) ? 'YES ✓' : 'NO ✗').'</li>';
+
 if (is_dir($dir)) {
     $handle = opendir($dir);
     if (is_resource($handle)) {
+        print '<li>Files found:</li>';
+        print '<ul>';
+
         $var = false;
+        $modules_found = 0;
+        $modules_loaded = 0;
+        $errors = array();
+
         while (($file = readdir($handle)) !== false) {
             if (preg_match('/^(pdf_.*)\.modules\.php$/i', $file, $reg)) {
+                $modules_found++;
+                print '<li>Found: <code>'.$file.'</code></li>';
+
                 $name = $reg[1];
                 $classname = $name;
 
                 try {
                     dol_include_once('/equipmentmanager/core/modules/fichinter/modules_fichinter.php');
                     require_once $dir.'/'.$file;
+
+                    if (!class_exists($classname)) {
+                        throw new Exception("Class $classname not found in file");
+                    }
+
                     $module = new $classname($db);
+                    $modules_loaded++;
 
                     $var = !$var;
+                    print '</ul></details></td></tr>';
+
                     print '<tr class="oddeven">';
                     print '<td width="100">';
                     print $module->name;
@@ -318,17 +345,34 @@ if (is_dir($dir)) {
                     print '</td>';
 
                     print "</tr>\n";
+
+                    // Re-open debug section for next module
+                    print '<tr class="liste_titre"><td colspan="6"><details><summary style="cursor:pointer;"><small>Debug: Module Loading</small></summary><ul style="margin:5px 0; font-family: monospace; font-size: 11px;">';
+
                 } catch (Exception $e) {
-                    // If module loading fails, show error row
-                    print '<tr class="oddeven">';
-                    print '<td width="100">'.$name.'</td>';
-                    print '<td colspan="5"><span class="error">'.$langs->trans("Error").': '.$e->getMessage().'</span></td>';
-                    print "</tr>\n";
+                    $errors[] = $name.': '.$e->getMessage();
+                    print '<li style="color:red;">ERROR loading <code>'.$name.'</code>: '.$e->getMessage().'</li>';
+                } catch (Error $e) {
+                    $errors[] = $name.': '.$e->getMessage();
+                    print '<li style="color:red;">FATAL ERROR loading <code>'.$name.'</code>: '.$e->getMessage().'</li>';
                 }
             }
         }
         closedir($handle);
+
+        print '</ul>';
+        print '<li>Total modules found: '.$modules_found.'</li>';
+        print '<li>Successfully loaded: '.$modules_loaded.'</li>';
+        if (count($errors) > 0) {
+            print '<li style="color:red;">Errors: '.count($errors).'</li>';
+        }
+        print '</ul></details></td></tr>';
+    } else {
+        print '<li style="color:red;">Cannot open directory</li>';
+        print '</ul></details></td></tr>';
     }
+} else {
+    print '</ul></details></td></tr>';
 }
 
 print '</table>';
