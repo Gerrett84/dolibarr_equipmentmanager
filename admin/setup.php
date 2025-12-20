@@ -271,7 +271,7 @@ if (is_dir($dir)) {
         $errors = array();
 
         while (($file = readdir($handle)) !== false) {
-            if (preg_match('/^(pdf_.*)\.modules\.php$/i', $file, $reg)) {
+            if (preg_match('/^(pdf_.*|equipmentmanager)\.modules\.php$/i', $file, $reg)) {
                 $modules_found++;
                 print '<li>Found: <code>'.$file.'</code></li>';
 
