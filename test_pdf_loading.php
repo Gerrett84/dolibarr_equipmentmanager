@@ -123,12 +123,47 @@ if ($resql) {
 }
 
 // Now check current entity only
-$sql = "SELECT nom, libelle, description FROM " . MAIN_DB_PREFIX . "document_model";
+echo "\n   DEBUG Entity value:\n";
+echo "   - \$conf->entity value: " . var_export($conf->entity, true) . "\n";
+echo "   - \$conf->entity type: " . gettype($conf->entity) . "\n";
+echo "   - \$conf->entity == 1: " . ($conf->entity == 1 ? 'true' : 'false') . "\n";
+echo "   - \$conf->entity === 1: " . ($conf->entity === 1 ? 'true' : 'false') . "\n";
+
+$sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
 $sql .= " WHERE type = 'fichinter' AND entity = " . $conf->entity;
+echo "   Full SQL for current entity: " . $sql . "\n";
 $resql = $db->query($sql);
+if (!$resql) {
+    echo "   SQL ERROR: " . $db->lasterror() . "\n";
+}
 if ($resql) {
     $num = $db->num_rows($resql);
     echo "   Found " . $num . " template(s) in CURRENT entity (" . $conf->entity . "):\n";
+    while ($obj = $db->fetch_object($resql)) {
+        echo "   - " . $obj->nom . " (" . $obj->libelle . ") [entity=" . $obj->entity . "]\n";
+    }
+}
+
+// Also try with explicit casting
+echo "\n   Trying with CAST to integer:\n";
+$sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
+$sql .= " WHERE type = 'fichinter' AND entity = " . (int)$conf->entity;
+echo "   SQL: " . $sql . "\n";
+$resql = $db->query($sql);
+if ($resql) {
+    $num = $db->num_rows($resql);
+    echo "   Found " . $num . " template(s)\n";
+}
+
+// Try with hardcoded 1
+echo "\n   Trying with hardcoded 1:\n";
+$sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
+$sql .= " WHERE type = 'fichinter' AND entity = 1";
+echo "   SQL: " . $sql . "\n";
+$resql = $db->query($sql);
+if ($resql) {
+    $num = $db->num_rows($resql);
+    echo "   Found " . $num . " template(s)\n";
     while ($obj = $db->fetch_object($resql)) {
         echo "   - " . $obj->nom . " (" . $obj->libelle . ")\n";
     }
