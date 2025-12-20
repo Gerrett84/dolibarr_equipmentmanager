@@ -6,14 +6,33 @@
 
 // Load Dolibarr environment
 $res = 0;
-if (!$res && file_exists("../../main.inc.php")) {
-    $res = @include "../../main.inc.php";
+
+// Try different paths to find main.inc.php
+$paths = array(
+    "../../main.inc.php",
+    "../../../main.inc.php",
+    "/usr/share/dolibarr/htdocs/main.inc.php",
+    __DIR__ . "/../../main.inc.php",
+    __DIR__ . "/../../../main.inc.php"
+);
+
+foreach ($paths as $path) {
+    if (file_exists($path)) {
+        echo "Found main.inc.php at: $path\n";
+        $res = @include $path;
+        if ($res) break;
+    }
 }
-if (!$res && file_exists("../../../main.inc.php")) {
-    $res = @include "../../../main.inc.php";
-}
+
 if (!$res) {
-    die("ERROR: Cannot load Dolibarr environment\n");
+    echo "ERROR: Cannot load Dolibarr environment\n";
+    echo "Searched in:\n";
+    foreach ($paths as $path) {
+        echo "  - $path: " . (file_exists($path) ? "exists" : "not found") . "\n";
+    }
+    echo "\nCurrent directory: " . getcwd() . "\n";
+    echo "Script location: " . __DIR__ . "\n";
+    die();
 }
 
 echo "=== PDF Template Loading Test ===\n\n";
