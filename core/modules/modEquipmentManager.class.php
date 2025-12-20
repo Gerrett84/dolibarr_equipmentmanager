@@ -197,11 +197,23 @@ class modEquipmentManager extends DolibarrModules
 
     public function init($options = '')
     {
-        global $conf, $langs;
+        global $conf, $langs, $db;
 
         $result = $this->_load_tables('/equipmentmanager/sql/');
         if ($result < 0) {
             return -1;
+        }
+
+        // Register PDF template for Fichinter
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom = 'pdf_equipmentmanager' AND type = 'ficheinter' AND entity = ".$conf->entity;
+        $db->query($sql);
+
+        $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
+        $sql .= " VALUES ('pdf_equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+        $result = $db->query($sql);
+
+        if (!$result) {
+            dol_syslog("Error registering PDF template: ".$db->lasterror(), LOG_ERR);
         }
 
         $this->_init(array(), $options);
@@ -211,6 +223,12 @@ class modEquipmentManager extends DolibarrModules
 
     public function remove($options = '')
     {
+        global $conf, $db;
+
+        // Remove PDF template registration
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom = 'pdf_equipmentmanager' AND type = 'ficheinter' AND entity = ".$conf->entity;
+        $db->query($sql);
+
         $sql = array();
         return $this->_remove($sql, $options);
     }

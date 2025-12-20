@@ -43,9 +43,15 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+dol_include_once('/equipmentmanager/core/modules/fichinter/modules_fichinter.php');
 
 // Load translation files
-$langs->loadLangs(array("admin", "equipmentmanager@equipmentmanager"));
+$langs->loadLangs(array("admin", "equipmentmanager@equipmentmanager", "interventions"));
+
+// Initialize form object
+$form = new Form($db);
 
 // Access control
 if (!$user->admin) {
@@ -64,6 +70,21 @@ $backtopage = GETPOST('backtopage', 'alpha');
 if ($action == 'save') {
     // Add your configuration save logic here if needed
     setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
+// Set PDF model for interventions
+if ($action == 'setmodel') {
+    $value = GETPOST('value', 'alpha');
+    $label = GETPOST('label', 'alpha');
+
+    if (!empty($value)) {
+        $conf->global->FICHEINTER_ADDON_PDF = $value;
+        dolibarr_set_const($db, 'FICHEINTER_ADDON_PDF', $value, 'chaine', 0, '', $conf->entity);
+        setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    }
+
     header("Location: ".$_SERVER["PHP_SELF"]);
     exit;
 }
@@ -101,6 +122,115 @@ print '<tr class="oddeven">';
 print '<td>'.$langs->trans("Description").'</td>';
 print '<td>'.$langs->trans("ManageEquipmentAndServiceReports").'</td>';
 print '</tr>';
+
+print '</table>';
+print '</div>';
+
+print '</form>';
+
+// PDF Template Selection
+print '<br>';
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="setmodel">';
+
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td>'.$langs->trans("Name").'</td>';
+print '<td>'.$langs->trans("Description").'</td>';
+print '<td class="center">'.$langs->trans("Status").'</td>';
+print '<td class="center">'.$langs->trans("Default").'</td>';
+print '<td class="center">'.$langs->trans("ShortInfo").'</td>';
+print '<td class="center">'.$langs->trans("Preview").'</td>';
+print "</tr>\n";
+
+// Get list of available PDF models
+$def = array();
+$sql = "SELECT nom FROM ".MAIN_DB_PREFIX."document_model";
+$sql .= " WHERE type = 'ficheinter'";
+$sql .= " AND entity = ".$conf->entity;
+$resql = $db->query($sql);
+if ($resql) {
+    $num = $db->num_rows($resql);
+    $i = 0;
+    while ($i < $num) {
+        $obj = $db->fetch_object($resql);
+        array_push($def, $obj->nom);
+        $i++;
+    }
+}
+
+// Include PDF module
+clearstatcache();
+$dir = dol_buildpath('/equipmentmanager/core/modules/fichinter/doc', 0);
+if (is_dir($dir)) {
+    $handle = opendir($dir);
+    if (is_resource($handle)) {
+        while (($file = readdir($handle)) !== false) {
+            if (preg_match('/^(pdf_.*)\.modules\.php$/i', $file, $reg)) {
+                $name = $reg[1];
+                $classname = $name;
+
+                require_once $dir.'/'.$file;
+                $module = new $classname($db);
+
+                $var = !$var;
+                print '<tr class="oddeven">';
+                print '<td width="100">';
+                print $module->name;
+                print "</td><td>\n";
+                print $module->description;
+                print '</td>';
+
+                // Active
+                if (in_array($name, $def)) {
+                    print '<td class="center">'."\n";
+                    print img_picto($langs->trans("Enabled"), 'switch_on');
+                    print '</td>';
+                } else {
+                    print '<td class="center">'."\n";
+                    print img_picto($langs->trans("Disabled"), 'switch_off');
+                    print '</td>';
+                }
+
+                // Default
+                print '<td class="center">';
+                $current_model = !empty($conf->global->FICHEINTER_ADDON_PDF) ? $conf->global->FICHEINTER_ADDON_PDF : '';
+                if ($current_model == $name) {
+                    print img_picto($langs->trans("Default"), 'on');
+                } else {
+                    print '<a href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
+                }
+                print '</td>';
+
+                // Info
+                $htmltooltip = ''.$langs->trans("Name").': '.$module->name;
+                $htmltooltip .= '<br>'.$langs->trans("Type").': '.($module->type ? $module->type : $langs->trans("Unknown"));
+                $htmltooltip .= '<br>'.$langs->trans("Width").'/'.$langs->trans("Height").': '.$module->page_largeur.'/'.$module->page_hauteur;
+                $htmltooltip .= '<br><br><u>'.$langs->trans("FeaturesSupported").':</u>';
+                $htmltooltip .= '<br>'.$langs->trans("Logo").': '.yn($module->option_logo, 1, 1);
+                $htmltooltip .= '<br>'.$langs->trans("MultiLanguage").': '.yn($module->option_multilang, 1, 1);
+
+                print '<td class="center">';
+                print $form->textwithpicto('', $htmltooltip, 1, 0);
+                print '</td>';
+
+                // Preview
+                print '<td class="center">';
+                if ($module->type == 'pdf') {
+                    print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&module='.$name.'">'.img_object($langs->trans("Preview"), 'bill').'</a>';
+                } else {
+                    print img_object($langs->trans("PreviewNotAvailable"), 'generic');
+                }
+                print '</td>';
+
+                print "</tr>\n";
+            }
+        }
+        closedir($handle);
+    }
+}
 
 print '</table>';
 print '</div>';
