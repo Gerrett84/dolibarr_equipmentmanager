@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-require_once DOL_DOCUMENT_ROOT.'/core/modules/fichinter/modules_fichinter.php';
+dol_include_once('/equipmentmanager/core/modules/fichinter/modules_fichinter.php');
 require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
@@ -70,6 +70,10 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Page format
         $this->format = empty($conf->global->MAIN_PDF_FORMAT) ? 'A4' : $conf->global->MAIN_PDF_FORMAT;
         $this->orientation = 'P';
+
+        // Page dimensions (A4)
+        $this->page_largeur = 210;
+        $this->page_hauteur = 297;
 
         // Page margins
         $this->marge_gauche = isset($conf->global->MAIN_PDF_MARGIN_LEFT) ? $conf->global->MAIN_PDF_MARGIN_LEFT : 10;

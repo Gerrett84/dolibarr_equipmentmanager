@@ -3,12 +3,12 @@
  * Fichinter PDF Modules Registration
  */
 
-require_once DOL_DOCUMENT_ROOT.'/core/modules/fichinter/modules_fichinter.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 
 /**
- * Parent class for fichinter models
+ * Parent class for fichinter PDF models
  */
-abstract class ModelePDFFicheinter extends ModeleNumRefFicheinter
+abstract class ModelePDFFicheinter extends CommonDocGenerator
 {
     // Variables for backward compatibility with old Dolibarr versions
     public $error = '';

@@ -167,6 +167,7 @@ $dir = dol_buildpath('/equipmentmanager/core/modules/fichinter/doc', 0);
 if (is_dir($dir)) {
     $handle = opendir($dir);
     if (is_resource($handle)) {
+        $var = false;
         while (($file = readdir($handle)) !== false) {
             if (preg_match('/^(pdf_.*)\.modules\.php$/i', $file, $reg)) {
                 $name = $reg[1];
