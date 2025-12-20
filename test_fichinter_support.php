@@ -1,5 +1,28 @@
 <?php
-require_once '/var/www/dolibarr/master.inc.php';
+/**
+ * Test if Fichinter supports PDF templates
+ */
+
+// Load Dolibarr environment
+$res = 0;
+$paths = array(
+    "../../main.inc.php",
+    "../../../main.inc.php",
+    "/usr/share/dolibarr/htdocs/main.inc.php",
+    __DIR__ . "/../../main.inc.php",
+    __DIR__ . "/../../../main.inc.php"
+);
+
+foreach ($paths as $path) {
+    if (file_exists($path)) {
+        $res = @include $path;
+        if ($res) break;
+    }
+}
+
+if (!$res) {
+    die("Error: Could not load Dolibarr environment\n");
+}
 
 echo "=== Check if Fichinter supports PDF templates ===\n\n";
 
