@@ -30,7 +30,10 @@ class modEquipmentManager extends DolibarrModules
         // Icon für Modul-Liste und Top Bar
         $this->picto = 'equipmentmanager@equipmentmanager';
 
-        $this->module_parts = array();
+        // Tell Dolibarr this module provides PDF templates for fichinter
+        $this->module_parts = array(
+            'models' => 1  // This module provides document templates
+        );
         $this->dirs = array();
         $this->config_page_url = array("setup.php@equipmentmanager");
         $this->hidden = false;
