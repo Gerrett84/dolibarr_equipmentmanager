@@ -80,6 +80,9 @@ try {
 // Test 5: Check database registration
 echo "5. Database registration...\n";
 echo "   Current entity: " . $conf->entity . "\n";
+echo "   Database name: " . $conf->db->database_name . "\n";
+echo "   Table prefix: " . MAIN_DB_PREFIX . "\n";
+echo "   Full table name: " . MAIN_DB_PREFIX . "document_model\n";
 
 // First check ALL entities
 $sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
