@@ -80,14 +80,31 @@ try {
 // Test 5: Check database registration
 echo "5. Database registration...\n";
 echo "   Current entity: " . $conf->entity . "\n";
-echo "   Database name: " . $conf->db->database_name . "\n";
+echo "   Database name from config: " . (isset($conf->db->database_name) ? $conf->db->database_name : 'NOT SET') . "\n";
+echo "   Database type: " . $conf->db->type . "\n";
+echo "   Database host: " . $conf->db->host . "\n";
 echo "   Table prefix: " . MAIN_DB_PREFIX . "\n";
 echo "   Full table name: " . MAIN_DB_PREFIX . "document_model\n";
 
+// Debug: Show actual SQL query
+$sql_debug = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model WHERE type = 'fichinter'";
+echo "   SQL Query: " . $sql_debug . "\n";
+
+// Try to get current database name directly
+$resql_dbname = $db->query("SELECT DATABASE()");
+if ($resql_dbname) {
+    $obj = $db->fetch_row($resql_dbname);
+    echo "   ACTUAL Database being used: " . $obj[0] . "\n";
+}
+
 // First check ALL entities
 $sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
-$sql .= " WHERE type = 'fichinter'";
+$sql .= " WHERE type = 'ficheinter'";
 $resql = $db->query($sql);
+if (!$resql) {
+    echo "   SQL ERROR: " . $db->lasterror() . "\n";
+    echo "   SQL ERRNO: " . $db->errno() . "\n";
+}
 if ($resql) {
     $num = $db->num_rows($resql);
     echo "   Found " . $num . " template(s) in ALL entities:\n";
