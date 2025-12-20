@@ -45,7 +45,6 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
-dol_include_once('/equipmentmanager/core/modules/fichinter/modules_fichinter.php');
 
 // Load translation files
 $langs->loadLangs(array("admin", "equipmentmanager@equipmentmanager", "interventions"));
@@ -173,60 +172,71 @@ if (is_dir($dir)) {
                 $name = $reg[1];
                 $classname = $name;
 
-                require_once $dir.'/'.$file;
-                $module = new $classname($db);
+                try {
+                    dol_include_once('/equipmentmanager/core/modules/fichinter/modules_fichinter.php');
+                    require_once $dir.'/'.$file;
+                    $module = new $classname($db);
 
-                $var = !$var;
-                print '<tr class="oddeven">';
-                print '<td width="100">';
-                print $module->name;
-                print "</td><td>\n";
-                print $module->description;
-                print '</td>';
-
-                // Active
-                if (in_array($name, $def)) {
-                    print '<td class="center">'."\n";
-                    print img_picto($langs->trans("Enabled"), 'switch_on');
+                    $var = !$var;
+                    print '<tr class="oddeven">';
+                    print '<td width="100">';
+                    print $module->name;
+                    print "</td><td>\n";
+                    print $module->description;
                     print '</td>';
-                } else {
-                    print '<td class="center">'."\n";
-                    print img_picto($langs->trans("Disabled"), 'switch_off');
+
+                    // Active
+                    if (in_array($name, $def)) {
+                        print '<td class="center">'."\n";
+                        print img_picto($langs->trans("Enabled"), 'switch_on');
+                        print '</td>';
+                    } else {
+                        print '<td class="center">'."\n";
+                        print img_picto($langs->trans("Disabled"), 'switch_off');
+                        print '</td>';
+                    }
+
+                    // Default
+                    print '<td class="center">';
+                    $current_model = !empty($conf->global->FICHEINTER_ADDON_PDF) ? $conf->global->FICHEINTER_ADDON_PDF : '';
+                    if ($current_model == $name) {
+                        print img_picto($langs->trans("Default"), 'on');
+                    } else {
+                        print '<a href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
+                    }
                     print '</td>';
+
+                    // Info
+                    $htmltooltip = ''.$langs->trans("Name").': '.$module->name;
+                    $htmltooltip .= '<br>'.$langs->trans("Type").': '.($module->type ? $module->type : $langs->trans("Unknown"));
+                    if (isset($module->page_largeur) && isset($module->page_hauteur)) {
+                        $htmltooltip .= '<br>'.$langs->trans("Width").'/'.$langs->trans("Height").': '.$module->page_largeur.'/'.$module->page_hauteur;
+                    }
+                    $htmltooltip .= '<br><br><u>'.$langs->trans("FeaturesSupported").':</u>';
+                    $htmltooltip .= '<br>'.$langs->trans("Logo").': '.yn($module->option_logo, 1, 1);
+                    $htmltooltip .= '<br>'.$langs->trans("MultiLanguage").': '.yn($module->option_multilang, 1, 1);
+
+                    print '<td class="center">';
+                    print $form->textwithpicto('', $htmltooltip, 1, 0);
+                    print '</td>';
+
+                    // Preview
+                    print '<td class="center">';
+                    if ($module->type == 'pdf') {
+                        print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&module='.$name.'">'.img_object($langs->trans("Preview"), 'bill').'</a>';
+                    } else {
+                        print img_object($langs->trans("PreviewNotAvailable"), 'generic');
+                    }
+                    print '</td>';
+
+                    print "</tr>\n";
+                } catch (Exception $e) {
+                    // If module loading fails, show error row
+                    print '<tr class="oddeven">';
+                    print '<td width="100">'.$name.'</td>';
+                    print '<td colspan="5"><span class="error">'.$langs->trans("Error").': '.$e->getMessage().'</span></td>';
+                    print "</tr>\n";
                 }
-
-                // Default
-                print '<td class="center">';
-                $current_model = !empty($conf->global->FICHEINTER_ADDON_PDF) ? $conf->global->FICHEINTER_ADDON_PDF : '';
-                if ($current_model == $name) {
-                    print img_picto($langs->trans("Default"), 'on');
-                } else {
-                    print '<a href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
-                }
-                print '</td>';
-
-                // Info
-                $htmltooltip = ''.$langs->trans("Name").': '.$module->name;
-                $htmltooltip .= '<br>'.$langs->trans("Type").': '.($module->type ? $module->type : $langs->trans("Unknown"));
-                $htmltooltip .= '<br>'.$langs->trans("Width").'/'.$langs->trans("Height").': '.$module->page_largeur.'/'.$module->page_hauteur;
-                $htmltooltip .= '<br><br><u>'.$langs->trans("FeaturesSupported").':</u>';
-                $htmltooltip .= '<br>'.$langs->trans("Logo").': '.yn($module->option_logo, 1, 1);
-                $htmltooltip .= '<br>'.$langs->trans("MultiLanguage").': '.yn($module->option_multilang, 1, 1);
-
-                print '<td class="center">';
-                print $form->textwithpicto('', $htmltooltip, 1, 0);
-                print '</td>';
-
-                // Preview
-                print '<td class="center">';
-                if ($module->type == 'pdf') {
-                    print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&module='.$name.'">'.img_object($langs->trans("Preview"), 'bill').'</a>';
-                } else {
-                    print img_object($langs->trans("PreviewNotAvailable"), 'generic');
-                }
-                print '</td>';
-
-                print "</tr>\n";
             }
         }
         closedir($handle);
