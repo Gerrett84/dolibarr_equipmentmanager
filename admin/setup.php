@@ -88,6 +88,27 @@ if ($action == 'setmodel') {
     exit;
 }
 
+// Register PDF template
+if ($action == 'register_template') {
+    // Delete existing entry
+    $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom = 'pdf_equipmentmanager' AND type = 'ficheinter' AND entity = ".$conf->entity;
+    $db->query($sql);
+
+    // Insert new entry
+    $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
+    $sql .= " VALUES ('pdf_equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+    $result = $db->query($sql);
+
+    if ($result) {
+        setEventMessages($langs->trans("PDFTemplateRegistered"), null, 'mesgs');
+    } else {
+        setEventMessages($langs->trans("Error").': '.$db->lasterror(), null, 'errors');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 /*
  * View
  */
@@ -129,22 +150,8 @@ print '</form>';
 
 // PDF Template Selection
 print '<br>';
-print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
-print '<input type="hidden" name="token" value="'.newToken().'">';
-print '<input type="hidden" name="action" value="setmodel">';
 
-print '<div class="div-table-responsive-no-min">';
-print '<table class="noborder centpercent">';
-print '<tr class="liste_titre">';
-print '<td>'.$langs->trans("Name").'</td>';
-print '<td>'.$langs->trans("Description").'</td>';
-print '<td class="center">'.$langs->trans("Status").'</td>';
-print '<td class="center">'.$langs->trans("Default").'</td>';
-print '<td class="center">'.$langs->trans("ShortInfo").'</td>';
-print '<td class="center">'.$langs->trans("Preview").'</td>';
-print "</tr>\n";
-
-// Get list of available PDF models
+// Get list of available PDF models from database
 $def = array();
 $sql = "SELECT nom FROM ".MAIN_DB_PREFIX."document_model";
 $sql .= " WHERE type = 'ficheinter'";
@@ -159,6 +166,47 @@ if ($resql) {
         $i++;
     }
 }
+
+// Check if our template is registered
+$template_registered = in_array('pdf_equipmentmanager', $def);
+
+// Show registration status and button if not registered
+if (!$template_registered) {
+    print '<div class="info">';
+    print '<table class="noborder centpercent">';
+    print '<tr class="liste_titre">';
+    print '<td>'.$langs->trans("PDFTemplateRegistration").'</td>';
+    print '<td class="right"></td>';
+    print "</tr>\n";
+    print '<tr class="oddeven">';
+    print '<td>';
+    print '<span class="opacitymedium">'.$langs->trans("PDFTemplateNotRegistered").'</span><br>';
+    print $langs->trans("PDFTemplateClickToRegister");
+    print '</td>';
+    print '<td class="right">';
+    print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=register_template&token='.newToken().'">'.$langs->trans("RegisterPDFTemplate").'</a>';
+    print '</td>';
+    print '</tr>';
+    print '</table>';
+    print '</div>';
+    print '<br>';
+}
+
+// PDF Template table
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="setmodel">';
+
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td>'.$langs->trans("Name").'</td>';
+print '<td>'.$langs->trans("Description").'</td>';
+print '<td class="center">'.$langs->trans("Status").'</td>';
+print '<td class="center">'.$langs->trans("Default").'</td>';
+print '<td class="center">'.$langs->trans("ShortInfo").'</td>';
+print '<td class="center">'.$langs->trans("Preview").'</td>';
+print "</tr>\n";
 
 // Include PDF module
 clearstatcache();

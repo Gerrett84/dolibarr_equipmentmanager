@@ -177,3 +177,11 @@ EquipmentCount=Equipment Count
 TotalDuration=Total Duration
 SignatureTechnician=Technician Signature
 SignatureCustomer=Customer Signature
+
+# PDF Template Registration
+
+PDFTemplateRegistration=PDF Template Registration
+PDFTemplateNotRegistered=The PDF template is not yet registered in the database.
+PDFTemplateClickToRegister=Click the button to register the template.
+RegisterPDFTemplate=Register PDF Template
+PDFTemplateRegistered=PDF template successfully registered

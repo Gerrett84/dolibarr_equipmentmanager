@@ -311,3 +311,11 @@ EquipmentCount=Anzahl Anlagen
 TotalDuration=Gesamt-Arbeitszeit
 SignatureTechnician=Unterschrift Techniker
 SignatureCustomer=Unterschrift Kunde
+
+# PDF Template Registration
+
+PDFTemplateRegistration=PDF-Template Registrierung
+PDFTemplateNotRegistered=Das PDF-Template ist noch nicht in der Datenbank registriert.
+PDFTemplateClickToRegister=Klicken Sie auf den Button, um das Template zu registrieren.
+RegisterPDFTemplate=PDF-Template registrieren
+PDFTemplateRegistered=PDF-Template erfolgreich registriert
