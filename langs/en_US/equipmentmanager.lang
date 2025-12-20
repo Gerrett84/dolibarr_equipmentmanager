@@ -138,3 +138,42 @@ ServiceReportUpdated=Service report updated
 ServiceReportDeleted=Service report deleted
 ConfirmDeleteEquipment=Are you sure you want to delete this equipment?
 DeleteEquipment=Delete Equipment
+
+# Equipment Details - v1.6
+EquipmentDetails=Equipment Details
+WorkDone=Work Done
+IssuesFound=Issues Found
+Recommendations=Recommendations
+WorkDate=Work Date
+WorkDuration=Work Duration
+Notes=Notes
+MaterialAndParts=Material & Parts
+AddMaterial=Add Material
+NoMaterialAdded=No material added
+MaterialName=Material Name
+MaterialDescription=Material Description
+Quantity=Quantity
+Unit=Unit
+UnitPrice=Unit Price
+TotalPrice=Total Price
+TotalCost=Total Cost
+DetailSaved=Details saved
+MaterialAdded=Material added
+MaterialDeleted=Material deleted
+ConfirmDeleteMaterial=Do you really want to delete this material?
+
+# PDF Export - v1.6.1
+PDFEquipmentManagerDescription=Service report with equipment details and materials
+Duration=Duration
+Location=Location
+UsedMaterial=Used Material
+Article=Article
+Qty=Qty
+Price=Price
+EquipmentTotal=Equipment Total
+TotalMaterialCost=Total Material Cost
+Summary=Summary
+EquipmentCount=Equipment Count
+TotalDuration=Total Duration
+SignatureTechnician=Technician Signature
+SignatureCustomer=Customer Signature

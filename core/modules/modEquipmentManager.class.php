@@ -19,9 +19,9 @@ class modEquipmentManager extends DolibarrModules
         $this->name = preg_replace('/^mod/i', '', get_class($this));
         
         $this->description = "Equipment and Service Report Management";
-        $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports";
-        
-        $this->version = '1.5.1';
+        $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports including PDF export with equipment details";
+
+        $this->version = '1.6.1';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';

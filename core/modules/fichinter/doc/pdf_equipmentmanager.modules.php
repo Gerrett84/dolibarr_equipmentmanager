@@ -1,0 +1,708 @@
+<?php
+/* Copyright (C) 2024 Equipment Manager
+ * PDF Template for Fichinter with Equipment Details v1.6.1
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
+require_once DOL_DOCUMENT_ROOT.'/core/modules/fichinter/modules_fichinter.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
+dol_include_once('/equipmentmanager/class/equipment.class.php');
+dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
+dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
+
+/**
+ * Class to generate PDF for Fichinter with Equipment Manager details
+ */
+class pdf_equipmentmanager extends ModelePDFFicheinter
+{
+    /**
+     * @var DoliDB Database handler
+     */
+    public $db;
+
+    /**
+     * @var string model name
+     */
+    public $name;
+
+    /**
+     * @var string model description (short)
+     */
+    public $description;
+
+    /**
+     * @var int     Save the name of generated file as the main doc when generating a doc with this template
+     */
+    public $update_main_doc_field;
+
+    /**
+     * @var string document type
+     */
+    public $type;
+
+    /**
+     * Dolibarr version of the loaded document
+     * @var string
+     */
+    public $version = 'dolibarr';
+
+    /**
+     * Constructor
+     *
+     * @param DoliDB $db Database handler
+     */
+    public function __construct($db)
+    {
+        global $conf, $langs, $mysoc;
+
+        $this->db = $db;
+        $this->name = "equipmentmanager";
+        $this->description = $langs->trans("PDFEquipmentManagerDescription");
+        $this->update_main_doc_field = 1;
+        $this->type = 'pdf';
+
+        // Page format
+        $this->format = empty($conf->global->MAIN_PDF_FORMAT) ? 'A4' : $conf->global->MAIN_PDF_FORMAT;
+        $this->orientation = 'P';
+
+        // Page margins
+        $this->marge_gauche = isset($conf->global->MAIN_PDF_MARGIN_LEFT) ? $conf->global->MAIN_PDF_MARGIN_LEFT : 10;
+        $this->marge_droite = isset($conf->global->MAIN_PDF_MARGIN_RIGHT) ? $conf->global->MAIN_PDF_MARGIN_RIGHT : 10;
+        $this->marge_haute = isset($conf->global->MAIN_PDF_MARGIN_TOP) ? $conf->global->MAIN_PDF_MARGIN_TOP : 10;
+        $this->marge_basse = isset($conf->global->MAIN_PDF_MARGIN_BOTTOM) ? $conf->global->MAIN_PDF_MARGIN_BOTTOM : 10;
+
+        $this->option_logo = 1;
+        $this->option_multilang = 1;
+        $this->option_freetext = 1;
+
+        $this->franchise = !empty($mysoc->tva_assuj);
+
+        $this->tva = array();
+        $this->localtax1 = array();
+        $this->localtax2 = array();
+        $this->atleastonediscount = 0;
+    }
+
+    /**
+     * Write the PDF file
+     *
+     * @param Fichinter $object Object fichinter
+     * @param Translate $outputlangs Lang object for output language
+     * @param string $srctemplatepath Full path of source filename for generator using a template file
+     * @param int $hidedetails Do not show line details
+     * @param int $hidedesc Do not show desc
+     * @param int $hideref Do not show ref
+     * @return int 1=OK, 0=KO
+     */
+    public function write_file($object, $outputlangs, $srctemplatepath = '', $hidedetails = 0, $hidedesc = 0, $hideref = 0)
+    {
+        global $user, $langs, $conf, $mysoc, $db, $hookmanager;
+
+        if (!is_object($outputlangs)) {
+            $outputlangs = $langs;
+        }
+
+        $outputlangs->loadLangs(array("main", "dict", "companies", "interventions", "equipmentmanager@equipmentmanager"));
+
+        // Definition of $dir and $file
+        if ($object->specimen) {
+            $dir = $conf->ficheinter->dir_output;
+            $file = $dir."/SPECIMEN.pdf";
+        } else {
+            $objectref = dol_sanitizeFileName($object->ref);
+            $dir = $conf->ficheinter->dir_output."/".$objectref;
+            $file = $dir."/".$objectref.".pdf";
+        }
+
+        if (!file_exists($dir)) {
+            if (dol_mkdir($dir) < 0) {
+                $this->error = $langs->transnoentities("ErrorCanNotCreateDir", $dir);
+                return 0;
+            }
+        }
+
+        if (file_exists($dir)) {
+            // Add pdfgeneration hook
+            if (!is_object($hookmanager)) {
+                include_once DOL_DOCUMENT_ROOT.'/core/class/hookmanager.class.php';
+                $hookmanager = new HookManager($this->db);
+            }
+            $hookmanager->initHooks(array('pdfgeneration'));
+            $parameters = array('file' => $file, 'object' => $object, 'outputlangs' => $outputlangs);
+            global $action;
+            $reshook = $hookmanager->executeHooks('beforePDFCreation', $parameters, $object, $action);
+
+            // Create PDF
+            $pdf = pdf_getInstance($this->format, $this->orientation);
+            $default_font_size = pdf_getPDFFontSize($outputlangs);
+            $heightforinfotot = 40;
+            $heightforfreetext = (isset($conf->global->MAIN_PDF_FREETEXT_HEIGHT) ? $conf->global->MAIN_PDF_FREETEXT_HEIGHT : 5);
+            $heightforfooter = $this->marge_basse + 8;
+
+            if (class_exists('TCPDF')) {
+                $pdf->setPrintHeader(false);
+                $pdf->setPrintFooter(false);
+            }
+            $pdf->SetFont(pdf_getPDFFont($outputlangs));
+
+            $pdf->Open();
+            $pagenb = 0;
+            $pdf->SetDrawColor(128, 128, 128);
+
+            $pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
+            $pdf->SetSubject($outputlangs->transnoentities("Intervention"));
+            $pdf->SetCreator("Dolibarr ".DOL_VERSION);
+            $pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
+            $pdf->SetKeywords($outputlangs->convToOutputCharset($object->ref)." ".$outputlangs->transnoentities("Intervention"));
+            if (!empty($conf->global->MAIN_DISABLE_PDF_COMPRESSION)) {
+                $pdf->SetCompression(false);
+            }
+
+            $pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
+            $pdf->SetAutoPageBreak(1, 0);
+
+            // New page
+            $pdf->AddPage();
+            if (!empty($tplidx)) {
+                $pdf->useTemplate($tplidx);
+            }
+            $pagenb++;
+            $top_shift = $this->_pagehead($pdf, $object, 1, $outputlangs);
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetTextColor(0, 0, 0);
+
+            $tab_top = 90;
+            $tab_top_newpage = (!empty($conf->global->MAIN_PDF_DONOTREPEAT_HEAD) ? 10 : 50);
+            $tab_height = 130;
+            $tab_height_newpage = 150;
+
+            // Display notes
+            $notetoshow = empty($object->note_public) ? '' : $object->note_public;
+            if ($notetoshow) {
+                $substitutionarray = pdf_getSubstitutionArray($outputlangs, null, $object);
+                complete_substitutions_array($substitutionarray, $outputlangs, $object);
+                $notetoshow = make_substitutions($notetoshow, $substitutionarray, $outputlangs);
+                $notetoshow = $outputlangs->convToOutputCharset($notetoshow);
+
+                $tab_top = 88;
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->writeHTMLCell(190, 3, $this->marge_gauche, $tab_top, dol_htmlentitiesbr($notetoshow), 0, 1);
+                $nexY = $pdf->GetY();
+                $height_note = $nexY - $tab_top;
+
+                $pdf->SetDrawColor(192, 192, 192);
+                $pdf->Rect($this->marge_gauche, $tab_top - 1, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $height_note + 1);
+
+                $tab_height = $tab_height - $height_note;
+                $tab_top = $nexY + 6;
+            } else {
+                $height_note = 0;
+            }
+
+            $iniY = $tab_top + 7;
+            $curY = $tab_top + 7;
+            $nexY = $tab_top + 7;
+
+            // Get linked equipments
+            $sql = "SELECT DISTINCT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+            $sql .= " WHERE fk_intervention = ".(int)$object->id;
+            $sql .= " ORDER BY rowid ASC";
+
+            $resql = $this->db->query($sql);
+            $equipment_list = array();
+
+            if ($resql) {
+                $num = $this->db->num_rows($resql);
+                for ($i = 0; $i < $num; $i++) {
+                    $obj = $this->db->fetch_object($resql);
+                    $equipment = new Equipment($this->db);
+                    if ($equipment->fetch($obj->fk_equipment) > 0) {
+                        $equipment_list[] = $equipment;
+                    }
+                }
+                $this->db->free($resql);
+            }
+
+            // Display equipment sections
+            if (count($equipment_list) > 0) {
+                $total_material = 0;
+                $total_duration = 0;
+                $equipment_count = 0;
+
+                foreach ($equipment_list as $equipment) {
+                    $equipment_count++;
+
+                    // Load equipment details
+                    $detail = new InterventionDetail($this->db);
+                    $detail->fetchByInterventionEquipment($object->id, $equipment->id);
+
+                    // Load materials
+                    $materials = InterventionMaterial::fetchAllForEquipment($this->db, $object->id, $equipment->id);
+
+                    // Calculate material total for this equipment
+                    $equipment_material_total = InterventionMaterial::getTotalForEquipment($this->db, $object->id, $equipment->id);
+                    $total_material += $equipment_material_total;
+
+                    // Add work duration
+                    if ($detail->work_duration > 0) {
+                        $total_duration += $detail->work_duration;
+                    }
+
+                    // Check if we need a new page
+                    if ($pdf->GetY() > 250) {
+                        $pdf->AddPage();
+                        $pagenb++;
+                        $curY = $tab_top_newpage;
+                    }
+
+                    // Render equipment section
+                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size);
+                }
+
+                // Summary section
+                if ($pdf->GetY() > 230) {
+                    $pdf->AddPage();
+                    $pagenb++;
+                    $curY = $tab_top_newpage;
+                } else {
+                    $curY = $pdf->GetY() + 10;
+                }
+
+                $this->_renderSummary($pdf, $equipment_count, $total_duration, $total_material, $curY, $outputlangs, $default_font_size);
+            }
+
+            // Signature section
+            $curY = $pdf->GetY() + 10;
+            if ($curY > 230) {
+                $pdf->AddPage();
+                $pagenb++;
+                $curY = $tab_top_newpage;
+            }
+
+            $this->_renderSignatures($pdf, $object, $curY, $outputlangs, $default_font_size);
+
+            // Footer
+            $this->_pagefoot($pdf, $object, $outputlangs);
+            if (method_exists($pdf, 'AliasNbPages')) {
+                $pdf->AliasNbPages();
+            }
+
+            $pdf->Close();
+            $pdf->Output($file, 'F');
+
+            // Add pdfgeneration hook
+            $hookmanager->initHooks(array('pdfgeneration'));
+            $parameters = array('file' => $file, 'object' => $object, 'outputlangs' => $outputlangs);
+            global $action;
+            $reshook = $hookmanager->executeHooks('afterPDFCreation', $parameters, $this, $action);
+
+            if (!empty($conf->global->MAIN_UMASK)) {
+                @chmod($file, octdec($conf->global->MAIN_UMASK));
+            }
+
+            $this->result = array('fullpath' => $file);
+
+            return 1;
+        } else {
+            $this->error = $langs->transnoentities("ErrorCanNotCreateDir", $dir);
+            return 0;
+        }
+    }
+
+    /**
+     * Show page header
+     *
+     * @param TCPDF $pdf PDF object
+     * @param Fichinter $object Object fichinter
+     * @param int $showaddress Show address (1=yes, 0=no)
+     * @param Translate $outputlangs Output language object
+     * @return int Top position after header
+     */
+    protected function _pagehead(&$pdf, $object, $showaddress, $outputlangs)
+    {
+        global $conf, $langs, $mysoc;
+
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+
+        pdf_pagehead($pdf, $outputlangs, $this->page_hauteur);
+
+        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetFont('', 'B', $default_font_size + 3);
+
+        $posy = $this->marge_haute;
+        $posx = $this->page_largeur - $this->marge_droite - 100;
+
+        $pdf->SetXY($this->marge_gauche, $posy);
+
+        // Logo
+        $logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
+        if ($mysoc->logo) {
+            if (is_readable($logo)) {
+                $height = pdf_getHeightForLogo($logo);
+                $pdf->Image($logo, $this->marge_gauche, $posy, 0, $height);
+            } else {
+                $pdf->SetTextColor(200, 0, 0);
+                $pdf->SetFont('', 'B', $default_font_size - 2);
+                $pdf->MultiCell(100, 3, $outputlangs->transnoentities("ErrorLogoFileNotFound", $logo), 0, 'L');
+                $pdf->MultiCell(100, 3, $outputlangs->transnoentities("ErrorGoToGlobalSetup"), 0, 'L');
+            }
+        } else {
+            $pdf->MultiCell(100, 4, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
+        }
+
+        // Title
+        $pdf->SetFont('', 'B', $default_font_size + 3);
+        $pdf->SetXY($posx, $posy);
+        $pdf->SetTextColor(0, 0, 60);
+        $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Intervention"), '', 'R');
+
+        $pdf->SetFont('', '', $default_font_size + 2);
+        $posy += 5;
+        $pdf->SetXY($posx, $posy);
+        $pdf->SetTextColor(0, 0, 60);
+        $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Ref")." : ".$outputlangs->convToOutputCharset($object->ref), '', 'R');
+
+        // Date
+        $posy += 5;
+        $pdf->SetXY($posx, $posy);
+        $pdf->SetTextColor(0, 0, 60);
+        $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Date")." : ".dol_print_date($object->dateo, 'day', false, $outputlangs, true), '', 'R');
+
+        if ($showaddress) {
+            // Sender
+            $posy = 42;
+            $posx = $this->marge_gauche;
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($posx, $posy - 5);
+            $pdf->SetTextColor(0, 0, 60);
+            $pdf->MultiCell(80, 3, $outputlangs->transnoentities("BillFrom").":", 0, 'L');
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetFillColor(230, 230, 230);
+            $pdf->MultiCell(82, 30, "", 0, 'R', 1);
+
+            // Sender name
+            $pdf->SetXY($posx + 2, $posy + 1);
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
+
+            // Sender address
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($posx + 2, $posy + 5);
+            $pdf->MultiCell(80, 4, $mysoc->address, 0, 'L');
+
+            $pdf->SetXY($posx + 2, $posy + 9);
+            $pdf->MultiCell(80, 4, $mysoc->zip.' '.$mysoc->town, 0, 'L');
+
+            // Client
+            if ($object->socid > 0) {
+                require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+                $soc = new Societe($this->db);
+                $soc->fetch($object->socid);
+
+                $posx = 120;
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetXY($posx, $posy - 5);
+                $pdf->SetTextColor(0, 0, 60);
+                $pdf->MultiCell(80, 3, $outputlangs->transnoentities("BillTo").":", 0, 'L');
+
+                $pdf->SetXY($posx, $posy);
+                $pdf->SetFillColor(230, 230, 230);
+                $pdf->MultiCell(82, 30, "", 0, 'R', 1);
+
+                $pdf->SetXY($posx + 2, $posy + 1);
+                $pdf->SetFont('', 'B', $default_font_size);
+                $pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetXY($posx + 2, $posy + 5);
+                $pdf->MultiCell(80, 4, $soc->address, 0, 'L');
+
+                $pdf->SetXY($posx + 2, $posy + 9);
+                $pdf->MultiCell(80, 4, $soc->zip.' '.$soc->town, 0, 'L');
+            }
+        }
+
+        return $posy + 40;
+    }
+
+    /**
+     * Render equipment section
+     *
+     * @param TCPDF $pdf PDF object
+     * @param Equipment $equipment Equipment object
+     * @param InterventionDetail $detail Detail object
+     * @param array $materials Array of material objects
+     * @param float $material_total Material total for this equipment
+     * @param float $curY Current Y position
+     * @param Translate $outputlangs Output language object
+     * @param int $default_font_size Default font size
+     * @return float New Y position
+     */
+    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size)
+    {
+        $pdf->SetFont('', 'B', $default_font_size + 1);
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->SetTextColor(0, 0, 100);
+        $pdf->MultiCell(0, 5, $outputlangs->transnoentities("Equipment").": ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
+
+        $curY = $pdf->GetY() + 2;
+
+        // Equipment details
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->SetTextColor(0, 0, 0);
+
+        // Type
+        $type_label = $equipment->equipment_type;
+        if (isset($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type])) {
+            $type_label = $outputlangs->trans($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type]);
+        }
+
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$type_label, 0, 'L');
+
+        // Location
+        if ($equipment->location_note) {
+            $pdf->SetXY(110, $curY);
+            $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Location").": ".$outputlangs->convToOutputCharset($equipment->location_note), 0, 'L');
+        }
+
+        $curY = $pdf->GetY() + 1;
+
+        // Date and duration
+        if ($detail->work_date) {
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Date").": ".dol_print_date($detail->work_date, 'day', false, $outputlangs, true), 0, 'L');
+        }
+
+        if ($detail->work_duration > 0) {
+            $hours = floor($detail->work_duration / 60);
+            $minutes = $detail->work_duration % 60;
+            $duration_text = $hours."h";
+            if ($minutes > 0) {
+                $duration_text .= " ".$minutes."min";
+            }
+
+            $pdf->SetXY(110, $curY);
+            $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Duration").": ".$duration_text, 0, 'L');
+        }
+
+        $curY = $pdf->GetY() + 3;
+
+        // Work done
+        if ($detail->work_done) {
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("WorkDone").":", 0, 'L');
+            $curY = $pdf->GetY();
+
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $work_done_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($detail->work_done));
+            $pdf->MultiCell(0, 4, $work_done_text, 0, 'L');
+            $curY = $pdf->GetY() + 2;
+        }
+
+        // Issues found
+        if ($detail->issues_found) {
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
+            $curY = $pdf->GetY();
+
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($detail->issues_found));
+            $pdf->MultiCell(0, 4, $issues_text, 0, 'L');
+            $curY = $pdf->GetY() + 2;
+        }
+
+        // Recommendations
+        if ($detail->recommendations) {
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("Recommendations").":", 0, 'L');
+            $curY = $pdf->GetY();
+
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $recommendations_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($detail->recommendations));
+            $pdf->MultiCell(0, 4, $recommendations_text, 0, 'L');
+            $curY = $pdf->GetY() + 2;
+        }
+
+        // Materials table
+        if (count($materials) > 0) {
+            $curY = $pdf->GetY() + 2;
+
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("UsedMaterial").":", 0, 'L');
+            $curY = $pdf->GetY() + 1;
+
+            // Table header
+            $pdf->SetFont('', 'B', $default_font_size - 2);
+            $pdf->SetFillColor(220, 220, 220);
+
+            $col_article = $this->marge_gauche;
+            $col_qty = $this->marge_gauche + 100;
+            $col_unit = $this->marge_gauche + 120;
+            $col_price = $this->marge_gauche + 150;
+
+            $pdf->SetXY($col_article, $curY);
+            $pdf->Cell(95, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
+            $pdf->SetXY($col_qty, $curY);
+            $pdf->Cell(20, 5, $outputlangs->transnoentities("Qty"), 1, 0, 'C', 1);
+            $pdf->SetXY($col_unit, $curY);
+            $pdf->Cell(30, 5, $outputlangs->transnoentities("Unit"), 1, 0, 'C', 1);
+            $pdf->SetXY($col_price, $curY);
+            $pdf->Cell(40, 5, $outputlangs->transnoentities("Price"), 1, 0, 'R', 1);
+
+            $curY += 5;
+
+            // Table rows
+            $pdf->SetFont('', '', $default_font_size - 2);
+            foreach ($materials as $material) {
+                $pdf->SetXY($col_article, $curY);
+                $pdf->Cell(95, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
+                $pdf->SetXY($col_qty, $curY);
+                $pdf->Cell(20, 5, $material->quantity, 1, 0, 'C');
+                $pdf->SetXY($col_unit, $curY);
+                $pdf->Cell(30, 5, $outputlangs->convToOutputCharset($material->unit), 1, 0, 'C');
+                $pdf->SetXY($col_price, $curY);
+                $pdf->Cell(40, 5, price($material->total_price, 0, $outputlangs), 1, 0, 'R');
+
+                $curY += 5;
+            }
+
+            // Material total for this equipment
+            $pdf->SetFont('', 'B', $default_font_size - 2);
+            $pdf->SetXY($col_article, $curY);
+            $pdf->Cell(145, 5, $outputlangs->transnoentities("EquipmentTotal").":", 1, 0, 'R');
+            $pdf->SetXY($col_price, $curY);
+            $pdf->Cell(40, 5, price($material_total, 0, $outputlangs), 1, 0, 'R');
+
+            $curY += 5;
+        }
+
+        $curY = $pdf->GetY() + 8;
+
+        // Separator line
+        $pdf->SetDrawColor(180, 180, 180);
+        $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+
+        return $curY + 5;
+    }
+
+    /**
+     * Render summary section
+     *
+     * @param TCPDF $pdf PDF object
+     * @param int $equipment_count Number of equipments
+     * @param int $total_duration Total duration in minutes
+     * @param float $total_material Total material cost
+     * @param float $curY Current Y position
+     * @param Translate $outputlangs Output language object
+     * @param int $default_font_size Default font size
+     * @return void
+     */
+    protected function _renderSummary(&$pdf, $equipment_count, $total_duration, $total_material, $curY, $outputlangs, $default_font_size)
+    {
+        $pdf->SetFont('', 'B', $default_font_size + 1);
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->SetTextColor(0, 0, 100);
+        $pdf->MultiCell(0, 5, $outputlangs->transnoentities("Summary"), 0, 'L');
+
+        $curY = $pdf->GetY() + 3;
+
+        $pdf->SetFont('', '', $default_font_size);
+        $pdf->SetTextColor(0, 0, 0);
+
+        // Equipment count
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->MultiCell(0, 5, $outputlangs->transnoentities("EquipmentCount").": ".$equipment_count, 0, 'L');
+
+        // Total duration
+        if ($total_duration > 0) {
+            $hours = floor($total_duration / 60);
+            $minutes = $total_duration % 60;
+            $duration_text = $hours."h";
+            if ($minutes > 0) {
+                $duration_text .= " ".$minutes."min";
+            }
+
+            $curY = $pdf->GetY();
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(0, 5, $outputlangs->transnoentities("TotalDuration").": ".$duration_text, 0, 'L');
+        }
+
+        // Total material cost
+        if ($total_material > 0) {
+            $curY = $pdf->GetY();
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->MultiCell(0, 5, $outputlangs->transnoentities("TotalMaterialCost").": ".price($total_material, 0, $outputlangs), 0, 'L');
+        }
+    }
+
+    /**
+     * Render signature section
+     *
+     * @param TCPDF $pdf PDF object
+     * @param Fichinter $object Fichinter object
+     * @param float $curY Current Y position
+     * @param Translate $outputlangs Output language object
+     * @param int $default_font_size Default font size
+     * @return void
+     */
+    protected function _renderSignatures(&$pdf, $object, $curY, $outputlangs, $default_font_size)
+    {
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->SetTextColor(0, 0, 0);
+
+        // Technician signature
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("SignatureTechnician").":", 0, 'L');
+
+        // Customer signature
+        $pdf->SetXY(110, $curY);
+        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("SignatureCustomer").":", 0, 'L');
+
+        $curY += 20;
+
+        // Signature lines
+        $pdf->Line($this->marge_gauche, $curY, $this->marge_gauche + 80, $curY);
+        $pdf->Line(110, $curY, 190, $curY);
+
+        $curY += 5;
+
+        // Date fields
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
+
+        $pdf->SetXY(110, $curY);
+        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
+    }
+
+    /**
+     * Show page footer
+     *
+     * @param TCPDF $pdf PDF object
+     * @param Fichinter $object Object fichinter
+     * @param Translate $outputlangs Output language object
+     * @return int Height of footer
+     */
+    protected function _pagefoot(&$pdf, $object, $outputlangs)
+    {
+        global $conf;
+
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+
+        return pdf_pagefoot($pdf, $outputlangs, 'FICHINTER_FREE_TEXT', $conf->mycompany, $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object);
+    }
+}

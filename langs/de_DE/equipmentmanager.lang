@@ -295,3 +295,19 @@ Intervention=Serviceauftrag
 ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
 NoConfigurationRequired=Keine Konfiguration erforderlich
 ModuleSetup=Moduleinrichtung
+
+# PDF Export - v1.6.1
+
+PDFEquipmentManagerDescription=Serviceauftrag mit Anlagen-Details und Material
+Duration=Arbeitszeit
+Location=Standort
+UsedMaterial=Verbrauchtes Material
+Article=Artikel
+Qty=Mge.
+Price=Preis
+EquipmentTotal=Summe Anlage
+TotalMaterialCost=Material-Kosten gesamt
+EquipmentCount=Anzahl Anlagen
+TotalDuration=Gesamt-Arbeitszeit
+SignatureTechnician=Unterschrift Techniker
+SignatureCustomer=Unterschrift Kunde
