@@ -132,16 +132,20 @@ echo "   - \$conf->entity === 1: " . ($conf->entity === 1 ? 'true' : 'false') . 
 $sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
 $sql .= " WHERE type = 'fichinter' AND entity = " . $conf->entity;
 echo "   Full SQL for current entity: " . $sql . "\n";
-$resql = $db->query($sql);
-if (!$resql) {
+$resql2 = $db->query($sql);  // Use different variable name!
+if (!$resql2) {
     echo "   SQL ERROR: " . $db->lasterror() . "\n";
+    echo "   SQL ERRNO: " . $db->errno() . "\n";
 }
-if ($resql) {
-    $num = $db->num_rows($resql);
+if ($resql2) {
+    $num = $db->num_rows($resql2);
     echo "   Found " . $num . " template(s) in CURRENT entity (" . $conf->entity . "):\n";
-    while ($obj = $db->fetch_object($resql)) {
+    while ($obj = $db->fetch_object($resql2)) {
         echo "   - " . $obj->nom . " (" . $obj->libelle . ") [entity=" . $obj->entity . "]\n";
     }
+    $db->free($resql2);
+} else {
+    echo "   ERROR getting results\n";
 }
 
 // Also try with explicit casting
