@@ -79,20 +79,39 @@ try {
 
 // Test 5: Check database registration
 echo "5. Database registration...\n";
+echo "   Current entity: " . $conf->entity . "\n";
+
+// First check ALL entities
+$sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
+$sql .= " WHERE type = 'fichinter'";
+$resql = $db->query($sql);
+if ($resql) {
+    $num = $db->num_rows($resql);
+    echo "   Found " . $num . " template(s) in ALL entities:\n";
+    while ($obj = $db->fetch_object($resql)) {
+        echo "   - " . $obj->nom . " (" . $obj->libelle . ") [entity=" . $obj->entity . "]";
+        if ($obj->entity == $conf->entity) {
+            echo " ← CURRENT ENTITY";
+        }
+        echo "\n";
+        if ($obj->nom == 'equipmentmanager' && $obj->entity == $conf->entity) {
+            echo "     ✓ Our template is registered in current entity!\n";
+        }
+    }
+} else {
+    echo "   ERROR: " . $db->lasterror() . "\n";
+}
+
+// Now check current entity only
 $sql = "SELECT nom, libelle, description FROM " . MAIN_DB_PREFIX . "document_model";
 $sql .= " WHERE type = 'fichinter' AND entity = " . $conf->entity;
 $resql = $db->query($sql);
 if ($resql) {
     $num = $db->num_rows($resql);
-    echo "   Found " . $num . " template(s) in database:\n";
+    echo "   Found " . $num . " template(s) in CURRENT entity (" . $conf->entity . "):\n";
     while ($obj = $db->fetch_object($resql)) {
         echo "   - " . $obj->nom . " (" . $obj->libelle . ")\n";
-        if ($obj->nom == 'equipmentmanager') {
-            echo "     ✓ Our template is registered!\n";
-        }
     }
-} else {
-    echo "   ERROR: " . $db->lasterror() . "\n";
 }
 echo "\n";
 
