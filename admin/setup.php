@@ -91,12 +91,12 @@ if ($action == 'setmodel') {
 // Register PDF template
 if ($action == 'register_template') {
     // Delete existing entries (both with and without pdf_ prefix)
-    $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type = 'ficheinter' AND entity = ".$conf->entity;
+    $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type = 'fichinter' AND entity = ".$conf->entity;
     $db->query($sql);
 
     // Insert new entry (without pdf_ prefix - this is what Dolibarr expects)
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
-    $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+    $sql .= " VALUES ('equipmentmanager', 'fichinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
     $result = $db->query($sql);
 
     if ($result) {
@@ -154,7 +154,7 @@ print '<br>';
 // Get list of available PDF models from database
 $def = array();
 $sql = "SELECT nom FROM ".MAIN_DB_PREFIX."document_model";
-$sql .= " WHERE type = 'ficheinter'";
+$sql .= " WHERE type = 'fichinter'";
 $sql .= " AND entity = ".$conf->entity;
 $resql = $db->query($sql);
 if ($resql) {

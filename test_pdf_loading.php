@@ -99,7 +99,7 @@ if ($resql_dbname) {
 
 // First check ALL entities
 $sql = "SELECT nom, libelle, description, entity FROM " . MAIN_DB_PREFIX . "document_model";
-$sql .= " WHERE type = 'ficheinter'";
+$sql .= " WHERE type = 'fichinter'";
 $resql = $db->query($sql);
 if (!$resql) {
     echo "   SQL ERROR: " . $db->lasterror() . "\n";
