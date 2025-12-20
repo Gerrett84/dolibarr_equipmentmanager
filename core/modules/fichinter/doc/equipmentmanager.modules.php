@@ -19,7 +19,7 @@ dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
 /**
  * Class to generate PDF for Fichinter with Equipment Manager details
  */
-class pdf_equipmentmanager extends ModelePDFFicheinter
+class equipmentmanager extends ModelePDFFicheinter
 {
     /**
      * @var DoliDB Database handler
@@ -63,7 +63,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         $this->db = $db;
         $this->name = "equipmentmanager";
-        $this->description = $langs->trans("PDFEquipmentManagerDescription");
+        $this->description = "Equipment Manager PDF Template";
         $this->update_main_doc_field = 1;
         $this->type = 'pdf';
 
