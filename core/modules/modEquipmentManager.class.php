@@ -205,11 +205,12 @@ class modEquipmentManager extends DolibarrModules
         }
 
         // Register PDF template for Fichinter
-        $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom = 'pdf_equipmentmanager' AND type = 'ficheinter' AND entity = ".$conf->entity;
+        // IMPORTANT: Register both with and without 'pdf_' prefix for compatibility
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type = 'ficheinter' AND entity = ".$conf->entity;
         $db->query($sql);
 
         $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
-        $sql .= " VALUES ('pdf_equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+        $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
         $result = $db->query($sql);
 
         if (!$result) {
@@ -226,7 +227,7 @@ class modEquipmentManager extends DolibarrModules
         global $conf, $db;
 
         // Remove PDF template registration
-        $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom = 'pdf_equipmentmanager' AND type = 'ficheinter' AND entity = ".$conf->entity;
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type = 'ficheinter' AND entity = ".$conf->entity;
         $db->query($sql);
 
         $sql = array();

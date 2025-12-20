@@ -90,13 +90,13 @@ if ($action == 'setmodel') {
 
 // Register PDF template
 if ($action == 'register_template') {
-    // Delete existing entry
-    $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom = 'pdf_equipmentmanager' AND type = 'ficheinter' AND entity = ".$conf->entity;
+    // Delete existing entries (both with and without pdf_ prefix)
+    $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type = 'ficheinter' AND entity = ".$conf->entity;
     $db->query($sql);
 
-    // Insert new entry
+    // Insert new entry (without pdf_ prefix - this is what Dolibarr expects)
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
-    $sql .= " VALUES ('pdf_equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+    $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
     $result = $db->query($sql);
 
     if ($result) {
@@ -167,12 +167,12 @@ if ($resql) {
     }
 }
 
-// Check if our template is registered
-$template_registered = in_array('pdf_equipmentmanager', $def);
+// Check if our template is registered (check both with and without pdf_ prefix)
+$template_registered = in_array('equipmentmanager', $def) || in_array('pdf_equipmentmanager', $def);
 
 // Check if it's set as default
 $current_default = !empty($conf->global->FICHEINTER_ADDON_PDF) ? $conf->global->FICHEINTER_ADDON_PDF : '';
-$is_default = ($current_default == 'pdf_equipmentmanager');
+$is_default = ($current_default == 'equipmentmanager' || $current_default == 'pdf_equipmentmanager');
 
 // Show status based on registration AND default setting
 $show_warning = !$template_registered || !$is_default;
@@ -316,8 +316,10 @@ if (is_dir($dir)) {
                     if ($current_model == $name) {
                         print '<span class="badge badge-status4 badge-status">'.img_picto($langs->trans("Default"), 'on').' '.$langs->trans("Default").'</span>';
                     } else {
-                        $link_text = ($name == 'pdf_equipmentmanager') ? '<strong>'.$langs->trans("SetAsDefault").'</strong>' : $langs->trans("SetAsDefault");
-                        print '<a class="'.($name == 'pdf_equipmentmanager' ? 'butAction' : 'button').'" href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'">'.$link_text.'</a>';
+                        // Highlight our equipment manager template
+                        $is_our_template = ($name == 'pdf_equipmentmanager' || $name == 'equipmentmanager');
+                        $link_text = $is_our_template ? '<strong>'.$langs->trans("SetAsDefault").'</strong>' : $langs->trans("SetAsDefault");
+                        print '<a class="'.($is_our_template ? 'butAction' : 'button').'" href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'">'.$link_text.'</a>';
                     }
                     print '</td>';
 
