@@ -170,8 +170,15 @@ if ($resql) {
 // Check if our template is registered
 $template_registered = in_array('pdf_equipmentmanager', $def);
 
+// Check if it's set as default
+$current_default = !empty($conf->global->FICHEINTER_ADDON_PDF) ? $conf->global->FICHEINTER_ADDON_PDF : '';
+$is_default = ($current_default == 'pdf_equipmentmanager');
+
+// Show status based on registration AND default setting
+$show_warning = !$template_registered || !$is_default;
+
 // Always show registration status
-print '<div class="'.($template_registered ? 'info' : 'warning').'">';
+print '<div class="'.($show_warning ? 'warning' : 'info').'">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre">';
 print '<td colspan="2">'.$langs->trans("PDFTemplateRegistration").'</td>';
@@ -181,7 +188,15 @@ print '<td>';
 
 if ($template_registered) {
     print '<span class="ok">✓ '.$langs->trans("PDFTemplateRegistered").'</span><br>';
-    print '<span class="opacitymedium">'.$langs->trans("TemplateIsActiveAndReady").'</span>';
+
+    if ($is_default) {
+        print '<span class="ok">✓ '.$langs->trans("TemplateSetAsDefault").'</span><br>';
+        print '<span class="opacitymedium">'.$langs->trans("TemplateIsActiveAndReady").'</span>';
+    } else {
+        print '<span class="warning">⚠ '.$langs->trans("TemplateNotSetAsDefault").'</span><br>';
+        print '<span class="opacitymedium"><strong>'.$langs->trans("PleaseSetAsDefaultInTableBelow").'</strong></span><br>';
+        print '<span class="opacitymedium">'.$langs->trans("CurrentDefault").': <code>'.$current_default.'</code></span>';
+    }
 } else {
     print '<span class="warning">⚠ '.$langs->trans("PDFTemplateNotRegistered").'</span><br>';
     print '<span class="opacitymedium">'.$langs->trans("PDFTemplateClickToRegister").'</span>';
@@ -272,9 +287,10 @@ if (is_dir($dir)) {
                     print '<td class="center">';
                     $current_model = !empty($conf->global->FICHEINTER_ADDON_PDF) ? $conf->global->FICHEINTER_ADDON_PDF : '';
                     if ($current_model == $name) {
-                        print img_picto($langs->trans("Default"), 'on');
+                        print '<span class="badge badge-status4 badge-status">'.img_picto($langs->trans("Default"), 'on').' '.$langs->trans("Default").'</span>';
                     } else {
-                        print '<a href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
+                        $link_text = ($name == 'pdf_equipmentmanager') ? '<strong>'.$langs->trans("SetAsDefault").'</strong>' : $langs->trans("SetAsDefault");
+                        print '<a class="'.($name == 'pdf_equipmentmanager' ? 'butAction' : 'button').'" href="'.$_SERVER["PHP_SELF"].'?action=setmodel&token='.newToken().'&value='.urlencode($name).'">'.$link_text.'</a>';
                     }
                     print '</td>';
 
