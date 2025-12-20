@@ -170,27 +170,51 @@ if ($resql) {
 // Check if our template is registered
 $template_registered = in_array('pdf_equipmentmanager', $def);
 
-// Show registration status and button if not registered
-if (!$template_registered) {
-    print '<div class="info">';
-    print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre">';
-    print '<td>'.$langs->trans("PDFTemplateRegistration").'</td>';
-    print '<td class="right"></td>';
-    print "</tr>\n";
-    print '<tr class="oddeven">';
-    print '<td>';
-    print '<span class="opacitymedium">'.$langs->trans("PDFTemplateNotRegistered").'</span><br>';
-    print $langs->trans("PDFTemplateClickToRegister");
-    print '</td>';
-    print '<td class="right">';
-    print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=register_template&token='.newToken().'">'.$langs->trans("RegisterPDFTemplate").'</a>';
-    print '</td>';
-    print '</tr>';
-    print '</table>';
-    print '</div>';
-    print '<br>';
+// Always show registration status
+print '<div class="'.($template_registered ? 'info' : 'warning').'">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td colspan="2">'.$langs->trans("PDFTemplateRegistration").'</td>';
+print "</tr>\n";
+print '<tr class="oddeven">';
+print '<td>';
+
+if ($template_registered) {
+    print '<span class="ok">✓ '.$langs->trans("PDFTemplateRegistered").'</span><br>';
+    print '<span class="opacitymedium">'.$langs->trans("TemplateIsActiveAndReady").'</span>';
+} else {
+    print '<span class="warning">⚠ '.$langs->trans("PDFTemplateNotRegistered").'</span><br>';
+    print '<span class="opacitymedium">'.$langs->trans("PDFTemplateClickToRegister").'</span>';
 }
+
+// Debug info - show registered templates
+print '<br><br><details><summary style="cursor:pointer;"><small>'.$langs->trans("ShowRegisteredTemplates").'</small></summary>';
+print '<ul style="margin:5px 0;">';
+if (count($def) > 0) {
+    foreach ($def as $template) {
+        print '<li><code>'.$template.'</code>';
+        if ($template == 'pdf_equipmentmanager') {
+            print ' <strong>(Equipment Manager)</strong>';
+        }
+        print '</li>';
+    }
+} else {
+    print '<li><em>'.$langs->trans("NoTemplatesRegistered").'</em></li>';
+}
+print '</ul></details>';
+
+print '</td>';
+print '<td class="right" style="vertical-align: top;">';
+if (!$template_registered) {
+    print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=register_template&token='.newToken().'">'.$langs->trans("RegisterPDFTemplate").'</a>';
+} else {
+    print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=register_template&token='.newToken().'">'.$langs->trans("ReregisterTemplate").'</a>';
+}
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
+print '<br>';
 
 // PDF Template table
 print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';

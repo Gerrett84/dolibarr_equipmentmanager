@@ -319,3 +319,7 @@ PDFTemplateNotRegistered=Das PDF-Template ist noch nicht in der Datenbank regist
 PDFTemplateClickToRegister=Klicken Sie auf den Button, um das Template zu registrieren.
 RegisterPDFTemplate=PDF-Template registrieren
 PDFTemplateRegistered=PDF-Template erfolgreich registriert
+TemplateIsActiveAndReady=Das Template ist aktiv und kann verwendet werden.
+ReregisterTemplate=Erneut registrieren
+ShowRegisteredTemplates=Registrierte Templates anzeigen
+NoTemplatesRegistered=Keine Templates registriert
