@@ -5,4 +5,4 @@
 -- Clean up old entries (both wrong names and wrong types)
 DELETE FROM llx_document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type IN ('ficheinter', 'fichinter');
 INSERT INTO llx_document_model (nom, type, entity, libelle, description)
-VALUES ('equipmentmanager', 'fichinter', __ENTITY__, 'Equipment Manager', 'Service report with equipment details and materials');
+VALUES ('equipmentmanager', 'ficheinter', __ENTITY__, 'Equipment Manager', 'Service report with equipment details and materials');
