@@ -465,40 +465,29 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY = $pdf->GetY();
                 }
 
-                // Object/Site address (if different from customer)
-                $curY += 2;
-                $pdf->SetXY($posx + 2, $curY);
-                $pdf->SetFont('', 'B', $default_font_size - 2);
-                $pdf->MultiCell(78, 3, $outputlangs->transnoentities("InterventionAddress").":", 0, 'L');
-                $curY = $pdf->GetY();
-
+                // Object/Site address (if different from customer) - only show if exists
                 $pdf->SetFont('', '', $default_font_size - 2);
                 // Check for object address in note_public or other fields
+                $objectAddr = '';
                 if (!empty($object->note_public)) {
                     $lines = explode("\n", $object->note_public);
                     // Check if first line indicates object address
                     if (count($lines) > 0 && (stripos($lines[0], 'objekt') !== false || stripos($lines[0], 'adresse') !== false)) {
                         $objectAddr = trim(implode(', ', array_slice($lines, 1, 2)));
-                        if ($objectAddr) {
-                            $pdf->SetXY($posx + 2, $curY);
-                            $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($objectAddr), 0, 'L');
-                        } else {
-                            $pdf->SetXY($posx + 2, $curY);
-                            $pdf->SetTextColor(150, 150, 150);
-                            $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
-                            $pdf->SetTextColor(0, 0, 0);
-                        }
-                    } else {
-                        $pdf->SetXY($posx + 2, $curY);
-                        $pdf->SetTextColor(150, 150, 150);
-                        $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
-                        $pdf->SetTextColor(0, 0, 0);
                     }
-                } else {
+                }
+
+                // Only display if we have an object address
+                if ($objectAddr) {
+                    $curY += 2;
                     $pdf->SetXY($posx + 2, $curY);
-                    $pdf->SetTextColor(150, 150, 150);
-                    $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
-                    $pdf->SetTextColor(0, 0, 0);
+                    $pdf->SetFont('', 'B', $default_font_size - 2);
+                    $pdf->MultiCell(78, 3, $outputlangs->transnoentities("InterventionAddress").":", 0, 'L');
+                    $curY = $pdf->GetY();
+
+                    $pdf->SetFont('', '', $default_font_size - 2);
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($objectAddr), 0, 'L');
                 }
             }
 
@@ -545,10 +534,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
      */
     protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size)
     {
+        // Store start position for border
+        $startY = $curY;
+
         $pdf->SetFont('', 'B', $default_font_size + 1);
         $pdf->SetXY($this->marge_gauche, $curY);
         $pdf->SetTextColor(0, 0, 100);
-        $pdf->MultiCell(0, 5, $outputlangs->transnoentities("Equipment").": ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
+        $pdf->MultiCell(0, 5, "Anlage ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
 
         $curY = $pdf->GetY() + 2;
 
@@ -652,9 +644,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetXY($this->marge_gauche, $curY);
             $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
             $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 1, 0, 'C', 1);
-            $pdf->Cell(45, 5, $outputlangs->transnoentities("Unit"), 1, 0, 'C', 1);
+            $pdf->Cell(45, 5, $outputlangs->transnoentities("Unit"), 1, 1, 'C', 1);
 
-            $curY += 5;
+            $curY = $pdf->GetY();
 
             // Table rows (without price column) - continuous columns
             $pdf->SetFont('', '', $default_font_size - 2);
@@ -662,17 +654,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->SetXY($this->marge_gauche, $curY);
                 $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
                 $pdf->Cell(25, 5, $material->quantity, 1, 0, 'C');
-                $pdf->Cell(45, 5, $outputlangs->convToOutputCharset($material->unit), 1, 0, 'C');
+                $pdf->Cell(45, 5, $outputlangs->convToOutputCharset($material->unit), 1, 1, 'C');
 
-                $curY += 5;
+                $curY = $pdf->GetY();
             }
         }
 
-        $curY = $pdf->GetY() + 8;
+        // Add some spacing before border
+        $curY = $pdf->GetY() + 3;
 
-        // Separator line
-        $pdf->SetDrawColor(180, 180, 180);
-        $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+        // Draw border around entire equipment section
+        $pdf->SetDrawColor(0, 0, 0);
+        $sectionHeight = $curY - $startY;
+        $sectionWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+        $pdf->Rect($this->marge_gauche, $startY, $sectionWidth, $sectionHeight);
 
         return $curY + 5;
     }
