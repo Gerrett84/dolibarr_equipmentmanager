@@ -88,11 +88,38 @@ Prüfen wie andere Custom-Module (z.B. UltimatePDF) ihre Templates registrieren
 ### Option 4: Dolibarr-Bug
 Eventuell ist der Scan-Mechanismus für Custom-Module in dieser Dolibarr-Version kaputt
 
-## Nächste Schritte
-1. Prüfen wie Dolibarr Core-Code `getListOfModels()` für Custom-Module scannt
-2. Andere Custom-Module als Beispiel nehmen (falls vorhanden)
-3. Eventuell direkten Patch für `modules_fichinter.php` entwickeln
-4. Als letztes Mittel: Template nach `/core/modules/fichinter/doc/` kopieren (nicht empfohlen)
+## ✅ LÖSUNG GEFUNDEN!
+
+### Root Cause
+In `modEquipmentManager.class.php:216` wurde die `description` Spalte mit Text befüllt:
+```php
+VALUES ('equipmentmanager', 'ficheinter', ..., 'Equipment Manager', 'Service report with equipment details and materials')
+```
+
+### Das Problem
+`getListOfModels()` in `functions2.lib.php:2004-2037` behandelt die `description` Spalte als:
+- **Leer** → Template wird direkt verwendet (normale PDF-Templates)
+- **Befüllt** → Wird als Konstanten-Name für zu scannende Verzeichnisse interpretiert (ODT-Templates)
+
+Da `getDolGlobalString('Service report with equipment details and materials')` leer ist (Konstante existiert nicht),
+werden keine Dateien gefunden → Zeile 2036: `$liste[0] = $obj->label.': '.$langs->trans("None");`
+Ergebnis: "Equipment Manager: Keine"
+
+### Die Fix
+**Zeile 216 geändert zu:**
+```php
+VALUES ('equipmentmanager', 'ficheinter', ..., 'Equipment Manager', '')
+```
+
+Die `description` Spalte **MUSS leer** sein für normale PDF-Templates!
+- `nom`: Interner Name ('equipmentmanager')
+- `libelle`: Anzeigename ('Equipment Manager')
+- `description`: Leer für PDF-Templates, oder Konstanten-Name für ODT-Templates
+
+### Nächste Schritte
+1. ✅ Bug gefunden und gefixt
+2. ⏳ Modul deaktivieren/aktivieren um Datenbank zu aktualisieren
+3. ⏳ Testen ob Template jetzt im Dropdown erscheint
 
 ## Test-Scripts vorhanden
 - `test_fichinter_support.php` - Prüft PDF-Support
