@@ -390,60 +390,118 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Date")." : ".dol_print_date($object->dateo, 'day', false, $outputlangs, true), '', 'R');
 
         if ($showaddress) {
-            // Sender
+            // Client (left side - was "Sender")
             $posy = 42;
             $posx = $this->marge_gauche;
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($posx, $posy - 5);
-            $pdf->SetTextColor(0, 0, 60);
-            $pdf->MultiCell(80, 3, $outputlangs->transnoentities("BillFrom").":", 0, 'L');
-            $pdf->SetXY($posx, $posy);
-            $pdf->SetFillColor(230, 230, 230);
-            $pdf->MultiCell(82, 30, "", 0, 'R', 1);
 
-            // Sender name
-            $pdf->SetXY($posx + 2, $posy + 1);
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
-
-            // Sender address
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($posx + 2, $posy + 5);
-            $pdf->MultiCell(80, 4, $mysoc->address, 0, 'L');
-
-            $pdf->SetXY($posx + 2, $posy + 9);
-            $pdf->MultiCell(80, 4, $mysoc->zip.' '.$mysoc->town, 0, 'L');
-
-            // Client
             if ($object->socid > 0) {
                 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
                 $soc = new Societe($this->db);
                 $soc->fetch($object->socid);
 
-                $posx = 120;
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetXY($posx, $posy - 5);
                 $pdf->SetTextColor(0, 0, 60);
-                $pdf->MultiCell(80, 3, $outputlangs->transnoentities("BillTo").":", 0, 'L');
+                $pdf->MultiCell(80, 3, $outputlangs->transnoentities("Customer").":", 0, 'L');
 
                 $pdf->SetXY($posx, $posy);
                 $pdf->SetFillColor(230, 230, 230);
-                $pdf->MultiCell(82, 30, "", 0, 'R', 1);
+                $pdf->MultiCell(82, 60, "", 0, 'R', 1);
 
+                // Customer name
                 $pdf->SetXY($posx + 2, $posy + 1);
                 $pdf->SetFont('', 'B', $default_font_size);
-                $pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
+                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
 
+                // Customer address
                 $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($posx + 2, $posy + 5);
-                $pdf->MultiCell(80, 4, $soc->address, 0, 'L');
+                $curY = $posy + 5;
+                if ($soc->address) {
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->address), 0, 'L');
+                    $curY = $pdf->GetY();
+                }
 
-                $pdf->SetXY($posx + 2, $posy + 9);
-                $pdf->MultiCell(80, 4, $soc->zip.' '.$soc->town, 0, 'L');
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $soc->zip.' '.$soc->town, 0, 'L');
+                $curY = $pdf->GetY();
+
+                if ($soc->country) {
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->country), 0, 'L');
+                    $curY = $pdf->GetY();
+                }
+
+                // Site/Object address (if different from customer address)
+                // Add spacing before site address
+                $curY += 2;
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->SetFont('', 'B', $default_font_size - 2);
+                $pdf->MultiCell(78, 3, $outputlangs->transnoentities("InterventionSite").":", 0, 'L');
+                $curY = $pdf->GetY();
+
+                // Check for alternative address fields in object
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $siteAddress = '';
+
+                // Try to get intervention address if available
+                if (!empty($object->address)) {
+                    $siteAddress = $object->address;
+                } elseif (!empty($object->note_public)) {
+                    // Extract address from public note if formatted correctly
+                    $lines = explode("\n", $object->note_public);
+                    if (count($lines) > 0 && (strpos(strtolower($lines[0]), 'objekt') !== false || strpos(strtolower($lines[0]), 'adresse') !== false)) {
+                        $siteAddress = implode(', ', array_slice($lines, 1, 2));
+                    }
+                }
+
+                if ($siteAddress) {
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($siteAddress), 0, 'L');
+                } else {
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->SetTextColor(150, 150, 150);
+                    $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
+                    $pdf->SetTextColor(0, 0, 0);
+                }
+            }
+
+            // Company (right side - was "Client")
+            $posx = 120;
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($posx, $posy - 5);
+            $pdf->SetTextColor(0, 0, 60);
+            $pdf->MultiCell(80, 3, $outputlangs->transnoentities("FromCompany").":", 0, 'L');
+
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetFillColor(230, 230, 230);
+            $pdf->MultiCell(82, 45, "", 0, 'R', 1);
+
+            // Company name
+            $pdf->SetXY($posx + 2, $posy + 1);
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
+
+            // Company address
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $curY = $posy + 5;
+            if ($mysoc->address) {
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->address), 0, 'L');
+                $curY = $pdf->GetY();
+            }
+
+            $pdf->SetXY($posx + 2, $curY);
+            $pdf->MultiCell(78, 3, $mysoc->zip.' '.$mysoc->town, 0, 'L');
+            $curY = $pdf->GetY();
+
+            if ($mysoc->country) {
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->country), 0, 'L');
             }
         }
 
-        return $posy + 40;
+        return $posy + 65; // Increased due to larger address boxes (60mm customer box with site address)
     }
 
     /**
@@ -679,28 +737,46 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 0);
 
-        // Technician signature
-        $pdf->SetXY($this->marge_gauche, $curY);
+        // Left column: Technician
+        $leftX = $this->marge_gauche;
+        $rightX = 110;
+
+        // Technician signature label
+        $pdf->SetXY($leftX, $curY);
         $pdf->MultiCell(80, 5, $outputlangs->transnoentities("SignatureTechnician").":", 0, 'L');
 
-        // Customer signature
-        $pdf->SetXY(110, $curY);
+        // Customer signature label
+        $pdf->SetXY($rightX, $curY);
         $pdf->MultiCell(80, 5, $outputlangs->transnoentities("SignatureCustomer").":", 0, 'L');
-
-        $curY += 20;
-
-        // Signature lines
-        $pdf->Line($this->marge_gauche, $curY, $this->marge_gauche + 80, $curY);
-        $pdf->Line(110, $curY, 190, $curY);
 
         $curY += 5;
 
-        // Date fields
-        $pdf->SetXY($this->marge_gauche, $curY);
-        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
+        // Date fields ABOVE signature area (so online signature doesn't overwrite it)
+        $pdf->SetXY($leftX, $curY);
+        $pdf->MultiCell(80, 4, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
 
-        $pdf->SetXY(110, $curY);
-        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
+        $pdf->SetXY($rightX, $curY);
+        $pdf->MultiCell(80, 4, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
+
+        $curY += 5;
+
+        // Signature boxes with more space for online signatures
+        $pdf->SetXY($leftX, $curY);
+        $pdf->SetDrawColor(200, 200, 200);
+        $pdf->Rect($leftX, $curY, 80, 25, 'D'); // Draw rectangle for signature area
+
+        $pdf->SetXY($rightX, $curY);
+        $pdf->Rect($rightX, $curY, 80, 25, 'D');
+
+        $curY += 25;
+
+        // Signature lines at bottom of boxes
+        $pdf->SetDrawColor(128, 128, 128);
+        $pdf->Line($leftX, $curY, $leftX + 80, $curY);
+        $pdf->Line($rightX, $curY, $rightX + 80, $curY);
+
+        // Reset draw color
+        $pdf->SetDrawColor(0, 0, 0);
     }
 
     /**
