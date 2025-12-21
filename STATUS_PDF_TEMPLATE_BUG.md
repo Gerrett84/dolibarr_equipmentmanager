@@ -139,6 +139,44 @@ Failed to load doc generator with modelpaths=core/modules/fichinter/doc/ - model
 2. **Klasse umbenannt:** `class equipmentmanager` → `class pdf_equipmentmanager`
 3. **$this->name bleibt:** `'equipmentmanager'` (OHNE Prefix, muss mit DB-`nom` übereinstimmen)
 
+### Bug 3: TCPDF ERROR: Incorrect unit: p
+
+#### Root Cause
+Constructor setzte Format und Orientierung falsch:
+```php
+$this->format = 'A4';  // String statt Array
+$this->orientation = 'P';  // Wird nicht gebraucht
+```
+
+Und `pdf_getInstance()` wurde mit 2 Parametern aufgerufen:
+```php
+$pdf = pdf_getInstance($this->format, $this->orientation);  // FALSCH!
+```
+
+#### Das Problem
+TCPDF interpretierte 'p' als Einheit statt als Orientierung.
+Core-Templates verwenden `pdf_getFormat()` und `pdf_getInstance()` nimmt nur 1 Parameter.
+
+#### Fix für Bug 3
+1. **Constructor korrigiert:**
+   ```php
+   $formatarray = pdf_getFormat();
+   $this->page_largeur = $formatarray['width'];
+   $this->page_hauteur = $formatarray['height'];
+   $this->format = array($this->page_largeur, $this->page_hauteur);  // Array!
+   // $this->orientation entfernt
+   ```
+
+2. **pdf_getInstance korrigiert:**
+   ```php
+   $pdf = pdf_getInstance($this->format);  // Nur 1 Parameter
+   ```
+
+3. **Zusätzliche Fixes:**
+   - `$this->emetteur` Initialisierung hinzugefügt (wie pdf_soleil)
+   - `getDolGlobalInt()` statt `isset()` für Margins
+   - `admin/setup.php` description auch auf leer gesetzt
+
 ### Implementierung
 1. ✅ Bug gefunden und gefixt
 2. ✅ Commit erstellt: `2acf963`

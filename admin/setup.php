@@ -96,7 +96,7 @@ if ($action == 'register_template') {
 
     // Insert new entry (without pdf_ prefix - this is what Dolibarr expects)
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
-    $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+    $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', '')";
     $result = $db->query($sql);
 
     if ($result) {

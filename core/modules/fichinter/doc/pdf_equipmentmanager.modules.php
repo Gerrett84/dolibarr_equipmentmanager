@@ -67,23 +67,23 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $this->update_main_doc_field = 1;
         $this->type = 'pdf';
 
-        // Page format
-        $this->format = empty($conf->global->MAIN_PDF_FORMAT) ? 'A4' : $conf->global->MAIN_PDF_FORMAT;
-        $this->orientation = 'P';
-
-        // Page dimensions (A4)
-        $this->page_largeur = 210;
-        $this->page_hauteur = 297;
+        // Page format - use pdf_getFormat() like core templates
+        $formatarray = pdf_getFormat();
+        $this->page_largeur = $formatarray['width'];
+        $this->page_hauteur = $formatarray['height'];
+        $this->format = array($this->page_largeur, $this->page_hauteur);
 
         // Page margins
-        $this->marge_gauche = isset($conf->global->MAIN_PDF_MARGIN_LEFT) ? $conf->global->MAIN_PDF_MARGIN_LEFT : 10;
-        $this->marge_droite = isset($conf->global->MAIN_PDF_MARGIN_RIGHT) ? $conf->global->MAIN_PDF_MARGIN_RIGHT : 10;
-        $this->marge_haute = isset($conf->global->MAIN_PDF_MARGIN_TOP) ? $conf->global->MAIN_PDF_MARGIN_TOP : 10;
-        $this->marge_basse = isset($conf->global->MAIN_PDF_MARGIN_BOTTOM) ? $conf->global->MAIN_PDF_MARGIN_BOTTOM : 10;
+        $this->marge_gauche = getDolGlobalInt('MAIN_PDF_MARGIN_LEFT', 10);
+        $this->marge_droite = getDolGlobalInt('MAIN_PDF_MARGIN_RIGHT', 10);
+        $this->marge_haute = getDolGlobalInt('MAIN_PDF_MARGIN_TOP', 10);
+        $this->marge_basse = getDolGlobalInt('MAIN_PDF_MARGIN_BOTTOM', 10);
+        $this->corner_radius = getDolGlobalInt('MAIN_PDF_FRAME_CORNER_RADIUS', 0);
 
         $this->option_logo = 1;
         $this->option_multilang = 1;
         $this->option_freetext = 1;
+        $this->option_draft_watermark = 1;
 
         $this->franchise = !empty($mysoc->tva_assuj);
 
@@ -91,6 +91,16 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $this->localtax1 = array();
         $this->localtax2 = array();
         $this->atleastonediscount = 0;
+
+        // Get source company (emetteur)
+        if ($mysoc === null) {
+            dol_syslog(get_class($this).'::__construct() Global $mysoc should not be null.', LOG_ERR);
+            return;
+        }
+        $this->emetteur = $mysoc;
+        if (empty($this->emetteur->country_code)) {
+            $this->emetteur->country_code = substr($langs->defaultlang, -2);
+        }
     }
 
     /**
@@ -143,7 +153,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $reshook = $hookmanager->executeHooks('beforePDFCreation', $parameters, $object, $action);
 
             // Create PDF
-            $pdf = pdf_getInstance($this->format, $this->orientation);
+            $pdf = pdf_getInstance($this->format);
             $default_font_size = pdf_getPDFFontSize($outputlangs);
             $heightforinfotot = 40;
             $heightforfreetext = (isset($conf->global->MAIN_PDF_FREETEXT_HEIGHT) ? $conf->global->MAIN_PDF_FREETEXT_HEIGHT : 5);
