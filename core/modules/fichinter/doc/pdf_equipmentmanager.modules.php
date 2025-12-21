@@ -441,17 +441,39 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY = $pdf->GetY();
                 }
 
-                // Object/Site address - check multiple possible fields
+                // Object/Site address - get from equipment's fk_address (contact/socpeople)
                 $pdf->SetFont('', '', $default_font_size - 2);
                 $objectAddr = '';
 
-                // Try note_public first (internal notes)
-                if (!empty($object->note_public)) {
-                    $objectAddr = trim($object->note_public);
-                }
-                // Try note_private if note_public is empty
-                if (empty($objectAddr) && !empty($object->note_private)) {
-                    $objectAddr = trim($object->note_private);
+                // Get object address from first equipment's fk_address
+                $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+                $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
+                $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
+                $sql_addr .= " AND e.fk_address IS NOT NULL";
+                $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
+
+                $resql_addr = $this->db->query($sql_addr);
+                if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
+                    $obj_addr = $this->db->fetch_object($resql_addr);
+                    if ($obj_addr->fk_address > 0) {
+                        // Load contact details from socpeople
+                        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+                        $contact = new Contact($this->db);
+                        if ($contact->fetch($obj_addr->fk_address) > 0) {
+                            $objectAddr = '';
+                            if ($contact->lastname || $contact->firstname) {
+                                $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
+                            }
+                            if ($contact->address) {
+                                $objectAddr .= $contact->address."\n";
+                            }
+                            if ($contact->zip || $contact->town) {
+                                $objectAddr .= trim($contact->zip.' '.$contact->town);
+                            }
+                            $objectAddr = trim($objectAddr);
+                        }
+                    }
+                    $this->db->free($resql_addr);
                 }
 
                 // Only display if we have an object address
@@ -568,11 +590,18 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->MultiCell(90, 4, "Standort: ".$outputlangs->convToOutputCharset($equipment->location_note), 0, 'L');
         }
 
-        $curY = $pdf->GetY() + 1;
+        $curY = $pdf->GetY() + 3;
 
-        // Date and duration
+        // Separator line after equipment type and location
+        $pdf->SetDrawColor(180, 180, 180);
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
+        $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+        $curY += 4;
+
+        // Date and duration in two columns
+        $dateY = $curY;
         if ($detail->work_date) {
-            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->SetXY($this->marge_gauche, $dateY);
             $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Date").": ".dol_print_date($detail->work_date, 'day', false, $outputlangs, true), 0, 'L');
         }
 
@@ -585,16 +614,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $duration_text .= " ".$minutes."min";
             }
 
-            $pdf->SetXY(110, $curY);
+            $pdf->SetXY(110, $dateY);
             $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Duration").": ".$duration_text, 0, 'L');
         }
 
         $curY = $pdf->GetY() + 3;
-
-        // Separator line between equipment data and work description
-        $pdf->SetDrawColor(180, 180, 180);
-        $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-        $curY += 3;
 
         // Work done
         if ($detail->work_done) {
@@ -675,6 +699,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
         }
 
+        // Add some spacing after materials or recommendations
+        if (count($materials) > 0) {
+            $curY = $pdf->GetY() + 3;
+        } else {
+            $curY = $pdf->GetY() + 3;
+        }
+
         // Add summary if this is the last equipment
         if ($is_last && $total_duration > 0) {
             $curY = $pdf->GetY() + 5;
@@ -687,17 +718,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $duration_text .= " ".$minutes."min";
             }
 
-            // Summary on one line: left "Zusammenfassung", right duration
-            $pdf->SetFont('', 'B', $default_font_size);
+            // Summary in narrow table - same font size as description
+            $pdf->SetFont('', '', $default_font_size - 1);
             $pdf->SetTextColor(0, 0, 0);
-            $pdf->SetXY($leftMargin + 2, $curY);
-            $pdf->Cell(60, 5, "Zusammenfassung", 0, 0, 'L');
-            $pdf->Cell(0, 5, $duration_text, 0, 1, 'R');
+            $pdf->SetDrawColor(0, 0, 0);
+
+            // Draw narrow table with border
+            $summaryWidth = $sectionWidth * 0.6; // 60% of section width
+            $pdf->SetXY($leftMargin, $curY);
+            $pdf->Cell($summaryWidth, 5, "Gesamtdauer: ".$duration_text, 1, 1, 'R');
             $curY = $pdf->GetY();
         }
 
-        // Add some spacing
-        $curY = $pdf->GetY() + 3;
+        // Add spacing before closing border
+        $curY = $pdf->GetY() + 2;
 
         // Draw borders around equipment section content
         $pdf->SetDrawColor(0, 0, 0);
@@ -708,12 +742,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
         // Right border
         $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
-        // Bottom border - ALWAYS draw if last or no materials (materials table draws its own bottom)
-        if ($is_last) {
-            // Last equipment: always draw bottom
-            $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-        } else if (count($materials) === 0) {
-            // No materials: draw bottom
+        // Bottom border - always draw for last equipment, or when there are no materials
+        if ($is_last || count($materials) === 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
         // Top border (only if not first, first has "Beschreibung" header)
