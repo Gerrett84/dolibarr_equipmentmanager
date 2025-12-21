@@ -526,7 +526,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             // Right side: Company - with border only
-            $posx = 108;
+            // Position at right edge with same margin as description table
+            $posx = $this->page_largeur - $this->marge_droite - 82;
             $pdf->SetFont('', '', $default_font_size - 1);
             $pdf->SetXY($posx, $posy);
             $pdf->SetDrawColor(0, 0, 0);
