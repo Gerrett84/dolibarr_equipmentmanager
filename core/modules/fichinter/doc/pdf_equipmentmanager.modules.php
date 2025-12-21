@@ -248,11 +248,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             if (count($equipment_list) > 0) {
                 $total_material = 0;
                 $total_duration = 0;
-                $equipment_count = 0;
+                $equipment_count = count($equipment_list);
 
                 foreach ($equipment_list as $index => $equipment) {
-                    $equipment_count++;
                     $is_first = ($index === 0);
+                    $is_last = ($index === $equipment_count - 1);
 
                     // Load equipment details
                     $detail = new InterventionDetail($this->db);
@@ -278,25 +278,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     }
 
                     // Render equipment section
-                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first);
+                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration);
                 }
-
-                // Close equipment section with bottom line
-                $curY = $pdf->GetY() + 2;
-                $pdf->SetDrawColor(0, 0, 0);
-                $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
-                $curY += 3;
-
-                // Summary section
-                if ($pdf->GetY() > 230) {
-                    $pdf->AddPage();
-                    $pagenb++;
-                    $curY = $tab_top_newpage;
-                } else {
-                    $curY = $pdf->GetY() + 10;
-                }
-
-                $this->_renderSummary($pdf, $equipment_count, $total_duration, $total_material, $curY, $outputlangs, $default_font_size);
             }
 
             // Signature section
@@ -362,12 +345,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         $pdf->SetXY($this->marge_gauche, $posy);
 
-        // Logo (increased size)
+        // Logo (moderately increased size)
         $logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
         if ($mysoc->logo) {
             if (is_readable($logo)) {
                 $height = pdf_getHeightForLogo($logo);
-                $pdf->Image($logo, $this->marge_gauche, $posy, 0, $height * 1.8);  // Increased logo size by 80%
+                $pdf->Image($logo, $this->marge_gauche, $posy, 0, $height * 1.3);  // Increased logo size by 30%
             } else {
                 $pdf->SetTextColor(200, 0, 0);
                 $pdf->SetFont('', 'B', $default_font_size - 2);
@@ -458,18 +441,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY = $pdf->GetY();
                 }
 
-                // Object/Site address (if different from customer) - only show if exists
+                // Object/Site address - only show if note_public contains address
                 $pdf->SetFont('', '', $default_font_size - 2);
-                // Check for object address in note_public
+                // Use note_public as object address if it exists and is not empty
                 $objectAddr = '';
                 if (!empty($object->note_public)) {
-                    $lines = explode("\n", trim($object->note_public));
-                    // Check if first line indicates object address
-                    if (count($lines) > 1 && (stripos($lines[0], 'objekt') !== false || stripos($lines[0], 'adresse') !== false)) {
-                        // Take all lines after the first one
-                        $addrLines = array_slice($lines, 1);
-                        $objectAddr = trim(implode("\n", $addrLines));
-                    }
+                    $objectAddr = trim($object->note_public);
                 }
 
                 // Only display if we have an object address
@@ -491,7 +468,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetFont('', '', $default_font_size - 1);
             $pdf->SetXY($posx, $posy);
             $pdf->SetDrawColor(0, 0, 0);
-            $pdf->Rect($posx, $posy, 82, 30); // Border only
+            $pdf->Rect($posx, $posy, 82, 50); // Increased height for phone/email
 
             // Company name
             $pdf->SetXY($posx + 2, $posy + 2);
@@ -509,6 +486,21 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             $pdf->SetXY($posx + 2, $curY);
             $pdf->MultiCell(78, 3, $mysoc->zip.' '.$mysoc->town, 0, 'L');
+            $curY = $pdf->GetY();
+
+            // Phone
+            if ($mysoc->phone) {
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $outputlangs->transnoentities("Phone").": ".$mysoc->phone, 0, 'L');
+                $curY = $pdf->GetY();
+            }
+
+            // Email
+            if ($mysoc->email) {
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $outputlangs->transnoentities("Email").": ".$mysoc->email, 0, 'L');
+                $curY = $pdf->GetY();
+            }
         }
 
         return $posy + 55; // Space for larger customer box (50mm) with object address
@@ -527,7 +519,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
      * @param int $default_font_size Default font size
      * @return float New Y position
      */
-    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false)
+    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false, $is_last = false, $total_duration = 0)
     {
         // Store start position for border
         $startY = $curY;
@@ -565,10 +557,10 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetXY($this->marge_gauche, $curY);
         $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$type_label, 0, 'L');
 
-        // Location
+        // Location (Standort)
         if ($equipment->location_note) {
             $pdf->SetXY(110, $curY);
-            $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Location").": ".$outputlangs->convToOutputCharset($equipment->location_note), 0, 'L');
+            $pdf->MultiCell(90, 4, "Standort: ".$outputlangs->convToOutputCharset($equipment->location_note), 0, 'L');
         }
 
         $curY = $pdf->GetY() + 1;
@@ -651,9 +643,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
             $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 'LTB', 0, 'L', 1);
-            $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'TB', 0, 'C', 1);
-            $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RTB', 1, 'C', 1);
+            $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 'LT', 0, 'L', 1);
+            $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'T', 0, 'C', 1);
+            $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RT', 1, 'C', 1);
 
             $curY = $pdf->GetY();
 
@@ -673,6 +665,31 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
         }
 
+        // Add summary if this is the last equipment
+        if ($is_last && $total_duration > 0) {
+            $curY = $pdf->GetY() + 5;
+
+            // Summary header
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->SetXY($leftMargin + 2, $curY);
+            $pdf->SetTextColor(0, 0, 100);
+            $pdf->MultiCell(0, 5, "Zusammenfassung", 0, 'L');
+            $curY = $pdf->GetY() + 2;
+
+            // Total duration
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetTextColor(0, 0, 0);
+            $hours = floor($total_duration / 60);
+            $minutes = $total_duration % 60;
+            $duration_text = $hours."h";
+            if ($minutes > 0) {
+                $duration_text .= " ".$minutes."min";
+            }
+            $pdf->SetXY($leftMargin + 2, $curY);
+            $pdf->MultiCell(0, 5, "Gesamtdauer: ".$duration_text, 0, 'L');
+            $curY = $pdf->GetY();
+        }
+
         // Add some spacing
         $curY = $pdf->GetY() + 3;
 
@@ -685,8 +702,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
         // Right border
         $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
-        // Bottom border (only if no materials, otherwise materials table provides it)
-        if (count($materials) === 0) {
+        // Bottom border - always draw if last, otherwise only if no materials
+        if ($is_last || count($materials) === 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
         // Top border (only if not first, first has "Beschreibung" header)
