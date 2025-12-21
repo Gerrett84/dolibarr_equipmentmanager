@@ -841,11 +841,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         // Technician signature label - like Soleil
         $pdf->SetXY($leftX, $curY);
-        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfInternalContact").":", 0, 'L', false);
+        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfInternalContact"), 0, 'L', false);
 
         // Customer signature label - like Soleil
         $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfExternalContact").":", 0, 'L', false);
+        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfExternalContact"), 0, 'L', false);
 
         $curY += 5;
 
