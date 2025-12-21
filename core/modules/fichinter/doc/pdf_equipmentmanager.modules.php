@@ -304,8 +304,15 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $pageWidth = $this->page_largeur;
                     $summaryWidth = $pageWidth - $leftMargin - $rightMargin;
 
+                    // Set cell padding for summary table
+                    $pdf->SetCellPadding(1);
+
                     $pdf->SetXY($leftMargin, $curY);
                     $pdf->Cell($summaryWidth, 5, "Gesamtdauer: ".$duration_text, 1, 1, 'R');
+
+                    // Reset cell padding
+                    $pdf->SetCellPadding(0);
+
                     $curY = $pdf->GetY();
                 }
             }
@@ -519,7 +526,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             // Right side: Company - with border only
-            $posx = 120;
+            $posx = 108;
             $pdf->SetFont('', '', $default_font_size - 1);
             $pdf->SetXY($posx, $posy);
             $pdf->SetDrawColor(0, 0, 0);
@@ -620,13 +627,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         $curY = $pdf->GetY() + 3;
 
-        // Separator line after equipment type and location
-        $pdf->SetDrawColor(180, 180, 180);
-        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
-        $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-        $curY += 4;
-
-        // Date and duration in gray background table - after separator
+        // Date and duration in gray background table
         $pdf->SetFont('', '', $default_font_size - 2);
         $pdf->SetFillColor(220, 220, 220);
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
@@ -647,10 +648,17 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
         }
 
+        // Set cell padding for date/duration table
+        $pdf->SetCellPadding(1);
+
         $pdf->SetXY($leftMargin, $curY);
         $halfWidth = $sectionWidth / 2;
         $pdf->Cell($halfWidth, 5, $date_text, 'LTB', 0, 'L', 1);
         $pdf->Cell($halfWidth, 5, $duration_text, 'RTB', 1, 'R', 1);
+
+        // Reset cell padding
+        $pdf->SetCellPadding(0);
+
         $curY = $pdf->GetY() + 3;
 
         // Work done
@@ -700,7 +708,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $curY = $pdf->GetY() + 2;
 
             $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche + 2, $curY);
+            $pdf->SetXY($this->marge_gauche, $curY);
             $pdf->MultiCell(0, 4, $outputlangs->transnoentities("UsedMaterial").":", 0, 'L');
             $curY = $pdf->GetY() + 1;
 
@@ -708,6 +716,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetFont('', 'B', $default_font_size - 2);
             $pdf->SetFillColor(220, 220, 220);
             $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
+
+            // Set cell padding for table
+            $pdf->SetCellPadding(1);
 
             $pdf->SetXY($leftMargin, $curY);
             $pdf->Cell(120, 5, "Material", 'LT', 0, 'L', 1);
@@ -730,6 +741,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 $curY = $pdf->GetY();
             }
+
+            // Reset cell padding
+            $pdf->SetCellPadding(0);
 
             // Materials close the section - no additional spacing needed
             $curY = $pdf->GetY();
