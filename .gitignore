@@ -1,2 +1,4 @@
-# Ignore PDF files for privacy reasons
+# Ignore files for privacy reasons
 *.pdf
+*.JPG
+*.png
