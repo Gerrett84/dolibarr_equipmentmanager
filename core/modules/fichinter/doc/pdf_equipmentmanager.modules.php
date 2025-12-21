@@ -375,7 +375,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetFont('', 'B', $default_font_size + 3);
         $pdf->SetXY($posx, $posy);
         $pdf->SetTextColor(0, 0, 60);
-        $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Intervention")." - ".$outputlangs->transnoentities("WorkReport"), '', 'R');
+        $pdf->MultiCell(100, 4, "Serviceauftrag - Arbeitsbericht", '', 'R');
 
         $pdf->SetFont('', '', $default_font_size);
         $posy += 5;
@@ -389,12 +389,18 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetTextColor(0, 0, 60);
         $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Date")." : ".dol_print_date($object->dateo, 'day', false, $outputlangs, true), '', 'R');
 
-        // Customer reference/number
-        if (!empty($object->ref_client)) {
-            $posy += 4;
-            $pdf->SetXY($posx, $posy);
-            $pdf->SetTextColor(0, 0, 60);
-            $pdf->MultiCell(100, 4, $outputlangs->transnoentities("CustomerCode")." : ".$outputlangs->convToOutputCharset($object->ref_client), '', 'R');
+        // Customer number (get from thirdparty)
+        if ($object->socid > 0) {
+            require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+            $soc = new Societe($this->db);
+            $soc->fetch($object->socid);
+
+            if (!empty($soc->code_client)) {
+                $posy += 4;
+                $pdf->SetXY($posx, $posy);
+                $pdf->SetTextColor(0, 0, 60);
+                $pdf->MultiCell(100, 4, $outputlangs->transnoentities("CustomerCode")." : ".$soc->code_client, '', 'R');
+            }
         }
 
         if ($showaddress) {
@@ -587,49 +593,35 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->MultiCell(0, 4, $outputlangs->transnoentities("UsedMaterial").":", 0, 'L');
             $curY = $pdf->GetY() + 1;
 
-            // Table header
+            // Table header (without price column)
             $pdf->SetFont('', 'B', $default_font_size - 2);
             $pdf->SetFillColor(220, 220, 220);
 
             $col_article = $this->marge_gauche;
-            $col_qty = $this->marge_gauche + 100;
-            $col_unit = $this->marge_gauche + 120;
-            $col_price = $this->marge_gauche + 150;
+            $col_qty = $this->marge_gauche + 120;
+            $col_unit = $this->marge_gauche + 145;
 
             $pdf->SetXY($col_article, $curY);
-            $pdf->Cell(95, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
+            $pdf->Cell(115, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
             $pdf->SetXY($col_qty, $curY);
-            $pdf->Cell(20, 5, $outputlangs->transnoentities("Qty"), 1, 0, 'C', 1);
+            $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 1, 0, 'C', 1);
             $pdf->SetXY($col_unit, $curY);
-            $pdf->Cell(30, 5, $outputlangs->transnoentities("Unit"), 1, 0, 'C', 1);
-            $pdf->SetXY($col_price, $curY);
-            $pdf->Cell(40, 5, $outputlangs->transnoentities("Price"), 1, 0, 'R', 1);
+            $pdf->Cell(45, 5, $outputlangs->transnoentities("Unit"), 1, 0, 'C', 1);
 
             $curY += 5;
 
-            // Table rows
+            // Table rows (without price column)
             $pdf->SetFont('', '', $default_font_size - 2);
             foreach ($materials as $material) {
                 $pdf->SetXY($col_article, $curY);
-                $pdf->Cell(95, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
+                $pdf->Cell(115, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
                 $pdf->SetXY($col_qty, $curY);
-                $pdf->Cell(20, 5, $material->quantity, 1, 0, 'C');
+                $pdf->Cell(25, 5, $material->quantity, 1, 0, 'C');
                 $pdf->SetXY($col_unit, $curY);
-                $pdf->Cell(30, 5, $outputlangs->convToOutputCharset($material->unit), 1, 0, 'C');
-                $pdf->SetXY($col_price, $curY);
-                $pdf->Cell(40, 5, price($material->total_price, 0, $outputlangs), 1, 0, 'R');
+                $pdf->Cell(45, 5, $outputlangs->convToOutputCharset($material->unit), 1, 0, 'C');
 
                 $curY += 5;
             }
-
-            // Material total for this equipment
-            $pdf->SetFont('', 'B', $default_font_size - 2);
-            $pdf->SetXY($col_article, $curY);
-            $pdf->Cell(145, 5, $outputlangs->transnoentities("EquipmentTotal").":", 1, 0, 'R');
-            $pdf->SetXY($col_price, $curY);
-            $pdf->Cell(40, 5, price($material_total, 0, $outputlangs), 1, 0, 'R');
-
-            $curY += 5;
         }
 
         $curY = $pdf->GetY() + 8;
@@ -683,12 +675,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->MultiCell(0, 5, $outputlangs->transnoentities("TotalDuration").": ".$duration_text, 0, 'L');
         }
 
-        // Total material cost
-        if ($total_material > 0) {
-            $curY = $pdf->GetY();
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $pdf->MultiCell(0, 5, $outputlangs->transnoentities("TotalMaterialCost").": ".price($total_material, 0, $outputlangs), 0, 'L');
-        }
+        // Material costs are not displayed (removed as per user request)
     }
 
     /**
