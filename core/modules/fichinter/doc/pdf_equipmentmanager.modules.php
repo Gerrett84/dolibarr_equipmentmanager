@@ -375,47 +375,76 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetFont('', 'B', $default_font_size + 3);
         $pdf->SetXY($posx, $posy);
         $pdf->SetTextColor(0, 0, 60);
-        $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Intervention"), '', 'R');
+        $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Intervention")." - ".$outputlangs->transnoentities("WorkReport"), '', 'R');
 
-        $pdf->SetFont('', '', $default_font_size + 2);
+        $pdf->SetFont('', '', $default_font_size);
         $posy += 5;
         $pdf->SetXY($posx, $posy);
         $pdf->SetTextColor(0, 0, 60);
         $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Ref")." : ".$outputlangs->convToOutputCharset($object->ref), '', 'R');
 
         // Date
-        $posy += 5;
+        $posy += 4;
         $pdf->SetXY($posx, $posy);
         $pdf->SetTextColor(0, 0, 60);
         $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Date")." : ".dol_print_date($object->dateo, 'day', false, $outputlangs, true), '', 'R');
 
+        // Customer reference/number
+        if (!empty($object->ref_client)) {
+            $posy += 4;
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetTextColor(0, 0, 60);
+            $pdf->MultiCell(100, 4, $outputlangs->transnoentities("CustomerCode")." : ".$outputlangs->convToOutputCharset($object->ref_client), '', 'R');
+        }
+
         if ($showaddress) {
-            // Client (left side - was "Sender")
+            // Left side: Company (sender) - like Soleil: with border, NO background
             $posy = 42;
             $posx = $this->marge_gauche;
 
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->Rect($posx, $posy, 82, 30); // Border only, no fill
+
+            // Company name
+            $pdf->SetXY($posx + 2, $posy + 2);
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->MultiCell(78, 4, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
+
+            // Company address
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $curY = $pdf->GetY();
+            if ($mysoc->address) {
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->address), 0, 'L');
+                $curY = $pdf->GetY();
+            }
+
+            $pdf->SetXY($posx + 2, $curY);
+            $pdf->MultiCell(78, 3, $mysoc->zip.' '.$mysoc->town, 0, 'L');
+
+            // Right side: Customer - like Soleil: with background, NO border, with phone/email
             if ($object->socid > 0) {
                 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
                 $soc = new Societe($this->db);
                 $soc->fetch($object->socid);
 
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($posx, $posy - 5);
-                $pdf->SetTextColor(0, 0, 60);
-                $pdf->MultiCell(80, 3, $outputlangs->transnoentities("Customer").":", 0, 'L');
-
+                $posx = 120;
                 $pdf->SetXY($posx, $posy);
                 $pdf->SetFillColor(230, 230, 230);
-                $pdf->MultiCell(82, 35, "", 0, 'R', 1);
+                $pdf->SetDrawColor(230, 230, 230); // Same as fill = no visible border
+                $pdf->Rect($posx, $posy, 82, 30, 'F'); // Fill only
 
-                // Customer name - allow multiple lines for long names
-                $pdf->SetXY($posx + 2, $posy + 1);
-                $pdf->SetFont('', 'B', $default_font_size - 1);
-                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
+                // Customer name
+                $pdf->SetXY($posx + 2, $posy + 2);
+                $pdf->SetFont('', 'B', $default_font_size);
+                $pdf->SetDrawColor(0, 0, 0); // Reset draw color
+                $pdf->MultiCell(78, 4, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
 
                 // Customer address
                 $pdf->SetFont('', '', $default_font_size - 1);
-                $curY = $pdf->GetY(); // Get Y after name (handles multi-line names)
+                $curY = $pdf->GetY();
                 if ($soc->address) {
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->address), 0, 'L');
@@ -426,44 +455,18 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->MultiCell(78, 3, $soc->zip.' '.$soc->town, 0, 'L');
                 $curY = $pdf->GetY();
 
-                if ($soc->country) {
+                // Phone
+                if ($soc->phone) {
                     $pdf->SetXY($posx + 2, $curY);
-                    $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->country), 0, 'L');
+                    $pdf->MultiCell(78, 3, $outputlangs->transnoentities("Phone").": ".$soc->phone, 0, 'L');
+                    $curY = $pdf->GetY();
                 }
-            }
 
-            // Company (right side - was "Client")
-            $posx = 120;
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($posx, $posy - 5);
-            $pdf->SetTextColor(0, 0, 60);
-            $pdf->MultiCell(80, 3, $outputlangs->transnoentities("FromCompany").":", 0, 'L');
-
-            $pdf->SetXY($posx, $posy);
-            $pdf->SetFillColor(230, 230, 230);
-            $pdf->MultiCell(82, 45, "", 0, 'R', 1);
-
-            // Company name
-            $pdf->SetXY($posx + 2, $posy + 1);
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
-
-            // Company address
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $curY = $posy + 5;
-            if ($mysoc->address) {
-                $pdf->SetXY($posx + 2, $curY);
-                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->address), 0, 'L');
-                $curY = $pdf->GetY();
-            }
-
-            $pdf->SetXY($posx + 2, $curY);
-            $pdf->MultiCell(78, 3, $mysoc->zip.' '.$mysoc->town, 0, 'L');
-            $curY = $pdf->GetY();
-
-            if ($mysoc->country) {
-                $pdf->SetXY($posx + 2, $curY);
-                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->country), 0, 'L');
+                // Email
+                if ($soc->email) {
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->MultiCell(78, 3, $outputlangs->transnoentities("Email").": ".$soc->email, 0, 'L');
+                }
             }
         }
 
@@ -703,46 +706,30 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 0);
 
-        // Left column: Technician
+        // Left column: Technician (employee)
         $leftX = $this->marge_gauche;
         $rightX = 110;
 
-        // Technician signature label
+        // Technician signature label - like Soleil
         $pdf->SetXY($leftX, $curY);
-        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("SignatureTechnician").":", 0, 'L');
+        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("NameAndSignatureOfInternalContact").":", 0, 'L', false);
 
-        // Customer signature label
+        // Customer signature label - like Soleil
         $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("SignatureCustomer").":", 0, 'L');
+        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("NameAndSignatureOfExternalContact").":", 0, 'L', false);
 
         $curY += 5;
 
-        // Date fields ABOVE signature area (so online signature doesn't overwrite it)
+        // Signature boxes - like Soleil: larger boxes (80x25mm) with border
         $pdf->SetXY($leftX, $curY);
-        $pdf->MultiCell(80, 4, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
-
-        $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell(80, 4, $outputlangs->transnoentities("Date").": ________________", 0, 'L');
-
-        $curY += 5;
-
-        // Signature boxes with more space for online signatures
-        $pdf->SetXY($leftX, $curY);
-        $pdf->SetDrawColor(200, 200, 200);
-        $pdf->Rect($leftX, $curY, 80, 25, 'D'); // Draw rectangle for signature area
-
-        $pdf->SetXY($rightX, $curY);
-        $pdf->Rect($rightX, $curY, 80, 25, 'D');
-
-        $curY += 25;
-
-        // Signature lines at bottom of boxes
-        $pdf->SetDrawColor(128, 128, 128);
-        $pdf->Line($leftX, $curY, $leftX + 80, $curY);
-        $pdf->Line($rightX, $curY, $rightX + 80, $curY);
-
-        // Reset draw color
         $pdf->SetDrawColor(0, 0, 0);
+        $pdf->MultiCell(80, 25, '', 1, 'L'); // Border box for technician
+
+        $pdf->SetXY($rightX, $curY);
+        $pdf->MultiCell(80, 25, '', 1); // Border box for customer
+
+        // Note: Online signature will be added by Dolibarr's signature module below these boxes
+        // as "Unterschrift: DD.MM.YYYY - Name"
     }
 
     /**
