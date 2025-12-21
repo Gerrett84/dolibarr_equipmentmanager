@@ -406,16 +406,16 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 $pdf->SetXY($posx, $posy);
                 $pdf->SetFillColor(230, 230, 230);
-                $pdf->MultiCell(82, 60, "", 0, 'R', 1);
+                $pdf->MultiCell(82, 35, "", 0, 'R', 1);
 
-                // Customer name
+                // Customer name - allow multiple lines for long names
                 $pdf->SetXY($posx + 2, $posy + 1);
-                $pdf->SetFont('', 'B', $default_font_size);
+                $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
 
                 // Customer address
                 $pdf->SetFont('', '', $default_font_size - 1);
-                $curY = $posy + 5;
+                $curY = $pdf->GetY(); // Get Y after name (handles multi-line names)
                 if ($soc->address) {
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->address), 0, 'L');
@@ -429,40 +429,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 if ($soc->country) {
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($soc->country), 0, 'L');
-                    $curY = $pdf->GetY();
-                }
-
-                // Site/Object address (if different from customer address)
-                // Add spacing before site address
-                $curY += 2;
-                $pdf->SetXY($posx + 2, $curY);
-                $pdf->SetFont('', 'B', $default_font_size - 2);
-                $pdf->MultiCell(78, 3, $outputlangs->transnoentities("InterventionSite").":", 0, 'L');
-                $curY = $pdf->GetY();
-
-                // Check for alternative address fields in object
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $siteAddress = '';
-
-                // Try to get intervention address if available
-                if (!empty($object->address)) {
-                    $siteAddress = $object->address;
-                } elseif (!empty($object->note_public)) {
-                    // Extract address from public note if formatted correctly
-                    $lines = explode("\n", $object->note_public);
-                    if (count($lines) > 0 && (strpos(strtolower($lines[0]), 'objekt') !== false || strpos(strtolower($lines[0]), 'adresse') !== false)) {
-                        $siteAddress = implode(', ', array_slice($lines, 1, 2));
-                    }
-                }
-
-                if ($siteAddress) {
-                    $pdf->SetXY($posx + 2, $curY);
-                    $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($siteAddress), 0, 'L');
-                } else {
-                    $pdf->SetXY($posx + 2, $curY);
-                    $pdf->SetTextColor(150, 150, 150);
-                    $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
-                    $pdf->SetTextColor(0, 0, 0);
                 }
             }
 
@@ -501,7 +467,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
         }
 
-        return $posy + 65; // Increased due to larger address boxes (60mm customer box with site address)
+        return $posy + 40; // Space for 35mm address boxes
     }
 
     /**
