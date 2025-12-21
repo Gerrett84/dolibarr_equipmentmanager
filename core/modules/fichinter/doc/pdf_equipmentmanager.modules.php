@@ -246,20 +246,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             // Display equipment sections
             if (count($equipment_list) > 0) {
-                // Section header with border
-                $pdf->SetFont('', 'B', $default_font_size);
-                $pdf->SetXY($this->marge_gauche, $curY);
-                $pdf->SetFillColor(240, 240, 240);
-                $pdf->SetDrawColor(0, 0, 0);
-                $pdf->Cell(0, 6, "Beschreibung", 'T', 1, 'L', 1);
-                $curY = $pdf->GetY() + 2;
-
                 $total_material = 0;
                 $total_duration = 0;
                 $equipment_count = 0;
 
-                foreach ($equipment_list as $equipment) {
+                foreach ($equipment_list as $index => $equipment) {
                     $equipment_count++;
+                    $is_first = ($index === 0);
 
                     // Load equipment details
                     $detail = new InterventionDetail($this->db);
@@ -285,7 +278,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     }
 
                     // Render equipment section
-                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size);
+                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first);
                 }
 
                 // Close equipment section with bottom line
@@ -369,12 +362,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         $pdf->SetXY($this->marge_gauche, $posy);
 
-        // Logo
+        // Logo (increased size)
         $logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
         if ($mysoc->logo) {
             if (is_readable($logo)) {
                 $height = pdf_getHeightForLogo($logo);
-                $pdf->Image($logo, $this->marge_gauche, $posy, 0, $height);
+                $pdf->Image($logo, $this->marge_gauche, $posy, 0, $height * 1.8);  // Increased logo size by 80%
             } else {
                 $pdf->SetTextColor(200, 0, 0);
                 $pdf->SetFont('', 'B', $default_font_size - 2);
@@ -467,18 +460,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 // Object/Site address (if different from customer) - only show if exists
                 $pdf->SetFont('', '', $default_font_size - 2);
-                // Check for object address in note_public or other fields
+                // Check for object address in note_public
                 $objectAddr = '';
                 if (!empty($object->note_public)) {
-                    $lines = explode("\n", $object->note_public);
+                    $lines = explode("\n", trim($object->note_public));
                     // Check if first line indicates object address
-                    if (count($lines) > 0 && (stripos($lines[0], 'objekt') !== false || stripos($lines[0], 'adresse') !== false)) {
-                        $objectAddr = trim(implode(', ', array_slice($lines, 1, 2)));
+                    if (count($lines) > 1 && (stripos($lines[0], 'objekt') !== false || stripos($lines[0], 'adresse') !== false)) {
+                        // Take all lines after the first one
+                        $addrLines = array_slice($lines, 1);
+                        $objectAddr = trim(implode("\n", $addrLines));
                     }
                 }
 
                 // Only display if we have an object address
-                if ($objectAddr) {
+                if (!empty($objectAddr)) {
                     $curY += 2;
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->SetFont('', 'B', $default_font_size - 2);
@@ -532,15 +527,28 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
      * @param int $default_font_size Default font size
      * @return float New Y position
      */
-    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size)
+    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false)
     {
         // Store start position for border
         $startY = $curY;
+        $leftMargin = $this->marge_gauche;
+        $rightMargin = $this->marge_droite;
+        $pageWidth = $this->page_largeur;
+
+        // If first equipment, draw "Beschreibung" header (fully bordered)
+        if ($is_first) {
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->SetFillColor(240, 240, 240);
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->SetXY($leftMargin, $curY);
+            $pdf->Cell($pageWidth - $leftMargin - $rightMargin, 6, "Beschreibung", 'TLR', 1, 'L', 1);
+            $curY = $pdf->GetY();
+        }
 
         $pdf->SetFont('', 'B', $default_font_size + 1);
         $pdf->SetXY($this->marge_gauche, $curY);
         $pdf->SetTextColor(0, 0, 100);
-        $pdf->MultiCell(0, 5, "Anlage ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
+        $pdf->MultiCell(0, 5, "Anlage: ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
 
         $curY = $pdf->GetY() + 2;
 
@@ -633,41 +641,58 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $curY = $pdf->GetY() + 2;
 
             $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->SetXY($this->marge_gauche + 2, $curY);
             $pdf->MultiCell(0, 4, $outputlangs->transnoentities("UsedMaterial").":", 0, 'L');
             $curY = $pdf->GetY() + 1;
 
             // Table header (without price column) - continuous columns
             $pdf->SetFont('', 'B', $default_font_size - 2);
             $pdf->SetFillColor(220, 220, 220);
+            $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
-            $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 1, 0, 'C', 1);
-            $pdf->Cell(45, 5, $outputlangs->transnoentities("Unit"), 1, 1, 'C', 1);
+            $pdf->SetXY($leftMargin, $curY);
+            $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 'LTB', 0, 'L', 1);
+            $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'TB', 0, 'C', 1);
+            $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RTB', 1, 'C', 1);
 
             $curY = $pdf->GetY();
 
             // Table rows (without price column) - continuous columns
             $pdf->SetFont('', '', $default_font_size - 2);
+            $materialCount = count($materials);
+            $materialIndex = 0;
             foreach ($materials as $material) {
-                $pdf->SetXY($this->marge_gauche, $curY);
-                $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
-                $pdf->Cell(25, 5, $material->quantity, 1, 0, 'C');
-                $pdf->Cell(45, 5, $outputlangs->convToOutputCharset($material->unit), 1, 1, 'C');
+                $materialIndex++;
+                $isLast = ($materialIndex === $materialCount);
+                $pdf->SetXY($leftMargin, $curY);
+                $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 'L'.($isLast ? 'B' : ''), 0, 'L');
+                $pdf->Cell(25, 5, $material->quantity, ($isLast ? 'B' : ''), 0, 'C');
+                $pdf->Cell($sectionWidth - 145, 5, $outputlangs->convToOutputCharset($material->unit), 'R'.($isLast ? 'B' : ''), 1, 'C');
 
                 $curY = $pdf->GetY();
             }
         }
 
-        // Add some spacing before border
+        // Add some spacing
         $curY = $pdf->GetY() + 3;
 
-        // Draw border around entire equipment section
+        // Draw left and right borders around equipment section content (not using Rect to avoid double lines)
         $pdf->SetDrawColor(0, 0, 0);
         $sectionHeight = $curY - $startY;
-        $sectionWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-        $pdf->Rect($this->marge_gauche, $startY, $sectionWidth, $sectionHeight);
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
+
+        // Left border
+        $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
+        // Right border
+        $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
+        // Bottom border (only if no materials, otherwise materials table provides it)
+        if (count($materials) === 0) {
+            $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+        }
+        // Top border (only if not first, first has "Beschreibung" header)
+        if (!$is_first) {
+            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
+        }
 
         return $curY + 5;
     }
@@ -732,27 +757,28 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 0);
 
-        // Left column: Technician (employee)
+        // Calculate symmetric positions for signature boxes
+        $boxWidth = 80;
         $leftX = $this->marge_gauche;
-        $rightX = 110;
+        $rightX = $this->page_largeur - $this->marge_droite - $boxWidth;
 
         // Technician signature label - like Soleil
         $pdf->SetXY($leftX, $curY);
-        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("NameAndSignatureOfInternalContact").":", 0, 'L', false);
+        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfInternalContact").":", 0, 'L', false);
 
         // Customer signature label - like Soleil
         $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell(80, 5, $outputlangs->transnoentities("NameAndSignatureOfExternalContact").":", 0, 'L', false);
+        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfExternalContact").":", 0, 'L', false);
 
         $curY += 5;
 
         // Signature boxes - like Soleil: larger boxes (80x25mm) with border
         $pdf->SetXY($leftX, $curY);
         $pdf->SetDrawColor(0, 0, 0);
-        $pdf->MultiCell(80, 25, '', 1, 'L'); // Border box for technician
+        $pdf->MultiCell($boxWidth, 25, '', 1, 'L'); // Border box for technician
 
         $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell(80, 25, '', 1); // Border box for customer
+        $pdf->MultiCell($boxWidth, 25, '', 1); // Border box for customer
 
         // Note: Online signature will be added by Dolibarr's signature module below these boxes
         // as "Unterschrift: DD.MM.YYYY - Name"
