@@ -116,10 +116,16 @@ Die `description` Spalte **MUSS leer** sein für normale PDF-Templates!
 - `libelle`: Anzeigename ('Equipment Manager')
 - `description`: Leer für PDF-Templates, oder Konstanten-Name für ODT-Templates
 
-### Nächste Schritte
+### Implementierung
 1. ✅ Bug gefunden und gefixt
-2. ⏳ Modul deaktivieren/aktivieren um Datenbank zu aktualisieren
-3. ⏳ Testen ob Template jetzt im Dropdown erscheint
+2. ✅ Commit erstellt: `2acf963`
+3. ✅ Gepusht nach origin/1.6.1
+
+### Test-Anleitung
+1. Im LXC Container pullen: `git pull origin 1.6.1`
+2. Modul deaktivieren: Setup → Module → EquipmentManager → Deaktivieren
+3. Modul aktivieren: Setup → Module → EquipmentManager → Aktivieren
+4. Testen: Serviceauftrag öffnen → PDF-Template sollte "Equipment Manager" zeigen (NICHT "Keine")
 
 ## Test-Scripts vorhanden
 - `test_fichinter_support.php` - Prüft PDF-Support
