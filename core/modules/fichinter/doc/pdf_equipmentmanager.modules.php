@@ -246,6 +246,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             // Display equipment sections
             if (count($equipment_list) > 0) {
+                // Section header with border
+                $pdf->SetFont('', 'B', $default_font_size);
+                $pdf->SetXY($this->marge_gauche, $curY);
+                $pdf->SetFillColor(240, 240, 240);
+                $pdf->SetDrawColor(0, 0, 0);
+                $pdf->Cell(0, 6, "Beschreibung", 'T', 1, 'L', 1);
+                $curY = $pdf->GetY() + 2;
+
                 $total_material = 0;
                 $total_duration = 0;
                 $equipment_count = 0;
@@ -264,8 +272,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $equipment_material_total = InterventionMaterial::getTotalForEquipment($this->db, $object->id, $equipment->id);
                     $total_material += $equipment_material_total;
 
-                    // Add work duration
-                    if ($detail->work_duration > 0) {
+                    // Add work duration (exclude maintenance equipment - user requested: no time for maintenance)
+                    if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
                         $total_duration += $detail->work_duration;
                     }
 
@@ -279,6 +287,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     // Render equipment section
                     $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size);
                 }
+
+                // Close equipment section with bottom line
+                $curY = $pdf->GetY() + 2;
+                $pdf->SetDrawColor(0, 0, 0);
+                $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+                $curY += 3;
 
                 // Summary section
                 if ($pdf->GetY() > 230) {
@@ -404,48 +418,24 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         }
 
         if ($showaddress) {
-            // Left side: Company (sender) - like Soleil: with border, NO background
+            // Left side: Customer - with background and phone/email
             $posy = 42;
             $posx = $this->marge_gauche;
 
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($posx, $posy);
-            $pdf->SetDrawColor(0, 0, 0);
-            $pdf->Rect($posx, $posy, 82, 30); // Border only, no fill
-
-            // Company name
-            $pdf->SetXY($posx + 2, $posy + 2);
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->MultiCell(78, 4, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
-
-            // Company address
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $curY = $pdf->GetY();
-            if ($mysoc->address) {
-                $pdf->SetXY($posx + 2, $curY);
-                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->address), 0, 'L');
-                $curY = $pdf->GetY();
-            }
-
-            $pdf->SetXY($posx + 2, $curY);
-            $pdf->MultiCell(78, 3, $mysoc->zip.' '.$mysoc->town, 0, 'L');
-
-            // Right side: Customer - like Soleil: with background, NO border, with phone/email
             if ($object->socid > 0) {
                 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
                 $soc = new Societe($this->db);
                 $soc->fetch($object->socid);
 
-                $posx = 120;
                 $pdf->SetXY($posx, $posy);
                 $pdf->SetFillColor(230, 230, 230);
-                $pdf->SetDrawColor(230, 230, 230); // Same as fill = no visible border
-                $pdf->Rect($posx, $posy, 82, 30, 'F'); // Fill only
+                $pdf->SetDrawColor(230, 230, 230);
+                $pdf->Rect($posx, $posy, 82, 50, 'F'); // Larger box for customer + object address
 
                 // Customer name
                 $pdf->SetXY($posx + 2, $posy + 2);
                 $pdf->SetFont('', 'B', $default_font_size);
-                $pdf->SetDrawColor(0, 0, 0); // Reset draw color
+                $pdf->SetDrawColor(0, 0, 0);
                 $pdf->MultiCell(78, 4, $outputlangs->convToOutputCharset($soc->name), 0, 'L');
 
                 // Customer address
@@ -472,11 +462,72 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 if ($soc->email) {
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->MultiCell(78, 3, $outputlangs->transnoentities("Email").": ".$soc->email, 0, 'L');
+                    $curY = $pdf->GetY();
+                }
+
+                // Object/Site address (if different from customer)
+                $curY += 2;
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->SetFont('', 'B', $default_font_size - 2);
+                $pdf->MultiCell(78, 3, $outputlangs->transnoentities("InterventionAddress").":", 0, 'L');
+                $curY = $pdf->GetY();
+
+                $pdf->SetFont('', '', $default_font_size - 2);
+                // Check for object address in note_public or other fields
+                if (!empty($object->note_public)) {
+                    $lines = explode("\n", $object->note_public);
+                    // Check if first line indicates object address
+                    if (count($lines) > 0 && (stripos($lines[0], 'objekt') !== false || stripos($lines[0], 'adresse') !== false)) {
+                        $objectAddr = trim(implode(', ', array_slice($lines, 1, 2)));
+                        if ($objectAddr) {
+                            $pdf->SetXY($posx + 2, $curY);
+                            $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($objectAddr), 0, 'L');
+                        } else {
+                            $pdf->SetXY($posx + 2, $curY);
+                            $pdf->SetTextColor(150, 150, 150);
+                            $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
+                            $pdf->SetTextColor(0, 0, 0);
+                        }
+                    } else {
+                        $pdf->SetXY($posx + 2, $curY);
+                        $pdf->SetTextColor(150, 150, 150);
+                        $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
+                        $pdf->SetTextColor(0, 0, 0);
+                    }
+                } else {
+                    $pdf->SetXY($posx + 2, $curY);
+                    $pdf->SetTextColor(150, 150, 150);
+                    $pdf->MultiCell(78, 3, "(".$outputlangs->transnoentities("SameAsCustomer").")", 0, 'L');
+                    $pdf->SetTextColor(0, 0, 0);
                 }
             }
+
+            // Right side: Company - with border only
+            $posx = 120;
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->Rect($posx, $posy, 82, 30); // Border only
+
+            // Company name
+            $pdf->SetXY($posx + 2, $posy + 2);
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->MultiCell(78, 4, $outputlangs->convToOutputCharset($mysoc->name), 0, 'L');
+
+            // Company address
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $curY = $pdf->GetY();
+            if ($mysoc->address) {
+                $pdf->SetXY($posx + 2, $curY);
+                $pdf->MultiCell(78, 3, $outputlangs->convToOutputCharset($mysoc->address), 0, 'L');
+                $curY = $pdf->GetY();
+            }
+
+            $pdf->SetXY($posx + 2, $curY);
+            $pdf->MultiCell(78, 3, $mysoc->zip.' '.$mysoc->town, 0, 'L');
         }
 
-        return $posy + 40; // Space for 35mm address boxes
+        return $posy + 55; // Space for larger customer box (50mm) with object address
     }
 
     /**
@@ -528,7 +579,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Date").": ".dol_print_date($detail->work_date, 'day', false, $outputlangs, true), 0, 'L');
         }
 
-        if ($detail->work_duration > 0) {
+        // Only show duration if NOT a maintenance equipment (user requested: no time for maintenance equipment)
+        if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
             $hours = floor($detail->work_duration / 60);
             $minutes = $detail->work_duration % 60;
             $duration_text = $hours."h";
@@ -593,31 +645,23 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->MultiCell(0, 4, $outputlangs->transnoentities("UsedMaterial").":", 0, 'L');
             $curY = $pdf->GetY() + 1;
 
-            // Table header (without price column)
+            // Table header (without price column) - continuous columns
             $pdf->SetFont('', 'B', $default_font_size - 2);
             $pdf->SetFillColor(220, 220, 220);
 
-            $col_article = $this->marge_gauche;
-            $col_qty = $this->marge_gauche + 120;
-            $col_unit = $this->marge_gauche + 145;
-
-            $pdf->SetXY($col_article, $curY);
-            $pdf->Cell(115, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
-            $pdf->SetXY($col_qty, $curY);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 1, 0, 'L', 1);
             $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 1, 0, 'C', 1);
-            $pdf->SetXY($col_unit, $curY);
             $pdf->Cell(45, 5, $outputlangs->transnoentities("Unit"), 1, 0, 'C', 1);
 
             $curY += 5;
 
-            // Table rows (without price column)
+            // Table rows (without price column) - continuous columns
             $pdf->SetFont('', '', $default_font_size - 2);
             foreach ($materials as $material) {
-                $pdf->SetXY($col_article, $curY);
-                $pdf->Cell(115, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
-                $pdf->SetXY($col_qty, $curY);
+                $pdf->SetXY($this->marge_gauche, $curY);
+                $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 1, 0, 'L');
                 $pdf->Cell(25, 5, $material->quantity, 1, 0, 'C');
-                $pdf->SetXY($col_unit, $curY);
                 $pdf->Cell(45, 5, $outputlangs->convToOutputCharset($material->unit), 1, 0, 'C');
 
                 $curY += 5;
