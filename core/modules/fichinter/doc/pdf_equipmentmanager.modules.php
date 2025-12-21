@@ -280,6 +280,34 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     // Render equipment section
                     $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration);
                 }
+
+                // Add summary table after all equipment sections
+                if ($total_duration > 0) {
+                    $curY = $pdf->GetY() + 5;
+
+                    // Calculate duration text
+                    $hours = floor($total_duration / 60);
+                    $minutes = $total_duration % 60;
+                    $duration_text = $hours."h";
+                    if ($minutes > 0) {
+                        $duration_text .= " ".$minutes."min";
+                    }
+
+                    // Summary in full-width table - same font size as description
+                    $pdf->SetFont('', '', $default_font_size - 1);
+                    $pdf->SetTextColor(0, 0, 0);
+                    $pdf->SetDrawColor(0, 0, 0);
+
+                    // Draw full-width table with border
+                    $leftMargin = $this->marge_gauche;
+                    $rightMargin = $this->marge_droite;
+                    $pageWidth = $this->page_largeur;
+                    $summaryWidth = $pageWidth - $leftMargin - $rightMargin;
+
+                    $pdf->SetXY($leftMargin, $curY);
+                    $pdf->Cell($summaryWidth, 5, "Gesamtdauer: ".$duration_text, 1, 1, 'R');
+                    $curY = $pdf->GetY();
+                }
             }
 
             // Signature section
@@ -598,28 +626,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         $curY += 4;
 
-        // Date and duration in two columns
-        $dateY = $curY;
-        if ($detail->work_date) {
-            $pdf->SetXY($this->marge_gauche, $dateY);
-            $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Date").": ".dol_print_date($detail->work_date, 'day', false, $outputlangs, true), 0, 'L');
-        }
-
-        // Only show duration if NOT a maintenance equipment (user requested: no time for maintenance equipment)
-        if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
-            $hours = floor($detail->work_duration / 60);
-            $minutes = $detail->work_duration % 60;
-            $duration_text = $hours."h";
-            if ($minutes > 0) {
-                $duration_text .= " ".$minutes."min";
-            }
-
-            $pdf->SetXY(110, $dateY);
-            $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Duration").": ".$duration_text, 0, 'L');
-        }
-
-        $curY = $pdf->GetY() + 3;
-
         // Work done
         if ($detail->work_done) {
             $pdf->SetFont('', 'B', $default_font_size - 1);
@@ -691,44 +697,43 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $materialIndex++;
                 $isLast = ($materialIndex === $materialCount);
                 $pdf->SetXY($leftMargin, $curY);
-                $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 'L'.($isLast ? 'B' : ''), 0, 'L');
-                $pdf->Cell(25, 5, $material->quantity, ($isLast ? 'B' : ''), 0, 'C');
-                $pdf->Cell($sectionWidth - 145, 5, $outputlangs->convToOutputCharset($material->unit), 'R'.($isLast ? 'B' : ''), 1, 'C');
+                $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 'L', 0, 'L');
+                $pdf->Cell(25, 5, $material->quantity, '', 0, 'C');
+                $pdf->Cell($sectionWidth - 145, 5, $outputlangs->convToOutputCharset($material->unit), 'R', 1, 'C');
 
                 $curY = $pdf->GetY();
             }
-        }
-
-        // Add some spacing after materials or recommendations
-        if (count($materials) > 0) {
-            $curY = $pdf->GetY() + 3;
         } else {
-            $curY = $pdf->GetY() + 3;
+            // Add spacing if no materials
+            $curY = $pdf->GetY() + 2;
         }
 
-        // Add summary if this is the last equipment
-        if ($is_last && $total_duration > 0) {
-            $curY = $pdf->GetY() + 5;
+        // Date and duration at the end in gray background - always shown
+        $pdf->SetFont('', '', $default_font_size - 2);
+        $pdf->SetFillColor(220, 220, 220);
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-            // Calculate duration text
-            $hours = floor($total_duration / 60);
-            $minutes = $total_duration % 60;
-            $duration_text = $hours."h";
+        $date_text = '';
+        if ($detail->work_date) {
+            $date_text = $outputlangs->transnoentities("Date").": ".dol_print_date($detail->work_date, 'day', false, $outputlangs, true);
+        }
+
+        $duration_text = '';
+        // Only show duration if NOT a maintenance equipment (user requested: no time for maintenance equipment)
+        if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
+            $hours = floor($detail->work_duration / 60);
+            $minutes = $detail->work_duration % 60;
+            $duration_text = $outputlangs->transnoentities("Duration").": ".$hours."h";
             if ($minutes > 0) {
                 $duration_text .= " ".$minutes."min";
             }
-
-            // Summary in narrow table - same font size as description
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetTextColor(0, 0, 0);
-            $pdf->SetDrawColor(0, 0, 0);
-
-            // Draw narrow table with border
-            $summaryWidth = $sectionWidth * 0.6; // 60% of section width
-            $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell($summaryWidth, 5, "Gesamtdauer: ".$duration_text, 1, 1, 'R');
-            $curY = $pdf->GetY();
         }
+
+        $pdf->SetXY($leftMargin, $curY);
+        $halfWidth = $sectionWidth / 2;
+        $pdf->Cell($halfWidth, 5, $date_text, 'LB', 0, 'L', 1);
+        $pdf->Cell($halfWidth, 5, $duration_text, 'RB', 1, 'R', 1);
+        $curY = $pdf->GetY();
 
         // Add spacing before closing border
         $curY = $pdf->GetY() + 2;
@@ -742,8 +747,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
         // Right border
         $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
-        // Bottom border - always draw for last equipment, or when there are no materials
-        if ($is_last || count($materials) === 0) {
+        // Bottom border - always draw for last equipment
+        if ($is_last) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
         // Top border (only if not first, first has "Beschreibung" header)
