@@ -441,12 +441,17 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY = $pdf->GetY();
                 }
 
-                // Object/Site address - only show if note_public contains address
+                // Object/Site address - check multiple possible fields
                 $pdf->SetFont('', '', $default_font_size - 2);
-                // Use note_public as object address if it exists and is not empty
                 $objectAddr = '';
+
+                // Try note_public first (internal notes)
                 if (!empty($object->note_public)) {
                     $objectAddr = trim($object->note_public);
+                }
+                // Try note_private if note_public is empty
+                if (empty($objectAddr) && !empty($object->note_private)) {
+                    $objectAddr = trim($object->note_private);
                 }
 
                 // Only display if we have an object address
@@ -454,7 +459,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY += 2;
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->SetFont('', 'B', $default_font_size - 2);
-                    $pdf->MultiCell(78, 3, $outputlangs->transnoentities("InterventionAddress").":", 0, 'L');
+                    $pdf->MultiCell(78, 3, "Objektadresse:", 0, 'L');
                     $curY = $pdf->GetY();
 
                     $pdf->SetFont('', '', $default_font_size - 2);
@@ -586,6 +591,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         $curY = $pdf->GetY() + 3;
 
+        // Separator line between equipment data and work description
+        $pdf->SetDrawColor(180, 180, 180);
+        $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+        $curY += 3;
+
         // Work done
         if ($detail->work_done) {
             $pdf->SetFont('', 'B', $default_font_size - 1);
@@ -643,7 +653,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
             $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell(120, 5, $outputlangs->transnoentities("Article"), 'LT', 0, 'L', 1);
+            $pdf->Cell(120, 5, "Material", 'LT', 0, 'L', 1);
             $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'T', 0, 'C', 1);
             $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RT', 1, 'C', 1);
 
@@ -669,31 +679,27 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         if ($is_last && $total_duration > 0) {
             $curY = $pdf->GetY() + 5;
 
-            // Summary header
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->SetXY($leftMargin + 2, $curY);
-            $pdf->SetTextColor(0, 0, 100);
-            $pdf->MultiCell(0, 5, "Zusammenfassung", 0, 'L');
-            $curY = $pdf->GetY() + 2;
-
-            // Total duration
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetTextColor(0, 0, 0);
+            // Calculate duration text
             $hours = floor($total_duration / 60);
             $minutes = $total_duration % 60;
             $duration_text = $hours."h";
             if ($minutes > 0) {
                 $duration_text .= " ".$minutes."min";
             }
+
+            // Summary on one line: left "Zusammenfassung", right duration
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->SetTextColor(0, 0, 0);
             $pdf->SetXY($leftMargin + 2, $curY);
-            $pdf->MultiCell(0, 5, "Gesamtdauer: ".$duration_text, 0, 'L');
+            $pdf->Cell(60, 5, "Zusammenfassung", 0, 0, 'L');
+            $pdf->Cell(0, 5, $duration_text, 0, 1, 'R');
             $curY = $pdf->GetY();
         }
 
         // Add some spacing
         $curY = $pdf->GetY() + 3;
 
-        // Draw left and right borders around equipment section content (not using Rect to avoid double lines)
+        // Draw borders around equipment section content
         $pdf->SetDrawColor(0, 0, 0);
         $sectionHeight = $curY - $startY;
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
@@ -702,8 +708,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
         // Right border
         $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
-        // Bottom border - always draw if last, otherwise only if no materials
-        if ($is_last || count($materials) === 0) {
+        // Bottom border - ALWAYS draw if last or no materials (materials table draws its own bottom)
+        if ($is_last) {
+            // Last equipment: always draw bottom
+            $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+        } else if (count($materials) === 0) {
+            // No materials: draw bottom
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
         // Top border (only if not first, first has "Beschreibung" header)
