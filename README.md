@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 1.5.1** | Professionelle Anlagenverwaltung mit Wartungsplanung
+**Version 1.6.1** | Professionelle Anlagenverwaltung mit Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -17,6 +17,7 @@
 - **Wartungs-Historie** - Vollständige Dokumentation aller Arbeiten mit Link zu Serviceaufträgen
 - **Status-Tracking** - Ausstehend → In Bearbeitung → Erledigt
 - **Manuelle Erledigung** - Für Sonderfälle außerhalb des Workflows
+- **PDF-Export** - Professionelle Serviceberichte mit Equipment-Details, Material und Signaturen ([Anleitung](PDF_TEMPLATE_GUIDE.md))
 
 ### Equipment-Typen
 
@@ -60,6 +61,15 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v1.6.1 (2024-12-21)
+
+- ✨ **PDF-Export für Serviceaufträge** - Professionelles Template mit Equipment-Details
+- ✨ **Equipment-spezifische PDFs** - Arbeiten, Mängel, Empfehlungen pro Anlage
+- ✨ **Material-Listen** - Verbrauchtes Material mit Preisen im PDF
+- ✨ **Signaturen** - Unterschriftenfelder für Techniker und Kunde
+- ✨ **Zusammenfassung** - Gesamt-Arbeitszeit und Materialkosten
+- 📚 **Detaillierte Dokumentation**: Siehe [PDF_TEMPLATE_GUIDE.md](PDF_TEMPLATE_GUIDE.md)
 
 ### v1.5.1 (2024-12-19)
 
@@ -183,6 +193,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 1.5.1  
-**Released:** December 2024  
+**Current Version:** 1.6.1
+**Released:** December 2024
 **Compatibility:** Dolibarr 22.0+

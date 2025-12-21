@@ -213,7 +213,7 @@ class modEquipmentManager extends DolibarrModules
         $db->query($sql);
 
         $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
-        $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', '')";
+        $sql .= " VALUES ('equipmentmanager', 'fichinter', ".$conf->entity.", 'Equipment Manager', '')";
         $result = $db->query($sql);
 
         if (!$result) {
