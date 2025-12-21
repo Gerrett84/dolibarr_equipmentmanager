@@ -19,7 +19,7 @@ dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
 /**
  * Class to generate PDF for Fichinter with Equipment Manager details
  */
-class equipmentmanager extends ModelePDFFicheinter
+class pdf_equipmentmanager extends ModelePDFFicheinter
 {
     /**
      * @var DoliDB Database handler

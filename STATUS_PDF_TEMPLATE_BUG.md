@@ -90,13 +90,15 @@ Eventuell ist der Scan-Mechanismus für Custom-Module in dieser Dolibarr-Version
 
 ## ✅ LÖSUNG GEFUNDEN!
 
-### Root Cause
+### Bug 1: Template zeigt "Keine" im Dropdown
+
+#### Root Cause
 In `modEquipmentManager.class.php:216` wurde die `description` Spalte mit Text befüllt:
 ```php
 VALUES ('equipmentmanager', 'ficheinter', ..., 'Equipment Manager', 'Service report with equipment details and materials')
 ```
 
-### Das Problem
+#### Das Problem
 `getListOfModels()` in `functions2.lib.php:2004-2037` behandelt die `description` Spalte als:
 - **Leer** → Template wird direkt verwendet (normale PDF-Templates)
 - **Befüllt** → Wird als Konstanten-Name für zu scannende Verzeichnisse interpretiert (ODT-Templates)
@@ -105,7 +107,7 @@ Da `getDolGlobalString('Service report with equipment details and materials')` l
 werden keine Dateien gefunden → Zeile 2036: `$liste[0] = $obj->label.': '.$langs->trans("None");`
 Ergebnis: "Equipment Manager: Keine"
 
-### Die Fix
+#### Fix für Bug 1
 **Zeile 216 geändert zu:**
 ```php
 VALUES ('equipmentmanager', 'ficheinter', ..., 'Equipment Manager', '')
@@ -115,6 +117,27 @@ Die `description` Spalte **MUSS leer** sein für normale PDF-Templates!
 - `nom`: Interner Name ('equipmentmanager')
 - `libelle`: Anzeigename ('Equipment Manager')
 - `description`: Leer für PDF-Templates, oder Konstanten-Name für ODT-Templates
+
+### Bug 2: Template kann nicht geladen werden
+
+#### Root Cause
+Datei hieß `equipmentmanager.modules.php` und Klasse `class equipmentmanager`.
+
+Dolibarr's `fichinter_create()` in `modules_fichinter.php:147` sucht nach:
+```php
+$file = $prefix."_".$modele.".modules.php";  // doc_equipmentmanager.modules.php oder pdf_equipmentmanager.modules.php
+```
+
+#### Das Problem
+Ohne `pdf_` Prefix findet Dolibarr die Template-Datei nicht → Fehler:
+```
+Failed to load doc generator with modelpaths=core/modules/fichinter/doc/ - modele=equipmentmanager
+```
+
+#### Fix für Bug 2
+1. **Datei umbenannt:** `equipmentmanager.modules.php` → `pdf_equipmentmanager.modules.php`
+2. **Klasse umbenannt:** `class equipmentmanager` → `class pdf_equipmentmanager`
+3. **$this->name bleibt:** `'equipmentmanager'` (OHNE Prefix, muss mit DB-`nom` übereinstimmen)
 
 ### Implementierung
 1. ✅ Bug gefunden und gefixt
