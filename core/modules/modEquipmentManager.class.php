@@ -207,58 +207,13 @@ class modEquipmentManager extends DolibarrModules
             return -1;
         }
 
-        // Create v1.6 tables (Equipment Details and Material for PDF export)
-        $sql = "CREATE TABLE IF NOT EXISTS ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail (
-            rowid INT AUTO_INCREMENT PRIMARY KEY,
-            fk_intervention INT NOT NULL,
-            fk_equipment INT NOT NULL,
-            report_text TEXT,
-            work_done TEXT,
-            issues_found TEXT,
-            recommendations TEXT,
-            notes TEXT,
-            work_date DATE,
-            work_duration INT DEFAULT 0,
-            date_creation DATETIME NOT NULL,
-            tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            fk_user_creat INT,
-            fk_user_modif INT,
-            INDEX idx_intervention (fk_intervention),
-            INDEX idx_equipment (fk_equipment),
-            UNIQUE KEY uk_intervention_equipment (fk_intervention, fk_equipment)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        $db->query($sql);
-
-        $sql = "CREATE TABLE IF NOT EXISTS ".MAIN_DB_PREFIX."equipmentmanager_intervention_material (
-            rowid INT AUTO_INCREMENT PRIMARY KEY,
-            fk_intervention INT NOT NULL,
-            fk_equipment INT NOT NULL,
-            fk_product INT DEFAULT NULL,
-            material_name VARCHAR(255) NOT NULL,
-            material_description TEXT,
-            quantity DECIMAL(10,2) NOT NULL DEFAULT 1,
-            unit VARCHAR(50) DEFAULT 'Stk',
-            unit_price DECIMAL(10,2) DEFAULT 0,
-            total_price DECIMAL(10,2) DEFAULT 0,
-            serial_number VARCHAR(255),
-            notes TEXT,
-            date_creation DATETIME NOT NULL,
-            tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            fk_user_creat INT,
-            fk_user_modif INT,
-            INDEX idx_intervention (fk_intervention),
-            INDEX idx_equipment (fk_equipment),
-            INDEX idx_product (fk_product)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        $db->query($sql);
-
         // Register PDF template for Fichinter
         // Clean up old entries (both old name and wrong type)
         $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type IN ('fichinter', 'ficheinter') AND entity = ".$conf->entity;
         $db->query($sql);
 
         $sql = "INSERT INTO ".MAIN_DB_PREFIX."document_model (nom, type, entity, libelle, description)";
-        $sql .= " VALUES ('equipmentmanager', 'fichinter', ".$conf->entity.", 'Equipment Manager', 'Service report with equipment details and materials')";
+        $sql .= " VALUES ('equipmentmanager', 'ficheinter', ".$conf->entity.", 'Equipment Manager', '')";
         $result = $db->query($sql);
 
         if (!$result) {
