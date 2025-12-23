@@ -168,8 +168,26 @@ class InterventionDetail extends CommonObject
      */
     public function createOrUpdate(User $user)
     {
+        // Save current data before fetch (which would overwrite it)
+        $saved_data = array(
+            'work_done' => $this->work_done,
+            'issues_found' => $this->issues_found,
+            'recommendations' => $this->recommendations,
+            'notes' => $this->notes,
+            'work_date' => $this->work_date,
+            'work_duration' => $this->work_duration
+        );
+
         $existing = $this->fetchByInterventionEquipment($this->fk_intervention, $this->fk_equipment);
-        
+
+        // Restore saved data after fetch
+        $this->work_done = $saved_data['work_done'];
+        $this->issues_found = $saved_data['issues_found'];
+        $this->recommendations = $saved_data['recommendations'];
+        $this->notes = $saved_data['notes'];
+        $this->work_date = $saved_data['work_date'];
+        $this->work_duration = $saved_data['work_duration'];
+
         if ($existing > 0) {
             return $this->update($user);
         } else {

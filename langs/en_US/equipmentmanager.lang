@@ -141,6 +141,7 @@ DeleteEquipment=Delete Equipment
 
 # Equipment Details - v1.6
 EquipmentDetails=Equipment Details
+ServiceReport=Service Report
 WorkDone=Work Done
 IssuesFound=Issues Found
 Recommendations=Recommendations
