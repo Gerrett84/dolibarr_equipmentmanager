@@ -427,11 +427,12 @@ if ($object->id > 0) {
     print '<td class="titlefield">'.$langs->trans('Product').'</td>';
     print '<td>';
 
-    // Load products
+    // Load products (only material, not services)
     $sql = "SELECT p.rowid, p.ref, p.label, p.price, p.description";
     $sql .= " FROM ".MAIN_DB_PREFIX."product as p";
     $sql .= " WHERE p.entity IN (".getEntity('product').")";
     $sql .= " AND p.tosell = 1";
+    $sql .= " AND p.fini = 0"; // 0 = Product (Material), 1 = Service
     $sql .= " ORDER BY p.ref ASC";
 
     $resql = $db->query($sql);
@@ -441,10 +442,12 @@ if ($object->id > 0) {
         $i = 0;
         while ($i < $num) {
             $obj = $db->fetch_object($resql);
+            // Format price to 2 decimal places
+            $formatted_price = price2num($obj->price, 2);
             $products[$obj->rowid] = array(
                 'ref' => $obj->ref,
                 'label' => $obj->label,
-                'price' => $obj->price,
+                'price' => $formatted_price,
                 'description' => $obj->description
             );
             $i++;
