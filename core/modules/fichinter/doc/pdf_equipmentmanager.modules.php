@@ -720,11 +720,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         if (count($materials) > 0) {
             $curY = $pdf->GetY() + 2;
 
-            $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("UsedMaterial").":", 0, 'L');
-            $curY = $pdf->GetY() + 1;
-
             // Table header (without price column) - continuous columns
             $pdf->SetFont('', 'B', $default_font_size - 2);
             $pdf->SetFillColor(220, 220, 220);
@@ -734,7 +729,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetCellPadding(1);
 
             $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell(120, 5, "Material", 'LT', 0, 'L', 1);
+            $pdf->Cell(120, 5, "Material:", 'LT', 0, 'L', 1);
             $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'T', 0, 'C', 1);
             $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RT', 1, 'C', 1);
 
