@@ -432,7 +432,7 @@ if ($object->id > 0) {
     $sql .= " FROM ".MAIN_DB_PREFIX."product as p";
     $sql .= " WHERE p.entity IN (".getEntity('product').")";
     $sql .= " AND p.tosell = 1";
-    $sql .= " AND p.fini = 0"; // 0 = Product (Material), 1 = Service
+    $sql .= " AND p.fk_product_type = 0"; // 0 = Product (Material), 1 = Service
     $sql .= " ORDER BY p.ref ASC";
 
     $resql = $db->query($sql);
