@@ -270,8 +270,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                         $total_duration += $detail->work_duration;
                     }
 
-                    // Check if we need a new page
-                    if ($pdf->GetY() > 250) {
+                    // Estimate minimum space needed for this equipment section
+                    $estimated_height = 15; // Base: title + equipment info
+                    if ($detail->work_done) $estimated_height += 15;
+                    if ($detail->issues_found) $estimated_height += 15;
+                    if ($detail->recommendations) $estimated_height += 15;
+                    if ($detail->notes) $estimated_height += 10;
+                    if (count($materials) > 0) {
+                        $estimated_height += 10 + (count($materials) * 5); // Material table header + rows
+                    }
+
+                    // Check if equipment section would fit on current page
+                    // If not enough space (less than estimated height + 20mm safety margin), start new page
+                    $available_space = 280 - $pdf->GetY(); // Page height is ~297mm, footer at ~280mm
+                    if ($available_space < $estimated_height + 20) {
                         $pdf->AddPage();
                         $pagenb++;
                         $curY = $tab_top_newpage;
