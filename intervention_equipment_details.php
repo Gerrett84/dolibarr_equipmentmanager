@@ -77,13 +77,47 @@ if ($action == 'save_detail' && $permissiontoadd && $equipment_id > 0) {
     $detail->work_duration = ($hours * 60) + $minutes;
     
     $result = $detail->createOrUpdate($user);
-    
+
     if ($result > 0) {
+        // Auto-create Fichinter line if none exists (enables validation/freigabe)
+        // This makes the standard Dolibarr "Validate" button available without manual line entry
+        if ($object->status == Fichinter::STATUS_DRAFT) {
+            // Check if intervention has any lines
+            $sql = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."fichinterdet WHERE fk_fichinter = ".(int)$object->id;
+            $resql = $db->query($sql);
+            $has_lines = false;
+            if ($resql) {
+                $obj = $db->fetch_object($resql);
+                $has_lines = ($obj->nb > 0);
+            }
+
+            // If no lines, create one automatically
+            if (!$has_lines) {
+                require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinterligne.class.php';
+
+                // Build description from all equipment
+                $desc = "Service durchgeführt";
+
+                // Use the work date from this detail, or intervention date
+                $intervention_date = $detail->work_date ? $detail->work_date : $object->dateo;
+
+                // Use work duration (convert from minutes to seconds for Dolibarr)
+                $duration_seconds = $detail->work_duration * 60;
+
+                // Add the line
+                $line_result = $object->addline($user, $object->id, $desc, $intervention_date, $duration_seconds);
+
+                if ($line_result <= 0) {
+                    dol_syslog("Failed to auto-create fichinter line: ".$object->error, LOG_WARNING);
+                }
+            }
+        }
+
         setEventMessages($langs->trans('DetailSaved'), null, 'mesgs');
     } else {
         setEventMessages($detail->error, $detail->errors, 'errors');
     }
-    
+
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
     exit;
 }
