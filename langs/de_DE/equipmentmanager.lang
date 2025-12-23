@@ -241,6 +241,10 @@ Unit=Einheit
 UnitPrice=Einzelpreis
 TotalPrice=Gesamtpreis
 TotalCost=Gesamtkosten
+Product=Produkt
+SelectProduct=Produkt auswählen
+Optional=Optional
+OrEnterManually=Oder manuell eingeben
 
 # Messages
 

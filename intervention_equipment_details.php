@@ -23,6 +23,8 @@ if (!$res) {
 
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/fichinter.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
@@ -91,6 +93,7 @@ if ($action == 'add_material' && $permissiontoadd && $equipment_id > 0) {
     $material = new InterventionMaterial($db);
     $material->fk_intervention = $object->id;
     $material->fk_equipment = $equipment_id;
+    $material->fk_product = GETPOST('fk_product', 'int') > 0 ? GETPOST('fk_product', 'int') : null;
     $material->material_name = GETPOST('material_name', 'alpha');
     $material->material_description = GETPOST('material_description', 'restricthtml');
     $material->quantity = price2num(GETPOST('quantity', 'alpha'));
@@ -418,21 +421,64 @@ if ($object->id > 0) {
     print '<input type="hidden" name="equipment_id" value="'.$equipment_id.'">';
     
     print '<table class="border centpercent">';
+
+    // Product selector
+    print '<tr>';
+    print '<td class="titlefield">'.$langs->trans('Product').'</td>';
+    print '<td>';
+
+    // Load products
+    $sql = "SELECT p.rowid, p.ref, p.label, p.price, p.description";
+    $sql .= " FROM ".MAIN_DB_PREFIX."product as p";
+    $sql .= " WHERE p.entity IN (".getEntity('product').")";
+    $sql .= " AND p.tosell = 1";
+    $sql .= " ORDER BY p.ref ASC";
+
+    $resql = $db->query($sql);
+    $products = array();
+    if ($resql) {
+        $num = $db->num_rows($resql);
+        $i = 0;
+        while ($i < $num) {
+            $obj = $db->fetch_object($resql);
+            $products[$obj->rowid] = array(
+                'ref' => $obj->ref,
+                'label' => $obj->label,
+                'price' => $obj->price,
+                'description' => $obj->description
+            );
+            $i++;
+        }
+        $db->free($resql);
+    }
+
+    print '<select name="fk_product" id="product_selector" class="flat minwidth300" onchange="fillProductData()">';
+    print '<option value="0">-- '.$langs->trans('SelectProduct').' ('.$langs->trans('Optional').') --</option>';
+    foreach ($products as $prod_id => $prod) {
+        print '<option value="'.$prod_id.'" data-label="'.dol_escape_htmltag($prod['label']).'" data-price="'.$prod['price'].'" data-description="'.dol_escape_htmltag($prod['description']).'">';
+        print $prod['ref'].' - '.$prod['label'];
+        print '</option>';
+    }
+    print '</select>';
+    print ' <span class="opacitymedium">'.$langs->trans('OrEnterManually').'</span>';
+    print '</td>';
+    print '</tr>';
+
     print '<tr>';
     print '<td class="titlefield">'.$langs->trans('MaterialName').'</td>';
-    print '<td><input type="text" name="material_name" class="flat minwidth200" required></td>';
+    print '<td><input type="text" name="material_name" id="material_name" class="flat minwidth200" required></td>';
     print '</tr>';
     print '<tr>';
     print '<td>'.$langs->trans('Quantity').'</td>';
-    print '<td><input type="text" name="quantity" class="flat" value="1" required></td>';
+    print '<td><input type="text" name="quantity" id="material_quantity" class="flat" value="1" required></td>';
     print '</tr>';
     print '<tr>';
     print '<td>'.$langs->trans('Unit').'</td>';
-    print '<td><input type="text" name="unit" class="flat" value="Stk"></td>';
+    print '<td><input type="text" name="unit" id="material_unit" class="flat" value="Stk"></td>';
     print '</tr>';
     print '<tr>';
     print '<td>'.$langs->trans('UnitPrice').'</td>';
-    print '<td><input type="text" name="unit_price" class="flat" value="0"></td>';
+    print '<td><input type="text" name="unit_price" id="material_price" class="flat" value="0"></td>';
     print '</tr>';
     print '<tr>';
     print '<td colspan="2" class="center">';
@@ -490,6 +536,36 @@ if ($object->id > 0) {
     print '</table>';
     print '</div>';
 }
+
+// JavaScript for product auto-fill
+?>
+<script type="text/javascript">
+function fillProductData() {
+    var selector = document.getElementById('product_selector');
+    var selectedOption = selector.options[selector.selectedIndex];
+
+    if (selectedOption.value != '0') {
+        // Fill material name from product label
+        var label = selectedOption.getAttribute('data-label');
+        if (label) {
+            document.getElementById('material_name').value = label;
+        }
+
+        // Fill price
+        var price = selectedOption.getAttribute('data-price');
+        if (price) {
+            document.getElementById('material_price').value = price;
+        }
+
+        // Keep default quantity and unit
+    } else {
+        // Reset fields if "no product" is selected
+        document.getElementById('material_name').value = '';
+        document.getElementById('material_price').value = '0';
+    }
+}
+</script>
+<?php
 
 llxFooter();
 $db->close();
