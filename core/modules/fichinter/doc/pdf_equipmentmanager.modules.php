@@ -898,7 +898,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 // Center the image within the box
                 $sigX = $leftX + ($boxWidth - $finalWidth) / 2;
-                $sigY = $curY + ($25 - $finalHeight) / 2;
+                $sigY = $curY + (25 - $finalHeight) / 2;
 
                 // Insert the signature image
                 $pdf->Image($signature_file, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');

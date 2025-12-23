@@ -451,7 +451,13 @@ print '<td colspan="2">';
 if ($has_signature) {
     print '<div class="info">';
     print '<strong>'.$langs->trans("SignatureExists").'</strong><br>';
-    print '<img src="'.DOL_URL_ROOT.'/document.php?modulepart=equipmentmanager_signatures&file=user_'.$user->id.'.png" style="border: 1px solid #ccc; max-width: 400px; background: white; padding: 10px;" alt="Signature"><br><br>';
+
+    // Load signature as base64 data URL
+    $imageData = file_get_contents($signature_file);
+    $base64 = base64_encode($imageData);
+    $dataUrl = 'data:image/png;base64,'.$base64;
+
+    print '<img src="'.$dataUrl.'" style="border: 1px solid #ccc; max-width: 400px; background: white; padding: 10px;" alt="Signature"><br><br>';
     print '<a class="button butActionDelete" href="'.$_SERVER["PHP_SELF"].'?action=delete_signature&token='.newToken().'" onclick="return confirm(\''.$langs->trans("ConfirmDeleteSignature").'\');">';
     print $langs->trans("DeleteSignature");
     print '</a>';
