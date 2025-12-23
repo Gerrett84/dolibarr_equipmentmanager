@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 1.6.2** | Professionelle Anlagenverwaltung mit Wartungsplanung
+**Version 1.6.3** | Professionelle Anlagenverwaltung mit Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -61,6 +61,15 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v1.6.3 (2024-12-24)
+
+- ✨ **Techniker-Unterschrift** - Unterschrift im Setup zeichnen und in allen PDFs automatisch einfügen
+- ✨ **Signatur-Verwaltung** - Canvas-basierter Unterschriften-Pad mit Speichern/Löschen
+- ✨ **Auto-Insert in PDF** - Gespeicherte Unterschrift wird automatisch ins PDF eingefügt
+- 🎨 **PDF-Formatierung** - Verbesserte Zeitdarstellung mit Punkt nach "min."
+- 🎨 **PDF-Layout** - Dauer rechtsbündig für bessere Konsistenz mit Gesamtdauer
+- 📁 **Signatur-Speicherung** - Als transparentes PNG in `/equipmentmanager/signatures/`
 
 ### v1.6.2 (2024-12-23)
 
@@ -204,6 +213,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 1.6.2
+**Current Version:** 1.6.3
 **Released:** December 2024
 **Compatibility:** Dolibarr 22.0+
