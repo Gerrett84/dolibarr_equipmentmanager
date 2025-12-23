@@ -300,9 +300,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     // Calculate duration text
                     $hours = floor($total_duration / 60);
                     $minutes = $total_duration % 60;
-                    $duration_text = $hours."h";
+                    $duration_text = $hours." Std.";
                     if ($minutes > 0) {
-                        $duration_text .= " ".$minutes."min";
+                        $duration_text .= " ".$minutes." min";
                     }
 
                     // Summary in full-width table - same font size as description
@@ -641,7 +641,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $curY = $pdf->GetY() + 3;
 
         // Date and duration in gray background table
-        $pdf->SetFont('', '', $default_font_size - 2);
+        $pdf->SetFont('', 'B', $default_font_size - 2);
         $pdf->SetFillColor(220, 220, 220);
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
@@ -655,9 +655,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
             $hours = floor($detail->work_duration / 60);
             $minutes = $detail->work_duration % 60;
-            $duration_text = $outputlangs->transnoentities("Duration").": ".$hours."h";
+            $duration_text = $outputlangs->transnoentities("Duration").": ".$hours." Std.";
             if ($minutes > 0) {
-                $duration_text .= " ".$minutes."min";
+                $duration_text .= " ".$minutes." min";
             }
         }
 
@@ -665,9 +665,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetCellPadding(1);
 
         $pdf->SetXY($leftMargin, $curY);
-        $halfWidth = $sectionWidth / 2;
-        $pdf->Cell($halfWidth, 5, $date_text, 'LTB', 0, 'L', 1);
-        $pdf->Cell($halfWidth, 5, $duration_text, 'RTB', 1, 'R', 1);
+        // Date takes more space (120mm like material name), duration aligned with unit column
+        $pdf->Cell(120, 5, $date_text, 'LTB', 0, 'L', 1);
+        $pdf->Cell($sectionWidth - 120, 5, $duration_text, 'RTB', 1, 'L', 1);
 
         // Reset cell padding
         $pdf->SetCellPadding(0);
@@ -729,7 +729,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetCellPadding(1);
 
             $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell(120, 5, "Material:", 'LT', 0, 'L', 1);
+            $pdf->Cell(120, 5, "Material", 'LT', 0, 'L', 1);
             $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'T', 0, 'C', 1);
             $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RT', 1, 'C', 1);
 
