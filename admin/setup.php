@@ -109,6 +109,55 @@ if ($action == 'register_template') {
     exit;
 }
 
+// Save technician signature
+if ($action == 'save_signature') {
+    $signatureData = GETPOST('signature_data', 'alpha');
+
+    if (!empty($signatureData)) {
+        // Create signature directory if not exists
+        $signature_dir = DOL_DATA_ROOT.'/equipmentmanager/signatures';
+        if (!is_dir($signature_dir)) {
+            dol_mkdir($signature_dir);
+        }
+
+        // Remove data:image/png;base64, prefix
+        $signatureData = str_replace('data:image/png;base64,', '', $signatureData);
+        $signatureData = str_replace(' ', '+', $signatureData);
+        $imageData = base64_decode($signatureData);
+
+        // Save as PNG
+        $signature_file = $signature_dir.'/user_'.$user->id.'.png';
+        $result = file_put_contents($signature_file, $imageData);
+
+        if ($result !== false) {
+            setEventMessages($langs->trans("SignatureSaved"), null, 'mesgs');
+        } else {
+            setEventMessages($langs->trans("Error").': Could not save signature', null, 'errors');
+        }
+    } else {
+        setEventMessages($langs->trans("Error").': No signature data', null, 'errors');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
+// Delete technician signature
+if ($action == 'delete_signature') {
+    $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+
+    if (file_exists($signature_file)) {
+        if (unlink($signature_file)) {
+            setEventMessages($langs->trans("SignatureDeleted"), null, 'mesgs');
+        } else {
+            setEventMessages($langs->trans("Error").': Could not delete signature', null, 'errors');
+        }
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 /*
  * View
  */
@@ -381,6 +430,163 @@ print '</table>';
 print '</div>';
 
 print '</form>';
+
+// Technician Signature Section
+print '<br><br>';
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td colspan="2">';
+print '<span class="fa fa-pencil paddingright"></span>'.$langs->trans("TechnicianSignature");
+print '</td>';
+print '</tr>';
+
+// Check if user has signature
+$signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+$has_signature = file_exists($signature_file);
+
+print '<tr class="oddeven">';
+print '<td colspan="2">';
+
+if ($has_signature) {
+    print '<div class="info">';
+    print '<strong>'.$langs->trans("SignatureExists").'</strong><br>';
+    print '<img src="'.DOL_URL_ROOT.'/document.php?modulepart=equipmentmanager_signatures&file=user_'.$user->id.'.png" style="border: 1px solid #ccc; max-width: 400px; background: white; padding: 10px;" alt="Signature"><br><br>';
+    print '<a class="button butActionDelete" href="'.$_SERVER["PHP_SELF"].'?action=delete_signature&token='.newToken().'" onclick="return confirm(\''.$langs->trans("ConfirmDeleteSignature").'\');">';
+    print $langs->trans("DeleteSignature");
+    print '</a>';
+    print '</div>';
+} else {
+    print '<div class="warning">';
+    print $langs->trans("NoSignatureYet").'<br>';
+    print $langs->trans("DrawYourSignatureBelow");
+    print '</div>';
+}
+
+print '<br>';
+
+// Signature Pad Canvas
+print '<div style="border: 2px solid #ccc; display: inline-block; background: white;">';
+print '<canvas id="signature-pad" width="400" height="200" style="touch-action: none; cursor: crosshair;"></canvas>';
+print '</div><br><br>';
+
+print '<button type="button" class="button" onclick="clearSignature()">'.$langs->trans("Clear").'</button> ';
+print '<button type="button" class="button button-save" onclick="saveSignature()">'.$langs->trans("SaveSignature").'</button>';
+
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
+
+// Hidden form for signature submission
+print '<form id="signature-form" method="POST" action="'.$_SERVER["PHP_SELF"].'" style="display:none;">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_signature">';
+print '<input type="hidden" name="signature_data" id="signature_data">';
+print '</form>';
+
+// Signature Pad JavaScript (inline to avoid external dependencies)
+?>
+<script>
+// Signature Pad Library (MIT License) - Simplified inline version
+(function() {
+    var canvas = document.getElementById('signature-pad');
+    var ctx = canvas.getContext('2d');
+    var drawing = false;
+    var lastX = 0;
+    var lastY = 0;
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Mouse events
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    // Touch events
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        var touch = e.touches[0];
+        var rect = canvas.getBoundingClientRect();
+        lastX = touch.clientX - rect.left;
+        lastY = touch.clientY - rect.top;
+        drawing = true;
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (!drawing) return;
+        var touch = e.touches[0];
+        var rect = canvas.getBoundingClientRect();
+        var x = touch.clientX - rect.left;
+        var y = touch.clientY - rect.top;
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        lastX = x;
+        lastY = y;
+    });
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        drawing = false;
+    });
+
+    function startDrawing(e) {
+        drawing = true;
+        var rect = canvas.getBoundingClientRect();
+        lastX = e.clientX - rect.left;
+        lastY = e.clientY - rect.top;
+    }
+
+    function draw(e) {
+        if (!drawing) return;
+        var rect = canvas.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        lastX = x;
+        lastY = y;
+    }
+
+    function stopDrawing() {
+        drawing = false;
+    }
+
+    window.clearSignature = function() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+
+    window.saveSignature = function() {
+        // Check if canvas is empty
+        var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        var isEmpty = !imgData.data.some(channel => channel !== 0);
+
+        if (isEmpty) {
+            alert('<?php echo $langs->trans("PleaseDrawSignature"); ?>');
+            return;
+        }
+
+        // Get image data as base64
+        var dataURL = canvas.toDataURL('image/png');
+        document.getElementById('signature_data').value = dataURL;
+        document.getElementById('signature-form').submit();
+    };
+})();
+</script>
+<?php
 
 // End of page
 llxFooter();

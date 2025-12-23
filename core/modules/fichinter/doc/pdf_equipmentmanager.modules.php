@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2024 Equipment Manager
- * PDF Template for Fichinter with Equipment Details v1.6.1
+ * PDF Template for Fichinter with Equipment Details v1.6.3
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -843,6 +843,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
      */
     protected function _renderSignatures(&$pdf, $object, $curY, $outputlangs, $default_font_size)
     {
+        global $user, $conf;
+
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 0);
 
@@ -865,6 +867,43 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetXY($leftX, $curY);
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->MultiCell($boxWidth, 25, '', 1, 'L'); // Border box for technician
+
+        // Check if technician has a saved signature and insert it
+        $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+        if (file_exists($signature_file)) {
+            // Insert signature image into technician box
+            // Position: inside the box with small padding
+            $sigX = $leftX + 2;
+            $sigY = $curY + 2;
+            $sigMaxWidth = $boxWidth - 4;
+            $sigMaxHeight = 21; // 25mm box height - 4mm padding
+
+            // Get image dimensions to maintain aspect ratio
+            $imageInfo = getimagesize($signature_file);
+            if ($imageInfo !== false) {
+                $imgWidth = $imageInfo[0];
+                $imgHeight = $imageInfo[1];
+                $aspectRatio = $imgWidth / $imgHeight;
+
+                // Calculate dimensions to fit within the box
+                if ($sigMaxWidth / $sigMaxHeight > $aspectRatio) {
+                    // Height is the limiting factor
+                    $finalHeight = $sigMaxHeight;
+                    $finalWidth = $sigMaxHeight * $aspectRatio;
+                } else {
+                    // Width is the limiting factor
+                    $finalWidth = $sigMaxWidth;
+                    $finalHeight = $sigMaxWidth / $aspectRatio;
+                }
+
+                // Center the image within the box
+                $sigX = $leftX + ($boxWidth - $finalWidth) / 2;
+                $sigY = $curY + ($25 - $finalHeight) / 2;
+
+                // Insert the signature image
+                $pdf->Image($signature_file, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');
+            }
+        }
 
         $pdf->SetXY($rightX, $curY);
         $pdf->MultiCell($boxWidth, 25, '', 1); // Border box for customer

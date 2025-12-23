@@ -199,3 +199,16 @@ TemplateNotSetAsDefault=Not yet set as default
 PleaseSetAsDefaultInTableBelow=Please click "Set as default" in the table below
 CurrentDefault=Current default
 SetAsDefault=Set as default
+
+# Technician Signature - v1.6.3
+
+TechnicianSignature=Technician Signature
+SignatureExists=Signature exists
+NoSignatureYet=No signature saved yet
+DrawYourSignatureBelow=Draw your signature below
+SaveSignature=Save Signature
+SignatureSaved=Signature saved
+SignatureDeleted=Signature deleted
+DeleteSignature=Delete Signature
+ConfirmDeleteSignature=Do you really want to delete your signature?
+PleaseDrawSignature=Please draw a signature first
