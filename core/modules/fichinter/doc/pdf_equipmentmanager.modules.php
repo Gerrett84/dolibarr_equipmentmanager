@@ -302,7 +302,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $minutes = $total_duration % 60;
                     $duration_text = $hours." Std.";
                     if ($minutes > 0) {
-                        $duration_text .= " ".$minutes." min";
+                        $duration_text .= " ".$minutes." min.";
                     }
 
                     // Summary in full-width table - same font size as description
@@ -657,7 +657,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $minutes = $detail->work_duration % 60;
             $duration_text = $outputlangs->transnoentities("Duration").": ".$hours." Std.";
             if ($minutes > 0) {
-                $duration_text .= " ".$minutes." min";
+                $duration_text .= " ".$minutes." min.";
             }
         }
 
@@ -665,9 +665,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetCellPadding(1);
 
         $pdf->SetXY($leftMargin, $curY);
-        // Date takes more space (120mm like material name), duration aligned with unit column
+        // Date takes more space (120mm like material name), duration right-aligned with total duration
         $pdf->Cell(120, 5, $date_text, 'LTB', 0, 'L', 1);
-        $pdf->Cell($sectionWidth - 120, 5, $duration_text, 'RTB', 1, 'L', 1);
+        $pdf->Cell($sectionWidth - 120, 5, $duration_text, 'RTB', 1, 'R', 1);
 
         // Reset cell padding
         $pdf->SetCellPadding(0);
@@ -815,7 +815,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $minutes = $total_duration % 60;
             $duration_text = $hours."h";
             if ($minutes > 0) {
-                $duration_text .= " ".$minutes."min";
+                $duration_text .= " ".$minutes."min.";
             }
 
             $curY = $pdf->GetY();
