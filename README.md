@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 1.6.1** | Professionelle Anlagenverwaltung mit Wartungsplanung
+**Version 1.6.2** | Professionelle Anlagenverwaltung mit Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -61,6 +61,17 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v1.6.2 (2024-12-23)
+
+- ✨ **Produkt-Auswahl für Material** - Integration mit Dolibarr Produktkatalog
+- ✨ **Auto-Fill** - Automatische Übernahme von Produktname und -preis
+- ✨ **Auto-Freigabe** - Serviceauftrag kann direkt nach Bericht-Speicherung freigegeben werden
+- 🏷️ **Tab umbenannt** - "Anlagen Details" → "Servicebericht" (passender zum Zweck)
+- 🐛 **Fix:** Bearbeitung gespeicherter Serviceberichte funktioniert jetzt
+- 🐛 **Fix:** Material-Dropdown zeigt nur Produkte (keine Leistungen/Services)
+- 🐛 **Fix:** PDF-Seitenumbruch - Equipment-Berichte bleiben komplett auf einer Seite
+- 🐛 **Fix:** Preis-Formatierung mit korrekter Dezimalanzahl
 
 ### v1.6.1 (2024-12-21)
 
@@ -193,6 +204,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 1.6.1
+**Current Version:** 1.6.2
 **Released:** December 2024
 **Compatibility:** Dolibarr 22.0+
