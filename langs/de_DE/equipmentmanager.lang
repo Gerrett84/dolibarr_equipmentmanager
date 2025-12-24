@@ -315,6 +315,8 @@ EquipmentCount=Anzahl Anlagen
 TotalDuration=Gesamt-Arbeitszeit
 SignatureTechnician=Unterschrift Techniker
 SignatureCustomer=Unterschrift Kunde
+NameAndSignatureOfTechnician=Name und Unterschrift des Technikers
+NameAndSignatureOfCustomer=Name und Unterschrift des Kunden
 
 # PDF Template Registration
 

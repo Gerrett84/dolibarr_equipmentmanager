@@ -182,6 +182,8 @@ EquipmentCount=Equipment Count
 TotalDuration=Total Duration
 SignatureTechnician=Technician Signature
 SignatureCustomer=Customer Signature
+NameAndSignatureOfTechnician=Name and Signature of Technician
+NameAndSignatureOfCustomer=Name and Signature of Customer
 
 # PDF Template Registration
 

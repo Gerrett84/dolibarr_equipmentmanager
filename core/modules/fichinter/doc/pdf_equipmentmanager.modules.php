@@ -848,13 +848,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $leftX = $this->marge_gauche;
         $rightX = $this->page_largeur - $this->marge_droite - $boxWidth;
 
-        // Technician signature label - like Soleil
+        // Technician signature label
         $pdf->SetXY($leftX, $curY);
-        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfInternalContact"), 0, 'L', false);
+        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfTechnician"), 0, 'L', false);
 
-        // Customer signature label - like Soleil
+        // Customer signature label
         $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfExternalContact"), 0, 'L', false);
+        $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfCustomer"), 0, 'L', false);
 
         $curY += 5;
 
