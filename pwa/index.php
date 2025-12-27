@@ -507,6 +507,68 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             padding: 8px;
             margin-left: 8px;
         }
+
+        /* Product Search Results */
+        .product-results {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .product-results.show {
+            display: block;
+        }
+
+        .product-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .product-item:last-child {
+            border-bottom: none;
+        }
+
+        .product-item:hover, .product-item:active {
+            background: #f5f5f5;
+        }
+
+        .product-ref {
+            font-weight: 600;
+            font-size: 13px;
+            color: #263c5c;
+        }
+
+        .product-label {
+            font-size: 14px;
+        }
+
+        .product-price {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Add Equipment Button */
+        .add-equipment-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+            background: #e8f5e9;
+            border: 2px dashed #4caf50;
+            border-radius: 8px;
+            color: #2e7d32;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+
+        .add-equipment-btn:active {
+            background: #c8e6c9;
+        }
     </style>
 </head>
 <body>
@@ -666,6 +728,11 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             </div>
             <div class="modal-body">
                 <div class="form-group">
+                    <label class="form-label">Produkt suchen</label>
+                    <input type="text" class="form-input" id="productSearch" placeholder="Artikelnr. oder Name...">
+                    <div id="productResults" class="product-results"></div>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Bezeichnung *</label>
                     <input type="text" class="form-input" id="materialName" required>
                 </div>
@@ -706,6 +773,22 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-success btn-block" id="btnSaveMaterial">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipment Modal -->
+    <div class="modal" id="equipmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Anlage hinzufügen</h3>
+                <button type="button" class="modal-close" id="btnCloseEquipment">&times;</button>
+            </div>
+            <div class="modal-body" id="availableEquipmentList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Lade verfügbare Anlagen...</p>
+                </div>
             </div>
         </div>
     </div>

@@ -120,6 +120,18 @@ try {
             handleMaterial($method, $parts, $input);
             break;
 
+        case 'products':
+            handleProducts($method, $parts, $input);
+            break;
+
+        case 'available-equipment':
+            handleAvailableEquipment($method, $parts, $input);
+            break;
+
+        case 'link-equipment':
+            handleLinkEquipment($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -733,5 +745,188 @@ function handleMaterial($method, $parts, $input) {
     } else {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
+    }
+}
+
+/**
+ * GET /products - Search products
+ * GET /products?search=term - Search by name/ref
+ */
+function handleProducts($method, $parts, $input) {
+    global $db, $user;
+
+    if ($method !== 'GET' && $method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $search = $_GET['search'] ?? '';
+    $limit = (int)($_GET['limit'] ?? 50);
+
+    $sql = "SELECT p.rowid, p.ref, p.label, p.price, p.tva_tx";
+    $sql .= " FROM ".MAIN_DB_PREFIX."product p";
+    $sql .= " WHERE p.tosell = 1"; // Only products for sale
+
+    if (!empty($search)) {
+        $sql .= " AND (p.ref LIKE '%".$db->escape($search)."%'";
+        $sql .= " OR p.label LIKE '%".$db->escape($search)."%')";
+    }
+
+    $sql .= " ORDER BY p.label ASC";
+    $sql .= " LIMIT ".(int)$limit;
+
+    $resql = $db->query($sql);
+    $products = [];
+
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $products[] = [
+                'id' => (int)$obj->rowid,
+                'ref' => $obj->ref,
+                'label' => $obj->label,
+                'price' => (float)$obj->price,
+                'vat_rate' => (float)$obj->tva_tx
+            ];
+        }
+    }
+
+    echo json_encode([
+        'status' => 'ok',
+        'count' => count($products),
+        'products' => $products
+    ]);
+}
+
+/**
+ * GET /available-equipment/{intervention_id} - Get equipment from object addresses not yet linked
+ */
+function handleAvailableEquipment($method, $parts, $input) {
+    global $db, $user;
+
+    if ($method !== 'GET' && $method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $intervention_id = (int)($parts[1] ?? 0);
+    if (!$intervention_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Intervention ID required']);
+        return;
+    }
+
+    // Get the thirdparty (customer) of this intervention
+    $sql_inter = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$intervention_id;
+    $res_inter = $db->query($sql_inter);
+    if (!$res_inter || !$db->num_rows($res_inter)) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Intervention not found']);
+        return;
+    }
+    $inter = $db->fetch_object($res_inter);
+    $socid = (int)$inter->fk_soc;
+
+    // Get all equipment for this customer that is NOT yet linked to this intervention
+    $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
+    $sql .= " sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " WHERE e.fk_soc = ".(int)$socid;
+    $sql .= " AND e.rowid NOT IN (";
+    $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+    $sql .= "   WHERE fk_intervention = ".(int)$intervention_id;
+    $sql .= " )";
+    $sql .= " ORDER BY sp.lastname, sp.town, e.equipment_number";
+
+    $resql = $db->query($sql);
+    $equipment = [];
+
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $addressName = trim($obj->lastname . ' ' . $obj->firstname);
+            $equipment[] = [
+                'id' => (int)$obj->rowid,
+                'ref' => $obj->equipment_number,
+                'label' => $obj->label,
+                'type' => $obj->equipment_type,
+                'location' => $obj->location_note,
+                'address' => [
+                    'name' => $addressName,
+                    'street' => $obj->address,
+                    'zip' => $obj->zip,
+                    'town' => $obj->town
+                ]
+            ];
+        }
+    }
+
+    echo json_encode([
+        'status' => 'ok',
+        'intervention_id' => $intervention_id,
+        'count' => count($equipment),
+        'equipment' => $equipment
+    ]);
+}
+
+/**
+ * POST /link-equipment - Link equipment to intervention
+ */
+function handleLinkEquipment($method, $parts, $input) {
+    global $db, $user;
+
+    if ($method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $intervention_id = (int)($input['intervention_id'] ?? 0);
+    $equipment_id = (int)($input['equipment_id'] ?? 0);
+    $link_type = $input['link_type'] ?? 'service';
+
+    if (!$intervention_id || !$equipment_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'intervention_id and equipment_id required']);
+        return;
+    }
+
+    // Validate link_type
+    if (!in_array($link_type, ['maintenance', 'service'])) {
+        $link_type = 'service';
+    }
+
+    $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+    $sql .= " (fk_intervention, fk_equipment, link_type, date_creation, fk_user_creat)";
+    $sql .= " VALUES (";
+    $sql .= (int)$intervention_id.",";
+    $sql .= (int)$equipment_id.",";
+    $sql .= "'".$db->escape($link_type)."',";
+    $sql .= "'".$db->idate(dol_now())."',";
+    $sql .= (int)$user->id;
+    $sql .= ")";
+
+    $resql = $db->query($sql);
+
+    if ($resql) {
+        echo json_encode([
+            'status' => 'ok',
+            'message' => 'Equipment linked',
+            'intervention_id' => $intervention_id,
+            'equipment_id' => $equipment_id,
+            'link_type' => $link_type
+        ]);
+    } else {
+        // Check if duplicate
+        if ($db->lasterrno() == 1062) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Equipment already linked'
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to link equipment: ' . $db->lasterror()]);
+        }
     }
 }

@@ -135,6 +135,16 @@ class ServiceReportApp {
         document.getElementById('btnCloseMaterial').addEventListener('click', () => this.closeMaterialModal());
         document.getElementById('btnSaveMaterial').addEventListener('click', () => this.saveMaterial());
 
+        // Product search
+        let productSearchTimeout;
+        document.getElementById('productSearch').addEventListener('input', (e) => {
+            clearTimeout(productSearchTimeout);
+            productSearchTimeout = setTimeout(() => this.searchProducts(e.target.value), 300);
+        });
+
+        // Equipment modal buttons
+        document.getElementById('btnCloseEquipment').addEventListener('click', () => this.closeEquipmentModal());
+
         // Auto-save on input change (debounced)
         let saveTimeout;
         document.getElementById('detailForm').addEventListener('input', () => {
@@ -389,8 +399,15 @@ class ServiceReportApp {
 
             loadingEl.style.display = 'none';
 
+            // Add "Add Equipment" button
+            const addBtn = document.createElement('div');
+            addBtn.className = 'add-equipment-btn';
+            addBtn.innerHTML = '<span>➕</span> Anlage hinzufügen';
+            addBtn.addEventListener('click', () => this.showEquipmentModal());
+            listEl.appendChild(addBtn);
+
             if (equipment.length === 0) {
-                listEl.innerHTML = `
+                listEl.innerHTML += `
                     <div class="empty-state">
                         <div class="empty-icon">🔧</div>
                         <p>Kein Equipment verknüpft</p>
@@ -724,6 +741,9 @@ class ServiceReportApp {
 
     showMaterialModal() {
         // Reset form
+        document.getElementById('productSearch').value = '';
+        document.getElementById('productResults').classList.remove('show');
+        document.getElementById('productResults').innerHTML = '';
         document.getElementById('materialName').value = '';
         document.getElementById('materialDescription').value = '';
         document.getElementById('materialQty').value = '1';
@@ -823,6 +843,169 @@ class ServiceReportApp {
 
     formatPrice(value) {
         return parseFloat(value || 0).toFixed(2).replace('.', ',');
+    }
+
+    // Product search
+    async searchProducts(query) {
+        const resultsEl = document.getElementById('productResults');
+
+        if (!query || query.length < 2) {
+            resultsEl.classList.remove('show');
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        try {
+            const data = await this.apiCall(`products?search=${encodeURIComponent(query)}`);
+            const products = data.products || [];
+
+            if (products.length === 0) {
+                resultsEl.innerHTML = '<div class="product-item"><em>Keine Produkte gefunden</em></div>';
+            } else {
+                resultsEl.innerHTML = products.map(p => `
+                    <div class="product-item" data-id="${p.id}" data-ref="${p.ref}" data-label="${p.label}" data-price="${p.price}">
+                        <div class="product-ref">${p.ref}</div>
+                        <div class="product-label">${p.label}</div>
+                        <div class="product-price">${this.formatPrice(p.price)} €</div>
+                    </div>
+                `).join('');
+
+                // Add click handlers
+                resultsEl.querySelectorAll('.product-item').forEach(item => {
+                    item.addEventListener('click', () => this.selectProduct(item));
+                });
+            }
+
+            resultsEl.classList.add('show');
+        } catch (err) {
+            console.error('Product search failed:', err);
+            resultsEl.innerHTML = '<div class="product-item"><em>Fehler bei der Suche</em></div>';
+            resultsEl.classList.add('show');
+        }
+    }
+
+    selectProduct(item) {
+        const ref = item.dataset.ref;
+        const label = item.dataset.label;
+        const price = item.dataset.price;
+
+        document.getElementById('materialName').value = label;
+        document.getElementById('materialPrice').value = price;
+        document.getElementById('productSearch').value = ref + ' - ' + label;
+        document.getElementById('productResults').classList.remove('show');
+    }
+
+    // Equipment modal
+    async showEquipmentModal() {
+        document.getElementById('equipmentModal').classList.add('show');
+
+        const listEl = document.getElementById('availableEquipmentList');
+        listEl.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Lade verfügbare Anlagen...</p>
+            </div>
+        `;
+
+        try {
+            const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
+            const equipment = data.equipment || [];
+
+            if (equipment.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <p>Keine weiteren Anlagen verfügbar</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by address
+            const byAddress = {};
+            equipment.forEach(eq => {
+                const addrKey = eq.address?.town || 'Ohne Adresse';
+                if (!byAddress[addrKey]) {
+                    byAddress[addrKey] = {
+                        address: eq.address,
+                        equipment: []
+                    };
+                }
+                byAddress[addrKey].equipment.push(eq);
+            });
+
+            listEl.innerHTML = '';
+            Object.keys(byAddress).forEach(addrKey => {
+                const group = byAddress[addrKey];
+
+                // Address header
+                const header = document.createElement('div');
+                header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
+                header.innerHTML = `📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+                listEl.appendChild(header);
+
+                // Equipment items
+                group.equipment.forEach(eq => {
+                    const item = document.createElement('div');
+                    item.className = 'equipment-item';
+                    item.style.cursor = 'pointer';
+                    item.innerHTML = `
+                        <div class="equipment-icon">🚪</div>
+                        <div class="equipment-info">
+                            <div class="equipment-ref">${eq.ref}</div>
+                            <div class="equipment-label">${eq.label || eq.type || ''}</div>
+                            ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">Service</button>
+                            <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">Wartung</button>
+                        </div>
+                    `;
+
+                    item.querySelectorAll('button').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.linkEquipment(eq.id, btn.dataset.type);
+                        });
+                    });
+
+                    listEl.appendChild(item);
+                });
+            });
+
+        } catch (err) {
+            console.error('Failed to load available equipment:', err);
+            listEl.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <p>Fehler beim Laden</p>
+                </div>
+            `;
+        }
+    }
+
+    closeEquipmentModal() {
+        document.getElementById('equipmentModal').classList.remove('show');
+    }
+
+    async linkEquipment(equipmentId, linkType) {
+        try {
+            await this.apiCall('link-equipment', {
+                method: 'POST',
+                body: JSON.stringify({
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: equipmentId,
+                    link_type: linkType
+                })
+            });
+
+            this.showToast('Anlage hinzugefügt');
+            this.closeEquipmentModal();
+
+            // Reload equipment list
+            this.loadEquipment(this.currentIntervention);
+        } catch (err) {
+            console.error('Failed to link equipment:', err);
+            this.showToast('Fehler beim Hinzufügen');
+        }
     }
 }
 
