@@ -239,11 +239,12 @@ function handleIntervention($method, $parts, $input) {
 
     // If requesting equipment list
     if (isset($parts[2]) && $parts[2] === 'equipment') {
-        $equipment = getInterventionEquipment($id);
+        $result = getInterventionEquipment($id, true); // with debug
         echo json_encode([
             'status' => 'ok',
             'intervention_id' => $id,
-            'equipment' => $equipment
+            'equipment' => $result['equipment'],
+            'debug' => $result['debug']
         ]);
         return;
     }
@@ -273,10 +274,10 @@ function handleIntervention($method, $parts, $input) {
 /**
  * Get equipment linked to intervention
  */
-function getInterventionEquipment($intervention_id) {
+function getInterventionEquipment($intervention_id, $withDebug = false) {
     global $db;
 
-    $sql = "SELECT e.rowid, e.ref, e.label, e.equipment_type, e.serial_number,";
+    $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
     $sql .= " e.location_floor, e.location_building, e.location_room,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
@@ -286,7 +287,9 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql .= " ORDER BY e.ref";
+    $sql .= " ORDER BY e.equipment_number";
+
+    $debug = ['sql' => $sql];
 
     $resql = $db->query($sql);
     $equipment = [];
@@ -295,7 +298,7 @@ function getInterventionEquipment($intervention_id) {
         while ($obj = $db->fetch_object($resql)) {
             $eq = [
                 'id' => (int)$obj->rowid,
-                'ref' => $obj->ref,
+                'ref' => $obj->equipment_number,
                 'label' => $obj->label,
                 'type' => $obj->equipment_type,
                 'serial_number' => $obj->serial_number,
@@ -321,8 +324,14 @@ function getInterventionEquipment($intervention_id) {
 
             $equipment[] = $eq;
         }
+        $debug['num_rows'] = $db->num_rows($resql);
+    } else {
+        $debug['error'] = $db->lasterror();
     }
 
+    if ($withDebug) {
+        return ['equipment' => $equipment, 'debug' => $debug];
+    }
     return $equipment;
 }
 
