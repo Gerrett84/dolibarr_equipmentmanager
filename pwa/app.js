@@ -242,8 +242,10 @@ class ServiceReportApp {
 
             if (this.isOnline) {
                 // Fetch from API
-                const data = await this.apiCall('interventions');
+                // Fetch all interventions (including closed ones for now)
+                const data = await this.apiCall('interventions?status=all');
                 interventions = data.interventions || [];
+                console.log('API returned', interventions.length, 'interventions');
 
                 // Save to IndexedDB
                 await offlineDB.saveInterventions(interventions);

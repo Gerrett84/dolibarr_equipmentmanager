@@ -147,9 +147,13 @@ function handleInterventions($method, $parts, $input) {
 
     // Filter by status (draft=0, validated=1, closed=3)
     if (isset($_GET['status'])) {
-        $sql .= " AND f.fk_statut = ".(int)$_GET['status'];
+        if ($_GET['status'] === 'all') {
+            // Show all statuses
+        } else {
+            $sql .= " AND f.fk_statut = ".(int)$_GET['status'];
+        }
     } else {
-        // By default, show validated (open) interventions
+        // By default, show all non-closed interventions
         $sql .= " AND f.fk_statut IN (0, 1)";
     }
 
