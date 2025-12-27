@@ -1,0 +1,569 @@
+/**
+ * Main PWA Application
+ */
+
+class ServiceReportApp {
+    constructor() {
+        this.currentView = 'viewInterventions';
+        this.currentIntervention = null;
+        this.currentEquipment = null;
+        this.isOnline = navigator.onLine;
+        this.signatureInstance = null;
+
+        this.init();
+    }
+
+    async init() {
+        // Initialize IndexedDB
+        try {
+            await offlineDB.init();
+            console.log('IndexedDB initialized');
+        } catch (err) {
+            console.error('Failed to init IndexedDB:', err);
+            this.showToast('Offline-Speicher konnte nicht initialisiert werden');
+        }
+
+        // Setup event listeners
+        this.setupEventListeners();
+
+        // Update online status
+        this.updateOnlineStatus();
+
+        // Load initial data
+        await this.loadInterventions();
+
+        // Sync if online
+        if (this.isOnline) {
+            this.syncData();
+        }
+    }
+
+    setupEventListeners() {
+        // Online/Offline events
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            this.updateOnlineStatus();
+            this.syncData();
+        });
+
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            this.updateOnlineStatus();
+        });
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const view = e.currentTarget.dataset.view;
+                if (view) this.showView(view);
+            });
+        });
+
+        // Back button
+        document.getElementById('btnBack').addEventListener('click', () => this.goBack());
+
+        // Sync button
+        document.getElementById('btnSync').addEventListener('click', () => this.syncData());
+
+        // Detail form submit
+        document.getElementById('detailForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveDetail();
+        });
+
+        // Signature buttons
+        document.getElementById('btnClearSignature').addEventListener('click', () => this.clearSignature());
+        document.getElementById('btnSaveSignature').addEventListener('click', () => this.saveSignature());
+
+        // Auto-save on input change (debounced)
+        let saveTimeout;
+        document.getElementById('detailForm').addEventListener('input', () => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => this.autoSaveDetail(), 2000);
+        });
+    }
+
+    updateOnlineStatus() {
+        const statusEl = document.getElementById('syncStatus');
+        if (this.isOnline) {
+            statusEl.textContent = 'Online';
+            statusEl.className = 'sync-status online';
+        } else {
+            statusEl.textContent = 'Offline';
+            statusEl.className = 'sync-status offline';
+        }
+    }
+
+    showView(viewId, title = null) {
+        // Hide all views
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+        // Show target view
+        document.getElementById(viewId).classList.add('active');
+
+        // Update nav
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const navItem = document.querySelector(`[data-view="${viewId}"]`);
+        if (navItem) navItem.classList.add('active');
+
+        // Update header
+        const backBtn = document.getElementById('btnBack');
+        const headerTitle = document.getElementById('headerTitle');
+
+        if (viewId === 'viewInterventions') {
+            backBtn.style.display = 'none';
+            headerTitle.textContent = 'Serviceberichte';
+        } else {
+            backBtn.style.display = 'block';
+            if (title) headerTitle.textContent = title;
+        }
+
+        this.currentView = viewId;
+
+        // Initialize signature if needed
+        if (viewId === 'viewSignature' && !this.signatureInstance) {
+            this.initSignature();
+        }
+    }
+
+    goBack() {
+        switch (this.currentView) {
+            case 'viewEquipment':
+                this.showView('viewInterventions');
+                break;
+            case 'viewDetail':
+                this.loadEquipment(this.currentIntervention);
+                break;
+            case 'viewSignature':
+                this.loadEquipment(this.currentIntervention);
+                break;
+            default:
+                this.showView('viewInterventions');
+        }
+    }
+
+    // API calls with offline fallback
+    async apiCall(endpoint, options = {}) {
+        const url = CONFIG.apiBase + endpoint;
+
+        if (!this.isOnline) {
+            throw new Error('Offline');
+        }
+
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        return response.json();
+    }
+
+    // Load interventions
+    async loadInterventions() {
+        const loadingEl = document.getElementById('interventionsLoading');
+        const listEl = document.getElementById('interventionsList');
+
+        loadingEl.style.display = 'block';
+        listEl.innerHTML = '';
+
+        try {
+            let interventions = [];
+
+            if (this.isOnline) {
+                // Fetch from API
+                const data = await this.apiCall('interventions');
+                interventions = data.interventions || [];
+
+                // Save to IndexedDB
+                await offlineDB.saveInterventions(interventions);
+            } else {
+                // Load from IndexedDB
+                interventions = await offlineDB.getAll('interventions');
+            }
+
+            loadingEl.style.display = 'none';
+
+            if (interventions.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>Keine Interventionen gefunden</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render interventions
+            interventions.forEach(intervention => {
+                listEl.appendChild(this.createInterventionCard(intervention));
+            });
+
+        } catch (err) {
+            console.error('Failed to load interventions:', err);
+            loadingEl.style.display = 'none';
+
+            // Try loading from IndexedDB
+            const cached = await offlineDB.getAll('interventions');
+            if (cached.length > 0) {
+                cached.forEach(intervention => {
+                    listEl.appendChild(this.createInterventionCard(intervention));
+                });
+                this.showToast('Offline-Daten geladen');
+            } else {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <p>Fehler beim Laden</p>
+                        <p style="font-size:12px;">${err.message}</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    createInterventionCard(intervention) {
+        const card = document.createElement('div');
+        card.className = 'card card-clickable';
+
+        const statusClass = intervention.status === 0 ? 'draft' :
+                           intervention.status === 1 ? 'open' :
+                           intervention.signed_status > 0 ? 'signed' : 'done';
+
+        const statusText = intervention.status === 0 ? 'Entwurf' :
+                          intervention.status === 1 ? 'Offen' :
+                          intervention.signed_status > 0 ? 'Unterschrieben' : 'Abgeschlossen';
+
+        card.innerHTML = `
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
+                    <p class="card-subtitle">${intervention.customer?.name || 'Kunde'}</p>
+                </div>
+                <span class="badge badge-${statusClass}">${statusText}</span>
+            </div>
+            <div class="card-body">
+                <p style="margin:0; font-size:13px; color:#666;">
+                    ${intervention.customer?.address || ''}<br>
+                    ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
+                </p>
+                ${intervention.date_start ? `<p style="margin:8px 0 0; font-size:12px; color:#999;">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
+            </div>
+        `;
+
+        card.addEventListener('click', () => {
+            this.currentIntervention = intervention;
+            this.loadEquipment(intervention);
+        });
+
+        return card;
+    }
+
+    // Load equipment for intervention
+    async loadEquipment(intervention) {
+        this.showView('viewEquipment', intervention.ref);
+
+        const loadingEl = document.getElementById('equipmentLoading');
+        const listEl = document.getElementById('equipmentList');
+
+        loadingEl.style.display = 'block';
+        listEl.innerHTML = '';
+
+        // Show signature nav button
+        document.getElementById('navSignature').style.display = 'flex';
+
+        try {
+            let equipment = [];
+
+            if (this.isOnline) {
+                const data = await this.apiCall(`intervention/${intervention.id}/equipment`);
+                equipment = data.equipment || [];
+                await offlineDB.saveEquipment(intervention.id, equipment);
+            } else {
+                equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
+            }
+
+            loadingEl.style.display = 'none';
+
+            if (equipment.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔧</div>
+                        <p>Kein Equipment verknüpft</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Create equipment list
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            equipment.forEach(eq => {
+                const item = document.createElement('div');
+                item.className = 'equipment-item card-clickable';
+
+                const hasDetail = eq.detail && (eq.detail.work_done || eq.detail.issues_found);
+                const iconClass = hasDetail ? 'done' : 'pending';
+                const icon = hasDetail ? '✓' : '○';
+
+                item.innerHTML = `
+                    <div class="equipment-icon">🚪</div>
+                    <div class="equipment-info">
+                        <div class="equipment-ref">${eq.ref}</div>
+                        <div class="equipment-label">${eq.label || eq.type || ''}</div>
+                        ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                    </div>
+                    <div class="equipment-status ${iconClass}">${icon}</div>
+                `;
+
+                item.addEventListener('click', () => {
+                    this.currentEquipment = eq;
+                    this.loadDetail(eq);
+                });
+
+                card.appendChild(item);
+            });
+
+            listEl.appendChild(card);
+
+        } catch (err) {
+            console.error('Failed to load equipment:', err);
+            loadingEl.style.display = 'none';
+            this.showToast('Fehler beim Laden des Equipments');
+        }
+    }
+
+    // Load detail form
+    async loadDetail(equipment) {
+        this.showView('viewDetail', equipment.ref);
+
+        document.getElementById('detailEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
+
+        // Try to get from IndexedDB first (for offline edits)
+        let detail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
+
+        // If no local edits, use server data
+        if (!detail && equipment.detail) {
+            detail = {
+                intervention_id: this.currentIntervention.id,
+                equipment_id: equipment.id,
+                ...equipment.detail
+            };
+        }
+
+        // Populate form
+        document.getElementById('workDate').value = detail?.work_date || this.formatDateInput(new Date());
+        document.getElementById('workDuration').value = detail?.work_duration || '';
+        document.getElementById('workDone').value = detail?.work_done || '';
+        document.getElementById('issuesFound').value = detail?.issues_found || '';
+        document.getElementById('recommendations').value = detail?.recommendations || '';
+        document.getElementById('notes').value = detail?.notes || '';
+    }
+
+    // Save detail
+    async saveDetail() {
+        const detail = {
+            intervention_id: this.currentIntervention.id,
+            equipment_id: this.currentEquipment.id,
+            work_date: document.getElementById('workDate').value,
+            work_duration: parseInt(document.getElementById('workDuration').value) || 0,
+            work_done: document.getElementById('workDone').value,
+            issues_found: document.getElementById('issuesFound').value,
+            recommendations: document.getElementById('recommendations').value,
+            notes: document.getElementById('notes').value
+        };
+
+        // Save to IndexedDB
+        await offlineDB.saveDetail(detail);
+
+        // Update equipment in memory
+        if (this.currentEquipment) {
+            this.currentEquipment.detail = detail;
+        }
+
+        // Try to sync if online
+        if (this.isOnline) {
+            try {
+                await this.apiCall(`detail/${detail.intervention_id}/${detail.equipment_id}`, {
+                    method: 'POST',
+                    body: JSON.stringify(detail)
+                });
+                this.showToast('Gespeichert');
+            } catch (err) {
+                this.showToast('Offline gespeichert - wird synchronisiert');
+            }
+        } else {
+            this.showToast('Offline gespeichert');
+        }
+    }
+
+    async autoSaveDetail() {
+        await this.saveDetail();
+    }
+
+    // Signature handling
+    initSignature() {
+        const container = document.getElementById('signatureCanvas');
+        container.innerHTML = '';
+
+        $(container).jSignature({
+            color: '#000',
+            lineWidth: 2,
+            width: '100%',
+            height: 200
+        });
+
+        this.signatureInstance = $(container);
+    }
+
+    clearSignature() {
+        if (this.signatureInstance) {
+            this.signatureInstance.jSignature('clear');
+        }
+    }
+
+    async saveSignature() {
+        if (!this.signatureInstance) {
+            this.showToast('Unterschrift nicht initialisiert');
+            return;
+        }
+
+        const signerName = document.getElementById('signerName').value.trim();
+        if (!signerName) {
+            this.showToast('Bitte Name eingeben');
+            return;
+        }
+
+        // Get signature data
+        const signatureData = this.signatureInstance.jSignature('getData', 'base64');
+
+        if (!signatureData || signatureData.length < 2) {
+            this.showToast('Bitte unterschreiben');
+            return;
+        }
+
+        // signatureData is an array: ['image/png;base64', 'base64data']
+        const base64 = signatureData[1];
+
+        // Save to IndexedDB
+        await offlineDB.saveSignature(this.currentIntervention.id, base64, signerName);
+
+        // Try to sync if online
+        if (this.isOnline) {
+            try {
+                await this.apiCall(`signature/${this.currentIntervention.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        signature: base64,
+                        signer_name: signerName
+                    })
+                });
+                this.showToast('Unterschrift gespeichert');
+                this.currentIntervention.signed_status = 3;
+            } catch (err) {
+                this.showToast('Offline gespeichert - wird synchronisiert');
+            }
+        } else {
+            this.showToast('Unterschrift offline gespeichert');
+        }
+
+        // Go back to equipment list
+        this.loadEquipment(this.currentIntervention);
+    }
+
+    // Sync data with server
+    async syncData() {
+        if (!this.isOnline) {
+            this.showToast('Offline - Sync nicht möglich');
+            return;
+        }
+
+        const statusEl = document.getElementById('syncStatus');
+        statusEl.textContent = 'Sync...';
+        statusEl.className = 'sync-status syncing';
+
+        try {
+            // Get sync queue
+            const queue = await offlineDB.getSyncQueue();
+
+            if (queue.length === 0) {
+                this.showToast('Alles synchronisiert');
+                this.updateOnlineStatus();
+                return;
+            }
+
+            // Build changes array
+            const changes = queue.map(item => ({
+                type: item.type,
+                data: item.data
+            }));
+
+            // Send to server
+            const result = await this.apiCall('sync', {
+                method: 'POST',
+                body: JSON.stringify({ changes })
+            });
+
+            if (result.status === 'ok' || result.status === 'partial') {
+                // Clear queue
+                await offlineDB.clearSyncQueue();
+
+                // Mark details as synced
+                const details = await offlineDB.getAll('details');
+                for (const detail of details) {
+                    detail.synced = true;
+                    await offlineDB.put('details', detail);
+                }
+
+                this.showToast(`${changes.length} Änderungen synchronisiert`);
+            }
+
+            // Refresh data from server
+            await this.loadInterventions();
+
+        } catch (err) {
+            console.error('Sync failed:', err);
+            this.showToast('Sync fehlgeschlagen');
+        }
+
+        this.updateOnlineStatus();
+    }
+
+    // Utility functions
+    formatDate(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+
+    formatDateInput(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+}
+
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new ServiceReportApp();
+});
