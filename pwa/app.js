@@ -335,10 +335,12 @@ class ServiceReportApp {
         if (intervention.object_addresses && intervention.object_addresses.length > 0) {
             const addr = intervention.object_addresses[0]; // Show first address
             objectAddressHtml = `
-                <div style="margin-top:8px; padding-top:8px; border-top:1px solid #eee;">
-                    <p style="margin:0; font-size:12px; color:#263c5c; font-weight:500;">📍 Objektadresse:</p>
+                <div style="margin-top:12px; padding-top:12px; border-top:1px solid #eee;">
+                    <p style="margin:0; font-size:12px; color:#263c5c; font-weight:600;">📍 Objektadresse</p>
+                    <p style="margin:4px 0 0; font-size:13px; color:#333;">
+                        ${addr.name || ''}
+                    </p>
                     <p style="margin:2px 0 0; font-size:13px; color:#666;">
-                        ${addr.name || ''}<br>
                         ${addr.address || ''}<br>
                         ${addr.zip || ''} ${addr.town || ''}
                     </p>
@@ -360,8 +362,8 @@ class ServiceReportApp {
                     ${intervention.customer?.address || ''}<br>
                     ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
                 </p>
-                ${intervention.date_start ? `<p style="margin:8px 0 0; font-size:12px; color:#999;">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
                 ${objectAddressHtml}
+                ${intervention.date_start ? `<p style="margin:12px 0 0; font-size:12px; color:#999;">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
             </div>
         `;
 
@@ -420,6 +422,18 @@ class ServiceReportApp {
             const card = document.createElement('div');
             card.className = 'card';
 
+            // Equipment type labels
+            const typeLabels = {
+                'door_swing': 'Drehtür',
+                'door_sliding': 'Schiebetür',
+                'fire_door': 'Brandschutztür',
+                'door_closer': 'Türschließer',
+                'hold_open': 'Feststellanlage',
+                'rws': 'RWS',
+                'rwa': 'RWA',
+                'other': 'Sonstige'
+            };
+
             equipment.forEach(eq => {
                 const item = document.createElement('div');
                 item.className = 'equipment-item card-clickable';
@@ -427,13 +441,14 @@ class ServiceReportApp {
                 const hasDetail = eq.detail && (eq.detail.work_done || eq.detail.issues_found);
                 const iconClass = hasDetail ? 'done' : 'pending';
                 const icon = hasDetail ? '✓' : '○';
+                const typeName = typeLabels[eq.type] || eq.type || '';
 
                 item.innerHTML = `
                     <div class="equipment-icon">🚪</div>
                     <div class="equipment-info">
-                        <div class="equipment-ref">${eq.ref}</div>
-                        <div class="equipment-label">${eq.label || eq.type || ''}</div>
-                        ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                        <div class="equipment-ref">${eq.ref} - ${typeName}</div>
+                        <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
+                        ${eq.location ? `<div class="equipment-label" style="color:#888;">${eq.location}</div>` : ''}
                     </div>
                     <div class="equipment-status ${iconClass}">${icon}</div>
                 `;

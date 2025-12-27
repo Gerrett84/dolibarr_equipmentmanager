@@ -300,7 +300,7 @@ function getInterventionEquipment($intervention_id, $withDebug = false) {
     global $db;
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
-    $sql .= " e.location_note,";
+    $sql .= " e.location_note, e.manufacturer,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration";
@@ -323,6 +323,7 @@ function getInterventionEquipment($intervention_id, $withDebug = false) {
                 'ref' => $obj->equipment_number,
                 'label' => $obj->label,
                 'type' => $obj->equipment_type,
+                'manufacturer' => $obj->manufacturer ?: '',
                 'serial_number' => $obj->serial_number,
                 'location' => $obj->location_note ?: '',
                 'link_type' => $obj->link_type,
