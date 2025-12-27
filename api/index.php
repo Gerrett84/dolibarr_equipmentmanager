@@ -44,18 +44,32 @@ if (!$user->id) {
 
 // Parse request
 $method = $_SERVER['REQUEST_METHOD'];
-$uri = $_SERVER['REQUEST_URI'];
-$path = parse_url($uri, PHP_URL_PATH);
 
-// Remove base path to get endpoint
-$basePath = '/custom/equipmentmanager/api';
-$pos = strpos($path, $basePath);
-if ($pos !== false) {
-    $endpoint = substr($path, $pos + strlen($basePath));
+// Support both PATH_INFO and query parameter routing
+if (!empty($_GET['route'])) {
+    // Query parameter routing: ?route=interventions
+    $endpoint = $_GET['route'];
+} elseif (!empty($_SERVER['PATH_INFO'])) {
+    // PATH_INFO routing: /api/index.php/interventions
+    $endpoint = trim($_SERVER['PATH_INFO'], '/');
 } else {
-    $endpoint = $path;
+    // URI-based routing: /api/interventions
+    $uri = $_SERVER['REQUEST_URI'];
+    $path = parse_url($uri, PHP_URL_PATH);
+
+    // Remove base path to get endpoint
+    $basePath = '/custom/equipmentmanager/api';
+    $pos = strpos($path, $basePath);
+    if ($pos !== false) {
+        $endpoint = substr($path, $pos + strlen($basePath));
+    } else {
+        $endpoint = $path;
+    }
+    // Also remove index.php if present
+    $endpoint = str_replace('/index.php', '', $endpoint);
+    $endpoint = trim($endpoint, '/');
 }
-$endpoint = trim($endpoint, '/');
+
 $parts = explode('/', $endpoint);
 
 // Get JSON body for POST/PUT

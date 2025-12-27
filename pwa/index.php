@@ -16,13 +16,22 @@ if (!$res) {
 }
 
 // Check authentication
-if (!$user->id) {
-    header('Location: ' . DOL_URL_ROOT . '/user/logout.php');
-    exit;
+$isAuthenticated = ($user->id > 0);
+$authData = null;
+
+if ($isAuthenticated) {
+    // User is authenticated - prepare auth data for offline caching
+    $authData = [
+        'id' => (int)$user->id,
+        'login' => $user->login,
+        'name' => $user->getFullName($langs),
+        'timestamp' => time(),
+        'valid_until' => time() + (7 * 24 * 3600) // 7 days
+    ];
 }
 
 $title = 'Serviceberichte';
-$apiBase = dol_buildpath('/custom/equipmentmanager/api/', 1);
+$apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature.min.js';
 ?>
 <!DOCTYPE html>
@@ -526,8 +535,8 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         // Configuration
         const CONFIG = {
             apiBase: '<?php echo $apiBase; ?>',
-            user: '<?php echo $user->login; ?>',
-            userId: <?php echo (int)$user->id; ?>
+            isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
+            authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>
         };
     </script>
     <script src="db.js"></script>

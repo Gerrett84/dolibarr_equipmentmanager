@@ -9,6 +9,7 @@ class ServiceReportApp {
         this.currentEquipment = null;
         this.isOnline = navigator.onLine;
         this.signatureInstance = null;
+        this.user = null;
 
         this.init();
     }
@@ -21,6 +22,12 @@ class ServiceReportApp {
         } catch (err) {
             console.error('Failed to init IndexedDB:', err);
             this.showToast('Offline-Speicher konnte nicht initialisiert werden');
+        }
+
+        // Handle authentication
+        const authOk = await this.checkAuth();
+        if (!authOk) {
+            return; // Auth check shows error message
         }
 
         // Setup event listeners
@@ -36,6 +43,54 @@ class ServiceReportApp {
         if (this.isOnline) {
             this.syncData();
         }
+    }
+
+    async checkAuth() {
+        // If server says we're authenticated, cache the auth data
+        if (CONFIG.isAuthenticated && CONFIG.authData) {
+            this.user = CONFIG.authData;
+            await offlineDB.setMeta('auth', CONFIG.authData);
+            console.log('Auth cached for offline use');
+            return true;
+        }
+
+        // Not authenticated on server - check for cached auth
+        const cachedAuth = await offlineDB.getMeta('auth');
+
+        if (cachedAuth && cachedAuth.valid_until > Date.now() / 1000) {
+            // Cached auth is still valid
+            this.user = cachedAuth;
+            console.log('Using cached auth for:', cachedAuth.login);
+
+            if (this.isOnline) {
+                // Online but not authenticated - session expired
+                this.showAuthError('Sitzung abgelaufen. Bitte neu anmelden.');
+                return false;
+            }
+
+            // Offline with valid cached auth - allow access
+            this.showToast('Offline-Modus: ' + cachedAuth.name);
+            return true;
+        }
+
+        // No valid auth
+        if (this.isOnline) {
+            this.showAuthError('Bitte melden Sie sich an.');
+        } else {
+            this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
+        }
+        return false;
+    }
+
+    showAuthError(message) {
+        document.getElementById('interventionsLoading').style.display = 'none';
+        document.getElementById('interventionsList').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🔒</div>
+                <p>${message}</p>
+                <a href="../../../user/card.php" class="btn btn-primary" style="margin-top:16px;">Anmelden</a>
+            </div>
+        `;
     }
 
     setupEventListeners() {
@@ -144,26 +199,34 @@ class ServiceReportApp {
 
     // API calls with offline fallback
     async apiCall(endpoint, options = {}) {
-        const url = CONFIG.apiBase + endpoint;
+        // Use query parameter routing for better compatibility
+        const url = CONFIG.apiBase + '?route=' + encodeURIComponent(endpoint);
 
         if (!this.isOnline) {
             throw new Error('Offline');
         }
 
-        const response = await fetch(url, {
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            },
-            ...options
-        });
+        try {
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {
+                const text = await response.text();
+                console.error('API Error:', response.status, text);
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            return response.json();
+        } catch (err) {
+            console.error('API call failed:', endpoint, err);
+            throw err;
         }
-
-        return response.json();
     }
 
     // Load interventions
