@@ -137,13 +137,16 @@ function handleInterventions($method, $parts, $input) {
         return;
     }
 
-    // Get interventions where user is assigned or is author
+    // Debug: Check user entity
+    $userEntity = (int)$user->entity;
+
+    // Get interventions - removed strict entity filter for debugging
     $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status,";
-    $sql .= " f.description, f.note_public, f.note_private,";
+    $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."fichinter f";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
-    $sql .= " WHERE f.entity = ".(int)$user->entity;
+    $sql .= " WHERE 1=1"; // Remove entity filter temporarily
 
     // Filter by status (draft=0, validated=1, closed=3)
     if (isset($_GET['status'])) {
@@ -198,6 +201,10 @@ function handleInterventions($method, $parts, $input) {
     echo json_encode([
         'status' => 'ok',
         'count' => count($interventions),
+        'debug' => [
+            'user_entity' => $userEntity,
+            'sql' => $sql
+        ],
         'interventions' => $interventions
     ]);
 }
