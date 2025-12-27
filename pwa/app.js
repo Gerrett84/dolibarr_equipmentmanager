@@ -199,8 +199,17 @@ class ServiceReportApp {
 
     // API calls with offline fallback
     async apiCall(endpoint, options = {}) {
-        // Use query parameter routing for better compatibility
-        const url = CONFIG.apiBase + '?route=' + encodeURIComponent(endpoint);
+        // Build URL - handle endpoints with query params
+        let url;
+        if (endpoint.includes('?')) {
+            // Endpoint already has query params
+            const [route, params] = endpoint.split('?');
+            url = CONFIG.apiBase + '?route=' + encodeURIComponent(route) + '&' + params;
+        } else {
+            url = CONFIG.apiBase + '?route=' + encodeURIComponent(endpoint);
+        }
+
+        console.log('API call:', url);
 
         if (!this.isOnline) {
             throw new Error('Offline');
