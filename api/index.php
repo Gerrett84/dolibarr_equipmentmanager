@@ -183,6 +183,9 @@ function handleInterventions($method, $parts, $input) {
 
     $interventions = [];
     while ($obj = $db->fetch_object($resql)) {
+        // Get object addresses for this intervention
+        $objectAddresses = getInterventionObjectAddresses($obj->rowid);
+
         $interventions[] = [
             'id' => (int)$obj->rowid,
             'ref' => $obj->ref,
@@ -199,7 +202,8 @@ function handleInterventions($method, $parts, $input) {
                 'address' => $obj->address,
                 'zip' => $obj->zip,
                 'town' => $obj->town
-            ]
+            ],
+            'object_addresses' => $objectAddresses
         ];
     }
 
@@ -372,6 +376,38 @@ function getEquipmentMaterials($intervention_id, $equipment_id) {
     }
 
     return $materials;
+}
+
+/**
+ * Get unique object addresses for intervention
+ */
+function getInterventionObjectAddresses($intervention_id) {
+    global $db;
+
+    $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
+    $sql .= " AND e.fk_address > 0";
+
+    $resql = $db->query($sql);
+    $addresses = [];
+
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $name = trim($obj->lastname . ' ' . $obj->firstname);
+            $addresses[] = [
+                'id' => (int)$obj->rowid,
+                'name' => $name,
+                'address' => $obj->address,
+                'zip' => $obj->zip,
+                'town' => $obj->town
+            ];
+        }
+    }
+
+    return $addresses;
 }
 
 /**

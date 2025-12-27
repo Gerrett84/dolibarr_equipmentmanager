@@ -320,6 +320,23 @@ class ServiceReportApp {
                           intervention.status === 1 ? 'Offen' :
                           intervention.signed_status > 0 ? 'Unterschrieben' : 'Abgeschlossen';
 
+        // Format object addresses
+        let objectAddressHtml = '';
+        if (intervention.object_addresses && intervention.object_addresses.length > 0) {
+            const addr = intervention.object_addresses[0]; // Show first address
+            objectAddressHtml = `
+                <div style="margin-top:8px; padding-top:8px; border-top:1px solid #eee;">
+                    <p style="margin:0; font-size:12px; color:#263c5c; font-weight:500;">📍 Objektadresse:</p>
+                    <p style="margin:2px 0 0; font-size:13px; color:#666;">
+                        ${addr.name || ''}<br>
+                        ${addr.address || ''}<br>
+                        ${addr.zip || ''} ${addr.town || ''}
+                    </p>
+                    ${intervention.object_addresses.length > 1 ? `<p style="margin:4px 0 0; font-size:11px; color:#999;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
+                </div>
+            `;
+        }
+
         card.innerHTML = `
             <div class="card-header">
                 <div>
@@ -334,6 +351,7 @@ class ServiceReportApp {
                     ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
                 </p>
                 ${intervention.date_start ? `<p style="margin:8px 0 0; font-size:12px; color:#999;">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
+                ${objectAddressHtml}
             </div>
         `;
 
@@ -422,38 +440,49 @@ class ServiceReportApp {
 
     // Load detail form
     async loadDetail(equipment) {
-        this.showView('viewDetail', equipment.ref);
+        try {
+            this.showView('viewDetail', equipment.ref);
 
-        document.getElementById('detailEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
+            document.getElementById('detailEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
 
-        // Try to get from IndexedDB first (for offline edits)
-        let detail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
+            // Try to get from IndexedDB first (for offline edits)
+            let detail = null;
+            try {
+                detail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
+            } catch (e) {
+                console.log('No local detail found');
+            }
 
-        // If no local edits, use server data
-        if (!detail && equipment.detail) {
-            detail = {
-                intervention_id: this.currentIntervention.id,
-                equipment_id: equipment.id,
-                ...equipment.detail
-            };
+            // If no local edits, use server data
+            if (!detail && equipment.detail) {
+                detail = {
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: equipment.id,
+                    ...equipment.detail
+                };
+            }
+
+            // Convert duration to hours and minutes
+            const totalMinutes = parseInt(detail?.work_duration) || 0;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+
+            // Populate form
+            document.getElementById('workDate').value = detail?.work_date || this.formatDateInput(new Date());
+            document.getElementById('workHours').value = hours > 0 ? hours : '';
+            document.getElementById('workMinutes').value = String(Math.floor(minutes / 15) * 15);
+            document.getElementById('workDone').value = detail?.work_done || '';
+            document.getElementById('issuesFound').value = detail?.issues_found || '';
+            document.getElementById('recommendations').value = detail?.recommendations || '';
+            document.getElementById('notes').value = detail?.notes || '';
+
+            // Load and display materials
+            const materials = equipment.materials || [];
+            this.renderMaterials(materials);
+        } catch (err) {
+            console.error('Error loading detail:', err);
+            this.showToast('Fehler beim Laden');
         }
-
-        // Convert duration to hours and minutes
-        const totalMinutes = detail?.work_duration || 0;
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-
-        // Populate form
-        document.getElementById('workDate').value = detail?.work_date || this.formatDateInput(new Date());
-        document.getElementById('workHours').value = hours || '';
-        document.getElementById('workMinutes').value = Math.floor(minutes / 15) * 15; // Round to nearest 15
-        document.getElementById('workDone').value = detail?.work_done || '';
-        document.getElementById('issuesFound').value = detail?.issues_found || '';
-        document.getElementById('recommendations').value = detail?.recommendations || '';
-        document.getElementById('notes').value = detail?.notes || '';
-
-        // Load and display materials
-        this.renderMaterials(equipment.materials || []);
     }
 
     // Save detail
