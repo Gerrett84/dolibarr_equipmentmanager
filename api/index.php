@@ -218,7 +218,14 @@ function handleIntervention($method, $parts, $input) {
 
     if ($method !== 'GET') {
         http_response_code(405);
-        echo json_encode(['error' => 'Method not allowed']);
+        echo json_encode([
+            'error' => 'Method not allowed',
+            'debug' => [
+                'method_received' => $method,
+                'parts' => $parts,
+                'request_method' => $_SERVER['REQUEST_METHOD']
+            ]
+        ]);
         return;
     }
 
