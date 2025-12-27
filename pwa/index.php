@@ -405,6 +405,108 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-body {
+            padding: 16px;
+        }
+
+        .modal-footer {
+            padding: 16px;
+            border-top: 1px solid #eee;
+        }
+
+        /* Material Item */
+        .material-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .material-item:last-child {
+            border-bottom: none;
+        }
+
+        .material-info {
+            flex: 1;
+        }
+
+        .material-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .material-details {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .material-price {
+            font-weight: 600;
+            color: #263c5c;
+            margin-left: 12px;
+        }
+
+        .material-delete {
+            background: none;
+            border: none;
+            color: #f44336;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
@@ -453,8 +555,22 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Arbeitszeit (Minuten)</label>
-                            <input type="number" class="form-input" id="workDuration" min="0" step="15">
+                            <label class="form-label">Arbeitszeit</label>
+                            <div style="display: flex; gap: 12px;">
+                                <div style="flex: 1;">
+                                    <input type="number" class="form-input" id="workHours" min="0" max="24" placeholder="Std">
+                                    <span style="font-size: 12px; color: #666;">Stunden</span>
+                                </div>
+                                <div style="flex: 1;">
+                                    <select class="form-input" id="workMinutes">
+                                        <option value="0">0 min</option>
+                                        <option value="15">15 min</option>
+                                        <option value="30">30 min</option>
+                                        <option value="45">45 min</option>
+                                    </select>
+                                    <span style="font-size: 12px; color: #666;">Minuten</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -475,6 +591,19 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
                         <div class="form-group">
                             <label class="form-label">Notizen</label>
                             <textarea class="form-textarea" id="notes" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Materials Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Material</h3>
+                        <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
+                    </div>
+                    <div class="card-body" id="materialsList">
+                        <div class="empty-state" style="padding: 20px 0;">
+                            <p style="margin: 0; color: #666;">Kein Material erfasst</p>
                         </div>
                     </div>
                 </div>
@@ -527,6 +656,59 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
+
+    <!-- Material Modal -->
+    <div class="modal" id="materialModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Material hinzufügen</h3>
+                <button type="button" class="modal-close" id="btnCloseMaterial">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Bezeichnung *</label>
+                    <input type="text" class="form-input" id="materialName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Beschreibung</label>
+                    <input type="text" class="form-input" id="materialDescription">
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Menge</label>
+                        <input type="number" class="form-input" id="materialQty" value="1" min="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Einheit</label>
+                        <select class="form-input" id="materialUnit">
+                            <option value="Stk">Stk</option>
+                            <option value="m">m</option>
+                            <option value="kg">kg</option>
+                            <option value="l">l</option>
+                            <option value="Set">Set</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Einzelpreis (€)</label>
+                        <input type="number" class="form-input" id="materialPrice" min="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Seriennummer</label>
+                        <input type="text" class="form-input" id="materialSerial">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notizen</label>
+                    <input type="text" class="form-input" id="materialNotes">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success btn-block" id="btnSaveMaterial">Speichern</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="<?php echo DOL_URL_ROOT; ?>/includes/jquery/js/jquery.min.js"></script>

@@ -130,6 +130,11 @@ class ServiceReportApp {
         document.getElementById('btnClearSignature').addEventListener('click', () => this.clearSignature());
         document.getElementById('btnSaveSignature').addEventListener('click', () => this.saveSignature());
 
+        // Material buttons
+        document.getElementById('btnAddMaterial').addEventListener('click', () => this.showMaterialModal());
+        document.getElementById('btnCloseMaterial').addEventListener('click', () => this.closeMaterialModal());
+        document.getElementById('btnSaveMaterial').addEventListener('click', () => this.saveMaterial());
+
         // Auto-save on input change (debounced)
         let saveTimeout;
         document.getElementById('detailForm').addEventListener('input', () => {
@@ -433,22 +438,36 @@ class ServiceReportApp {
             };
         }
 
+        // Convert duration to hours and minutes
+        const totalMinutes = detail?.work_duration || 0;
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+
         // Populate form
         document.getElementById('workDate').value = detail?.work_date || this.formatDateInput(new Date());
-        document.getElementById('workDuration').value = detail?.work_duration || '';
+        document.getElementById('workHours').value = hours || '';
+        document.getElementById('workMinutes').value = Math.floor(minutes / 15) * 15; // Round to nearest 15
         document.getElementById('workDone').value = detail?.work_done || '';
         document.getElementById('issuesFound').value = detail?.issues_found || '';
         document.getElementById('recommendations').value = detail?.recommendations || '';
         document.getElementById('notes').value = detail?.notes || '';
+
+        // Load and display materials
+        this.renderMaterials(equipment.materials || []);
     }
 
     // Save detail
     async saveDetail() {
+        // Calculate total minutes from hours and minutes
+        const hours = parseInt(document.getElementById('workHours').value) || 0;
+        const minutes = parseInt(document.getElementById('workMinutes').value) || 0;
+        const totalMinutes = (hours * 60) + minutes;
+
         const detail = {
             intervention_id: this.currentIntervention.id,
             equipment_id: this.currentEquipment.id,
             work_date: document.getElementById('workDate').value,
-            work_duration: parseInt(document.getElementById('workDuration').value) || 0,
+            work_duration: totalMinutes,
             work_done: document.getElementById('workDone').value,
             issues_found: document.getElementById('issuesFound').value,
             recommendations: document.getElementById('recommendations').value,
@@ -634,6 +653,147 @@ class ServiceReportApp {
         setTimeout(() => {
             toast.classList.remove('show');
         }, 3000);
+    }
+
+    // Material management
+    renderMaterials(materials) {
+        const container = document.getElementById('materialsList');
+
+        if (!materials || materials.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <p style="margin: 0; color: #666;">Kein Material erfasst</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = '';
+        materials.forEach((material, index) => {
+            const item = document.createElement('div');
+            item.className = 'material-item';
+            item.innerHTML = `
+                <div class="material-info">
+                    <div class="material-name">${material.name}</div>
+                    <div class="material-details">
+                        ${material.quantity} ${material.unit}
+                        ${material.description ? ' - ' + material.description : ''}
+                    </div>
+                </div>
+                <div class="material-price">${this.formatPrice(material.total_price || (material.quantity * material.unit_price))} €</div>
+                <button type="button" class="material-delete" data-index="${index}" title="Löschen">🗑</button>
+            `;
+
+            item.querySelector('.material-delete').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteMaterial(index);
+            });
+
+            container.appendChild(item);
+        });
+    }
+
+    showMaterialModal() {
+        // Reset form
+        document.getElementById('materialName').value = '';
+        document.getElementById('materialDescription').value = '';
+        document.getElementById('materialQty').value = '1';
+        document.getElementById('materialUnit').value = 'Stk';
+        document.getElementById('materialPrice').value = '';
+        document.getElementById('materialSerial').value = '';
+        document.getElementById('materialNotes').value = '';
+
+        document.getElementById('materialModal').classList.add('show');
+    }
+
+    closeMaterialModal() {
+        document.getElementById('materialModal').classList.remove('show');
+    }
+
+    async saveMaterial() {
+        const name = document.getElementById('materialName').value.trim();
+        if (!name) {
+            this.showToast('Bitte Bezeichnung eingeben');
+            return;
+        }
+
+        const quantity = parseFloat(document.getElementById('materialQty').value) || 1;
+        const unitPrice = parseFloat(document.getElementById('materialPrice').value) || 0;
+
+        const material = {
+            intervention_id: this.currentIntervention.id,
+            equipment_id: this.currentEquipment.id,
+            material_name: name,
+            material_description: document.getElementById('materialDescription').value.trim(),
+            quantity: quantity,
+            unit: document.getElementById('materialUnit').value,
+            unit_price: unitPrice,
+            total_price: quantity * unitPrice,
+            serial_number: document.getElementById('materialSerial').value.trim(),
+            notes: document.getElementById('materialNotes').value.trim()
+        };
+
+        // Add to current equipment's materials
+        if (!this.currentEquipment.materials) {
+            this.currentEquipment.materials = [];
+        }
+
+        // Convert for display
+        const displayMaterial = {
+            name: material.material_name,
+            description: material.material_description,
+            quantity: material.quantity,
+            unit: material.unit,
+            unit_price: material.unit_price,
+            total_price: material.total_price,
+            serial_number: material.serial_number,
+            notes: material.notes
+        };
+
+        this.currentEquipment.materials.push(displayMaterial);
+        this.renderMaterials(this.currentEquipment.materials);
+        this.closeMaterialModal();
+
+        // Save to server if online
+        if (this.isOnline) {
+            try {
+                await this.apiCall('material', {
+                    method: 'POST',
+                    body: JSON.stringify(material)
+                });
+                this.showToast('Material gespeichert');
+            } catch (err) {
+                this.showToast('Material offline gespeichert');
+            }
+        } else {
+            this.showToast('Material offline gespeichert');
+        }
+    }
+
+    async deleteMaterial(index) {
+        if (!confirm('Material wirklich löschen?')) {
+            return;
+        }
+
+        const material = this.currentEquipment.materials[index];
+        this.currentEquipment.materials.splice(index, 1);
+        this.renderMaterials(this.currentEquipment.materials);
+
+        // Delete on server if has ID and online
+        if (material.id && this.isOnline) {
+            try {
+                await this.apiCall(`material/${material.id}`, {
+                    method: 'DELETE'
+                });
+                this.showToast('Material gelöscht');
+            } catch (err) {
+                this.showToast('Fehler beim Löschen');
+            }
+        }
+    }
+
+    formatPrice(value) {
+        return parseFloat(value || 0).toFixed(2).replace('.', ',');
     }
 }
 

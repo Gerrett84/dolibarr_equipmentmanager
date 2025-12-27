@@ -116,6 +116,10 @@ try {
             handleSignature($method, $parts, $input);
             break;
 
+        case 'material':
+            handleMaterial($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -617,5 +621,81 @@ function handleSignature($method, $parts, $input) {
             'error' => 'Failed to update intervention status',
             'file_saved' => true
         ]);
+    }
+}
+
+/**
+ * POST /material - Create material
+ * DELETE /material/{id} - Delete material
+ */
+function handleMaterial($method, $parts, $input) {
+    global $db, $user;
+
+    if ($method === 'POST') {
+        // Create new material
+        if (empty($input['intervention_id']) || empty($input['equipment_id']) || empty($input['material_name'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'intervention_id, equipment_id, and material_name required']);
+            return;
+        }
+
+        $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_material";
+        $sql .= " (fk_intervention, fk_equipment, material_name, material_description,";
+        $sql .= " quantity, unit, unit_price, total_price, serial_number, notes,";
+        $sql .= " date_creation, fk_user_creat)";
+        $sql .= " VALUES (";
+        $sql .= (int)$input['intervention_id'].",";
+        $sql .= (int)$input['equipment_id'].",";
+        $sql .= "'".$db->escape($input['material_name'])."',";
+        $sql .= ($input['material_description'] ? "'".$db->escape($input['material_description'])."'" : "NULL").",";
+        $sql .= (float)($input['quantity'] ?? 1).",";
+        $sql .= "'".$db->escape($input['unit'] ?? 'Stk')."',";
+        $sql .= (float)($input['unit_price'] ?? 0).",";
+        $sql .= (float)($input['total_price'] ?? 0).",";
+        $sql .= ($input['serial_number'] ? "'".$db->escape($input['serial_number'])."'" : "NULL").",";
+        $sql .= ($input['notes'] ? "'".$db->escape($input['notes'])."'" : "NULL").",";
+        $sql .= "'".$db->idate(dol_now())."',";
+        $sql .= (int)$user->id;
+        $sql .= ")";
+
+        $resql = $db->query($sql);
+
+        if ($resql) {
+            $id = $db->last_insert_id(MAIN_DB_PREFIX."equipmentmanager_intervention_material");
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Material created',
+                'id' => (int)$id
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to create material: ' . $db->lasterror()]);
+        }
+    } elseif ($method === 'DELETE') {
+        // Delete material
+        $id = (int)($parts[1] ?? 0);
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Material ID required']);
+            return;
+        }
+
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_material";
+        $sql .= " WHERE rowid = ".(int)$id;
+
+        $resql = $db->query($sql);
+
+        if ($resql) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Material deleted'
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete material']);
+        }
+    } else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
     }
 }
