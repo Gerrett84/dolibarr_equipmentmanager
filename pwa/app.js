@@ -460,12 +460,10 @@ class ServiceReportApp {
                 const item = document.createElement('div');
                 item.className = 'equipment-item card-clickable';
 
-                const hasDetail = eq.detail && (eq.detail.work_done || eq.detail.issues_found);
                 const typeName = typeLabels[eq.type] || eq.type || '';
                 const linkTypeBadge = eq.link_type === 'maintenance'
                     ? '<span class="link-type-badge maintenance">Wartung</span>'
                     : '<span class="link-type-badge service">Service</span>';
-                const statusIcon = hasDetail ? '<span style="color:#4caf50;margin-left:8px;">✓</span>' : '';
 
                 item.innerHTML = `
                     <div class="equipment-icon">🚪</div>
@@ -474,7 +472,7 @@ class ServiceReportApp {
                         <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
                         ${eq.location ? `<div class="equipment-label" style="color:#888;">${eq.location}</div>` : ''}
                     </div>
-                    <div style="display:flex;align-items:center;">${linkTypeBadge}${statusIcon}</div>
+                    ${linkTypeBadge}
                 `;
 
                 item.addEventListener('click', () => {
