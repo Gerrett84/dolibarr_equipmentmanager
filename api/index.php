@@ -426,33 +426,30 @@ function handleIntervention($method, $parts, $input) {
         $filename = urldecode($parts[3]);
 
         // Security: Only allow deleting files within the intervention's document directory
-        $docDir = getFichinterDocDir() . '/' . $fichinter->ref;
+        $docDir = getFichinterDocDir() . '/' . dol_sanitizeFileName($fichinter->ref);
 
         // Check if it's a signature file (in signatures subdirectory)
         if (strpos($filename, 'signatures/') === 0) {
-            $filepath = $docDir . '/' . $filename;
+            // Allow signatures subdirectory but sanitize filename part
+            $sigFilename = basename(substr($filename, 11)); // Remove 'signatures/' prefix
+            $filepath = $docDir . '/signatures/' . $sigFilename;
         } else {
             $filepath = $docDir . '/' . basename($filename); // basename for security
         }
 
-        // Verify the file exists and is within allowed directory
-        $realDocDir = realpath($docDir);
-        $realFilepath = realpath($filepath);
-
-        if ($realFilepath === false || strpos($realFilepath, $realDocDir) !== 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid file path']);
-            return;
-        }
-
+        // Check if file exists
         if (!file_exists($filepath)) {
             http_response_code(404);
-            echo json_encode(['error' => 'File not found']);
+            echo json_encode([
+                'error' => 'File not found',
+                'debug_path' => $filepath,
+                'debug_docdir' => $docDir
+            ]);
             return;
         }
 
         // Delete the file
-        if (unlink($filepath)) {
+        if (@unlink($filepath)) {
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Document deleted',
@@ -460,8 +457,116 @@ function handleIntervention($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to delete file']);
+            echo json_encode([
+                'error' => 'Failed to delete file',
+                'debug_path' => $filepath
+            ]);
         }
+        return;
+    }
+
+    // Upload a document/photo
+    if (isset($parts[2]) && $parts[2] === 'documents' && $method === 'POST') {
+        $docDir = getFichinterDocDir() . '/' . dol_sanitizeFileName($fichinter->ref);
+
+        // Ensure directory exists
+        if (!is_dir($docDir)) {
+            dol_mkdir($docDir);
+        }
+
+        // Check for file upload
+        if (!empty($_FILES['file'])) {
+            $uploadedFile = $_FILES['file'];
+
+            // Validate file
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+            $maxSize = 10 * 1024 * 1024; // 10MB
+
+            if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Upload error: ' . $uploadedFile['error']]);
+                return;
+            }
+
+            if ($uploadedFile['size'] > $maxSize) {
+                http_response_code(400);
+                echo json_encode(['error' => 'File too large (max 10MB)']);
+                return;
+            }
+
+            // Get file extension and generate unique name
+            $originalName = basename($uploadedFile['name']);
+            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
+
+            if (!in_array($extension, $allowedExtensions)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid file type. Allowed: ' . implode(', ', $allowedExtensions)]);
+                return;
+            }
+
+            // Create unique filename with timestamp
+            $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
+            $newFilename = $timestamp . '_' . dol_sanitizeFileName($originalName);
+            $destPath = $docDir . '/' . $newFilename;
+
+            if (move_uploaded_file($uploadedFile['tmp_name'], $destPath)) {
+                echo json_encode([
+                    'status' => 'ok',
+                    'message' => 'File uploaded',
+                    'filename' => $newFilename,
+                    'original_name' => $originalName
+                ]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to save file']);
+            }
+            return;
+        }
+
+        // Check for base64 image data (from camera)
+        if (!empty($input['image'])) {
+            $imageData = $input['image'];
+            $imageName = $input['name'] ?? 'photo';
+
+            // Remove data URL prefix if present
+            if (strpos($imageData, 'base64,') !== false) {
+                $imageData = explode('base64,', $imageData)[1];
+            }
+
+            $decoded = base64_decode($imageData);
+            if (!$decoded) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid image data']);
+                return;
+            }
+
+            // Detect image type
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->buffer($decoded);
+            $extension = 'jpg';
+            if ($mimeType === 'image/png') $extension = 'png';
+            elseif ($mimeType === 'image/gif') $extension = 'gif';
+
+            $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
+            $newFilename = $timestamp . '_' . dol_sanitizeFileName($imageName) . '.' . $extension;
+            $destPath = $docDir . '/' . $newFilename;
+
+            if (file_put_contents($destPath, $decoded)) {
+                echo json_encode([
+                    'status' => 'ok',
+                    'message' => 'Image uploaded',
+                    'filename' => $newFilename
+                ]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to save image']);
+            }
+            return;
+        }
+
+        http_response_code(400);
+        echo json_encode(['error' => 'No file provided']);
         return;
     }
 
@@ -1206,7 +1311,7 @@ function generateInterventionPDF($fichinter, $user) {
 }
 
 /**
- * Get list of documents/PDFs for intervention
+ * Get list of documents/PDFs/images for intervention
  */
 function getInterventionDocuments($fichinter) {
     global $conf;
@@ -1219,19 +1324,34 @@ function getInterventionDocuments($fichinter) {
     // Build base URL for document access (relative to Dolibarr root)
     $baseUrl = dol_buildpath('/document.php', 1);
 
+    // Allowed file extensions
+    $pdfExtensions = ['pdf'];
+    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+
     if (is_dir($upload_dir)) {
-        // Scan directory for PDF files
+        // Scan directory for files
         $files = scandir($upload_dir);
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') continue;
-            if (pathinfo($file, PATHINFO_EXTENSION) === 'pdf') {
-                $filepath = $upload_dir . '/' . $file;
+
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $filepath = $upload_dir . '/' . $file;
+
+            if (in_array($ext, $pdfExtensions)) {
                 $documents[] = [
                     'name' => $file,
                     'size' => filesize($filepath),
                     'date' => filemtime($filepath),
                     'url' => $baseUrl . '?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/' . $file),
                     'type' => 'pdf'
+                ];
+            } elseif (in_array($ext, $imageExtensions)) {
+                $documents[] = [
+                    'name' => $file,
+                    'size' => filesize($filepath),
+                    'date' => filemtime($filepath),
+                    'url' => $baseUrl . '?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/' . $file),
+                    'type' => 'image'
                 ];
             }
         }
@@ -1260,11 +1380,6 @@ function getInterventionDocuments($fichinter) {
     usort($documents, function($a, $b) {
         return $b['date'] - $a['date'];
     });
-
-    // Debug info
-    if (empty($documents)) {
-        error_log("No documents found in: " . $upload_dir);
-    }
 
     return $documents;
 }

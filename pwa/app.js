@@ -152,6 +152,10 @@ class ServiceReportApp {
         document.getElementById('navDocuments').addEventListener('click', () => this.showDocuments());
         document.getElementById('btnCloseDocuments').addEventListener('click', () => this.closeDocumentsModal());
 
+        // Info button
+        document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
+        document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
+
         // Auto-save on input change (debounced)
         let saveTimeout;
         document.getElementById('detailForm').addEventListener('input', () => {
@@ -191,6 +195,7 @@ class ServiceReportApp {
             backBtn.style.display = 'none';
             headerTitle.textContent = 'Serviceberichte';
             document.getElementById('navRelease').style.display = 'none';
+            document.getElementById('navInfo').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
         } else {
@@ -540,6 +545,9 @@ class ServiceReportApp {
             const releaseIcon = document.getElementById('releaseIcon');
             const releaseText = document.getElementById('releaseText');
             releaseBtn.style.display = 'flex';
+
+            // Show info button
+            document.getElementById('navInfo').style.display = 'flex';
 
             // Show/hide documents button
             const docsBtn = document.getElementById('navDocuments');
@@ -1353,7 +1361,23 @@ class ServiceReportApp {
                 return;
             }
 
-            listEl.innerHTML = '';
+            // Add upload button at top
+            listEl.innerHTML = `
+                <div class="upload-section" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #eee;">
+                    <input type="file" id="fileUpload" accept="image/*,.pdf" style="display:none;" multiple>
+                    <button type="button" class="btn btn-primary btn-block" id="btnUpload">
+                        📷 Foto/Datei hochladen
+                    </button>
+                </div>
+            `;
+
+            // Add upload handlers
+            document.getElementById('btnUpload').addEventListener('click', () => {
+                document.getElementById('fileUpload').click();
+            });
+            document.getElementById('fileUpload').addEventListener('change', (e) => this.uploadFiles(e.target.files));
+
+            // Render documents
             documents.forEach(doc => {
                 const item = document.createElement('div');
                 item.className = 'document-item';
@@ -1361,13 +1385,18 @@ class ServiceReportApp {
                 // Create preview URL (add &attachment=0 for inline display)
                 const previewUrl = doc.url + '&attachment=0';
 
-                // Determine filename for delete (include signatures/ prefix if applicable)
-                const deleteFilename = doc.type === 'signature'
-                    ? 'signatures/' + doc.name.replace('Unterschrift: ', '')
-                    : doc.name;
+                // Determine icon and filename for delete
+                let icon = '📄';
+                let deleteFilename = doc.name;
+                if (doc.type === 'signature') {
+                    icon = '✍️';
+                    deleteFilename = 'signatures/' + doc.name.replace('Unterschrift: ', '');
+                } else if (doc.type === 'image') {
+                    icon = '🖼️';
+                }
 
                 item.innerHTML = `
-                    <div class="document-icon">${doc.type === 'signature' ? '✍️' : '📄'}</div>
+                    <div class="document-icon">${icon}</div>
                     <div class="document-info">
                         <div class="document-name">${doc.name}</div>
                         <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
@@ -1399,6 +1428,81 @@ class ServiceReportApp {
         document.getElementById('documentsModal').classList.remove('show');
     }
 
+    showInfo() {
+        document.getElementById('infoModal').classList.add('show');
+
+        const contentEl = document.getElementById('infoContent');
+
+        if (!this.currentIntervention) {
+            contentEl.innerHTML = '<p>Keine Intervention ausgewählt</p>';
+            return;
+        }
+
+        const intervention = this.currentIntervention;
+
+        // Build info content
+        let html = '';
+
+        // Description (Auftragsbeschreibung)
+        html += '<div class="info-section">';
+        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Auftragsbeschreibung</h4>';
+        if (intervention.description) {
+            html += `<div class="info-text">${this.escapeHtml(intervention.description).replace(/\n/g, '<br>')}</div>`;
+        } else {
+            html += '<p style="color:#999;font-style:italic;">Keine Beschreibung vorhanden</p>';
+        }
+        html += '</div>';
+
+        // Public Note
+        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Öffentliche Anmerkung</h4>';
+        if (intervention.note_public) {
+            html += `<div class="info-text">${this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>')}</div>`;
+        } else {
+            html += '<p style="color:#999;font-style:italic;">Keine öffentliche Anmerkung</p>';
+        }
+        html += '</div>';
+
+        // Private Note
+        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Private Anmerkung</h4>';
+        if (intervention.note_private) {
+            html += `<div class="info-text">${this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>')}</div>`;
+        } else {
+            html += '<p style="color:#999;font-style:italic;">Keine private Anmerkung</p>';
+        }
+        html += '</div>';
+
+        // Customer info
+        if (intervention.customer) {
+            html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+            html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Kunde</h4>';
+            html += `<div class="info-text">`;
+            html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
+            if (intervention.customer.address) {
+                html += `${this.escapeHtml(intervention.customer.address)}<br>`;
+            }
+            if (intervention.customer.zip || intervention.customer.town) {
+                html += `${this.escapeHtml(intervention.customer.zip || '')} ${this.escapeHtml(intervention.customer.town || '')}`;
+            }
+            html += `</div>`;
+            html += '</div>';
+        }
+
+        contentEl.innerHTML = html;
+    }
+
+    closeInfoModal() {
+        document.getElementById('infoModal').classList.remove('show');
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     async deleteDocument(encodedFilename) {
         const filename = decodeURIComponent(encodedFilename);
 
@@ -1422,6 +1526,52 @@ class ServiceReportApp {
         } catch (err) {
             console.error('Failed to delete document:', err);
             this.showToast('Fehler beim Löschen');
+        }
+    }
+
+    async uploadFiles(files) {
+        if (!files || files.length === 0) return;
+
+        this.showToast('Lade hoch...');
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const file of files) {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(
+                    `${this.apiBase}/intervention/${this.currentIntervention.id}/documents`,
+                    {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    }
+                );
+
+                const result = await response.json();
+
+                if (result.status === 'ok') {
+                    successCount++;
+                } else {
+                    errorCount++;
+                    console.error('Upload failed:', result.error);
+                }
+            } catch (err) {
+                errorCount++;
+                console.error('Upload error:', err);
+            }
+        }
+
+        if (successCount > 0) {
+            this.showToast(`${successCount} Datei(en) hochgeladen`);
+            // Refresh the documents list
+            this.showDocuments();
+        }
+        if (errorCount > 0) {
+            this.showToast(`${errorCount} Fehler beim Hochladen`);
         }
     }
 

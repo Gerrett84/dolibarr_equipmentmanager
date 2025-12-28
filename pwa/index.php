@@ -806,6 +806,10 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             <span class="nav-icon" id="releaseIcon">✅</span>
             <span id="releaseText">Freigeben</span>
         </button>
+        <button class="nav-item" id="navInfo" style="display:none;">
+            <span class="nav-icon">ℹ️</span>
+            <span>Info</span>
+        </button>
         <button class="nav-item" id="navDocuments" style="display:none;">
             <span class="nav-icon">📄</span>
             <span>Dokumente</span>
@@ -904,6 +908,22 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Lade Dokumente...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div class="modal" id="infoModal">
+        <div class="modal-content" style="max-height:85vh;">
+            <div class="modal-header">
+                <h3>Auftragsdetails</h3>
+                <button type="button" class="modal-close" id="btnCloseInfo">&times;</button>
+            </div>
+            <div class="modal-body" id="infoContent" style="overflow-y:auto;">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Lade...</p>
                 </div>
             </div>
         </div>
