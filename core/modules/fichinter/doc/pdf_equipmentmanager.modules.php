@@ -329,15 +329,18 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
             }
 
-            // Signature section
-            $curY = $pdf->GetY() + 10;
-            if ($curY > 230) {
+            // Signature section - always at fixed position at bottom of last page
+            // This ensures consistent placement for both manual and online signatures
+            $signatureY = $this->page_hauteur - 67; // Fixed position: 67mm from bottom (230mm on A4)
+
+            // Check if we need a new page (if content extends too close to signature area)
+            if ($pdf->GetY() > $signatureY - 10) {
                 $pdf->AddPage();
                 $pagenb++;
-                $curY = $tab_top_newpage;
+                $signatureY = $this->page_hauteur - 67;
             }
 
-            $this->_renderSignatures($pdf, $object, $curY, $outputlangs, $default_font_size);
+            $this->_renderSignatures($pdf, $object, $signatureY, $outputlangs, $default_font_size);
 
             // Footer
             $this->_pagefoot($pdf, $object, $outputlangs);

@@ -1323,25 +1323,28 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             }
 
             // Add customer signature on last page - RIGHT signature box
-            // EquipmentManager PDF has signature boxes at Y position around 230-255
-            // Left box (technician): X=10, Right box (customer): X=page_width - margin - 80
+            // EquipmentManager PDF has signature boxes at FIXED position:
+            // Y = page_height - 67mm (230mm on A4)
+            // Left box (technician): X=10, Right box (customer): X=page_width - 10 - 80
+            // Box dimensions: 80mm wide, 25mm tall, with 5mm label above
             $default_font_size = pdf_getPDFFontSize($langs);
             $default_font = pdf_getPDFFont($langs);
 
-            // Page dimensions from EquipmentManager template
+            // Page dimensions - must match EquipmentManager template
             $marge_droite = 10;
             $boxWidth = 80;
+            $boxHeight = 25;
             $rightX = $s['w'] - $marge_droite - $boxWidth;
 
-            // Find signature box Y position - typically around 230-255 on the page
-            // The signature boxes are 25mm high, placed after equipment content
-            $signatureBoxY = $s['h'] - 67; // Position based on typical signature location
+            // Fixed Y position matching template: page_height - 67mm
+            $signatureBoxY = $s['h'] - 67;
+            // The box starts 5mm below the label
+            $boxStartY = $signatureBoxY + 5;
 
-            // Customer signature image - fit within right box (80x25mm with padding)
-            $sigX = $rightX + 2;
-            $sigY = $signatureBoxY + 7; // +5 for label, +2 for padding
-            $sigMaxWidth = $boxWidth - 4;
-            $sigMaxHeight = 21;
+            // Customer signature image - fit within right box with padding
+            $padding = 2;
+            $sigMaxWidth = $boxWidth - (2 * $padding);
+            $sigMaxHeight = $boxHeight - (2 * $padding);
 
             // Get image dimensions to maintain aspect ratio
             $imageInfo = getimagesize($filepath);
@@ -1361,14 +1364,14 @@ function processSignature($intervention_id, $signatureData, $signerName) {
 
                 // Center the image within the right box
                 $sigX = $rightX + ($boxWidth - $finalWidth) / 2;
-                $sigY = $signatureBoxY + 5 + (25 - $finalHeight) / 2;
+                $sigY = $boxStartY + ($boxHeight - $finalHeight) / 2;
 
                 // Insert the customer signature image
                 $pdf->Image($filepath, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');
             }
 
-            // Add signature text below the boxes
-            $pdf->SetXY($rightX, $signatureBoxY + 32);
+            // Add signature text below the customer box
+            $pdf->SetXY($rightX, $boxStartY + $boxHeight + 2);
             $pdf->SetFont($default_font, '', $default_font_size - 2);
             $pdf->SetTextColor(80, 80, 80);
             $signatureText = dol_print_date(dol_now(), "day", false, $langs, true);
