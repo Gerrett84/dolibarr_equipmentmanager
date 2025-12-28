@@ -290,7 +290,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     }
 
                     // Render equipment section
-                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration);
+                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration, $object);
                 }
 
                 // Add summary table after all equipment sections
@@ -597,7 +597,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
      * @param int $default_font_size Default font size
      * @return float New Y position
      */
-    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false, $is_last = false, $total_duration = 0)
+    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false, $is_last = false, $total_duration = 0, $object = null)
     {
         // Store start position for border
         $startY = $curY;
@@ -613,6 +613,21 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetXY($leftMargin, $curY);
             $pdf->Cell($pageWidth - $leftMargin - $rightMargin, 6, "Beschreibung", 'TLR', 1, 'L', 1);
             $curY = $pdf->GetY();
+
+            // Add order description if available
+            if ($object && !empty($object->description)) {
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetTextColor(0, 0, 0);
+                $pdf->SetXY($leftMargin + 2, $curY + 2);
+                $pdf->MultiCell($pageWidth - $leftMargin - $rightMargin - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
+                $curY = $pdf->GetY() + 2;
+
+                // Draw a separator line below description
+                $pdf->SetDrawColor(200, 200, 200);
+                $pdf->Line($leftMargin, $curY, $leftMargin + $pageWidth - $leftMargin - $rightMargin, $curY);
+                $pdf->SetDrawColor(0, 0, 0);
+                $curY += 2;
+            }
         }
 
         $pdf->SetFont('', 'B', $default_font_size + 1);
@@ -848,6 +863,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         // Calculate symmetric positions for signature boxes
         $boxWidth = 80;
+        $boxHeight = 25;
         $leftX = $this->marge_gauche;
         $rightX = $this->page_largeur - $this->marge_droite - $boxWidth;
 
@@ -860,11 +876,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->MultiCell($boxWidth, 5, $outputlangs->transnoentities("NameAndSignatureOfCustomer"), 0, 'L', false);
 
         $curY += 5;
+        $boxStartY = $curY;
 
         // Signature boxes - like Soleil: larger boxes (80x25mm) with border
         $pdf->SetXY($leftX, $curY);
         $pdf->SetDrawColor(0, 0, 0);
-        $pdf->MultiCell($boxWidth, 25, '', 1, 'L'); // Border box for technician
+        $pdf->MultiCell($boxWidth, $boxHeight, '', 1, 'L'); // Border box for technician
 
         // Check if technician has a saved signature and insert it
         $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
@@ -874,7 +891,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $sigX = $leftX + 2;
             $sigY = $curY + 2;
             $sigMaxWidth = $boxWidth - 4;
-            $sigMaxHeight = 21; // 25mm box height - 4mm padding
+            $sigMaxHeight = $boxHeight - 4; // box height - 4mm padding
 
             // Get image dimensions to maintain aspect ratio
             $imageInfo = getimagesize($signature_file);
@@ -896,15 +913,35 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 // Center the image within the box
                 $sigX = $leftX + ($boxWidth - $finalWidth) / 2;
-                $sigY = $curY + (25 - $finalHeight) / 2;
+                $sigY = $curY + ($boxHeight - $finalHeight) / 2;
 
                 // Insert the signature image
                 $pdf->Image($signature_file, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');
             }
         }
 
+        // Add technician name and date below technician signature box
+        $pdf->SetXY($leftX, $boxStartY + $boxHeight + 2);
+        $pdf->SetFont('', '', $default_font_size - 2);
+        $pdf->SetTextColor(80, 80, 80);
+
+        // Get technician name: first check for configured name, then fall back to user's full name
+        $technicianName = '';
+        if (!empty($conf->global->EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_.$user->id)) {
+            $technicianName = $conf->global->{'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id};
+        } else {
+            $technicianName = $user->getFullName($outputlangs);
+        }
+
+        // Build signature text: date - name
+        $signatureText = dol_print_date(dol_now(), "day", false, $outputlangs, true);
+        if ($technicianName) {
+            $signatureText .= ' - ' . $technicianName;
+        }
+        $pdf->MultiCell($boxWidth, 4, $signatureText, 0, 'C');
+
         $pdf->SetXY($rightX, $curY);
-        $pdf->MultiCell($boxWidth, 25, '', 1); // Border box for customer
+        $pdf->MultiCell($boxWidth, $boxHeight, '', 1); // Border box for customer
 
         // Note: Online signature will be added by Dolibarr's signature module below these boxes
         // as "Unterschrift: DD.MM.YYYY - Name"

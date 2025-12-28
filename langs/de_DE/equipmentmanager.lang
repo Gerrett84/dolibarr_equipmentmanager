@@ -334,3 +334,22 @@ TemplateNotSetAsDefault=Noch nicht als Standard gesetzt
 PleaseSetAsDefaultInTableBelow=Bitte in der Tabelle unten auf "Als Standard setzen" klicken
 CurrentDefault=Aktueller Standard
 SetAsDefault=Als Standard setzen
+
+# Technician Signature Setup
+TechnicianSignature=Techniker Unterschrift
+NameForSignature=Name für Unterschrift
+TechnicianNameHelp=Dieser Name wird zusammen mit dem Datum unter der Unterschrift in der PDF angezeigt
+SignatureExists=Unterschrift vorhanden
+NoSignatureYet=Keine Unterschrift hinterlegt
+DrawYourSignatureBelow=Bitte zeichnen Sie Ihre Unterschrift unten
+PleaseDrawSignature=Bitte zeichnen Sie zuerst eine Unterschrift
+SignatureSaved=Unterschrift gespeichert
+SignatureDeleted=Unterschrift gelöscht
+ConfirmDeleteSignature=Möchten Sie die Unterschrift wirklich löschen?
+DeleteSignature=Unterschrift löschen
+Clear=Löschen
+SaveSignature=Speichern
+
+# PWA
+ServiceReportPWA=Servicebericht PWA (Mobile App)
+OpenDolibarr=Dolibarr öffnen

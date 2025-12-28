@@ -214,3 +214,11 @@ SignatureDeleted=Signature deleted
 DeleteSignature=Delete Signature
 ConfirmDeleteSignature=Do you really want to delete your signature?
 PleaseDrawSignature=Please draw a signature first
+TechnicianName=Technician
+NameForSignature=Name for signature
+TechnicianNameHelp=This name will be displayed with the date under the signature in the PDF
+Clear=Clear
+
+# PWA
+ServiceReportPWA=Service Report PWA (Mobile App)
+OpenDolibarr=Open Dolibarr

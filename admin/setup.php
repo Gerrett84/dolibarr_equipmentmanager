@@ -112,6 +112,14 @@ if ($action == 'register_template') {
 // Save technician signature
 if ($action == 'save_signature') {
     $signatureData = GETPOST('signature_data', 'alpha');
+    $technicianName = GETPOST('technician_name', 'alphanohtml');
+
+    // Save technician name
+    if (!empty($technicianName)) {
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $technicianName, 'chaine', 0, '', $conf->entity);
+    } else {
+        dolibarr_del_const($db, 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $conf->entity);
+    }
 
     if (!empty($signatureData)) {
         // Create signature directory if not exists
@@ -135,7 +143,7 @@ if ($action == 'save_signature') {
             setEventMessages($langs->trans("Error").': Could not save signature', null, 'errors');
         }
     } else {
-        setEventMessages($langs->trans("Error").': No signature data', null, 'errors');
+        setEventMessages($langs->trans("SignatureSaved"), null, 'mesgs');
     }
 
     header("Location: ".$_SERVER["PHP_SELF"]);
@@ -441,6 +449,9 @@ print '<span class="fa fa-pencil paddingright"></span>'.$langs->trans("Technicia
 print '</td>';
 print '</tr>';
 
+// Get current technician name
+$technicianName = getDolGlobalString('EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $user->getFullName($langs));
+
 // Check if user has signature
 $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
 $has_signature = file_exists($signature_file);
@@ -471,6 +482,13 @@ if ($has_signature) {
 
 print '<br>';
 
+// Technician name input field
+print '<div style="margin-bottom: 15px;">';
+print '<label for="technician_name" style="display: block; margin-bottom: 5px; font-weight: bold;">'.$langs->trans("TechnicianName").':</label>';
+print '<input type="text" id="technician_name" name="technician_name" value="'.dol_escape_htmltag($technicianName).'" style="width: 400px; padding: 8px;" placeholder="'.$langs->trans("NameForSignature").'">';
+print '<br><small class="opacitymedium">'.$langs->trans("TechnicianNameHelp").'</small>';
+print '</div>';
+
 // Signature Pad Canvas
 print '<div style="border: 2px solid #ccc; display: inline-block; background: white;">';
 print '<canvas id="signature-pad" width="400" height="200" style="touch-action: none; cursor: crosshair;"></canvas>';
@@ -489,6 +507,7 @@ print '<form id="signature-form" method="POST" action="'.$_SERVER["PHP_SELF"].'"
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="save_signature">';
 print '<input type="hidden" name="signature_data" id="signature_data">';
+print '<input type="hidden" name="technician_name" id="technician_name_hidden">';
 print '</form>';
 
 // Signature Pad JavaScript (inline to avoid external dependencies)
@@ -576,18 +595,24 @@ print '</form>';
     };
 
     window.saveSignature = function() {
+        // Get technician name
+        var technicianName = document.getElementById('technician_name').value;
+        document.getElementById('technician_name_hidden').value = technicianName;
+
         // Check if canvas is empty
         var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         var isEmpty = !imgData.data.some(channel => channel !== 0);
 
+        // Allow saving just the name without a new signature
         if (isEmpty) {
-            alert('<?php echo $langs->trans("PleaseDrawSignature"); ?>');
-            return;
+            // If no signature drawn, still allow saving the name
+            document.getElementById('signature_data').value = '';
+        } else {
+            // Get image data as base64
+            var dataURL = canvas.toDataURL('image/png');
+            document.getElementById('signature_data').value = dataURL;
         }
 
-        // Get image data as base64
-        var dataURL = canvas.toDataURL('image/png');
-        document.getElementById('signature_data').value = dataURL;
         document.getElementById('signature-form').submit();
     };
 })();

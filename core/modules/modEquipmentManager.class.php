@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2024 Equipment Manager
- * v1.5.1 - Icon in Top Bar + Tab Fix
+ * v1.6.4 - PWA Link in Top Bar + PDF Improvements
  */
 
 include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports including PDF export with equipment details";
 
-        $this->version = '1.6.3';
+        $this->version = '1.6.4';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -32,7 +32,10 @@ class modEquipmentManager extends DolibarrModules
 
         // Tell Dolibarr this module provides PDF templates for fichinter
         $this->module_parts = array(
-            'models' => 1  // This module provides document templates
+            'models' => 1,  // This module provides document templates
+            'hooks' => array(
+                'toprightmenu',  // Hook for adding to top right menu
+            ),
         );
         $this->dirs = array();
         $this->config_page_url = array("setup.php@equipmentmanager");
