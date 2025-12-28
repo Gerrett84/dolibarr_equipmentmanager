@@ -58,8 +58,13 @@ class ActionsEquipmentManager
     {
         global $conf, $user, $langs;
 
-        // Check if user has permission to access interventions
-        if (!$user->hasRight('ficheinter', 'lire')) {
+        // Only show for logged in users with intervention access
+        if (empty($user->id)) {
+            return 0;
+        }
+
+        // Check module is enabled
+        if (empty($conf->ficheinter->enabled) && empty($conf->intervention->enabled)) {
             return 0;
         }
 

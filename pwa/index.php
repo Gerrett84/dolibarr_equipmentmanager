@@ -33,6 +33,7 @@ if ($isAuthenticated) {
 $title = 'Serviceberichte';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature.min.js';
+$dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -691,7 +692,7 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
         <h1 id="headerTitle"><?php echo $title; ?></h1>
         <span class="sync-status" id="syncStatus">Offline</span>
-        <a href="<?php echo DOL_URL_ROOT; ?>" class="header-btn" id="btnDolibarr" title="Dolibarr öffnen" style="text-decoration:none;color:white;">&#127968;</a>
+        <a href="<?php echo $dolibarrUrl; ?>" class="header-btn" id="btnDolibarr" title="Dolibarr öffnen" style="text-decoration:none;color:white;">&#127968;</a>
         <button class="header-btn" id="btnSync" title="Synchronisieren">&#8635;</button>
     </div>
 
