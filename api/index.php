@@ -298,7 +298,7 @@ function handleIntervention($method, $parts, $input) {
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
 
             // Get document path for debug
-            $docPath = $conf->fichinter->dir_output . '/' . $fichinter->ref;
+            $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
 
             echo json_encode([
                 'status' => 'ok',
@@ -307,7 +307,8 @@ function handleIntervention($method, $parts, $input) {
                 'intervention_status' => (int)$fichinter->statut,
                 'pdf_generated' => $pdfGenerated,
                 'doc_path' => $docPath,
-                'doc_exists' => is_dir($docPath)
+                'doc_exists' => is_dir($docPath),
+                'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined'
             ]);
         } else {
             http_response_code(500);
@@ -350,7 +351,7 @@ function handleIntervention($method, $parts, $input) {
 
     // Get documents/PDFs for intervention
     if (isset($parts[2]) && $parts[2] === 'documents') {
-        $docPath = $conf->fichinter->dir_output . '/' . $fichinter->ref;
+        $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
         $documents = getInterventionDocuments($fichinter);
         echo json_encode([
             'status' => 'ok',
@@ -358,6 +359,7 @@ function handleIntervention($method, $parts, $input) {
             'intervention_ref' => $fichinter->ref,
             'doc_path' => $docPath,
             'doc_dir_exists' => is_dir($docPath),
+            'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined',
             'documents' => $documents
         ]);
         return;
@@ -724,9 +726,13 @@ function handleSignature($method, $parts, $input) {
     }
 
     // Create signatures directory
-    $upload_dir = $conf->fichinter->dir_output . '/' . $fichinter->ref;
+    $upload_dir = getFichinterDocDir() . '/' . $fichinter->ref;
     $signatures_dir = $upload_dir . '/signatures';
 
+    // Ensure directories exist
+    if (!file_exists($upload_dir)) {
+        dol_mkdir($upload_dir);
+    }
     if (!file_exists($signatures_dir)) {
         dol_mkdir($signatures_dir);
     }
@@ -1035,6 +1041,30 @@ function handleLinkEquipment($method, $parts, $input) {
 }
 
 /**
+ * Get the fichinter document output directory
+ */
+function getFichinterDocDir() {
+    global $conf;
+
+    // Try different methods to get the document directory
+    if (!empty($conf->fichinter->dir_output)) {
+        return $conf->fichinter->dir_output;
+    }
+
+    // Fallback: Build from DOL_DATA_ROOT
+    if (defined('DOL_DATA_ROOT')) {
+        return DOL_DATA_ROOT . '/fichinter';
+    }
+
+    // Fallback: Try conf->entity path
+    if (!empty($conf->entity) && $conf->entity > 1) {
+        return DOL_DATA_ROOT . '/' . $conf->entity . '/fichinter';
+    }
+
+    return '/var/lib/dolibarr/documents/fichinter';
+}
+
+/**
  * Generate PDF for intervention
  */
 function generateInterventionPDF($fichinter, $user) {
@@ -1058,12 +1088,15 @@ function generateInterventionPDF($fichinter, $user) {
     }
     $outputlangs->loadLangs(array("main", "interventions", "companies"));
 
+    $docDir = getFichinterDocDir();
+    error_log("PDF generation: using doc dir: " . $docDir);
+
     $result = $fichinter->generateDocument($modele, $outputlangs);
 
     if ($result <= 0) {
         error_log("PDF generation failed for intervention " . $fichinter->ref . ": " . $fichinter->error);
     } else {
-        error_log("PDF generated successfully for intervention " . $fichinter->ref . " in " . $conf->fichinter->dir_output);
+        error_log("PDF generated successfully for intervention " . $fichinter->ref);
     }
 
     return $result > 0;
@@ -1078,7 +1111,7 @@ function getInterventionDocuments($fichinter) {
     $documents = [];
 
     // Get the upload directory for this intervention
-    $upload_dir = $conf->fichinter->dir_output . '/' . $fichinter->ref;
+    $upload_dir = getFichinterDocDir() . '/' . $fichinter->ref;
 
     // Build base URL for document access (relative to Dolibarr root)
     $baseUrl = dol_buildpath('/document.php', 1);
