@@ -271,6 +271,58 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
+    // Release intervention (close)
+    if (isset($parts[2]) && $parts[2] === 'release') {
+        if ($method !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+            return;
+        }
+
+        // Set status to closed (3)
+        $fichinter->statut = 3;
+        $fichinter->fk_statut = 3;
+        $result = $fichinter->update($user);
+
+        if ($result > 0) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Intervention released',
+                'new_status' => 3
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to release intervention']);
+        }
+        return;
+    }
+
+    // Reopen intervention
+    if (isset($parts[2]) && $parts[2] === 'reopen') {
+        if ($method !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+            return;
+        }
+
+        // Set status to validated (1)
+        $fichinter->statut = 1;
+        $fichinter->fk_statut = 1;
+        $result = $fichinter->update($user);
+
+        if ($result > 0) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Intervention reopened',
+                'new_status' => 1
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to reopen intervention']);
+        }
+        return;
+    }
+
     // Return full intervention with equipment
     $equipment = getInterventionEquipment($id);
 

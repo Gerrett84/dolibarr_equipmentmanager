@@ -145,6 +145,9 @@ class ServiceReportApp {
         // Equipment modal buttons
         document.getElementById('btnCloseEquipment').addEventListener('click', () => this.closeEquipmentModal());
 
+        // Release button
+        document.getElementById('navRelease').addEventListener('click', () => this.toggleRelease());
+
         // Auto-save on input change (debounced)
         let saveTimeout;
         document.getElementById('detailForm').addEventListener('input', () => {
@@ -183,6 +186,8 @@ class ServiceReportApp {
         if (viewId === 'viewInterventions') {
             backBtn.style.display = 'none';
             headerTitle.textContent = 'Serviceberichte';
+            document.getElementById('navRelease').style.display = 'none';
+            document.getElementById('navSignature').style.display = 'none';
         } else {
             backBtn.style.display = 'block';
             if (title) headerTitle.textContent = title;
@@ -353,12 +358,14 @@ class ServiceReportApp {
             <div class="card-header">
                 <div>
                     <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
-                    <p class="card-subtitle">${intervention.customer?.name || 'Kunde'}</p>
                 </div>
                 <span class="badge badge-${statusClass}">${statusText}</span>
             </div>
             <div class="card-body">
-                <p style="margin:0; font-size:13px; color:#666;">
+                <p style="margin:0; font-size:14px; font-weight:500; color:#333;">
+                    ${intervention.customer?.name || 'Kunde'}
+                </p>
+                <p style="margin:4px 0 0; font-size:13px; color:#666;">
                     ${intervention.customer?.address || ''}<br>
                     ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
                 </p>
@@ -401,6 +408,21 @@ class ServiceReportApp {
 
             loadingEl.style.display = 'none';
 
+            // Show release button and update text based on status
+            const releaseBtn = document.getElementById('navRelease');
+            const releaseIcon = document.getElementById('releaseIcon');
+            const releaseText = document.getElementById('releaseText');
+            releaseBtn.style.display = 'flex';
+
+            // Status 1 = validated/open, Status 3 = closed
+            if (intervention.status === 3) {
+                releaseIcon.textContent = '🔓';
+                releaseText.textContent = 'Wiedereröffnen';
+            } else {
+                releaseIcon.textContent = '✅';
+                releaseText.textContent = 'Freigeben';
+            }
+
             // Add "Add Equipment" button
             const addBtn = document.createElement('div');
             addBtn.className = 'add-equipment-btn';
@@ -442,11 +464,14 @@ class ServiceReportApp {
                 const iconClass = hasDetail ? 'done' : 'pending';
                 const icon = hasDetail ? '✓' : '○';
                 const typeName = typeLabels[eq.type] || eq.type || '';
+                const linkTypeBadge = eq.link_type === 'maintenance'
+                    ? '<span class="link-type-badge maintenance">Wartung</span>'
+                    : '<span class="link-type-badge service">Service</span>';
 
                 item.innerHTML = `
                     <div class="equipment-icon">🚪</div>
                     <div class="equipment-info">
-                        <div class="equipment-ref">${eq.ref} - ${typeName}</div>
+                        <div class="equipment-ref">${eq.ref} - ${typeName}${linkTypeBadge}</div>
                         <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
                         ${eq.location ? `<div class="equipment-label" style="color:#888;">${eq.location}</div>` : ''}
                     </div>
@@ -1020,6 +1045,47 @@ class ServiceReportApp {
         } catch (err) {
             console.error('Failed to link equipment:', err);
             this.showToast('Fehler beim Hinzufügen');
+        }
+    }
+
+    // Toggle release/reopen intervention
+    async toggleRelease() {
+        const isReleased = this.currentIntervention.status === 3;
+        const action = isReleased ? 'reopen' : 'release';
+        const confirmMsg = isReleased
+            ? 'Auftrag wirklich wiedereröffnen?'
+            : 'Auftrag wirklich freigeben?';
+
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        try {
+            const result = await this.apiCall(`intervention/${this.currentIntervention.id}/${action}`, {
+                method: 'POST'
+            });
+
+            if (result.status === 'ok') {
+                // Update local status
+                this.currentIntervention.status = result.new_status;
+
+                // Update button
+                const releaseIcon = document.getElementById('releaseIcon');
+                const releaseText = document.getElementById('releaseText');
+
+                if (result.new_status === 3) {
+                    releaseIcon.textContent = '🔓';
+                    releaseText.textContent = 'Wiedereröffnen';
+                    this.showToast('Auftrag freigegeben');
+                } else {
+                    releaseIcon.textContent = '✅';
+                    releaseText.textContent = 'Freigeben';
+                    this.showToast('Auftrag wiedereröffnet');
+                }
+            }
+        } catch (err) {
+            console.error('Failed to toggle release:', err);
+            this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
         }
     }
 }

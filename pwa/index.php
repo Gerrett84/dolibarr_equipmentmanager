@@ -569,6 +569,27 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         .add-equipment-btn:active {
             background: #c8e6c9;
         }
+
+        /* Link Type Badge */
+        .link-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+
+        .link-type-badge.service {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .link-type-badge.maintenance {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
     </style>
 </head>
 <body>
@@ -709,6 +730,10 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         <button class="nav-item active" data-view="viewInterventions">
             <span class="nav-icon">📋</span>
             <span>Aufträge</span>
+        </button>
+        <button class="nav-item" id="navRelease" style="display:none;">
+            <span class="nav-icon" id="releaseIcon">✅</span>
+            <span id="releaseText">Freigeben</span>
         </button>
         <button class="nav-item" data-view="viewSignature" id="navSignature" style="display:none;">
             <span class="nav-icon">✍️</span>
