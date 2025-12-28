@@ -148,6 +148,10 @@ class ServiceReportApp {
         // Release button
         document.getElementById('navRelease').addEventListener('click', () => this.toggleRelease());
 
+        // Documents button
+        document.getElementById('navDocuments').addEventListener('click', () => this.showDocuments());
+        document.getElementById('btnCloseDocuments').addEventListener('click', () => this.closeDocumentsModal());
+
         // Auto-save on input change (debounced)
         let saveTimeout;
         document.getElementById('detailForm').addEventListener('input', () => {
@@ -187,6 +191,7 @@ class ServiceReportApp {
             backBtn.style.display = 'none';
             headerTitle.textContent = 'Serviceberichte';
             document.getElementById('navRelease').style.display = 'none';
+            document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
         } else {
             backBtn.style.display = 'block';
@@ -196,9 +201,76 @@ class ServiceReportApp {
         this.currentView = viewId;
 
         // Initialize signature if needed
-        if (viewId === 'viewSignature' && !this.signatureInstance) {
-            this.initSignature();
+        if (viewId === 'viewSignature') {
+            // Check if released
+            const signedStatus = this.currentIntervention?.signed_status || 0;
+            const signatureCard = document.querySelector('#viewSignature .card');
+            const saveBtn = document.getElementById('btnSaveSignature');
+
+            if (signedStatus < 1) {
+                // Not released - show warning and disable signature
+                signatureCard.innerHTML = `
+                    <div class="card-header">
+                        <h3 class="card-title">Kundenunterschrift</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-icon">⚠️</div>
+                            <p>Unterschrift erst nach Freigabe möglich</p>
+                            <p style="font-size:12px;color:#666;">Bitte zuerst auf "Freigeben" klicken.</p>
+                        </div>
+                    </div>
+                `;
+                saveBtn.style.display = 'none';
+            } else if (signedStatus >= 3) {
+                // Already signed
+                signatureCard.innerHTML = `
+                    <div class="card-header">
+                        <h3 class="card-title">Kundenunterschrift</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-icon">✅</div>
+                            <p>Unterschrift bereits vorhanden</p>
+                        </div>
+                    </div>
+                `;
+                saveBtn.style.display = 'none';
+            } else {
+                // Released - show signature form
+                this.resetSignatureView();
+                saveBtn.style.display = 'block';
+                if (!this.signatureInstance) {
+                    this.initSignature();
+                }
+            }
         }
+    }
+
+    resetSignatureView() {
+        const signatureCard = document.querySelector('#viewSignature .card');
+        signatureCard.innerHTML = `
+            <div class="card-header">
+                <h3 class="card-title">Kundenunterschrift</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">Name des Unterzeichners</label>
+                    <input type="text" class="form-input" id="signerName" placeholder="Vor- und Nachname">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Unterschrift</label>
+                    <div class="signature-container">
+                        <div id="signatureCanvas"></div>
+                    </div>
+                    <button type="button" class="btn btn-danger" id="btnClearSignature">Löschen</button>
+                </div>
+            </div>
+        `;
+        // Re-attach clear button handler
+        document.getElementById('btnClearSignature').addEventListener('click', () => this.clearSignature());
+        this.signatureInstance = null;
     }
 
     goBack() {
@@ -327,13 +399,27 @@ class ServiceReportApp {
         const card = document.createElement('div');
         card.className = 'card card-clickable';
 
-        const statusClass = intervention.status === 0 ? 'draft' :
-                           intervention.status === 1 ? 'open' :
-                           intervention.signed_status > 0 ? 'signed' : 'done';
+        // Determine status based on both status and signed_status
+        // signed_status: 0 = not released, 1 = released for signature, 3 = signed
+        const signedStatus = intervention.signed_status || 0;
 
-        const statusText = intervention.status === 0 ? 'Entwurf' :
-                          intervention.status === 1 ? 'Offen' :
-                          intervention.signed_status > 0 ? 'Unterschrieben' : 'Abgeschlossen';
+        let statusClass, statusText;
+        if (intervention.status === 0) {
+            statusClass = 'draft';
+            statusText = 'Entwurf';
+        } else if (signedStatus >= 3) {
+            statusClass = 'signed';
+            statusText = 'Unterschrieben';
+        } else if (signedStatus >= 1) {
+            statusClass = 'released';
+            statusText = 'Freigegeben';
+        } else if (intervention.status === 1) {
+            statusClass = 'open';
+            statusText = 'Offen';
+        } else {
+            statusClass = 'done';
+            statusText = 'Abgeschlossen';
+        }
 
         // Format object addresses
         let objectAddressHtml = '';
@@ -408,19 +494,39 @@ class ServiceReportApp {
 
             loadingEl.style.display = 'none';
 
-            // Show release button and update text based on status
+            // Show release button and update text based on signed_status
             const releaseBtn = document.getElementById('navRelease');
             const releaseIcon = document.getElementById('releaseIcon');
             const releaseText = document.getElementById('releaseText');
             releaseBtn.style.display = 'flex';
 
-            // Status 1 = validated/open, Status 3 = closed
-            if (intervention.status === 3) {
-                releaseIcon.textContent = '🔓';
-                releaseText.textContent = 'Wiedereröffnen';
+            // Show/hide documents button
+            const docsBtn = document.getElementById('navDocuments');
+            docsBtn.style.display = 'flex';
+
+            // signed_status: 0 = not released, 1 = released for signature, 3 = signed
+            const signedStatus = intervention.signed_status || 0;
+
+            if (signedStatus >= 1) {
+                // Released or signed - show "Ändern" button
+                releaseIcon.textContent = '✏️';
+                releaseText.textContent = 'Ändern';
             } else {
+                // Not released - show "Freigeben" button
                 releaseIcon.textContent = '✅';
                 releaseText.textContent = 'Freigeben';
+            }
+
+            // Only show signature button if released (signed_status >= 1)
+            const sigBtn = document.getElementById('navSignature');
+            if (signedStatus >= 1 && signedStatus < 3) {
+                sigBtn.style.display = 'flex';
+            } else if (signedStatus >= 3) {
+                // Already signed - hide signature button
+                sigBtn.style.display = 'none';
+            } else {
+                // Not released - hide signature button
+                sigBtn.style.display = 'none';
             }
 
             // Add "Add Equipment" button
@@ -612,22 +718,43 @@ class ServiceReportApp {
             return;
         }
 
+        // Check if intervention is released
+        const signedStatus = this.currentIntervention.signed_status || 0;
+        if (signedStatus < 1) {
+            this.showToast('Bitte zuerst freigeben');
+            return;
+        }
+
         const signerName = document.getElementById('signerName').value.trim();
         if (!signerName) {
             this.showToast('Bitte Name eingeben');
             return;
         }
 
-        // Get signature data
-        const signatureData = this.signatureInstance.jSignature('getData', 'base64');
+        // Get signature data - jSignature returns ['format', 'base64data']
+        let signatureData;
+        try {
+            signatureData = this.signatureInstance.jSignature('getData', 'base64');
+        } catch (e) {
+            console.error('Error getting signature data:', e);
+            this.showToast('Fehler beim Lesen der Unterschrift');
+            return;
+        }
 
-        if (!signatureData || signatureData.length < 2) {
+        // Check if signature data exists and has content
+        // signatureData is an array: ['image/png;base64', 'base64data']
+        if (!signatureData || !Array.isArray(signatureData) || signatureData.length < 2) {
             this.showToast('Bitte unterschreiben');
             return;
         }
 
-        // signatureData is an array: ['image/png;base64', 'base64data']
         const base64 = signatureData[1];
+
+        // Check if signature actually has content (empty signature is ~200 bytes, real signature is much larger)
+        if (!base64 || base64.length < 500) {
+            this.showToast('Bitte unterschreiben');
+            return;
+        }
 
         // Save to IndexedDB
         await offlineDB.saveSignature(this.currentIntervention.id, base64, signerName);
@@ -635,15 +762,19 @@ class ServiceReportApp {
         // Try to sync if online
         if (this.isOnline) {
             try {
-                await this.apiCall(`signature/${this.currentIntervention.id}`, {
+                const result = await this.apiCall(`signature/${this.currentIntervention.id}`, {
                     method: 'POST',
                     body: JSON.stringify({
                         signature: base64,
                         signer_name: signerName
                     })
                 });
-                this.showToast('Unterschrift gespeichert');
+                this.showToast('Unterschrift gespeichert - Auftrag abgeschlossen');
                 this.currentIntervention.signed_status = 3;
+                this.currentIntervention.status = 3; // Closed
+
+                // Reload interventions list to reflect new status
+                await this.loadInterventions();
             } catch (err) {
                 this.showToast('Offline gespeichert - wird synchronisiert');
             }
@@ -651,8 +782,8 @@ class ServiceReportApp {
             this.showToast('Unterschrift offline gespeichert');
         }
 
-        // Go back to equipment list
-        this.loadEquipment(this.currentIntervention);
+        // Go back to interventions list
+        this.showView('viewInterventions');
     }
 
     // Sync data with server
@@ -1045,13 +1176,14 @@ class ServiceReportApp {
         }
     }
 
-    // Toggle release/reopen intervention
+    // Toggle release/unreleased intervention
     async toggleRelease() {
-        const isReleased = this.currentIntervention.status === 3;
-        const action = isReleased ? 'reopen' : 'release';
+        const signedStatus = this.currentIntervention.signed_status || 0;
+        const isReleased = signedStatus >= 1;
+        const action = isReleased ? 'unreleased' : 'release';
         const confirmMsg = isReleased
-            ? 'Auftrag wirklich wiedereröffnen?'
-            : 'Auftrag wirklich freigeben?';
+            ? 'Auftrag zur Bearbeitung wieder öffnen?'
+            : 'Auftrag zur Unterschrift freigeben? Dies generiert auch die PDF.';
 
         if (!confirm(confirmMsg)) {
             return;
@@ -1063,27 +1195,93 @@ class ServiceReportApp {
             });
 
             if (result.status === 'ok') {
-                // Update local status
-                this.currentIntervention.status = result.new_status;
+                // Update local signed_status
+                this.currentIntervention.signed_status = result.signed_status;
 
                 // Update button
                 const releaseIcon = document.getElementById('releaseIcon');
                 const releaseText = document.getElementById('releaseText');
+                const sigBtn = document.getElementById('navSignature');
 
-                if (result.new_status === 3) {
-                    releaseIcon.textContent = '🔓';
-                    releaseText.textContent = 'Wiedereröffnen';
-                    this.showToast('Auftrag freigegeben');
+                if (result.signed_status >= 1) {
+                    releaseIcon.textContent = '✏️';
+                    releaseText.textContent = 'Ändern';
+                    sigBtn.style.display = 'flex';
+                    this.showToast('Auftrag freigegeben' + (result.pdf_generated ? ' - PDF erstellt' : ''));
                 } else {
                     releaseIcon.textContent = '✅';
                     releaseText.textContent = 'Freigeben';
-                    this.showToast('Auftrag wiedereröffnet');
+                    sigBtn.style.display = 'none';
+                    this.showToast('Auftrag zur Bearbeitung geöffnet');
                 }
             }
         } catch (err) {
             console.error('Failed to toggle release:', err);
             this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
         }
+    }
+
+    // Show documents modal
+    async showDocuments() {
+        document.getElementById('documentsModal').classList.add('show');
+
+        const listEl = document.getElementById('documentsList');
+        listEl.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Lade Dokumente...</p>
+            </div>
+        `;
+
+        try {
+            const data = await this.apiCall(`intervention/${this.currentIntervention.id}/documents`);
+            const documents = data.documents || [];
+
+            if (documents.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <div class="empty-icon">📄</div>
+                        <p>Keine Dokumente vorhanden</p>
+                        <p style="font-size:12px;color:#666;">Bitte zuerst freigeben um PDF zu erstellen.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = '';
+            documents.forEach(doc => {
+                const item = document.createElement('a');
+                item.href = doc.url;
+                item.target = '_blank';
+                item.className = 'document-item';
+                item.innerHTML = `
+                    <div class="document-icon">${doc.type === 'signature' ? '✍️' : '📄'}</div>
+                    <div class="document-info">
+                        <div class="document-name">${doc.name}</div>
+                        <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
+                    </div>
+                    <div class="document-size">${this.formatFileSize(doc.size)}</div>
+                `;
+                listEl.appendChild(item);
+            });
+        } catch (err) {
+            console.error('Failed to load documents:', err);
+            listEl.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <p>Fehler beim Laden der Dokumente</p>
+                </div>
+            `;
+        }
+    }
+
+    closeDocumentsModal() {
+        document.getElementById('documentsModal').classList.remove('show');
+    }
+
+    formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 }
 

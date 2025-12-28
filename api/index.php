@@ -167,6 +167,7 @@ function handleInterventions($method, $parts, $input) {
     // Get interventions - removed strict entity filter for debugging
     $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status,";
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
+    $sql .= " f.signed_status,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."fichinter f";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
@@ -213,6 +214,7 @@ function handleInterventions($method, $parts, $input) {
             'date_end' => $obj->datee,
             'duration' => (int)$obj->duree,
             'status' => (int)$obj->status,
+            'signed_status' => (int)$obj->signed_status,
             'description' => $obj->description,
             'note_public' => $obj->note_public,
             'customer' => [
@@ -278,7 +280,7 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
-    // Release intervention (close)
+    // Release intervention for signature (NOT closing it)
     if (isset($parts[2]) && $parts[2] === 'release') {
         if ($method !== 'POST') {
             http_response_code(405);
@@ -286,49 +288,69 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Use Dolibarr's setClose method
-        $result = $fichinter->setClose($user);
+        // Set signed_status = 1 (released for signature) but keep status as validated (1)
+        // This marks the intervention as ready for signature without closing it
+        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1 WHERE rowid = ".(int)$id;
+        $resql = $db->query($sql);
 
-        if ($result > 0) {
+        if ($resql) {
+            // Generate PDF
+            $pdfGenerated = generateInterventionPDF($fichinter, $user);
+
             echo json_encode([
                 'status' => 'ok',
-                'message' => 'Intervention released',
-                'new_status' => 3
+                'message' => 'Intervention released for signature',
+                'signed_status' => 1,
+                'intervention_status' => (int)$fichinter->statut,
+                'pdf_generated' => $pdfGenerated
             ]);
         } else {
             http_response_code(500);
             echo json_encode([
                 'error' => 'Failed to release intervention',
-                'details' => $fichinter->error ?: $fichinter->errors
+                'details' => $db->lasterror()
             ]);
         }
         return;
     }
 
-    // Reopen intervention
-    if (isset($parts[2]) && $parts[2] === 'reopen') {
+    // Unreleased intervention (allow editing again)
+    if (isset($parts[2]) && $parts[2] === 'unreleased') {
         if ($method !== 'POST') {
             http_response_code(405);
             echo json_encode(['error' => 'Method not allowed']);
             return;
         }
 
-        // Use Dolibarr's setValid method to reopen
-        $result = $fichinter->setValid($user);
+        // Set signed_status = 0 to allow editing again
+        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 0 WHERE rowid = ".(int)$id;
+        $resql = $db->query($sql);
 
-        if ($result > 0) {
+        if ($resql) {
             echo json_encode([
                 'status' => 'ok',
-                'message' => 'Intervention reopened',
-                'new_status' => 1
+                'message' => 'Intervention reopened for editing',
+                'signed_status' => 0,
+                'intervention_status' => (int)$fichinter->statut
             ]);
         } else {
             http_response_code(500);
             echo json_encode([
-                'error' => 'Failed to reopen intervention',
-                'details' => $fichinter->error ?: $fichinter->errors
+                'error' => 'Failed to unreleased intervention',
+                'details' => $db->lasterror()
             ]);
         }
+        return;
+    }
+
+    // Get documents/PDFs for intervention
+    if (isset($parts[2]) && $parts[2] === 'documents') {
+        $documents = getInterventionDocuments($fichinter);
+        echo json_encode([
+            'status' => 'ok',
+            'intervention_id' => $id,
+            'documents' => $documents
+        ]);
         return;
     }
 
@@ -711,25 +733,35 @@ function handleSignature($method, $parts, $input) {
         return;
     }
 
-    // Update intervention signed status
-    $fichinter->signed_status = 3; // STATUS_SIGNED_RECEIVER_ONLINE
-    $fichinter->online_sign_ip = getUserRemoteIP();
-    $fichinter->online_sign_name = $input['signer_name'] ?? $user->getFullName($langs);
+    // Update intervention signed status directly via SQL (more reliable)
+    $signerName = $input['signer_name'] ?? $user->getFullName($langs);
+    $signerIp = getUserRemoteIP();
 
-    $result = $fichinter->update($user);
+    $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
+    $sql .= "signed_status = 3,"; // STATUS_SIGNED_RECEIVER_ONLINE
+    $sql .= "online_sign_ip = '".$db->escape($signerIp)."',";
+    $sql .= "online_sign_name = '".$db->escape($signerName)."'";
+    $sql .= " WHERE rowid = ".(int)$intervention_id;
 
-    if ($result > 0) {
+    $resql = $db->query($sql);
+
+    if ($resql) {
+        // Also close the intervention (status = 3) after signature
+        $fichinter->setClose($user);
+
         echo json_encode([
             'status' => 'ok',
             'message' => 'Signature saved',
             'file' => $filename,
-            'signed_status' => 3
+            'signed_status' => 3,
+            'intervention_closed' => true
         ]);
     } else {
         http_response_code(500);
         echo json_encode([
             'error' => 'Failed to update intervention status',
-            'file_saved' => true
+            'file_saved' => true,
+            'db_error' => $db->lasterror()
         ]);
     }
 }
@@ -991,4 +1023,84 @@ function handleLinkEquipment($method, $parts, $input) {
             echo json_encode(['error' => 'Failed to link equipment: ' . $db->lasterror()]);
         }
     }
+}
+
+/**
+ * Generate PDF for intervention
+ */
+function generateInterventionPDF($fichinter, $user) {
+    global $conf, $langs, $db;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+    require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
+
+    // Get PDF model
+    $modele = $conf->global->FICHINTER_ADDON_PDF ?: 'soleil';
+
+    // Generate PDF
+    $fichinter->fetch($fichinter->id);
+    $fichinter->fetch_thirdparty();
+
+    $outputlangs = $langs;
+    if ($conf->global->MAIN_MULTILANGS) {
+        $outputlangs = new Translate("", $conf);
+        $outputlangs->setDefaultLang($fichinter->thirdparty->default_lang);
+    }
+
+    $result = $fichinter->generateDocument($modele, $outputlangs);
+
+    return $result > 0;
+}
+
+/**
+ * Get list of documents/PDFs for intervention
+ */
+function getInterventionDocuments($fichinter) {
+    global $conf;
+
+    $documents = [];
+
+    // Get the upload directory for this intervention
+    $upload_dir = $conf->fichinter->dir_output . '/' . $fichinter->ref;
+
+    if (is_dir($upload_dir)) {
+        // Scan directory for PDF files
+        $files = scandir($upload_dir);
+        foreach ($files as $file) {
+            if (pathinfo($file, PATHINFO_EXTENSION) === 'pdf') {
+                $filepath = $upload_dir . '/' . $file;
+                $documents[] = [
+                    'name' => $file,
+                    'size' => filesize($filepath),
+                    'date' => filemtime($filepath),
+                    'url' => DOL_URL_ROOT . '/document.php?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/' . $file)
+                ];
+            }
+        }
+
+        // Also check for signatures
+        $sigDir = $upload_dir . '/signatures';
+        if (is_dir($sigDir)) {
+            $sigFiles = scandir($sigDir);
+            foreach ($sigFiles as $file) {
+                if (pathinfo($file, PATHINFO_EXTENSION) === 'png') {
+                    $filepath = $sigDir . '/' . $file;
+                    $documents[] = [
+                        'name' => 'Unterschrift: ' . $file,
+                        'size' => filesize($filepath),
+                        'date' => filemtime($filepath),
+                        'url' => DOL_URL_ROOT . '/document.php?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/signatures/' . $file),
+                        'type' => 'signature'
+                    ];
+                }
+            }
+        }
+    }
+
+    // Sort by date descending
+    usort($documents, function($a, $b) {
+        return $b['date'] - $a['date'];
+    });
+
+    return $documents;
 }
