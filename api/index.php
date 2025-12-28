@@ -279,10 +279,8 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set status to closed (3)
-        $fichinter->statut = 3;
-        $fichinter->fk_statut = 3;
-        $result = $fichinter->update($user);
+        // Use Dolibarr's setClose method
+        $result = $fichinter->setClose($user);
 
         if ($result > 0) {
             echo json_encode([
@@ -292,7 +290,10 @@ function handleIntervention($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to release intervention']);
+            echo json_encode([
+                'error' => 'Failed to release intervention',
+                'details' => $fichinter->error ?: $fichinter->errors
+            ]);
         }
         return;
     }
@@ -305,10 +306,8 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set status to validated (1)
-        $fichinter->statut = 1;
-        $fichinter->fk_statut = 1;
-        $result = $fichinter->update($user);
+        // Use Dolibarr's setValid method to reopen
+        $result = $fichinter->setValid($user);
 
         if ($result > 0) {
             echo json_encode([
@@ -318,7 +317,10 @@ function handleIntervention($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to reopen intervention']);
+            echo json_encode([
+                'error' => 'Failed to reopen intervention',
+                'details' => $fichinter->error ?: $fichinter->errors
+            ]);
         }
         return;
     }
