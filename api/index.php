@@ -297,12 +297,17 @@ function handleIntervention($method, $parts, $input) {
             // Generate PDF
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
 
+            // Get document path for debug
+            $docPath = $conf->fichinter->dir_output . '/' . $fichinter->ref;
+
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention released for signature',
                 'signed_status' => 1,
                 'intervention_status' => (int)$fichinter->statut,
-                'pdf_generated' => $pdfGenerated
+                'pdf_generated' => $pdfGenerated,
+                'doc_path' => $docPath,
+                'doc_exists' => is_dir($docPath)
             ]);
         } else {
             http_response_code(500);
@@ -345,10 +350,14 @@ function handleIntervention($method, $parts, $input) {
 
     // Get documents/PDFs for intervention
     if (isset($parts[2]) && $parts[2] === 'documents') {
+        $docPath = $conf->fichinter->dir_output . '/' . $fichinter->ref;
         $documents = getInterventionDocuments($fichinter);
         echo json_encode([
             'status' => 'ok',
             'intervention_id' => $id,
+            'intervention_ref' => $fichinter->ref,
+            'doc_path' => $docPath,
+            'doc_dir_exists' => is_dir($docPath),
             'documents' => $documents
         ]);
         return;
@@ -1035,19 +1044,27 @@ function generateInterventionPDF($fichinter, $user) {
     require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 
     // Get PDF model
-    $modele = $conf->global->FICHINTER_ADDON_PDF ?: 'soleil';
+    $modele = !empty($conf->global->FICHINTER_ADDON_PDF) ? $conf->global->FICHINTER_ADDON_PDF : 'soleil';
 
-    // Generate PDF
+    // Refetch to ensure we have latest data
     $fichinter->fetch($fichinter->id);
     $fichinter->fetch_thirdparty();
+    $fichinter->fetch_lines();
 
     $outputlangs = $langs;
-    if ($conf->global->MAIN_MULTILANGS) {
+    if (!empty($conf->global->MAIN_MULTILANGS) && !empty($fichinter->thirdparty->default_lang)) {
         $outputlangs = new Translate("", $conf);
         $outputlangs->setDefaultLang($fichinter->thirdparty->default_lang);
     }
+    $outputlangs->loadLangs(array("main", "interventions", "companies"));
 
     $result = $fichinter->generateDocument($modele, $outputlangs);
+
+    if ($result <= 0) {
+        error_log("PDF generation failed for intervention " . $fichinter->ref . ": " . $fichinter->error);
+    } else {
+        error_log("PDF generated successfully for intervention " . $fichinter->ref . " in " . $conf->fichinter->dir_output);
+    }
 
     return $result > 0;
 }
@@ -1063,17 +1080,22 @@ function getInterventionDocuments($fichinter) {
     // Get the upload directory for this intervention
     $upload_dir = $conf->fichinter->dir_output . '/' . $fichinter->ref;
 
+    // Build base URL for document access (relative to Dolibarr root)
+    $baseUrl = dol_buildpath('/document.php', 1);
+
     if (is_dir($upload_dir)) {
         // Scan directory for PDF files
         $files = scandir($upload_dir);
         foreach ($files as $file) {
+            if ($file === '.' || $file === '..') continue;
             if (pathinfo($file, PATHINFO_EXTENSION) === 'pdf') {
                 $filepath = $upload_dir . '/' . $file;
                 $documents[] = [
                     'name' => $file,
                     'size' => filesize($filepath),
                     'date' => filemtime($filepath),
-                    'url' => DOL_URL_ROOT . '/document.php?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/' . $file)
+                    'url' => $baseUrl . '?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/' . $file),
+                    'type' => 'pdf'
                 ];
             }
         }
@@ -1083,13 +1105,14 @@ function getInterventionDocuments($fichinter) {
         if (is_dir($sigDir)) {
             $sigFiles = scandir($sigDir);
             foreach ($sigFiles as $file) {
+                if ($file === '.' || $file === '..') continue;
                 if (pathinfo($file, PATHINFO_EXTENSION) === 'png') {
                     $filepath = $sigDir . '/' . $file;
                     $documents[] = [
                         'name' => 'Unterschrift: ' . $file,
                         'size' => filesize($filepath),
                         'date' => filemtime($filepath),
-                        'url' => DOL_URL_ROOT . '/document.php?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/signatures/' . $file),
+                        'url' => $baseUrl . '?modulepart=fichinter&file=' . urlencode($fichinter->ref . '/signatures/' . $file),
                         'type' => 'signature'
                     ];
                 }
@@ -1101,6 +1124,11 @@ function getInterventionDocuments($fichinter) {
     usort($documents, function($a, $b) {
         return $b['date'] - $a['date'];
     });
+
+    // Debug info
+    if (empty($documents)) {
+        error_log("No documents found in: " . $upload_dir);
+    }
 
     return $documents;
 }

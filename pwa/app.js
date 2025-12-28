@@ -694,25 +694,41 @@ class ServiceReportApp {
     // Signature handling
     initSignature() {
         const container = document.getElementById('signatureCanvas');
+        if (!container) {
+            console.error('Signature canvas container not found');
+            return;
+        }
+
         container.innerHTML = '';
 
+        // Initialize jSignature with explicit settings
         $(container).jSignature({
             color: '#000',
+            'background-color': '#fff',
+            'decor-color': 'transparent',
             lineWidth: 2,
             width: '100%',
-            height: 200
+            height: 200,
+            cssclass: 'signature-canvas'
         });
 
         this.signatureInstance = $(container);
+        console.log('jSignature initialized');
     }
 
     clearSignature() {
         if (this.signatureInstance) {
-            this.signatureInstance.jSignature('clear');
+            try {
+                this.signatureInstance.jSignature('reset');
+            } catch (e) {
+                console.error('Error clearing signature:', e);
+            }
         }
     }
 
     async saveSignature() {
+        console.log('saveSignature called, signatureInstance:', this.signatureInstance);
+
         if (!this.signatureInstance) {
             this.showToast('Unterschrift nicht initialisiert');
             return;
@@ -731,27 +747,44 @@ class ServiceReportApp {
             return;
         }
 
-        // Get signature data - jSignature returns ['format', 'base64data']
-        let signatureData;
+        // Get signature data - try different methods
+        let base64 = '';
         try {
-            signatureData = this.signatureInstance.jSignature('getData', 'base64');
+            // Method 1: Try getData with 'image' format (returns data URL)
+            const dataUrl = this.signatureInstance.jSignature('getData', 'image');
+            console.log('Signature dataUrl type:', typeof dataUrl, 'length:', dataUrl ? dataUrl.length : 0);
+
+            if (dataUrl && typeof dataUrl === 'string' && dataUrl.includes('base64,')) {
+                base64 = dataUrl.split('base64,')[1];
+            } else if (Array.isArray(dataUrl) && dataUrl.length >= 2) {
+                // Format: ['data:image/png;base64', 'actualdata']
+                base64 = dataUrl[1];
+            }
         } catch (e) {
-            console.error('Error getting signature data:', e);
-            this.showToast('Fehler beim Lesen der Unterschrift');
-            return;
+            console.error('Error getting signature data (image):', e);
         }
 
-        // Check if signature data exists and has content
-        // signatureData is an array: ['image/png;base64', 'base64data']
-        if (!signatureData || !Array.isArray(signatureData) || signatureData.length < 2) {
-            this.showToast('Bitte unterschreiben');
-            return;
+        // Method 2: Fallback to base30 format
+        if (!base64 || base64.length < 100) {
+            try {
+                const nativeData = this.signatureInstance.jSignature('getData', 'native');
+                console.log('Native data:', nativeData);
+                if (nativeData && nativeData.length > 0) {
+                    // There are strokes - try to get as base64 again
+                    const b64Data = this.signatureInstance.jSignature('getData', 'base64');
+                    if (Array.isArray(b64Data) && b64Data.length >= 2) {
+                        base64 = b64Data[1];
+                    }
+                }
+            } catch (e2) {
+                console.error('Error getting native data:', e2);
+            }
         }
 
-        const base64 = signatureData[1];
+        console.log('Final base64 length:', base64 ? base64.length : 0);
 
-        // Check if signature actually has content (empty signature is ~200 bytes, real signature is much larger)
-        if (!base64 || base64.length < 500) {
+        // Check if signature actually has content
+        if (!base64 || base64.length < 100) {
             this.showToast('Bitte unterschreiben');
             return;
         }
@@ -1194,9 +1227,23 @@ class ServiceReportApp {
                 method: 'POST'
             });
 
+            console.log('Release result:', result);
+
             if (result.status === 'ok') {
                 // Update local signed_status
                 this.currentIntervention.signed_status = result.signed_status;
+
+                // Also update in IndexedDB
+                try {
+                    const interventions = await offlineDB.getAll('interventions');
+                    const idx = interventions.findIndex(i => i.id === this.currentIntervention.id);
+                    if (idx >= 0) {
+                        interventions[idx].signed_status = result.signed_status;
+                        await offlineDB.saveInterventions(interventions);
+                    }
+                } catch (e) {
+                    console.error('Failed to update IndexedDB:', e);
+                }
 
                 // Update button
                 const releaseIcon = document.getElementById('releaseIcon');
@@ -1214,6 +1261,8 @@ class ServiceReportApp {
                     sigBtn.style.display = 'none';
                     this.showToast('Auftrag zur Bearbeitung geöffnet');
                 }
+            } else {
+                this.showToast('Fehler: ' + (result.error || 'Unbekannt'));
             }
         } catch (err) {
             console.error('Failed to toggle release:', err);
@@ -1235,14 +1284,21 @@ class ServiceReportApp {
 
         try {
             const data = await this.apiCall(`intervention/${this.currentIntervention.id}/documents`);
+            console.log('Documents response:', data);
             const documents = data.documents || [];
 
             if (documents.length === 0) {
+                let debugInfo = '';
+                if (data.doc_path) {
+                    debugInfo = `<p style="font-size:10px;color:#999;margin-top:8px;">Pfad: ${data.doc_path}</p>`;
+                    debugInfo += `<p style="font-size:10px;color:#999;">Existiert: ${data.doc_dir_exists ? 'Ja' : 'Nein'}</p>`;
+                }
                 listEl.innerHTML = `
                     <div class="empty-state" style="padding: 20px 0;">
                         <div class="empty-icon">📄</div>
                         <p>Keine Dokumente vorhanden</p>
                         <p style="font-size:12px;color:#666;">Bitte zuerst freigeben um PDF zu erstellen.</p>
+                        ${debugInfo}
                     </div>
                 `;
                 return;
