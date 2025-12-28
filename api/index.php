@@ -292,8 +292,13 @@ function handleIntervention($method, $parts, $input) {
         // This marks the intervention as ready for signature without closing it
         $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1 WHERE rowid = ".(int)$id;
         $resql = $db->query($sql);
+        $affectedRows = $db->affected_rows($resql);
 
-        if ($resql) {
+        // Verify the update by re-fetching
+        $fichinter->fetch($id);
+        $actualSignedStatus = (int)$fichinter->signed_status;
+
+        if ($resql && $affectedRows > 0) {
             // Generate PDF
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
 
@@ -303,18 +308,22 @@ function handleIntervention($method, $parts, $input) {
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention released for signature',
-                'signed_status' => 1,
+                'signed_status' => $actualSignedStatus,
                 'intervention_status' => (int)$fichinter->statut,
                 'pdf_generated' => $pdfGenerated,
                 'doc_path' => $docPath,
                 'doc_exists' => is_dir($docPath),
-                'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined'
+                'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined',
+                'affected_rows' => $affectedRows
             ]);
         } else {
             http_response_code(500);
             echo json_encode([
                 'error' => 'Failed to release intervention',
-                'details' => $db->lasterror()
+                'details' => $db->lasterror(),
+                'sql' => $sql,
+                'affected_rows' => $affectedRows,
+                'actual_signed_status' => $actualSignedStatus
             ]);
         }
         return;
@@ -331,19 +340,28 @@ function handleIntervention($method, $parts, $input) {
         // Set signed_status = 0 to allow editing again
         $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 0 WHERE rowid = ".(int)$id;
         $resql = $db->query($sql);
+        $affectedRows = $db->affected_rows($resql);
 
-        if ($resql) {
+        // Verify the update by re-fetching
+        $fichinter->fetch($id);
+        $actualSignedStatus = (int)$fichinter->signed_status;
+
+        if ($resql && $affectedRows > 0) {
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention reopened for editing',
-                'signed_status' => 0,
-                'intervention_status' => (int)$fichinter->statut
+                'signed_status' => $actualSignedStatus,
+                'intervention_status' => (int)$fichinter->statut,
+                'affected_rows' => $affectedRows
             ]);
         } else {
             http_response_code(500);
             echo json_encode([
                 'error' => 'Failed to unreleased intervention',
-                'details' => $db->lasterror()
+                'details' => $db->lasterror(),
+                'sql' => $sql,
+                'affected_rows' => $affectedRows,
+                'actual_signed_status' => $actualSignedStatus
             ]);
         }
         return;
