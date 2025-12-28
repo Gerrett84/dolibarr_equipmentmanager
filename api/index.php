@@ -1053,12 +1053,12 @@ function getFichinterDocDir() {
 
     // Method 2: Build from DOL_DATA_ROOT constant
     if (defined('DOL_DATA_ROOT') && DOL_DATA_ROOT) {
-        return DOL_DATA_ROOT . '/fichinter';
+        return DOL_DATA_ROOT . '/ficheinter';
     }
 
     // Method 3: Try global $dolibarr_main_data_root from conf.php
     if (!empty($dolibarr_main_data_root)) {
-        return $dolibarr_main_data_root . '/fichinter';
+        return $dolibarr_main_data_root . '/ficheinter';
     }
 
     // Method 4: Try to read from conf.php directly
@@ -1066,15 +1066,15 @@ function getFichinterDocDir() {
     if (file_exists($confFile)) {
         include $confFile;
         if (!empty($dolibarr_main_data_root)) {
-            return $dolibarr_main_data_root . '/fichinter';
+            return $dolibarr_main_data_root . '/ficheinter';
         }
     }
 
     // Last fallback - common Dolibarr document paths
     $possiblePaths = [
-        '/var/lib/dolibarr/documents/fichinter',
-        '/home/dolibarr/documents/fichinter',
-        dirname(DOL_DOCUMENT_ROOT) . '/documents/fichinter'
+        '/var/lib/dolibarr/documents/ficheinter',
+        '/home/dolibarr/documents/ficheinter',
+        dirname(DOL_DOCUMENT_ROOT) . '/documents/ficheinter'
     ];
 
     foreach ($possiblePaths as $path) {
@@ -1083,7 +1083,7 @@ function getFichinterDocDir() {
         }
     }
 
-    return '/var/lib/dolibarr/documents/fichinter';
+    return '/var/lib/dolibarr/documents/ficheinter';
 }
 
 /**
