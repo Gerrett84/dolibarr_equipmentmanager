@@ -237,13 +237,74 @@ class ServiceReportApp {
                 `;
                 saveBtn.style.display = 'none';
             } else {
-                // Released - show signature form
+                // Released - show Online Sign option
+                this.showOnlineSignOption(signatureCard, saveBtn);
+            }
+        }
+    }
+
+    async showOnlineSignOption(signatureCard, saveBtn) {
+        signatureCard.innerHTML = `
+            <div class="card-header">
+                <h3 class="card-title">Kundenunterschrift</h3>
+            </div>
+            <div class="card-body">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Lade...</p>
+                </div>
+            </div>
+        `;
+        saveBtn.style.display = 'none';
+
+        try {
+            // Get Online Sign URL from API
+            const data = await this.apiCall(`intervention/${this.currentIntervention.id}/onlinesign-url`);
+
+            signatureCard.innerHTML = `
+                <div class="card-header">
+                    <h3 class="card-title">Kundenunterschrift</h3>
+                </div>
+                <div class="card-body">
+                    <p style="margin-bottom:16px;color:#666;">Wählen Sie eine Option:</p>
+
+                    <button type="button" class="btn btn-primary btn-block" id="btnOnlineSign" style="margin-bottom:12px;">
+                        ✍️ Online unterschreiben
+                    </button>
+                    <p style="font-size:12px;color:#888;margin-bottom:20px;text-align:center;">
+                        Öffnet die Dolibarr Online-Signatur (empfohlen)
+                    </p>
+
+                    <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+
+                    <button type="button" class="btn btn-block" id="btnOfflineSign" style="background:#f5f5f5;color:#333;">
+                        📱 Offline unterschreiben
+                    </button>
+                    <p style="font-size:12px;color:#888;margin-top:8px;text-align:center;">
+                        Unterschrift wird später synchronisiert
+                    </p>
+                </div>
+            `;
+
+            // Online Sign button
+            document.getElementById('btnOnlineSign').addEventListener('click', () => {
+                window.open(data.online_sign_url, '_blank');
+                this.showToast('Online-Signatur geöffnet');
+            });
+
+            // Offline Sign button - show the old signature form
+            document.getElementById('btnOfflineSign').addEventListener('click', () => {
                 this.resetSignatureView();
                 saveBtn.style.display = 'block';
-                if (!this.signatureInstance) {
-                    this.initSignature();
-                }
-            }
+                this.initSignature();
+            });
+
+        } catch (err) {
+            console.error('Failed to get Online Sign URL:', err);
+            // Fallback to offline signature
+            this.resetSignatureView();
+            saveBtn.style.display = 'block';
+            this.initSignature();
         }
     }
 

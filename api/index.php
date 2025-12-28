@@ -380,6 +380,28 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
+    // Get Online Sign URL for intervention
+    if (isset($parts[2]) && $parts[2] === 'onlinesign-url') {
+        // Generate the secure key for Online Sign
+        $securekey = dol_hash($fichinter->ref . 'beraboradol' . $fichinter->id, 'md5');
+
+        // Build the Online Sign URL
+        $onlineSignUrl = DOL_MAIN_URL_ROOT . '/public/onlinesign/newonlinesign.php';
+        $onlineSignUrl .= '?ref=' . urlencode($fichinter->ref);
+        $onlineSignUrl .= '&entity=' . $conf->entity;
+        $onlineSignUrl .= '&securekey=' . $securekey;
+        $onlineSignUrl .= '&source=fichinter';
+
+        echo json_encode([
+            'status' => 'ok',
+            'intervention_id' => $id,
+            'intervention_ref' => $fichinter->ref,
+            'online_sign_url' => $onlineSignUrl,
+            'signed_status' => (int)$fichinter->signed_status
+        ]);
+        return;
+    }
+
     // Get documents/PDFs for intervention
     if (isset($parts[2]) && $parts[2] === 'documents') {
         $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
