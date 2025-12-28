@@ -1044,21 +1044,43 @@ function handleLinkEquipment($method, $parts, $input) {
  * Get the fichinter document output directory
  */
 function getFichinterDocDir() {
-    global $conf;
+    global $conf, $dolibarr_main_data_root;
 
-    // Try different methods to get the document directory
+    // Method 1: Try $conf->fichinter->dir_output
     if (!empty($conf->fichinter->dir_output)) {
         return $conf->fichinter->dir_output;
     }
 
-    // Fallback: Build from DOL_DATA_ROOT
-    if (defined('DOL_DATA_ROOT')) {
+    // Method 2: Build from DOL_DATA_ROOT constant
+    if (defined('DOL_DATA_ROOT') && DOL_DATA_ROOT) {
         return DOL_DATA_ROOT . '/fichinter';
     }
 
-    // Fallback: Try conf->entity path
-    if (!empty($conf->entity) && $conf->entity > 1) {
-        return DOL_DATA_ROOT . '/' . $conf->entity . '/fichinter';
+    // Method 3: Try global $dolibarr_main_data_root from conf.php
+    if (!empty($dolibarr_main_data_root)) {
+        return $dolibarr_main_data_root . '/fichinter';
+    }
+
+    // Method 4: Try to read from conf.php directly
+    $confFile = DOL_DOCUMENT_ROOT . '/conf/conf.php';
+    if (file_exists($confFile)) {
+        include $confFile;
+        if (!empty($dolibarr_main_data_root)) {
+            return $dolibarr_main_data_root . '/fichinter';
+        }
+    }
+
+    // Last fallback - common Dolibarr document paths
+    $possiblePaths = [
+        '/var/lib/dolibarr/documents/fichinter',
+        '/home/dolibarr/documents/fichinter',
+        dirname(DOL_DOCUMENT_ROOT) . '/documents/fichinter'
+    ];
+
+    foreach ($possiblePaths as $path) {
+        if (is_dir($path) || is_dir(dirname($path))) {
+            return $path;
+        }
     }
 
     return '/var/lib/dolibarr/documents/fichinter';

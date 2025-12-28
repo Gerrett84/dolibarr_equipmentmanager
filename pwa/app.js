@@ -478,16 +478,33 @@ class ServiceReportApp {
         loadingEl.style.display = 'block';
         listEl.innerHTML = '';
 
-        // Show signature nav button
-        document.getElementById('navSignature').style.display = 'flex';
-
         try {
             let equipment = [];
+            let signedStatus = intervention.signed_status || 0;
 
             if (this.isOnline) {
-                const data = await this.apiCall(`intervention/${intervention.id}/equipment`);
-                equipment = data.equipment || [];
+                // Fetch full intervention data to get updated signed_status
+                const fullData = await this.apiCall(`intervention/${intervention.id}`);
+                if (fullData.intervention) {
+                    signedStatus = fullData.intervention.signed_status || 0;
+                    // Update currentIntervention with fresh data
+                    this.currentIntervention.signed_status = signedStatus;
+                    this.currentIntervention.status = fullData.intervention.status;
+                }
+                equipment = fullData.equipment || [];
                 await offlineDB.saveEquipment(intervention.id, equipment);
+
+                // Also update intervention in IndexedDB
+                try {
+                    const interventions = await offlineDB.getAll('interventions');
+                    const idx = interventions.findIndex(i => i.id === intervention.id);
+                    if (idx >= 0) {
+                        interventions[idx].signed_status = signedStatus;
+                        await offlineDB.saveInterventions(interventions);
+                    }
+                } catch (e) {
+                    console.error('Failed to update IndexedDB:', e);
+                }
             } else {
                 equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
             }
@@ -504,8 +521,7 @@ class ServiceReportApp {
             const docsBtn = document.getElementById('navDocuments');
             docsBtn.style.display = 'flex';
 
-            // signed_status: 0 = not released, 1 = released for signature, 3 = signed
-            const signedStatus = intervention.signed_status || 0;
+            console.log('Equipment loaded, signedStatus:', signedStatus);
 
             if (signedStatus >= 1) {
                 // Released or signed - show "Ändern" button
@@ -1261,6 +1277,9 @@ class ServiceReportApp {
                     sigBtn.style.display = 'none';
                     this.showToast('Auftrag zur Bearbeitung geöffnet');
                 }
+
+                // Reload equipment to ensure UI is in sync
+                await this.loadEquipment(this.currentIntervention);
             } else {
                 this.showToast('Fehler: ' + (result.error || 'Unbekannt'));
             }
