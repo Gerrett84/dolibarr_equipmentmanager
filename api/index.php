@@ -1124,7 +1124,7 @@ function getFichinterDocDir() {
 }
 
 /**
- * Generate PDF for intervention
+ * Generate PDF for intervention using EquipmentManager template
  */
 function generateInterventionPDF($fichinter, $user) {
     global $conf, $langs, $db;
@@ -1132,8 +1132,8 @@ function generateInterventionPDF($fichinter, $user) {
     require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
     require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 
-    // Get PDF model
-    $modele = !empty($conf->global->FICHINTER_ADDON_PDF) ? $conf->global->FICHINTER_ADDON_PDF : 'soleil';
+    // Always use EquipmentManager PDF template for proper equipment details and technician signature
+    $modele = 'equipmentmanager';
 
     // Refetch to ensure we have latest data
     $fichinter->fetch($fichinter->id);
@@ -1145,10 +1145,10 @@ function generateInterventionPDF($fichinter, $user) {
         $outputlangs = new Translate("", $conf);
         $outputlangs->setDefaultLang($fichinter->thirdparty->default_lang);
     }
-    $outputlangs->loadLangs(array("main", "interventions", "companies"));
+    $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
 
     $docDir = getFichinterDocDir();
-    error_log("PDF generation: using doc dir: " . $docDir);
+    error_log("PDF generation: using doc dir: " . $docDir . " with model: " . $modele);
 
     $result = $fichinter->generateDocument($modele, $outputlangs);
 
@@ -1227,6 +1227,7 @@ function getInterventionDocuments($fichinter) {
 
 /**
  * Process signature for intervention (shared logic for sync and direct signature endpoint)
+ * Uses EquipmentManager PDF template with technician signature and adds customer signature
  *
  * @param int $intervention_id Intervention ID
  * @param string $signatureData Base64 encoded signature image
@@ -1285,81 +1286,107 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     $signerIp = getUserRemoteIP();
     $signedPdfFile = null;
 
-    // Try to create signed PDF like Dolibarr does
-    $last_main_doc_file = $fichinter->last_main_doc;
+    // Always regenerate the PDF using EquipmentManager template (includes technician signature)
+    $modele = 'equipmentmanager';
+    $fichinter->fetch_thirdparty();
+    $fichinter->fetch_lines();
+    $outputlangs = $langs;
+    $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
+    $fichinter->generateDocument($modele, $outputlangs);
 
-    // If no PDF exists yet, generate one first
-    if (empty($last_main_doc_file) || !dol_is_file(DOL_DATA_ROOT . '/' . $last_main_doc_file)) {
-        $modele = !empty($conf->global->FICHINTER_ADDON_PDF) ? $conf->global->FICHINTER_ADDON_PDF : 'soleil';
-        $fichinter->fetch_thirdparty();
-        $fichinter->fetch_lines();
-        $outputlangs = $langs;
-        $outputlangs->loadLangs(array("main", "interventions", "companies"));
-        $fichinter->generateDocument($modele, $outputlangs);
-        $last_main_doc_file = $fichinter->last_main_doc;
-    }
+    // Now create signed version with customer signature
+    $sourcefile = $upload_dir . dol_sanitizeFileName($fichinter->ref) . ".pdf";
+    $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed-" . $date . ".pdf";
 
-    if (!empty($last_main_doc_file) && preg_match('/\.pdf/i', $last_main_doc_file)) {
-        $ref_pdf = pathinfo($last_main_doc_file, PATHINFO_FILENAME);
-        $newpdffilename = $upload_dir . $ref_pdf . "_signed-" . $date . ".pdf";
-        $sourcefile = $upload_dir . $ref_pdf . ".pdf";
-
-        if (dol_is_file($sourcefile)) {
-            try {
-                // Build the new PDF with signature
-                $pdf = pdf_getInstance();
-                if (class_exists('TCPDF')) {
-                    $pdf->setPrintHeader(false);
-                    $pdf->setPrintFooter(false);
-                }
-                $pdf->SetFont(pdf_getPDFFont($langs));
-
-                if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
-                    $pdf->SetCompression(false);
-                }
-
-                $pagecount = $pdf->setSourceFile($sourcefile);
-
-                $s = array();
-                for ($i = 1; $i < ($pagecount + 1); $i++) {
-                    $tppl = $pdf->importPage($i);
-                    $s = $pdf->getTemplatesize($tppl);
-                    $pdf->AddPage($s['h'] > $s['w'] ? 'P' : 'L');
-                    $pdf->useTemplate($tppl);
-                }
-
-                // Add signature on last page
-                $default_font_size = pdf_getPDFFontSize($langs);
-                $default_font = pdf_getPDFFont($langs);
-
-                $xforimgstart = 111;
-                $yforimgstart = (empty($s['h']) ? 250 : $s['h'] - 60);
-                $wforimg = $s['w'] - ($xforimgstart + 16);
-
-                // Add signature text
-                $pdf->SetXY($xforimgstart, $yforimgstart + round($wforimg / 4) - 4);
-                $pdf->SetFont($default_font, '', $default_font_size - 1);
-                $pdf->SetTextColor(80, 80, 80);
-                $signatureText = $langs->trans("Signature") . ': ' . dol_print_date(dol_now(), "day", false, $langs, true);
-                if ($signerName) {
-                    $signatureText .= ' - ' . $signerName;
-                }
-                $pdf->MultiCell($wforimg, 4, $signatureText, 0, 'L');
-
-                // Add signature image
-                $pdf->Image($filepath, $xforimgstart, $yforimgstart, $wforimg, round($wforimg / 4));
-
-                // Save the signed PDF
-                $pdf->Output($newpdffilename, "F");
-
-                // Index the new file and update the last_main_doc property
-                $fichinter->indexFile($newpdffilename, 1);
-
-                $signedPdfFile = basename($newpdffilename);
-            } catch (Exception $e) {
-                error_log("Error creating signed PDF: " . $e->getMessage());
-                // Continue without signed PDF - signature PNG is still saved
+    if (dol_is_file($sourcefile)) {
+        try {
+            // Build the new PDF with customer signature
+            $pdf = pdf_getInstance();
+            if (class_exists('TCPDF')) {
+                $pdf->setPrintHeader(false);
+                $pdf->setPrintFooter(false);
             }
+            $pdf->SetFont(pdf_getPDFFont($langs));
+
+            if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
+                $pdf->SetCompression(false);
+            }
+
+            $pagecount = $pdf->setSourceFile($sourcefile);
+
+            $s = array();
+            for ($i = 1; $i < ($pagecount + 1); $i++) {
+                $tppl = $pdf->importPage($i);
+                $s = $pdf->getTemplatesize($tppl);
+                $pdf->AddPage($s['h'] > $s['w'] ? 'P' : 'L');
+                $pdf->useTemplate($tppl);
+            }
+
+            // Add customer signature on last page - RIGHT signature box
+            // EquipmentManager PDF has signature boxes at Y position around 230-255
+            // Left box (technician): X=10, Right box (customer): X=page_width - margin - 80
+            $default_font_size = pdf_getPDFFontSize($langs);
+            $default_font = pdf_getPDFFont($langs);
+
+            // Page dimensions from EquipmentManager template
+            $marge_droite = 10;
+            $boxWidth = 80;
+            $rightX = $s['w'] - $marge_droite - $boxWidth;
+
+            // Find signature box Y position - typically around 230-255 on the page
+            // The signature boxes are 25mm high, placed after equipment content
+            $signatureBoxY = $s['h'] - 67; // Position based on typical signature location
+
+            // Customer signature image - fit within right box (80x25mm with padding)
+            $sigX = $rightX + 2;
+            $sigY = $signatureBoxY + 7; // +5 for label, +2 for padding
+            $sigMaxWidth = $boxWidth - 4;
+            $sigMaxHeight = 21;
+
+            // Get image dimensions to maintain aspect ratio
+            $imageInfo = getimagesize($filepath);
+            if ($imageInfo !== false) {
+                $imgWidth = $imageInfo[0];
+                $imgHeight = $imageInfo[1];
+                $aspectRatio = $imgWidth / $imgHeight;
+
+                // Calculate dimensions to fit within the box
+                if ($sigMaxWidth / $sigMaxHeight > $aspectRatio) {
+                    $finalHeight = $sigMaxHeight;
+                    $finalWidth = $sigMaxHeight * $aspectRatio;
+                } else {
+                    $finalWidth = $sigMaxWidth;
+                    $finalHeight = $sigMaxWidth / $aspectRatio;
+                }
+
+                // Center the image within the right box
+                $sigX = $rightX + ($boxWidth - $finalWidth) / 2;
+                $sigY = $signatureBoxY + 5 + (25 - $finalHeight) / 2;
+
+                // Insert the customer signature image
+                $pdf->Image($filepath, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');
+            }
+
+            // Add signature text below the boxes
+            $pdf->SetXY($rightX, $signatureBoxY + 32);
+            $pdf->SetFont($default_font, '', $default_font_size - 2);
+            $pdf->SetTextColor(80, 80, 80);
+            $signatureText = dol_print_date(dol_now(), "day", false, $langs, true);
+            if ($signerName) {
+                $signatureText .= ' - ' . $signerName;
+            }
+            $pdf->MultiCell($boxWidth, 4, $signatureText, 0, 'C');
+
+            // Save the signed PDF
+            $pdf->Output($newpdffilename, "F");
+
+            // Index the new file
+            $fichinter->indexFile($newpdffilename, 1);
+
+            $signedPdfFile = basename($newpdffilename);
+        } catch (Exception $e) {
+            error_log("Error creating signed PDF: " . $e->getMessage());
+            // Continue without signed PDF - signature PNG is still saved
         }
     }
 
