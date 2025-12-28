@@ -634,6 +634,27 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             font-size: 12px;
             color: #999;
         }
+
+        .document-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .doc-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f5f5f5;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .doc-action:active {
+            background: #e0e0e0;
+        }
     </style>
 </head>
 <body>

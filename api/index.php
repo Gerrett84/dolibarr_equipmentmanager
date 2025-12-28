@@ -288,9 +288,9 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set signed_status = 1 (released for signature) but keep status as validated (1)
-        // This marks the intervention as ready for signature without closing it
-        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1 WHERE rowid = ".(int)$id;
+        // Set signed_status = 1 (released for signature) AND set fk_statut = 1 (validated)
+        // This marks the intervention as validated and ready for signature
+        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1, fk_statut = 1 WHERE rowid = ".(int)$id;
         $resql = $db->query($sql);
         $affectedRows = $db->affected_rows($resql);
 
@@ -345,8 +345,8 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set signed_status = 0 to allow editing again
-        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 0 WHERE rowid = ".(int)$id;
+        // Set signed_status = 0 AND fk_statut = 0 (draft) to allow editing again
+        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 0, fk_statut = 0 WHERE rowid = ".(int)$id;
         $resql = $db->query($sql);
         $affectedRows = $db->affected_rows($resql);
 

@@ -1325,17 +1325,22 @@ class ServiceReportApp {
 
             listEl.innerHTML = '';
             documents.forEach(doc => {
-                const item = document.createElement('a');
-                item.href = doc.url;
-                item.target = '_blank';
+                const item = document.createElement('div');
                 item.className = 'document-item';
+
+                // Create preview URL (add &attachment=0 for inline display)
+                const previewUrl = doc.url + '&attachment=0';
+
                 item.innerHTML = `
                     <div class="document-icon">${doc.type === 'signature' ? '✍️' : '📄'}</div>
                     <div class="document-info">
                         <div class="document-name">${doc.name}</div>
                         <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                     </div>
-                    <div class="document-size">${this.formatFileSize(doc.size)}</div>
+                    <div class="document-actions">
+                        <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
+                        <a href="${doc.url}" target="_blank" class="doc-action" title="Download">⬇️</a>
+                    </div>
                 `;
                 listEl.appendChild(item);
             });
