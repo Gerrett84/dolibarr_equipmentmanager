@@ -653,16 +653,25 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             gap: 8px;
         }
 
+        .document-info {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .document-info:active .document-name {
+            color: #263c5c;
+        }
+
         .doc-action {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             background: #f5f5f5;
             text-decoration: none;
-            font-size: 18px;
+            font-size: 16px;
             border: none;
             cursor: pointer;
         }

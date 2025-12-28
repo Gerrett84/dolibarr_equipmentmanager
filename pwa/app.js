@@ -1397,13 +1397,12 @@ class ServiceReportApp {
 
                 item.innerHTML = `
                     <div class="document-icon">${icon}</div>
-                    <div class="document-info">
+                    <a href="${doc.url}" class="document-info" target="_blank" title="Download">
                         <div class="document-name">${doc.name}</div>
                         <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
-                    </div>
+                    </a>
                     <div class="document-actions">
                         <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
-                        <a href="${doc.url}" target="_blank" class="doc-action" title="Download">⬇️</a>
                         <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                     </div>
                 `;
