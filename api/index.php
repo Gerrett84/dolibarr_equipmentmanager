@@ -752,31 +752,48 @@ function handleDetail($method, $parts, $input) {
     $detail = new InterventionDetail($db);
 
     if ($method === 'GET') {
-        $result = $detail->fetchByInterventionEquipment($intervention_id, $equipment_id);
+        // v1.7: Return all entries as array
+        $entries = $detail->fetchAllByInterventionEquipment($intervention_id, $equipment_id);
+        $totalDuration = $detail->getTotalDuration($intervention_id, $equipment_id);
 
-        if ($result > 0) {
-            echo json_encode([
-                'status' => 'ok',
-                'detail' => [
-                    'id' => (int)$detail->id,
-                    'intervention_id' => (int)$detail->fk_intervention,
-                    'equipment_id' => (int)$detail->fk_equipment,
-                    'work_done' => $detail->work_done,
-                    'issues_found' => $detail->issues_found,
-                    'recommendations' => $detail->recommendations,
-                    'notes' => $detail->notes,
-                    'work_date' => $detail->work_date ? dol_print_date($detail->work_date, 'dayrfc') : null,
-                    'work_duration' => (int)$detail->work_duration
-                ]
-            ]);
-        } else {
-            echo json_encode([
-                'status' => 'ok',
-                'detail' => null
-            ]);
+        $entriesData = [];
+        $recommendations = '';
+        $notes = '';
+
+        foreach ($entries as $entry) {
+            $entriesData[] = [
+                'id' => (int)$entry->id,
+                'entry_number' => (int)$entry->entry_number,
+                'intervention_id' => (int)$entry->fk_intervention,
+                'equipment_id' => (int)$entry->fk_equipment,
+                'work_done' => $entry->work_done,
+                'issues_found' => $entry->issues_found,
+                'work_date' => $entry->work_date ? dol_print_date($entry->work_date, 'dayrfc') : null,
+                'work_duration' => (int)$entry->work_duration
+            ];
+            // Get recommendations/notes from any entry that has them
+            if (!empty($entry->recommendations)) $recommendations = $entry->recommendations;
+            if (!empty($entry->notes)) $notes = $entry->notes;
         }
+
+        echo json_encode([
+            'status' => 'ok',
+            'entries' => $entriesData,
+            'recommendations' => $recommendations,
+            'notes' => $notes,
+            'total_duration' => $totalDuration,
+            // Backwards compatibility: include first entry as 'detail'
+            'detail' => count($entriesData) > 0 ? $entriesData[0] : null
+        ]);
     } elseif ($method === 'POST' || $method === 'PUT') {
-        // Save detail
+        // v1.7: Support entry_id for updating specific entries
+        $entry_id = isset($input['entry_id']) ? (int)$input['entry_id'] : 0;
+
+        if ($entry_id > 0) {
+            // Update existing entry
+            $detail->fetch($entry_id);
+        }
+
         $detail->fk_intervention = $intervention_id;
         $detail->fk_equipment = $equipment_id;
         $detail->work_done = $input['work_done'] ?? '';
@@ -792,7 +809,8 @@ function handleDetail($method, $parts, $input) {
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Detail saved',
-                'id' => (int)$detail->id
+                'id' => (int)$detail->id,
+                'entry_number' => (int)$detail->entry_number
             ]);
         } else {
             http_response_code(500);
@@ -800,6 +818,22 @@ function handleDetail($method, $parts, $input) {
                 'error' => 'Failed to save detail',
                 'details' => $detail->errors
             ]);
+        }
+    } elseif ($method === 'DELETE') {
+        // v1.7: Delete specific entry
+        $entry_id = isset($input['entry_id']) ? (int)$input['entry_id'] : 0;
+
+        if ($entry_id > 0 && $detail->fetch($entry_id) > 0) {
+            $result = $detail->delete($user);
+            if ($result > 0) {
+                echo json_encode(['status' => 'ok', 'message' => 'Entry deleted']);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to delete entry']);
+            }
+        } else {
+            http_response_code(400);
+            echo json_encode(['error' => 'Entry ID required']);
         }
     } else {
         http_response_code(405);

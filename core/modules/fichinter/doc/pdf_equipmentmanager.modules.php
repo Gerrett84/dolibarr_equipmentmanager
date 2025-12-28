@@ -254,9 +254,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $is_first = ($index === 0);
                     $is_last = ($index === $equipment_count - 1);
 
-                    // Load equipment details
-                    $detail = new InterventionDetail($this->db);
-                    $detail->fetchByInterventionEquipment($object->id, $equipment->id);
+                    // Load ALL equipment detail entries (v1.7 - multiple entries)
+                    $detailHelper = new InterventionDetail($this->db);
+                    $entries = $detailHelper->fetchAllByInterventionEquipment($object->id, $equipment->id);
+
+                    // Sort entries by date (oldest first for PDF display)
+                    usort($entries, function($a, $b) {
+                        return $a->work_date - $b->work_date;
+                    });
 
                     // Load materials
                     $materials = InterventionMaterial::fetchAllForEquipment($this->db, $object->id, $equipment->id);
@@ -265,32 +270,42 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $equipment_material_total = InterventionMaterial::getTotalForEquipment($this->db, $object->id, $equipment->id);
                     $total_material += $equipment_material_total;
 
-                    // Add work duration (exclude maintenance equipment - user requested: no time for maintenance)
-                    if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
-                        $total_duration += $detail->work_duration;
+                    // Add work duration from ALL entries (exclude maintenance equipment)
+                    if (empty($equipment->maintenance_month)) {
+                        $equipment_duration = $detailHelper->getTotalDuration($object->id, $equipment->id);
+                        $total_duration += $equipment_duration;
                     }
 
                     // Estimate minimum space needed for this equipment section
                     $estimated_height = 15; // Base: title + equipment info
-                    if ($detail->work_done) $estimated_height += 15;
-                    if ($detail->issues_found) $estimated_height += 15;
-                    if ($detail->recommendations) $estimated_height += 15;
-                    if ($detail->notes) $estimated_height += 10;
+                    foreach ($entries as $entry) {
+                        $estimated_height += 10; // Date/duration row
+                        if ($entry->work_done) $estimated_height += 10;
+                        if ($entry->issues_found) $estimated_height += 8;
+                    }
+                    // Check for recommendations in any entry
+                    $has_recommendations = false;
+                    foreach ($entries as $entry) {
+                        if (!empty($entry->recommendations)) {
+                            $has_recommendations = true;
+                            $estimated_height += 15;
+                            break;
+                        }
+                    }
                     if (count($materials) > 0) {
-                        $estimated_height += 10 + (count($materials) * 5); // Material table header + rows
+                        $estimated_height += 10 + (count($materials) * 5);
                     }
 
                     // Check if equipment section would fit on current page
-                    // If not enough space (less than estimated height + 20mm safety margin), start new page
-                    $available_space = 280 - $pdf->GetY(); // Page height is ~297mm, footer at ~280mm
+                    $available_space = 280 - $pdf->GetY();
                     if ($available_space < $estimated_height + 20) {
                         $pdf->AddPage();
                         $pagenb++;
                         $curY = $tab_top_newpage;
                     }
 
-                    // Render equipment section
-                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $detail, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration, $object);
+                    // Render equipment section with all entries
+                    $curY = $this->_renderEquipmentSection($pdf, $equipment, $entries, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration, $object);
                 }
 
                 // Add summary table after all equipment sections
@@ -597,13 +612,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
      * @param int $default_font_size Default font size
      * @return float New Y position
      */
-    protected function _renderEquipmentSection(&$pdf, $equipment, $detail, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false, $is_last = false, $total_duration = 0, $object = null)
+    protected function _renderEquipmentSection(&$pdf, $equipment, $entries, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false, $is_last = false, $total_duration = 0, $object = null)
     {
         // Store start position for border
         $startY = $curY;
         $leftMargin = $this->marge_gauche;
         $rightMargin = $this->marge_droite;
         $pageWidth = $this->page_largeur;
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
         // If first equipment, draw "Beschreibung" header (fully bordered)
         if ($is_first) {
@@ -611,7 +627,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetFillColor(240, 240, 240);
             $pdf->SetDrawColor(0, 0, 0);
             $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell($pageWidth - $leftMargin - $rightMargin, 6, "Beschreibung", 'TLR', 1, 'L', 1);
+            $pdf->Cell($sectionWidth, 6, "Beschreibung", 'TLR', 1, 'L', 1);
             $curY = $pdf->GetY();
 
             // Add order description if available
@@ -619,38 +635,37 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetTextColor(0, 0, 0);
                 $pdf->SetXY($leftMargin + 2, $curY + 2);
-                $pdf->MultiCell($pageWidth - $leftMargin - $rightMargin - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
+                $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
                 $curY = $pdf->GetY() + 2;
 
                 // Draw a separator line below description
                 $pdf->SetDrawColor(200, 200, 200);
-                $pdf->Line($leftMargin, $curY, $leftMargin + $pageWidth - $leftMargin - $rightMargin, $curY);
+                $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
                 $pdf->SetDrawColor(0, 0, 0);
                 $curY += 2;
             }
         }
 
+        // Equipment header
         $pdf->SetFont('', 'B', $default_font_size + 1);
-        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->SetXY($leftMargin, $curY);
         $pdf->SetTextColor(0, 0, 100);
         $pdf->MultiCell(0, 5, "Anlage: ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
 
         $curY = $pdf->GetY() + 2;
 
-        // Equipment details
+        // Equipment details (type, location)
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 0);
 
-        // Type
         $type_label = $equipment->equipment_type;
         if (isset($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type])) {
             $type_label = $outputlangs->trans($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type]);
         }
 
-        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->SetXY($leftMargin, $curY);
         $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$type_label, 0, 'L');
 
-        // Location (Standort)
         if ($equipment->location_note) {
             $pdf->SetXY(110, $curY);
             $pdf->MultiCell(90, 4, "Standort: ".$outputlangs->convToOutputCharset($equipment->location_note), 0, 'L');
@@ -658,78 +673,93 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         $curY = $pdf->GetY() + 3;
 
-        // Date and duration in gray background table
-        $pdf->SetFont('', 'B', $default_font_size - 2);
-        $pdf->SetFillColor(220, 220, 220);
-        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
-
-        $date_text = '';
-        if ($detail->work_date) {
-            $date_text = $outputlangs->transnoentities("Date").": ".dol_print_date($detail->work_date, 'day', false, $outputlangs, true);
-        }
-
-        $duration_text = '';
-        // Only show duration if NOT a maintenance equipment (user requested: no time for maintenance equipment)
-        if ($detail->work_duration > 0 && empty($equipment->maintenance_month)) {
-            $hours = floor($detail->work_duration / 60);
-            $minutes = $detail->work_duration % 60;
-            $duration_text = $outputlangs->transnoentities("Duration").": ".$hours." Std.";
-            if ($minutes > 0) {
-                $duration_text .= " ".$minutes." min.";
+        // Collect recommendations from all entries
+        $recommendations = '';
+        foreach ($entries as $entry) {
+            if (!empty($entry->recommendations)) {
+                $recommendations = $entry->recommendations;
             }
         }
 
-        // Set cell padding for date/duration table
-        $pdf->SetCellPadding(1);
+        // Render each entry
+        $entryCount = count($entries);
+        foreach ($entries as $entryIndex => $entry) {
+            // Date and duration header for this entry
+            $pdf->SetFont('', 'B', $default_font_size - 2);
+            $pdf->SetFillColor(220, 220, 220);
 
-        $pdf->SetXY($leftMargin, $curY);
-        // Date takes more space (120mm like material name), duration right-aligned with total duration
-        $pdf->Cell(120, 5, $date_text, 'LTB', 0, 'L', 1);
-        $pdf->Cell($sectionWidth - 120, 5, $duration_text, 'RTB', 1, 'R', 1);
+            $date_text = '';
+            if ($entry->work_date) {
+                $date_text = dol_print_date($entry->work_date, 'day', false, $outputlangs, true);
+            }
 
-        // Reset cell padding
-        $pdf->SetCellPadding(0);
+            $duration_text = '';
+            if ($entry->work_duration > 0 && empty($equipment->maintenance_month)) {
+                $hours = floor($entry->work_duration / 60);
+                $minutes = $entry->work_duration % 60;
+                $duration_text = $hours." Std.";
+                if ($minutes > 0) {
+                    $duration_text .= " ".$minutes." min.";
+                }
+            }
 
-        $curY = $pdf->GetY() + 3;
+            $pdf->SetCellPadding(1);
+            $pdf->SetXY($leftMargin, $curY);
+            $pdf->Cell(120, 5, $date_text, 'LTB', 0, 'L', 1);
+            $pdf->Cell($sectionWidth - 120, 5, $duration_text, 'RTB', 1, 'R', 1);
+            $pdf->SetCellPadding(0);
 
-        // Work done
-        if ($detail->work_done) {
-            $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("WorkDone").":", 0, 'L');
-            $curY = $pdf->GetY();
-
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $work_done_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($detail->work_done));
-            $pdf->MultiCell(0, 4, $work_done_text, 0, 'L');
             $curY = $pdf->GetY() + 2;
+
+            // Work done for this entry
+            if ($entry->work_done) {
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->SetXY($leftMargin, $curY);
+                $pdf->MultiCell(0, 4, $outputlangs->transnoentities("WorkDone").":", 0, 'L');
+                $curY = $pdf->GetY();
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetXY($leftMargin, $curY);
+                $work_done_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->work_done));
+                $pdf->MultiCell(0, 4, $work_done_text, 0, 'L');
+                $curY = $pdf->GetY() + 1;
+            }
+
+            // Issues found for this entry
+            if ($entry->issues_found) {
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->SetXY($leftMargin, $curY);
+                $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
+                $curY = $pdf->GetY();
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetXY($leftMargin, $curY);
+                $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
+                $pdf->MultiCell(0, 4, $issues_text, 0, 'L');
+                $curY = $pdf->GetY() + 1;
+            }
+
+            // Add small separator between entries (not after last)
+            if ($entryIndex < $entryCount - 1) {
+                $curY += 2;
+                $pdf->SetDrawColor(200, 200, 200);
+                $pdf->Line($leftMargin + 10, $curY, $leftMargin + $sectionWidth - 10, $curY);
+                $pdf->SetDrawColor(0, 0, 0);
+                $curY += 3;
+            }
         }
 
-        // Issues found
-        if ($detail->issues_found) {
+        // Recommendations (once, after all entries)
+        if ($recommendations) {
+            $curY += 2;
             $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
-            $curY = $pdf->GetY();
-
-            $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($detail->issues_found));
-            $pdf->MultiCell(0, 4, $issues_text, 0, 'L');
-            $curY = $pdf->GetY() + 2;
-        }
-
-        // Recommendations
-        if ($detail->recommendations) {
-            $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->SetXY($leftMargin, $curY);
             $pdf->MultiCell(0, 4, $outputlangs->transnoentities("Recommendations").":", 0, 'L');
             $curY = $pdf->GetY();
 
             $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($this->marge_gauche, $curY);
-            $recommendations_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($detail->recommendations));
+            $pdf->SetXY($leftMargin, $curY);
+            $recommendations_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($recommendations));
             $pdf->MultiCell(0, 4, $recommendations_text, 0, 'L');
             $curY = $pdf->GetY() + 2;
         }

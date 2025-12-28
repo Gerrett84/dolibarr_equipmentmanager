@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2024 Equipment Manager
- * v1.6.4 - PWA Link in Top Bar + PDF Improvements
+ * v1.7.0 - Multiple Report Entries per Equipment
  */
 
 include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports including PDF export with equipment details";
 
-        $this->version = '1.6.4';
+        $this->version = '1.7.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';

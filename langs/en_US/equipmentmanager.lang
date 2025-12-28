@@ -222,3 +222,11 @@ Clear=Clear
 # PWA
 ServiceReportPWA=Service Report PWA (Mobile App)
 OpenDolibarr=Open Dolibarr
+
+# Multiple Entries v1.7
+WorkEntries=Work Entries
+AddEntry=Add Entry
+NoEntries=No entries yet
+EntryDeleted=Entry deleted
+Entries=Entries
+RecommendationsAndNotes=Recommendations & Notes

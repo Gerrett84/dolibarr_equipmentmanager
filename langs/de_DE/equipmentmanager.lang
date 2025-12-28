@@ -353,3 +353,11 @@ SaveSignature=Speichern
 # PWA
 ServiceReportPWA=Servicebericht PWA (Mobile App)
 OpenDolibarr=Dolibarr öffnen
+
+# Multiple Entries v1.7
+WorkEntries=Arbeitseinträge
+AddEntry=Neuer Eintrag
+NoEntries=Keine Einträge vorhanden
+EntryDeleted=Eintrag gelöscht
+Entries=Einträge
+RecommendationsAndNotes=Empfehlungen & Notizen
