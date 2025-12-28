@@ -280,13 +280,14 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 8px;
+            padding: 4px 2px;
             color: #666;
             text-decoration: none;
-            font-size: 11px;
+            font-size: 9px;
             cursor: pointer;
             border: none;
             background: none;
+            min-width: 0;
         }
 
         .nav-item.active {
@@ -294,8 +295,8 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         }
 
         .nav-icon {
-            font-size: 20px;
-            margin-bottom: 4px;
+            font-size: 16px;
+            margin-bottom: 2px;
         }
 
         /* Loading */

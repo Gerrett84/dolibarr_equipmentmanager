@@ -434,8 +434,8 @@ class ServiceReportApp {
 
         let statusClass, statusText;
         if (intervention.status === 0) {
-            statusClass = 'draft';
-            statusText = 'Entwurf';
+            statusClass = 'open';
+            statusText = 'Offen';
         } else if (signedStatus >= 3) {
             statusClass = 'signed';
             statusText = 'Unterschrieben';
@@ -1428,7 +1428,7 @@ class ServiceReportApp {
         document.getElementById('documentsModal').classList.remove('show');
     }
 
-    showInfo() {
+    async showInfo() {
         document.getElementById('infoModal').classList.add('show');
 
         const contentEl = document.getElementById('infoContent');
@@ -1443,39 +1443,9 @@ class ServiceReportApp {
         // Build info content
         let html = '';
 
-        // Description (Auftragsbeschreibung)
-        html += '<div class="info-section">';
-        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Auftragsbeschreibung</h4>';
-        if (intervention.description) {
-            html += `<div class="info-text">${this.escapeHtml(intervention.description).replace(/\n/g, '<br>')}</div>`;
-        } else {
-            html += '<p style="color:#999;font-style:italic;">Keine Beschreibung vorhanden</p>';
-        }
-        html += '</div>';
-
-        // Public Note
-        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
-        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Öffentliche Anmerkung</h4>';
-        if (intervention.note_public) {
-            html += `<div class="info-text">${this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>')}</div>`;
-        } else {
-            html += '<p style="color:#999;font-style:italic;">Keine öffentliche Anmerkung</p>';
-        }
-        html += '</div>';
-
-        // Private Note
-        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
-        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Private Anmerkung</h4>';
-        if (intervention.note_private) {
-            html += `<div class="info-text">${this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>')}</div>`;
-        } else {
-            html += '<p style="color:#999;font-style:italic;">Keine private Anmerkung</p>';
-        }
-        html += '</div>';
-
-        // Customer info
+        // Customer info first (most important)
         if (intervention.customer) {
-            html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+            html += '<div class="info-section">';
             html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Kunde</h4>';
             html += `<div class="info-text">`;
             html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
@@ -1486,6 +1456,50 @@ class ServiceReportApp {
                 html += `${this.escapeHtml(intervention.customer.zip || '')} ${this.escapeHtml(intervention.customer.town || '')}`;
             }
             html += `</div>`;
+            html += '</div>';
+        }
+
+        // Object/Equipment Location (Objektadresse)
+        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Objektadresse</h4>';
+
+        // Try to get equipment locations from cached data
+        const equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
+        if (equipment && equipment.length > 0) {
+            const locations = [...new Set(equipment.map(e => e.location_note).filter(l => l))];
+            if (locations.length > 0) {
+                html += `<div class="info-text">${locations.map(l => this.escapeHtml(l)).join('<br>')}</div>`;
+            } else {
+                html += '<p style="color:#999;font-style:italic;">Keine Objektadresse hinterlegt</p>';
+            }
+        } else {
+            html += '<p style="color:#999;font-style:italic;">Keine Objektadresse hinterlegt</p>';
+        }
+        html += '</div>';
+
+        // Description (Auftragsbeschreibung)
+        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Auftragsbeschreibung</h4>';
+        if (intervention.description) {
+            html += `<div class="info-text">${this.escapeHtml(intervention.description).replace(/\n/g, '<br>')}</div>`;
+        } else {
+            html += '<p style="color:#999;font-style:italic;">Keine Beschreibung vorhanden</p>';
+        }
+        html += '</div>';
+
+        // Public Note
+        if (intervention.note_public) {
+            html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+            html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Öffentliche Anmerkung</h4>';
+            html += `<div class="info-text">${this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>')}</div>`;
+            html += '</div>';
+        }
+
+        // Private Note
+        if (intervention.note_private) {
+            html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
+            html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Private Anmerkung</h4>';
+            html += `<div class="info-text">${this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>')}</div>`;
             html += '</div>';
         }
 

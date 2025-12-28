@@ -243,14 +243,17 @@ function handleInterventions($method, $parts, $input) {
 /**
  * GET /intervention/{id} - Get single intervention with equipment
  * GET /intervention/{id}/equipment - Get equipment list
+ * GET /intervention/{id}/documents - Get documents list
+ * POST /intervention/{id}/documents - Upload document
+ * DELETE /intervention/{id}/documents/{filename} - Delete document
  */
 function handleIntervention($method, $parts, $input) {
     global $db, $user;
 
-    // Accept both GET and POST for read operations (Dolibarr may convert GET to POST)
-    if ($method !== 'GET' && $method !== 'POST') {
+    // Accept GET, POST, and DELETE (DELETE for document removal)
+    if (!in_array($method, ['GET', 'POST', 'DELETE'])) {
         http_response_code(405);
-        echo json_encode(['error' => 'Method not allowed']);
+        echo json_encode(['error' => 'Method not allowed', 'method' => $method]);
         return;
     }
 
@@ -405,23 +408,9 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
-    // Get documents/PDFs for intervention
-    if (isset($parts[2]) && $parts[2] === 'documents' && !isset($parts[3])) {
-        $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
-        $documents = getInterventionDocuments($fichinter);
-        echo json_encode([
-            'status' => 'ok',
-            'intervention_id' => $id,
-            'intervention_ref' => $fichinter->ref,
-            'doc_path' => $docPath,
-            'doc_dir_exists' => is_dir($docPath),
-            'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined',
-            'documents' => $documents
-        ]);
-        return;
-    }
+    // Document operations - check method-specific routes first
 
-    // Delete a specific document
+    // Delete a specific document (must be before GET check)
     if (isset($parts[2]) && $parts[2] === 'documents' && isset($parts[3]) && $method === 'DELETE') {
         $filename = urldecode($parts[3]);
 
@@ -567,6 +556,21 @@ function handleIntervention($method, $parts, $input) {
 
         http_response_code(400);
         echo json_encode(['error' => 'No file provided']);
+        return;
+    }
+
+    // Get documents/PDFs for intervention (GET request)
+    if (isset($parts[2]) && $parts[2] === 'documents' && $method === 'GET') {
+        $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
+        $documents = getInterventionDocuments($fichinter);
+        echo json_encode([
+            'status' => 'ok',
+            'intervention_id' => $id,
+            'intervention_ref' => $fichinter->ref,
+            'doc_path' => $docPath,
+            'doc_dir_exists' => is_dir($docPath),
+            'documents' => $documents
+        ]);
         return;
     }
 
