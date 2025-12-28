@@ -406,7 +406,7 @@ function handleIntervention($method, $parts, $input) {
     }
 
     // Get documents/PDFs for intervention
-    if (isset($parts[2]) && $parts[2] === 'documents') {
+    if (isset($parts[2]) && $parts[2] === 'documents' && !isset($parts[3])) {
         $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
         $documents = getInterventionDocuments($fichinter);
         echo json_encode([
@@ -418,6 +418,50 @@ function handleIntervention($method, $parts, $input) {
             'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined',
             'documents' => $documents
         ]);
+        return;
+    }
+
+    // Delete a specific document
+    if (isset($parts[2]) && $parts[2] === 'documents' && isset($parts[3]) && $method === 'DELETE') {
+        $filename = urldecode($parts[3]);
+
+        // Security: Only allow deleting files within the intervention's document directory
+        $docDir = getFichinterDocDir() . '/' . $fichinter->ref;
+
+        // Check if it's a signature file (in signatures subdirectory)
+        if (strpos($filename, 'signatures/') === 0) {
+            $filepath = $docDir . '/' . $filename;
+        } else {
+            $filepath = $docDir . '/' . basename($filename); // basename for security
+        }
+
+        // Verify the file exists and is within allowed directory
+        $realDocDir = realpath($docDir);
+        $realFilepath = realpath($filepath);
+
+        if ($realFilepath === false || strpos($realFilepath, $realDocDir) !== 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid file path']);
+            return;
+        }
+
+        if (!file_exists($filepath)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'File not found']);
+            return;
+        }
+
+        // Delete the file
+        if (unlink($filepath)) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Document deleted',
+                'filename' => $filename
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete file']);
+        }
         return;
     }
 

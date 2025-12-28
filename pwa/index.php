@@ -650,10 +650,16 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             background: #f5f5f5;
             text-decoration: none;
             font-size: 18px;
+            border: none;
+            cursor: pointer;
         }
 
         .doc-action:active {
             background: #e0e0e0;
+        }
+
+        .doc-delete:hover, .doc-delete:active {
+            background: #ffebee;
         }
     </style>
 </head>

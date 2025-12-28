@@ -1361,6 +1361,11 @@ class ServiceReportApp {
                 // Create preview URL (add &attachment=0 for inline display)
                 const previewUrl = doc.url + '&attachment=0';
 
+                // Determine filename for delete (include signatures/ prefix if applicable)
+                const deleteFilename = doc.type === 'signature'
+                    ? 'signatures/' + doc.name.replace('Unterschrift: ', '')
+                    : doc.name;
+
                 item.innerHTML = `
                     <div class="document-icon">${doc.type === 'signature' ? '✍️' : '📄'}</div>
                     <div class="document-info">
@@ -1370,9 +1375,15 @@ class ServiceReportApp {
                     <div class="document-actions">
                         <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
                         <a href="${doc.url}" target="_blank" class="doc-action" title="Download">⬇️</a>
+                        <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                     </div>
                 `;
                 listEl.appendChild(item);
+            });
+
+            // Add delete event handlers
+            listEl.querySelectorAll('.doc-delete').forEach(btn => {
+                btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
             });
         } catch (err) {
             console.error('Failed to load documents:', err);
@@ -1386,6 +1397,32 @@ class ServiceReportApp {
 
     closeDocumentsModal() {
         document.getElementById('documentsModal').classList.remove('show');
+    }
+
+    async deleteDocument(encodedFilename) {
+        const filename = decodeURIComponent(encodedFilename);
+
+        if (!confirm(`Dokument "${filename}" wirklich löschen?`)) {
+            return;
+        }
+
+        try {
+            const result = await this.apiCall(
+                `intervention/${this.currentIntervention.id}/documents/${encodedFilename}`,
+                { method: 'DELETE' }
+            );
+
+            if (result.status === 'ok') {
+                this.showToast('Dokument gelöscht');
+                // Refresh the documents list
+                this.showDocuments();
+            } else {
+                this.showToast('Löschen fehlgeschlagen');
+            }
+        } catch (err) {
+            console.error('Failed to delete document:', err);
+            this.showToast('Fehler beim Löschen');
+        }
     }
 
     formatFileSize(bytes) {
