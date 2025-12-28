@@ -294,11 +294,16 @@ function handleIntervention($method, $parts, $input) {
         $resql = $db->query($sql);
         $affectedRows = $db->affected_rows($resql);
 
-        // Verify the update by re-fetching
-        $fichinter->fetch($id);
-        $actualSignedStatus = (int)$fichinter->signed_status;
+        // Verify the update by reading directly from database
+        $sqlVerify = "SELECT signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id;
+        $resVerify = $db->query($sqlVerify);
+        $actualSignedStatus = 0;
+        if ($resVerify && $objVerify = $db->fetch_object($resVerify)) {
+            $actualSignedStatus = (int)$objVerify->signed_status;
+        }
 
-        if ($resql && $affectedRows > 0) {
+        // Success if query worked AND (rows affected OR value is now correct)
+        if ($resql && ($affectedRows > 0 || $actualSignedStatus == 1)) {
             // Generate PDF
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
 
@@ -322,8 +327,11 @@ function handleIntervention($method, $parts, $input) {
                 'error' => 'Failed to release intervention',
                 'details' => $db->lasterror(),
                 'sql' => $sql,
+                'sql_verify' => $sqlVerify,
                 'affected_rows' => $affectedRows,
-                'actual_signed_status' => $actualSignedStatus
+                'actual_signed_status' => $actualSignedStatus,
+                'table_prefix' => MAIN_DB_PREFIX,
+                'intervention_id' => $id
             ]);
         }
         return;
@@ -342,11 +350,16 @@ function handleIntervention($method, $parts, $input) {
         $resql = $db->query($sql);
         $affectedRows = $db->affected_rows($resql);
 
-        // Verify the update by re-fetching
-        $fichinter->fetch($id);
-        $actualSignedStatus = (int)$fichinter->signed_status;
+        // Verify the update by reading directly from database
+        $sqlVerify = "SELECT signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id;
+        $resVerify = $db->query($sqlVerify);
+        $actualSignedStatus = -1;
+        if ($resVerify && $objVerify = $db->fetch_object($resVerify)) {
+            $actualSignedStatus = (int)$objVerify->signed_status;
+        }
 
-        if ($resql && $affectedRows > 0) {
+        // Success if query worked AND (rows affected OR value is now correct)
+        if ($resql && ($affectedRows > 0 || $actualSignedStatus == 0)) {
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention reopened for editing',
