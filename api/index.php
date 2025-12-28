@@ -386,6 +386,14 @@ function handleIntervention($method, $parts, $input) {
     // Return full intervention with equipment
     $equipment = getInterventionEquipment($id);
 
+    // Get signed_status directly from database (more reliable)
+    $sqlStatus = "SELECT signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id;
+    $resStatus = $db->query($sqlStatus);
+    $signedStatus = 0;
+    if ($resStatus && $objStatus = $db->fetch_object($resStatus)) {
+        $signedStatus = (int)$objStatus->signed_status;
+    }
+
     echo json_encode([
         'status' => 'ok',
         'intervention' => [
@@ -399,7 +407,7 @@ function handleIntervention($method, $parts, $input) {
             'description' => $fichinter->description,
             'note_public' => $fichinter->note_public,
             'note_private' => $fichinter->note_private,
-            'signed_status' => (int)$fichinter->signed_status
+            'signed_status' => $signedStatus
         ],
         'equipment' => $equipment
     ]);
