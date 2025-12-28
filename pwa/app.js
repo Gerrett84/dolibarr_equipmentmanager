@@ -1278,6 +1278,12 @@ class ServiceReportApp {
                     this.showToast('Auftrag zur Bearbeitung geöffnet');
                 }
 
+                // Update current intervention status
+                this.currentIntervention.status = result.signed_status >= 1 ? 1 : 0;
+
+                // Reload interventions list in background to update overview
+                this.loadInterventions();
+
                 // Reload equipment to ensure UI is in sync
                 await this.loadEquipment(this.currentIntervention);
             } else {
