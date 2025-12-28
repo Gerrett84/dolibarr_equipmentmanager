@@ -283,11 +283,23 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
             padding: 4px 2px;
             color: #666;
             text-decoration: none;
-            font-size: 9px;
+            font-size: 8px;
             cursor: pointer;
             border: none;
             background: none;
             min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .nav-item span:not(.nav-icon) {
+            display: none;
+        }
+
+        @media (min-width: 400px) {
+            .nav-item span:not(.nav-icon) {
+                display: block;
+            }
         }
 
         .nav-item.active {
@@ -295,8 +307,8 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         }
 
         .nav-icon {
-            font-size: 16px;
-            margin-bottom: 2px;
+            font-size: 18px;
+            margin-bottom: 1px;
         }
 
         /* Loading */
@@ -430,8 +442,8 @@ $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 100%;
-            max-width: 400px;
+            width: 95%;
+            max-width: 500px;
             max-height: 90vh;
             overflow-y: auto;
         }

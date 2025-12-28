@@ -1459,19 +1459,25 @@ class ServiceReportApp {
             html += '</div>';
         }
 
-        // Object/Equipment Location (Objektadresse)
+        // Object addresses (from socpeople linked to equipment)
         html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
         html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Objektadresse</h4>';
 
-        // Try to get equipment locations from cached data
-        const equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
-        if (equipment && equipment.length > 0) {
-            const locations = [...new Set(equipment.map(e => e.location_note).filter(l => l))];
-            if (locations.length > 0) {
-                html += `<div class="info-text">${locations.map(l => this.escapeHtml(l)).join('<br>')}</div>`;
-            } else {
-                html += '<p style="color:#999;font-style:italic;">Keine Objektadresse hinterlegt</p>';
-            }
+        // Use object_addresses from intervention data (linked via equipment -> socpeople)
+        if (intervention.object_addresses && intervention.object_addresses.length > 0) {
+            intervention.object_addresses.forEach(addr => {
+                html += `<div class="info-text" style="margin-bottom:8px;">`;
+                if (addr.name) {
+                    html += `<strong>${this.escapeHtml(addr.name)}</strong><br>`;
+                }
+                if (addr.address) {
+                    html += `${this.escapeHtml(addr.address)}<br>`;
+                }
+                if (addr.zip || addr.town) {
+                    html += `${this.escapeHtml(addr.zip || '')} ${this.escapeHtml(addr.town || '')}`;
+                }
+                html += `</div>`;
+            });
         } else {
             html += '<p style="color:#999;font-style:italic;">Keine Objektadresse hinterlegt</p>';
         }
@@ -1525,8 +1531,9 @@ class ServiceReportApp {
         }
 
         try {
+            // Use decoded filename - apiCall will encode the route
             const result = await this.apiCall(
-                `intervention/${this.currentIntervention.id}/documents/${encodedFilename}`,
+                `intervention/${this.currentIntervention.id}/documents/${filename}`,
                 { method: 'DELETE' }
             );
 
@@ -1556,14 +1563,21 @@ class ServiceReportApp {
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const response = await fetch(
-                    `${this.apiBase}/intervention/${this.currentIntervention.id}/documents`,
-                    {
-                        method: 'POST',
-                        body: formData,
-                        credentials: 'include'
-                    }
-                );
+                // Use same URL format as apiCall (query parameter style)
+                const url = CONFIG.apiBase + '?route=' + encodeURIComponent(`intervention/${this.currentIntervention.id}/documents`);
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Upload response:', response.status, text);
+                    errorCount++;
+                    continue;
+                }
 
                 const result = await response.json();
 
