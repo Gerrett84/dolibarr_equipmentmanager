@@ -38,6 +38,7 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
@@ -382,22 +383,24 @@ function handleIntervention($method, $parts, $input) {
 
     // Get Online Sign URL for intervention
     if (isset($parts[2]) && $parts[2] === 'onlinesign-url') {
-        // Generate the secure key for Online Sign
-        $securekey = dol_hash($fichinter->ref . 'beraboradol' . $fichinter->id, 'md5');
+        // Use Dolibarr's official getOnlineSignatureUrl function from signature.lib.php
+        // This ensures we generate the exact same URL and secure key as Dolibarr's UI
+        $onlineSignUrl = getOnlineSignatureUrl(0, 'fichinter', $fichinter->ref, 1, $fichinter);
 
-        // Build the Online Sign URL
-        $onlineSignUrl = DOL_MAIN_URL_ROOT . '/public/onlinesign/newonlinesign.php';
-        $onlineSignUrl .= '?ref=' . urlencode($fichinter->ref);
-        $onlineSignUrl .= '&entity=' . $conf->entity;
-        $onlineSignUrl .= '&securekey=' . $securekey;
-        $onlineSignUrl .= '&source=fichinter';
+        // Get signed_status from database
+        $sqlStatus = "SELECT signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id;
+        $resStatus = $db->query($sqlStatus);
+        $signedStatus = 0;
+        if ($resStatus && $objStatus = $db->fetch_object($resStatus)) {
+            $signedStatus = (int)$objStatus->signed_status;
+        }
 
         echo json_encode([
             'status' => 'ok',
             'intervention_id' => $id,
             'intervention_ref' => $fichinter->ref,
             'online_sign_url' => $onlineSignUrl,
-            'signed_status' => (int)$fichinter->signed_status
+            'signed_status' => $signedStatus
         ]);
         return;
     }
@@ -725,6 +728,34 @@ function handleSync($method, $input) {
                     ];
                     break;
 
+                case 'signature':
+                    // Handle signature sync - calls the same logic as the signature endpoint
+                    $intervention_id = (int)$data['intervention_id'];
+                    $signatureData = $data['signature'] ?? '';
+                    $signerName = $data['signer_name'] ?? '';
+
+                    if (!$intervention_id || !$signatureData) {
+                        $results[] = [
+                            'type' => 'signature',
+                            'intervention_id' => $intervention_id,
+                            'success' => false,
+                            'error' => 'Missing intervention_id or signature data'
+                        ];
+                        break;
+                    }
+
+                    // Process signature using helper function
+                    $signatureResult = processSignature($intervention_id, $signatureData, $signerName);
+
+                    $results[] = [
+                        'type' => 'signature',
+                        'intervention_id' => $intervention_id,
+                        'success' => $signatureResult['success'],
+                        'signed_pdf' => $signatureResult['signed_pdf'] ?? null,
+                        'error' => $signatureResult['error'] ?? null
+                    ];
+                    break;
+
                 default:
                     $errors[] = "Unknown change type: $type";
             }
@@ -741,11 +772,9 @@ function handleSync($method, $input) {
 }
 
 /**
- * POST /signature/{intervention_id} - Upload signature
+ * POST /signature/{intervention_id} - Upload signature and create signed PDF
  */
 function handleSignature($method, $parts, $input) {
-    global $db, $user, $conf;
-
     if ($method !== 'POST') {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
@@ -765,79 +794,26 @@ function handleSignature($method, $parts, $input) {
         return;
     }
 
-    // Load intervention
-    $fichinter = new Fichinter($db);
-    if ($fichinter->fetch($intervention_id) <= 0) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Intervention not found']);
-        return;
-    }
-
-    // Decode signature (expects base64 PNG without data:image/png;base64, prefix)
     $signatureData = $input['signature'];
-    if (strpos($signatureData, 'base64,') !== false) {
-        $signatureData = explode('base64,', $signatureData)[1];
-    }
-    $signatureImage = base64_decode($signatureData);
+    $signerName = $input['signer_name'] ?? '';
 
-    if (!$signatureImage) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid signature data']);
-        return;
-    }
+    // Use shared signature processing function
+    $result = processSignature($intervention_id, $signatureData, $signerName);
 
-    // Create signatures directory
-    $upload_dir = getFichinterDocDir() . '/' . $fichinter->ref;
-    $signatures_dir = $upload_dir . '/signatures';
-
-    // Ensure directories exist
-    if (!file_exists($upload_dir)) {
-        dol_mkdir($upload_dir);
-    }
-    if (!file_exists($signatures_dir)) {
-        dol_mkdir($signatures_dir);
-    }
-
-    // Save signature file
-    $timestamp = dol_print_date(dol_now(), '%Y%m%d%H%M%S');
-    $filename = $timestamp . '_signature.png';
-    $filepath = $signatures_dir . '/' . $filename;
-
-    if (file_put_contents($filepath, $signatureImage) === false) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Failed to save signature file']);
-        return;
-    }
-
-    // Update intervention signed status directly via SQL (more reliable)
-    $signerName = $input['signer_name'] ?? $user->getFullName($langs);
-    $signerIp = getUserRemoteIP();
-
-    $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
-    $sql .= "signed_status = 3,"; // STATUS_SIGNED_RECEIVER_ONLINE
-    $sql .= "online_sign_ip = '".$db->escape($signerIp)."',";
-    $sql .= "online_sign_name = '".$db->escape($signerName)."'";
-    $sql .= " WHERE rowid = ".(int)$intervention_id;
-
-    $resql = $db->query($sql);
-
-    if ($resql) {
-        // Also close the intervention (status = 3) after signature
-        $fichinter->setClose($user);
-
+    if ($result['success']) {
         echo json_encode([
             'status' => 'ok',
-            'message' => 'Signature saved',
-            'file' => $filename,
+            'message' => 'Signature saved and PDF signed',
+            'signature_file' => $result['signature_file'] ?? null,
+            'signed_pdf' => $result['signed_pdf'] ?? null,
             'signed_status' => 3,
             'intervention_closed' => true
         ]);
     } else {
         http_response_code(500);
         echo json_encode([
-            'error' => 'Failed to update intervention status',
-            'file_saved' => true,
-            'db_error' => $db->lasterror()
+            'error' => $result['error'] ?? 'Failed to process signature',
+            'signed_pdf' => $result['signed_pdf'] ?? null
         ]);
     }
 }
@@ -1247,4 +1223,177 @@ function getInterventionDocuments($fichinter) {
     }
 
     return $documents;
+}
+
+/**
+ * Process signature for intervention (shared logic for sync and direct signature endpoint)
+ *
+ * @param int $intervention_id Intervention ID
+ * @param string $signatureData Base64 encoded signature image
+ * @param string $signerName Name of signer
+ * @return array Result with success, signed_pdf, error keys
+ */
+function processSignature($intervention_id, $signatureData, $signerName) {
+    global $db, $user, $conf, $langs;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+    require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
+
+    // Load intervention
+    $fichinter = new Fichinter($db);
+    if ($fichinter->fetch($intervention_id) <= 0) {
+        return ['success' => false, 'error' => 'Intervention not found'];
+    }
+
+    // Decode signature (may include data:image/png;base64, prefix)
+    if (strpos($signatureData, 'base64,') !== false) {
+        $signatureData = explode('base64,', $signatureData)[1];
+    }
+    $signatureImage = base64_decode($signatureData);
+
+    if (!$signatureImage) {
+        return ['success' => false, 'error' => 'Invalid signature data'];
+    }
+
+    // Get document directory - use Dolibarr's standard path
+    $upload_dir = !empty($conf->ficheinter->multidir_output[$fichinter->entity])
+        ? $conf->ficheinter->multidir_output[$fichinter->entity]
+        : $conf->ficheinter->dir_output;
+    $upload_dir .= '/' . dol_sanitizeFileName($fichinter->ref) . '/';
+
+    // Create signatures directory
+    $signatures_dir = $upload_dir . 'signatures/';
+
+    // Ensure directories exist
+    if (!is_dir($upload_dir)) {
+        dol_mkdir($upload_dir);
+    }
+    if (!is_dir($signatures_dir)) {
+        dol_mkdir($signatures_dir);
+    }
+
+    // Save signature file
+    $date = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
+    $filename = $date . '_signature.png';
+    $filepath = $signatures_dir . $filename;
+
+    if (file_put_contents($filepath, $signatureImage) === false) {
+        return ['success' => false, 'error' => 'Failed to save signature file'];
+    }
+
+    $signerIp = getUserRemoteIP();
+    $signedPdfFile = null;
+
+    // Try to create signed PDF like Dolibarr does
+    $last_main_doc_file = $fichinter->last_main_doc;
+
+    // If no PDF exists yet, generate one first
+    if (empty($last_main_doc_file) || !dol_is_file(DOL_DATA_ROOT . '/' . $last_main_doc_file)) {
+        $modele = !empty($conf->global->FICHINTER_ADDON_PDF) ? $conf->global->FICHINTER_ADDON_PDF : 'soleil';
+        $fichinter->fetch_thirdparty();
+        $fichinter->fetch_lines();
+        $outputlangs = $langs;
+        $outputlangs->loadLangs(array("main", "interventions", "companies"));
+        $fichinter->generateDocument($modele, $outputlangs);
+        $last_main_doc_file = $fichinter->last_main_doc;
+    }
+
+    if (!empty($last_main_doc_file) && preg_match('/\.pdf/i', $last_main_doc_file)) {
+        $ref_pdf = pathinfo($last_main_doc_file, PATHINFO_FILENAME);
+        $newpdffilename = $upload_dir . $ref_pdf . "_signed-" . $date . ".pdf";
+        $sourcefile = $upload_dir . $ref_pdf . ".pdf";
+
+        if (dol_is_file($sourcefile)) {
+            try {
+                // Build the new PDF with signature
+                $pdf = pdf_getInstance();
+                if (class_exists('TCPDF')) {
+                    $pdf->setPrintHeader(false);
+                    $pdf->setPrintFooter(false);
+                }
+                $pdf->SetFont(pdf_getPDFFont($langs));
+
+                if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
+                    $pdf->SetCompression(false);
+                }
+
+                $pagecount = $pdf->setSourceFile($sourcefile);
+
+                $s = array();
+                for ($i = 1; $i < ($pagecount + 1); $i++) {
+                    $tppl = $pdf->importPage($i);
+                    $s = $pdf->getTemplatesize($tppl);
+                    $pdf->AddPage($s['h'] > $s['w'] ? 'P' : 'L');
+                    $pdf->useTemplate($tppl);
+                }
+
+                // Add signature on last page
+                $default_font_size = pdf_getPDFFontSize($langs);
+                $default_font = pdf_getPDFFont($langs);
+
+                $xforimgstart = 111;
+                $yforimgstart = (empty($s['h']) ? 250 : $s['h'] - 60);
+                $wforimg = $s['w'] - ($xforimgstart + 16);
+
+                // Add signature text
+                $pdf->SetXY($xforimgstart, $yforimgstart + round($wforimg / 4) - 4);
+                $pdf->SetFont($default_font, '', $default_font_size - 1);
+                $pdf->SetTextColor(80, 80, 80);
+                $signatureText = $langs->trans("Signature") . ': ' . dol_print_date(dol_now(), "day", false, $langs, true);
+                if ($signerName) {
+                    $signatureText .= ' - ' . $signerName;
+                }
+                $pdf->MultiCell($wforimg, 4, $signatureText, 0, 'L');
+
+                // Add signature image
+                $pdf->Image($filepath, $xforimgstart, $yforimgstart, $wforimg, round($wforimg / 4));
+
+                // Save the signed PDF
+                $pdf->Output($newpdffilename, "F");
+
+                // Index the new file and update the last_main_doc property
+                $fichinter->indexFile($newpdffilename, 1);
+
+                $signedPdfFile = basename($newpdffilename);
+            } catch (Exception $e) {
+                error_log("Error creating signed PDF: " . $e->getMessage());
+                // Continue without signed PDF - signature PNG is still saved
+            }
+        }
+    }
+
+    // Update intervention signed status
+    $tmpUser = new User($db);
+    $tmpUser->id = $user->id;
+
+    // Use Fichinter's setSignedStatus if available
+    if (method_exists($fichinter, 'setSignedStatus')) {
+        $result = $fichinter->setSignedStatus($tmpUser, Fichinter::$SIGNED_STATUSES['STATUS_SIGNED_RECEIVER_ONLINE'], 0, 'FICHINTER_MODIFY');
+    } else {
+        // Fallback to direct SQL update
+        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
+        $sql .= "signed_status = 3,"; // STATUS_SIGNED_RECEIVER_ONLINE
+        $sql .= "online_sign_ip = '".$db->escape($signerIp)."',";
+        $sql .= "online_sign_name = '".$db->escape($signerName)."'";
+        $sql .= " WHERE rowid = ".(int)$intervention_id;
+        $result = $db->query($sql) ? 1 : -1;
+    }
+
+    if ($result >= 0) {
+        // Close the intervention after signature
+        $fichinter->setClose($user);
+
+        return [
+            'success' => true,
+            'signed_pdf' => $signedPdfFile,
+            'signature_file' => $filename
+        ];
+    } else {
+        return [
+            'success' => false,
+            'error' => 'Failed to update intervention status',
+            'signed_pdf' => $signedPdfFile
+        ];
+    }
 }
