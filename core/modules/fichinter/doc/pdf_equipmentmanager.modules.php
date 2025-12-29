@@ -276,43 +276,42 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                         $total_duration += $equipment_duration;
                     }
 
-                    // Estimate minimum space needed for this equipment section
-                    $estimated_height = 18; // Base: title + equipment info + type/location
+                    // Estimate space needed for this equipment section (compact calculation)
+                    $estimated_height = 15; // Base: title + type/location
                     foreach ($entries as $entry) {
-                        $estimated_height += 8; // Date/duration row
+                        $estimated_height += 7; // Date/duration row
                         if ($entry->work_done) {
-                            // Estimate based on text length
-                            $lines = ceil(strlen($entry->work_done) / 80);
-                            $estimated_height += 6 + ($lines * 4);
+                            $lines = max(1, ceil(strlen($entry->work_done) / 100));
+                            $estimated_height += 5 + ($lines * 4);
                         }
                         if ($entry->issues_found) {
-                            $lines = ceil(strlen($entry->issues_found) / 80);
-                            $estimated_height += 6 + ($lines * 4);
+                            $lines = max(1, ceil(strlen($entry->issues_found) / 100));
+                            $estimated_height += 5 + ($lines * 4);
                         }
                     }
-                    // Check for recommendations in any entry
-                    $has_recommendations = false;
+                    // Check for recommendations
                     foreach ($entries as $entry) {
                         if (!empty($entry->recommendations)) {
-                            $has_recommendations = true;
-                            $lines = ceil(strlen($entry->recommendations) / 80);
-                            $estimated_height += 6 + ($lines * 4);
+                            $lines = max(1, ceil(strlen($entry->recommendations) / 100));
+                            $estimated_height += 5 + ($lines * 4);
                             break;
                         }
                     }
                     if (count($materials) > 0) {
-                        $estimated_height += 8 + (count($materials) * 5);
+                        $estimated_height += 6 + (count($materials) * 5);
                     }
 
-                    // Available space on page (accounting for footer margin)
-                    $page_bottom = $this->page_hauteur - $this->marge_basse - 10;
-                    $available_space = $page_bottom - $pdf->GetY();
+                    // Available space on page (leave margin for footer)
+                    $page_bottom = $this->page_hauteur - $this->marge_basse - 15;
+                    $available_space = $page_bottom - $curY;
 
-                    // Add new page only if section definitely won't fit
+                    // Add new page only if section won't fit
                     if ($available_space < $estimated_height) {
                         $pdf->AddPage();
                         $pagenb++;
-                        $curY = $tab_top_newpage;
+                        // Start at top of new page (after small margin)
+                        $curY = $this->marge_haute + 5;
+                        $pdf->SetY($curY);
                     }
 
                     // Render equipment section with all entries
@@ -657,11 +656,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
                 $curY = $pdf->GetY() + 2;
 
-                // Draw a thick separator line below description (same as outer border)
+                // Draw separator line below description (same thickness as outer border)
                 $pdf->SetDrawColor(0, 0, 0);
-                $pdf->SetLineWidth(0.5);
                 $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-                $pdf->SetLineWidth(0.2); // Reset to default
                 $curY += 2;
             }
         }
@@ -833,23 +830,22 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         // Draw borders around equipment section content
         $pdf->SetDrawColor(0, 0, 0);
-        $sectionHeight = $curY - $startY;
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // Left border
+        // Left border (from header or top to bottom)
         $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
         // Right border
         $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
-        // Bottom border - don't draw if last equipment with materials (materials table has bottom border)
-        if (!(count($materials) > 0 && $is_last)) {
+
+        // Bottom border logic:
+        // - Materials table already has bottom border, so skip if has materials
+        // - Always draw for equipment without materials (serves as separator for next, or closes section if last)
+        if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
-        // Top border (only if not first, first has "Beschreibung" header)
-        if (!$is_first) {
-            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
-        }
+        // Note: No separate top borders - the bottom border of previous equipment serves as top for next
 
-        return $curY + 5;
+        return $curY + 2;
     }
 
     /**
