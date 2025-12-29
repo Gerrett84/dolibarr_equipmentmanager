@@ -684,6 +684,62 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .doc-delete:hover, .doc-delete:active {
             background: #ffebee;
         }
+
+        /* Entry Item (v1.7) */
+        .entry-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .entry-item:last-child {
+            border-bottom: none;
+        }
+
+        .entry-item:active {
+            background: #f9f9f9;
+        }
+
+        .entry-date {
+            font-weight: 600;
+            font-size: 14px;
+            color: #263c5c;
+            min-width: 90px;
+        }
+
+        .entry-info {
+            flex: 1;
+            margin-left: 12px;
+        }
+
+        .entry-duration {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .entry-summary {
+            font-size: 13px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .entry-arrow {
+            color: #999;
+            font-size: 18px;
+        }
+
+        .total-duration {
+            background: #e3f2fd;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #1565c0;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -718,29 +774,79 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         </div>
     </div>
 
-    <!-- Detail Editor View -->
-    <div class="view" id="viewDetail">
+    <!-- Entries List View (v1.7) -->
+    <div class="view" id="viewEntries">
         <div class="content">
-            <form id="detailForm">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title" id="entriesEquipmentRef">Equipment</h3>
+                </div>
+                <div class="card-body" style="padding:0;">
+                    <!-- Add Entry Button -->
+                    <div class="add-equipment-btn" id="btnAddEntry" style="margin:12px;border-radius:6px;">
+                        <span>➕</span> Neuer Eintrag
+                    </div>
+                    <!-- Entries List -->
+                    <div id="entriesList"></div>
+                </div>
+            </div>
+
+            <!-- Recommendations & Notes (Summary) -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Empfehlungen & Notizen</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label">Empfehlungen</label>
+                        <textarea class="form-textarea" id="summaryRecommendations" rows="2"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Notizen</label>
+                        <textarea class="form-textarea" id="summaryNotes" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-block" id="btnSaveSummary">Empfehlungen speichern</button>
+
+            <!-- Materials Section -->
+            <div class="card" style="margin-top:12px;">
+                <div class="card-header">
+                    <h3 class="card-title">Material</h3>
+                    <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
+                </div>
+                <div class="card-body" id="materialsList">
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <p style="margin: 0; color: #666;">Kein Material erfasst</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entry Editor View (v1.7) -->
+    <div class="view" id="viewEntry">
+        <div class="content">
+            <form id="entryForm">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title" id="detailEquipmentRef">Equipment</h3>
+                        <h3 class="card-title" id="entryTitle">Neuer Eintrag</h3>
                     </div>
                     <div class="card-body">
                         <div class="form-group">
                             <label class="form-label">Arbeitsdatum</label>
-                            <input type="date" class="form-input" id="workDate">
+                            <input type="date" class="form-input" id="entryDate">
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Arbeitszeit</label>
                             <div style="display: flex; gap: 12px;">
                                 <div style="flex: 1;">
-                                    <input type="number" class="form-input" id="workHours" min="0" max="24" placeholder="Std">
+                                    <input type="number" class="form-input" id="entryHours" min="0" max="24" placeholder="Std">
                                     <span style="font-size: 12px; color: #666;">Stunden</span>
                                 </div>
                                 <div style="flex: 1;">
-                                    <select class="form-input" id="workMinutes">
+                                    <select class="form-input" id="entryMinutes">
                                         <option value="0">0 min</option>
                                         <option value="15">15 min</option>
                                         <option value="30">30 min</option>
@@ -753,40 +859,18 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
                         <div class="form-group">
                             <label class="form-label">Durchgeführte Arbeiten</label>
-                            <textarea class="form-textarea" id="workDone" rows="4"></textarea>
+                            <textarea class="form-textarea" id="entryWorkDone" rows="4"></textarea>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Festgestellte Mängel</label>
-                            <textarea class="form-textarea" id="issuesFound" rows="3"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Empfehlungen</label>
-                            <textarea class="form-textarea" id="recommendations" rows="3"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Notizen</label>
-                            <textarea class="form-textarea" id="notes" rows="2"></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Materials Section -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Material</h3>
-                        <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
-                    </div>
-                    <div class="card-body" id="materialsList">
-                        <div class="empty-state" style="padding: 20px 0;">
-                            <p style="margin: 0; color: #666;">Kein Material erfasst</p>
+                            <textarea class="form-textarea" id="entryIssuesFound" rows="3"></textarea>
                         </div>
                     </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-block">Speichern</button>
+                <button type="button" class="btn btn-danger btn-block" id="btnDeleteEntry" style="margin-top:8px;display:none;">Eintrag löschen</button>
             </form>
         </div>
     </div>

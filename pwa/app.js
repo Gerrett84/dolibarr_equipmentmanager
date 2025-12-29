@@ -7,6 +7,8 @@ class ServiceReportApp {
         this.currentView = 'viewInterventions';
         this.currentIntervention = null;
         this.currentEquipment = null;
+        this.currentEntry = null; // v1.7 - current entry being edited
+        this.currentEntries = []; // v1.7 - all entries for current equipment
         this.isOnline = navigator.onLine;
         this.signatureInstance = null;
         this.user = null;
@@ -120,11 +122,20 @@ class ServiceReportApp {
         // Sync button
         document.getElementById('btnSync').addEventListener('click', () => this.syncData());
 
-        // Detail form submit
-        document.getElementById('detailForm').addEventListener('submit', (e) => {
+        // Entry form submit (v1.7)
+        document.getElementById('entryForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            this.saveDetail();
+            this.saveEntry();
         });
+
+        // Add entry button (v1.7)
+        document.getElementById('btnAddEntry').addEventListener('click', () => this.addNewEntry());
+
+        // Delete entry button (v1.7)
+        document.getElementById('btnDeleteEntry').addEventListener('click', () => this.deleteEntry());
+
+        // Save summary button (v1.7)
+        document.getElementById('btnSaveSummary').addEventListener('click', () => this.saveSummary());
 
         // Signature buttons
         document.getElementById('btnClearSignature').addEventListener('click', () => this.clearSignature());
@@ -155,13 +166,6 @@ class ServiceReportApp {
         // Info button
         document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
         document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
-
-        // Auto-save on input change (debounced)
-        let saveTimeout;
-        document.getElementById('detailForm').addEventListener('input', () => {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => this.autoSaveDetail(), 2000);
-        });
     }
 
     updateOnlineStatus() {
@@ -307,8 +311,11 @@ class ServiceReportApp {
             case 'viewEquipment':
                 this.showView('viewInterventions');
                 break;
-            case 'viewDetail':
+            case 'viewEntries':
                 this.loadEquipment(this.currentIntervention);
+                break;
+            case 'viewEntry':
+                this.loadEntries(this.currentEquipment);
                 break;
             case 'viewSignature':
                 this.loadEquipment(this.currentIntervention);
@@ -631,7 +638,7 @@ class ServiceReportApp {
 
                 item.addEventListener('click', () => {
                     this.currentEquipment = eq;
-                    this.loadDetail(eq);
+                    this.loadEntries(eq);
                 });
 
                 card.appendChild(item);
@@ -646,97 +653,224 @@ class ServiceReportApp {
         }
     }
 
-    // Load detail form
-    async loadDetail(equipment) {
+    // Load entries list for equipment (v1.7)
+    async loadEntries(equipment) {
         try {
-            this.showView('viewDetail', equipment.ref);
+            this.showView('viewEntries', equipment.ref);
+            this.currentEquipment = equipment;
 
-            document.getElementById('detailEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
+            document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
 
-            // Try to get from IndexedDB first (for offline edits)
-            let detail = null;
-            try {
-                detail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
-            } catch (e) {
-                console.log('No local detail found');
+            const listEl = document.getElementById('entriesList');
+            listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            // Fetch entries from API
+            let entriesData = { entries: [], recommendations: '', notes: '', total_duration: 0 };
+
+            if (this.isOnline) {
+                try {
+                    entriesData = await this.apiCall(`detail/${this.currentIntervention.id}/${equipment.id}`);
+                } catch (err) {
+                    console.log('API call failed, using equipment data');
+                }
             }
 
-            // If no local edits, use server data
-            if (!detail && equipment.detail) {
-                detail = {
-                    intervention_id: this.currentIntervention.id,
-                    equipment_id: equipment.id,
-                    ...equipment.detail
-                };
+            // Store entries
+            this.currentEntries = entriesData.entries || [];
+
+            // Populate summary fields
+            document.getElementById('summaryRecommendations').value = entriesData.recommendations || '';
+            document.getElementById('summaryNotes').value = entriesData.notes || '';
+
+            // Render entries list
+            if (this.currentEntries.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state" style="padding: 20px;">
+                        <p style="margin: 0; color: #666;">Keine Einträge vorhanden</p>
+                        <p style="font-size: 12px; color: #999;">Klicke auf "Neuer Eintrag"</p>
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = '';
+
+                // Show total duration
+                if (entriesData.total_duration > 0) {
+                    const hours = Math.floor(entriesData.total_duration / 60);
+                    const mins = entriesData.total_duration % 60;
+                    const totalDiv = document.createElement('div');
+                    totalDiv.className = 'total-duration';
+                    totalDiv.textContent = `Gesamtzeit: ${hours} Std. ${mins} min.`;
+                    listEl.appendChild(totalDiv);
+                }
+
+                // Render each entry
+                this.currentEntries.forEach((entry, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'entry-item';
+
+                    const hours = Math.floor((entry.work_duration || 0) / 60);
+                    const mins = (entry.work_duration || 0) % 60;
+                    const durationText = hours > 0 || mins > 0 ? `${hours} Std. ${mins} min.` : '';
+
+                    const summary = entry.work_done ? entry.work_done.substring(0, 50) + (entry.work_done.length > 50 ? '...' : '') : '';
+
+                    item.innerHTML = `
+                        <div class="entry-date">${this.formatDate(entry.work_date)}</div>
+                        <div class="entry-info">
+                            <div class="entry-duration">${durationText}</div>
+                            <div class="entry-summary">${this.escapeHtml(summary)}</div>
+                        </div>
+                        <div class="entry-arrow">›</div>
+                    `;
+
+                    item.addEventListener('click', () => this.loadEntry(entry, index));
+                    listEl.appendChild(item);
+                });
             }
-
-            // Convert duration to hours and minutes
-            const totalMinutes = parseInt(detail?.work_duration) || 0;
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-
-            // Populate form
-            document.getElementById('workDate').value = detail?.work_date || this.formatDateInput(new Date());
-            document.getElementById('workHours').value = hours > 0 ? hours : '';
-            document.getElementById('workMinutes').value = String(Math.floor(minutes / 15) * 15);
-            document.getElementById('workDone').value = detail?.work_done || '';
-            document.getElementById('issuesFound').value = detail?.issues_found || '';
-            document.getElementById('recommendations').value = detail?.recommendations || '';
-            document.getElementById('notes').value = detail?.notes || '';
 
             // Load and display materials
             const materials = equipment.materials || [];
             this.renderMaterials(materials);
+
         } catch (err) {
-            console.error('Error loading detail:', err);
+            console.error('Error loading entries:', err);
             this.showToast('Fehler beim Laden');
         }
     }
 
-    // Save detail
-    async saveDetail() {
-        // Calculate total minutes from hours and minutes
-        const hours = parseInt(document.getElementById('workHours').value) || 0;
-        const minutes = parseInt(document.getElementById('workMinutes').value) || 0;
+    // Load single entry for editing (v1.7)
+    loadEntry(entry, index) {
+        this.currentEntry = { ...entry, index };
+        this.showView('viewEntry', 'Eintrag bearbeiten');
+
+        document.getElementById('entryTitle').textContent = 'Eintrag bearbeiten';
+
+        // Populate form
+        document.getElementById('entryDate').value = entry.work_date || this.formatDateInput(new Date());
+
+        const hours = Math.floor((entry.work_duration || 0) / 60);
+        const minutes = (entry.work_duration || 0) % 60;
+        document.getElementById('entryHours').value = hours > 0 ? hours : '';
+        document.getElementById('entryMinutes').value = String(Math.floor(minutes / 15) * 15);
+
+        document.getElementById('entryWorkDone').value = entry.work_done || '';
+        document.getElementById('entryIssuesFound').value = entry.issues_found || '';
+
+        // Show delete button for existing entries
+        document.getElementById('btnDeleteEntry').style.display = 'block';
+    }
+
+    // Add new entry (v1.7)
+    addNewEntry() {
+        this.currentEntry = null;
+        this.showView('viewEntry', 'Neuer Eintrag');
+
+        document.getElementById('entryTitle').textContent = 'Neuer Eintrag';
+
+        // Clear form
+        document.getElementById('entryDate').value = this.formatDateInput(new Date());
+        document.getElementById('entryHours').value = '';
+        document.getElementById('entryMinutes').value = '0';
+        document.getElementById('entryWorkDone').value = '';
+        document.getElementById('entryIssuesFound').value = '';
+
+        // Hide delete button for new entries
+        document.getElementById('btnDeleteEntry').style.display = 'none';
+    }
+
+    // Save entry (v1.7)
+    async saveEntry() {
+        const hours = parseInt(document.getElementById('entryHours').value) || 0;
+        const minutes = parseInt(document.getElementById('entryMinutes').value) || 0;
         const totalMinutes = (hours * 60) + minutes;
 
-        const detail = {
+        const entryData = {
             intervention_id: this.currentIntervention.id,
             equipment_id: this.currentEquipment.id,
-            work_date: document.getElementById('workDate').value,
+            work_date: document.getElementById('entryDate').value,
             work_duration: totalMinutes,
-            work_done: document.getElementById('workDone').value,
-            issues_found: document.getElementById('issuesFound').value,
-            recommendations: document.getElementById('recommendations').value,
-            notes: document.getElementById('notes').value
+            work_done: document.getElementById('entryWorkDone').value,
+            issues_found: document.getElementById('entryIssuesFound').value
         };
 
-        // Save to IndexedDB
-        await offlineDB.saveDetail(detail);
-
-        // Update equipment in memory
-        if (this.currentEquipment) {
-            this.currentEquipment.detail = detail;
+        // Add entry_id if editing existing entry
+        if (this.currentEntry && this.currentEntry.id) {
+            entryData.entry_id = this.currentEntry.id;
         }
 
         // Try to sync if online
         if (this.isOnline) {
             try {
-                await this.apiCall(`detail/${detail.intervention_id}/${detail.equipment_id}`, {
+                await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
                     method: 'POST',
-                    body: JSON.stringify(detail)
+                    body: JSON.stringify(entryData)
                 });
                 this.showToast('Gespeichert');
+
+                // Go back to entries list and refresh
+                this.loadEntries(this.currentEquipment);
             } catch (err) {
-                this.showToast('Offline gespeichert - wird synchronisiert');
+                console.error('Save failed:', err);
+                this.showToast('Fehler beim Speichern');
             }
         } else {
-            this.showToast('Offline gespeichert');
+            this.showToast('Offline - Speichern nicht möglich');
         }
     }
 
-    async autoSaveDetail() {
-        await this.saveDetail();
+    // Save summary (recommendations & notes) (v1.7)
+    async saveSummary() {
+        const summaryData = {
+            intervention_id: this.currentIntervention.id,
+            equipment_id: this.currentEquipment.id,
+            recommendations: document.getElementById('summaryRecommendations').value,
+            notes: document.getElementById('summaryNotes').value,
+            save_summary_only: true
+        };
+
+        if (this.isOnline) {
+            try {
+                await this.apiCall(`detail/${summaryData.intervention_id}/${summaryData.equipment_id}`, {
+                    method: 'POST',
+                    body: JSON.stringify(summaryData)
+                });
+                this.showToast('Empfehlungen gespeichert');
+            } catch (err) {
+                console.error('Save summary failed:', err);
+                this.showToast('Fehler beim Speichern');
+            }
+        } else {
+            this.showToast('Offline - Speichern nicht möglich');
+        }
+    }
+
+    // Delete entry (v1.7)
+    async deleteEntry() {
+        if (!this.currentEntry || !this.currentEntry.id) {
+            this.showToast('Eintrag kann nicht gelöscht werden');
+            return;
+        }
+
+        if (!confirm('Eintrag wirklich löschen?')) {
+            return;
+        }
+
+        if (this.isOnline) {
+            try {
+                await this.apiCall(`detail/${this.currentIntervention.id}/${this.currentEquipment.id}?entry_id=${this.currentEntry.id}`, {
+                    method: 'DELETE'
+                });
+                this.showToast('Eintrag gelöscht');
+
+                // Go back to entries list and refresh
+                this.loadEntries(this.currentEquipment);
+            } catch (err) {
+                console.error('Delete failed:', err);
+                this.showToast('Fehler beim Löschen');
+            }
+        } else {
+            this.showToast('Offline - Löschen nicht möglich');
+        }
     }
 
     // Signature handling

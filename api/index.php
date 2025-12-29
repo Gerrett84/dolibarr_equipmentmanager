@@ -788,6 +788,37 @@ function handleDetail($method, $parts, $input) {
     } elseif ($method === 'POST' || $method === 'PUT') {
         // v1.7: Support entry_id for updating specific entries
         $entry_id = isset($input['entry_id']) ? (int)$input['entry_id'] : 0;
+        $save_summary_only = !empty($input['save_summary_only']);
+
+        // If saving summary only (recommendations/notes), update first entry
+        if ($save_summary_only) {
+            $entries = $detail->fetchAllByInterventionEquipment($intervention_id, $equipment_id);
+            if (count($entries) > 0) {
+                $detail = $entries[0];
+                $detail->recommendations = $input['recommendations'] ?? '';
+                $detail->notes = $input['notes'] ?? '';
+                $result = $detail->update($user);
+            } else {
+                // No entries yet - create one with just recommendations/notes
+                $detail->fk_intervention = $intervention_id;
+                $detail->fk_equipment = $equipment_id;
+                $detail->recommendations = $input['recommendations'] ?? '';
+                $detail->notes = $input['notes'] ?? '';
+                $detail->work_date = time();
+                $result = $detail->create($user);
+            }
+
+            if ($result > 0) {
+                echo json_encode([
+                    'status' => 'ok',
+                    'message' => 'Summary saved'
+                ]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to save summary']);
+            }
+            return;
+        }
 
         if ($entry_id > 0) {
             // Update existing entry
@@ -820,8 +851,8 @@ function handleDetail($method, $parts, $input) {
             ]);
         }
     } elseif ($method === 'DELETE') {
-        // v1.7: Delete specific entry
-        $entry_id = isset($input['entry_id']) ? (int)$input['entry_id'] : 0;
+        // v1.7: Delete specific entry (from query param or input)
+        $entry_id = isset($_GET['entry_id']) ? (int)$_GET['entry_id'] : (isset($input['entry_id']) ? (int)$input['entry_id'] : 0);
 
         if ($entry_id > 0 && $detail->fetch($entry_id) > 0) {
             $result = $detail->delete($user);
