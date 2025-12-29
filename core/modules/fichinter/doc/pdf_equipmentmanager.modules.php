@@ -277,28 +277,39 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     }
 
                     // Estimate minimum space needed for this equipment section
-                    $estimated_height = 15; // Base: title + equipment info
+                    $estimated_height = 18; // Base: title + equipment info + type/location
                     foreach ($entries as $entry) {
-                        $estimated_height += 10; // Date/duration row
-                        if ($entry->work_done) $estimated_height += 10;
-                        if ($entry->issues_found) $estimated_height += 8;
+                        $estimated_height += 8; // Date/duration row
+                        if ($entry->work_done) {
+                            // Estimate based on text length
+                            $lines = ceil(strlen($entry->work_done) / 80);
+                            $estimated_height += 6 + ($lines * 4);
+                        }
+                        if ($entry->issues_found) {
+                            $lines = ceil(strlen($entry->issues_found) / 80);
+                            $estimated_height += 6 + ($lines * 4);
+                        }
                     }
                     // Check for recommendations in any entry
                     $has_recommendations = false;
                     foreach ($entries as $entry) {
                         if (!empty($entry->recommendations)) {
                             $has_recommendations = true;
-                            $estimated_height += 15;
+                            $lines = ceil(strlen($entry->recommendations) / 80);
+                            $estimated_height += 6 + ($lines * 4);
                             break;
                         }
                     }
                     if (count($materials) > 0) {
-                        $estimated_height += 10 + (count($materials) * 5);
+                        $estimated_height += 8 + (count($materials) * 5);
                     }
 
-                    // Check if equipment section would fit on current page
-                    $available_space = 280 - $pdf->GetY();
-                    if ($available_space < $estimated_height + 20) {
+                    // Available space on page (accounting for footer margin)
+                    $page_bottom = $this->page_hauteur - $this->marge_basse - 10;
+                    $available_space = $page_bottom - $pdf->GetY();
+
+                    // Add new page only if section definitely won't fit
+                    if ($available_space < $estimated_height) {
                         $pdf->AddPage();
                         $pagenb++;
                         $curY = $tab_top_newpage;
@@ -344,15 +355,23 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
             }
 
-            // Signature section - always at fixed position at bottom of last page
-            // This ensures consistent placement for both manual and online signatures
-            $signatureY = $this->page_hauteur - 67; // Fixed position: 67mm from bottom (230mm on A4)
+            // Signature section - dynamic positioning based on content
+            // Minimum gap of 15mm after content, but signature boxes need ~45mm height
+            $minSignatureHeight = 45; // Height needed for signature boxes
+            $minGapAfterContent = 15; // Minimum gap after content
+            $contentY = $pdf->GetY();
 
-            // Check if we need a new page (if content extends too close to signature area)
-            if ($pdf->GetY() > $signatureY - 10) {
+            // Calculate signature Y position
+            $signatureY = $contentY + $minGapAfterContent;
+
+            // Check if signatures would fit on current page (need ~45mm for boxes)
+            $availableSpace = $this->page_hauteur - $this->marge_basse - $contentY;
+
+            if ($availableSpace < $minSignatureHeight + $minGapAfterContent) {
+                // Not enough space - add new page
                 $pdf->AddPage();
                 $pagenb++;
-                $signatureY = $this->page_hauteur - 67;
+                $signatureY = $tab_top_newpage + 10; // Position near top of new page
             }
 
             $this->_renderSignatures($pdf, $object, $signatureY, $outputlangs, $default_font_size);
@@ -638,17 +657,21 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
                 $curY = $pdf->GetY() + 2;
 
-                // Draw a separator line below description
-                $pdf->SetDrawColor(200, 200, 200);
-                $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+                // Draw a thick separator line below description (same as outer border)
                 $pdf->SetDrawColor(0, 0, 0);
+                $pdf->SetLineWidth(0.5);
+                $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+                $pdf->SetLineWidth(0.2); // Reset to default
                 $curY += 2;
             }
         }
 
+        // Text padding inside bordered section
+        $textPadding = 2;
+
         // Equipment header
         $pdf->SetFont('', 'B', $default_font_size + 1);
-        $pdf->SetXY($leftMargin, $curY);
+        $pdf->SetXY($leftMargin + $textPadding, $curY);
         $pdf->SetTextColor(0, 0, 100);
         $pdf->MultiCell(0, 5, "Anlage: ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
 
@@ -663,7 +686,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $type_label = $outputlangs->trans($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type]);
         }
 
-        $pdf->SetXY($leftMargin, $curY);
+        $pdf->SetXY($leftMargin + $textPadding, $curY);
         $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$type_label, 0, 'L');
 
         if ($equipment->location_note) {
@@ -714,59 +737,59 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             // Work done for this entry
             if ($entry->work_done) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
-                $pdf->SetXY($leftMargin, $curY);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("WorkDone").":", 0, 'L');
                 $curY = $pdf->GetY();
 
                 $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($leftMargin, $curY);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $work_done_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->work_done));
-                $pdf->MultiCell(0, 4, $work_done_text, 0, 'L');
+                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $work_done_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
             }
 
             // Issues found for this entry
             if ($entry->issues_found) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
-                $pdf->SetXY($leftMargin, $curY);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
                 $curY = $pdf->GetY();
 
                 $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($leftMargin, $curY);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
-                $pdf->MultiCell(0, 4, $issues_text, 0, 'L');
+                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
             }
 
             // Add small separator between entries (not after last)
             if ($entryIndex < $entryCount - 1) {
-                $curY += 2;
-                $pdf->SetDrawColor(200, 200, 200);
+                $curY += 1;
+                $pdf->SetDrawColor(180, 180, 180);
                 $pdf->Line($leftMargin + 10, $curY, $leftMargin + $sectionWidth - 10, $curY);
                 $pdf->SetDrawColor(0, 0, 0);
-                $curY += 3;
+                $curY += 2;
             }
         }
 
-        // Recommendations (once, after all entries)
-        if ($recommendations) {
-            $curY += 2;
+        // Recommendations (once, after all entries) - only if not empty
+        if (!empty($recommendations)) {
+            $curY += 1;
             $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->SetXY($leftMargin, $curY);
+            $pdf->SetXY($leftMargin + $textPadding, $curY);
             $pdf->MultiCell(0, 4, $outputlangs->transnoentities("Recommendations").":", 0, 'L');
             $curY = $pdf->GetY();
 
             $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->SetXY($leftMargin, $curY);
+            $pdf->SetXY($leftMargin + $textPadding, $curY);
             $recommendations_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($recommendations));
-            $pdf->MultiCell(0, 4, $recommendations_text, 0, 'L');
-            $curY = $pdf->GetY() + 2;
+            $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $recommendations_text, 0, 'L');
+            $curY = $pdf->GetY() + 1;
         }
 
         // Materials table
         if (count($materials) > 0) {
-            $curY = $pdf->GetY() + 2;
+            $curY = $pdf->GetY() + 1;
 
             // Table header (without price column) - continuous columns
             $pdf->SetFont('', 'B', $default_font_size - 2);
@@ -804,8 +827,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             // Materials close the section - no additional spacing needed
             $curY = $pdf->GetY();
         } else {
-            // Add spacing if no materials
-            $curY = $pdf->GetY() + 2;
+            // No materials - minimal spacing
+            $curY = $pdf->GetY() + 1;
         }
 
         // Draw borders around equipment section content
