@@ -162,10 +162,7 @@ function handleInterventions($method, $parts, $input) {
         return;
     }
 
-    // Debug: Check user entity
-    $userEntity = (int)$user->entity;
-
-    // Get interventions - removed strict entity filter for debugging
+    // Get interventions
     $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status,";
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
@@ -232,10 +229,6 @@ function handleInterventions($method, $parts, $input) {
     echo json_encode([
         'status' => 'ok',
         'count' => count($interventions),
-        'debug' => [
-            'user_entity' => $userEntity,
-            'sql' => $sql
-        ],
         'interventions' => $interventions
     ]);
 }
@@ -274,12 +267,11 @@ function handleIntervention($method, $parts, $input) {
 
     // If requesting equipment list
     if (isset($parts[2]) && $parts[2] === 'equipment') {
-        $result = getInterventionEquipment($id, true); // with debug
+        $equipment = getInterventionEquipment($id);
         echo json_encode([
             'status' => 'ok',
             'intervention_id' => $id,
-            'equipment' => $result['equipment'],
-            'debug' => $result['debug']
+            'equipment' => $equipment
         ]);
         return;
     }
@@ -429,11 +421,7 @@ function handleIntervention($method, $parts, $input) {
         // Check if file exists
         if (!file_exists($filepath)) {
             http_response_code(404);
-            echo json_encode([
-                'error' => 'File not found',
-                'debug_path' => $filepath,
-                'debug_docdir' => $docDir
-            ]);
+            echo json_encode(['error' => 'File not found']);
             return;
         }
 
@@ -446,10 +434,7 @@ function handleIntervention($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode([
-                'error' => 'Failed to delete file',
-                'debug_path' => $filepath
-            ]);
+            echo json_encode(['error' => 'Failed to delete file']);
         }
         return;
     }
@@ -607,7 +592,7 @@ function handleIntervention($method, $parts, $input) {
 /**
  * Get equipment linked to intervention
  */
-function getInterventionEquipment($intervention_id, $withDebug = false) {
+function getInterventionEquipment($intervention_id) {
     global $db;
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
@@ -621,8 +606,6 @@ function getInterventionEquipment($intervention_id, $withDebug = false) {
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
     $sql .= " ORDER BY e.equipment_number";
-
-    $debug = ['sql' => $sql];
 
     $resql = $db->query($sql);
     $equipment = [];
@@ -658,14 +641,8 @@ function getInterventionEquipment($intervention_id, $withDebug = false) {
 
             $equipment[] = $eq;
         }
-        $debug['num_rows'] = $db->num_rows($resql);
-    } else {
-        $debug['error'] = $db->lasterror();
     }
 
-    if ($withDebug) {
-        return ['equipment' => $equipment, 'debug' => $debug];
-    }
     return $equipment;
 }
 

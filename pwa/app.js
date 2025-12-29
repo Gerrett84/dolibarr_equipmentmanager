@@ -20,7 +20,7 @@ class ServiceReportApp {
         // Initialize IndexedDB
         try {
             await offlineDB.init();
-            console.log('IndexedDB initialized');
+            // console.log('IndexedDB initialized');
         } catch (err) {
             console.error('Failed to init IndexedDB:', err);
             this.showToast('Offline-Speicher konnte nicht initialisiert werden');
@@ -52,7 +52,7 @@ class ServiceReportApp {
         if (CONFIG.isAuthenticated && CONFIG.authData) {
             this.user = CONFIG.authData;
             await offlineDB.setMeta('auth', CONFIG.authData);
-            console.log('Auth cached for offline use');
+            // console.log('Auth cached for offline use');
             return true;
         }
 
@@ -62,7 +62,7 @@ class ServiceReportApp {
         if (cachedAuth && cachedAuth.valid_until > Date.now() / 1000) {
             // Cached auth is still valid
             this.user = cachedAuth;
-            console.log('Using cached auth for:', cachedAuth.login);
+            // console.log('Using cached auth for:', cachedAuth.login);
 
             if (this.isOnline) {
                 // Online but not authenticated - session expired
@@ -337,7 +337,7 @@ class ServiceReportApp {
             url = CONFIG.apiBase + '?route=' + encodeURIComponent(endpoint);
         }
 
-        console.log('API call:', url);
+        // console.log('API call:', url);
 
         if (!this.isOnline) {
             throw new Error('Offline');
@@ -382,7 +382,7 @@ class ServiceReportApp {
                 // Fetch all interventions (including closed ones for now)
                 const data = await this.apiCall('interventions?status=all');
                 interventions = data.interventions || [];
-                console.log('API returned', interventions.length, 'interventions');
+                // console.log('API returned', interventions.length, 'interventions');
 
                 // Save to IndexedDB
                 await offlineDB.saveInterventions(interventions);
@@ -560,7 +560,7 @@ class ServiceReportApp {
             const docsBtn = document.getElementById('navDocuments');
             docsBtn.style.display = 'flex';
 
-            console.log('Equipment loaded, signedStatus:', signedStatus);
+            // console.log('Equipment loaded, signedStatus:', signedStatus);
 
             if (signedStatus >= 1) {
                 // Released or signed - show "Ändern" button
@@ -671,7 +671,7 @@ class ServiceReportApp {
                 try {
                     entriesData = await this.apiCall(`detail/${this.currentIntervention.id}/${equipment.id}`);
                 } catch (err) {
-                    console.log('API call failed, using equipment data');
+                    // console.log('API call failed, using equipment data');
                 }
             }
 
@@ -895,7 +895,7 @@ class ServiceReportApp {
         });
 
         this.signatureInstance = $(container);
-        console.log('jSignature initialized');
+        // console.log('jSignature initialized');
     }
 
     clearSignature() {
@@ -909,7 +909,7 @@ class ServiceReportApp {
     }
 
     async saveSignature() {
-        console.log('saveSignature called, signatureInstance:', this.signatureInstance);
+        // console.log('saveSignature called, signatureInstance:', this.signatureInstance);
 
         if (!this.signatureInstance) {
             this.showToast('Unterschrift nicht initialisiert');
@@ -934,7 +934,7 @@ class ServiceReportApp {
         try {
             // Method 1: Try getData with 'image' format (returns data URL)
             const dataUrl = this.signatureInstance.jSignature('getData', 'image');
-            console.log('Signature dataUrl type:', typeof dataUrl, 'length:', dataUrl ? dataUrl.length : 0);
+            // console.log('Signature dataUrl type:', typeof dataUrl, 'length:', dataUrl ? dataUrl.length : 0);
 
             if (dataUrl && typeof dataUrl === 'string' && dataUrl.includes('base64,')) {
                 base64 = dataUrl.split('base64,')[1];
@@ -950,7 +950,7 @@ class ServiceReportApp {
         if (!base64 || base64.length < 100) {
             try {
                 const nativeData = this.signatureInstance.jSignature('getData', 'native');
-                console.log('Native data:', nativeData);
+                // console.log('Native data:', nativeData);
                 if (nativeData && nativeData.length > 0) {
                     // There are strokes - try to get as base64 again
                     const b64Data = this.signatureInstance.jSignature('getData', 'base64');
@@ -963,7 +963,7 @@ class ServiceReportApp {
             }
         }
 
-        console.log('Final base64 length:', base64 ? base64.length : 0);
+        // console.log('Final base64 length:', base64 ? base64.length : 0);
 
         // Check if signature actually has content
         if (!base64 || base64.length < 100) {
@@ -1409,7 +1409,7 @@ class ServiceReportApp {
                 method: 'POST'
             });
 
-            console.log('Release result:', result);
+            // console.log('Release result:', result);
 
             if (result.status === 'ok') {
                 // Update local signed_status
@@ -1475,21 +1475,15 @@ class ServiceReportApp {
 
         try {
             const data = await this.apiCall(`intervention/${this.currentIntervention.id}/documents`);
-            console.log('Documents response:', data);
+            // console.log('Documents response:', data);
             const documents = data.documents || [];
 
             if (documents.length === 0) {
-                let debugInfo = '';
-                if (data.doc_path) {
-                    debugInfo = `<p style="font-size:10px;color:#999;margin-top:8px;">Pfad: ${data.doc_path}</p>`;
-                    debugInfo += `<p style="font-size:10px;color:#999;">Existiert: ${data.doc_dir_exists ? 'Ja' : 'Nein'}</p>`;
-                }
                 listEl.innerHTML = `
                     <div class="empty-state" style="padding: 20px 0;">
                         <div class="empty-icon">📄</div>
                         <p>Keine Dokumente vorhanden</p>
                         <p style="font-size:12px;color:#666;">Bitte zuerst freigeben um PDF zu erstellen.</p>
-                        ${debugInfo}
                     </div>
                 `;
                 return;

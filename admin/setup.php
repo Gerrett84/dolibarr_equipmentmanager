@@ -259,21 +259,6 @@ if ($template_registered) {
     print '<span class="opacitymedium">'.$langs->trans("PDFTemplateClickToRegister").'</span>';
 }
 
-// Debug info - show registered templates
-print '<br><br><details><summary style="cursor:pointer;"><small>'.$langs->trans("ShowRegisteredTemplates").'</small></summary>';
-print '<ul style="margin:5px 0;">';
-if (count($def) > 0) {
-    foreach ($def as $template) {
-        print '<li><code>'.$template.'</code>';
-        if ($template == 'pdf_equipmentmanager') {
-            print ' <strong>(Equipment Manager)</strong>';
-        }
-        print '</li>';
-    }
-} else {
-    print '<li><em>'.$langs->trans("NoTemplatesRegistered").'</em></li>';
-}
-print '</ul></details>';
 
 print '</td>';
 print '<td class="right" style="vertical-align: top;">';

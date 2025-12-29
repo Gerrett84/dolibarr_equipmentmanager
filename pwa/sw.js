@@ -16,12 +16,12 @@ const STATIC_FILES = [
 
 // Install event - cache static files
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing...');
+    // console.log('[SW] Installing...');
 
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
-                console.log('[SW] Caching static files');
+                // console.log('[SW] Caching static files');
                 return cache.addAll(STATIC_FILES);
             })
             .then(() => self.skipWaiting())
@@ -30,7 +30,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean old caches
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating...');
+    // console.log('[SW] Activating...');
 
     event.waitUntil(
         caches.keys()
@@ -137,7 +137,7 @@ self.addEventListener('fetch', (event) => {
 
 // Background sync event
 self.addEventListener('sync', (event) => {
-    console.log('[SW] Sync event:', event.tag);
+    // console.log('[SW] Sync event:', event.tag);
 
     if (event.tag === 'sync-changes') {
         event.waitUntil(syncChanges());
