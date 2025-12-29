@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 1.6.3** | Professionelle Anlagenverwaltung mit Wartungsplanung
+**Version 2.0.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -10,6 +10,14 @@
 
 ## 🎯 Features
 
+### NEU in v2.0: Progressive Web App (PWA)
+- **Mobile Offline-App** - Serviceberichte direkt vor Ort erfassen
+- **Installierbar** - Als App auf Smartphone/Tablet installieren
+- **Offline-fähig** - Arbeiten ohne Internetverbindung, automatische Synchronisation
+- **Multiple Einträge** - Mehrere Arbeitseinträge pro Anlage für mehrtägige Einsätze
+- **Schneller Zugriff** - PWA-Link in Dolibarr Top-Bar
+
+### Kernfunktionen
 - **Wartungs-Dashboard** - Fällige Wartungen auf einen Blick, gruppiert nach Standort
 - **Automatische Nummerierung** - Equipment-Nummern (A000001, A000002, …) automatisch oder manuell
 - **Objektadressen** - Separate Lieferadressen pro Anlage für optimale Tourenplanung
@@ -17,7 +25,7 @@
 - **Wartungs-Historie** - Vollständige Dokumentation aller Arbeiten mit Link zu Serviceaufträgen
 - **Status-Tracking** - Ausstehend → In Bearbeitung → Erledigt
 - **Manuelle Erledigung** - Für Sonderfälle außerhalb des Workflows
-- **PDF-Export** - Professionelle Serviceberichte mit Equipment-Details, Material und Signaturen ([Anleitung](PDF_TEMPLATE_GUIDE.md))
+- **PDF-Export** - Professionelle Serviceberichte mit Equipment-Details, Material und Signaturen
 
 ### Equipment-Typen
 
@@ -44,6 +52,27 @@ chmod -R 755 equipmentmanager
 
 -----
 
+## 📱 PWA (Mobile App)
+
+### Zugriff
+- **In Dolibarr:** Klick auf 🏠-Icon in der Top-Bar → "Service Report PWA"
+- **Direkt:** `https://ihr-dolibarr.de/custom/equipmentmanager/pwa/`
+
+### Installation als App
+1. PWA im Browser öffnen
+2. **iOS:** Teilen → "Zum Home-Bildschirm"
+3. **Android:** Menü → "App installieren"
+
+### Funktionen
+- Serviceaufträge anzeigen und bearbeiten
+- Equipment mit Arbeitseinträgen dokumentieren
+- Material erfassen
+- Kundenunterschrift vor Ort
+- Dokumente hochladen (Fotos)
+- Offline arbeiten
+
+-----
+
 ## 🚀 Schnellstart
 
 ### Equipment anlegen
@@ -55,12 +84,35 @@ chmod -R 755 equipmentmanager
 ### Wartung planen
 
 1. **Wartungs-Übersicht** zeigt fällige Wartungen (1 Monat Vorlauf)
-1. **Serviceauftrag** erstellen → Tab “Equipment” → Als “Wartung” verknüpfen
+1. **Serviceauftrag** erstellen → Tab "Equipment" → Als "Wartung" verknüpfen
 1. Nach Erledigung: Equipment verschwindet automatisch
+
+### Servicebericht mit PWA
+
+1. Serviceauftrag in PWA öffnen
+2. Equipment auswählen
+3. Arbeitseinträge hinzufügen (Datum, Zeit, Arbeiten, Mängel)
+4. Material erfassen
+5. Kundenunterschrift holen
+6. Speichern & Freigeben
 
 -----
 
 ## 📝 Changelog
+
+### v2.0.0 (2024-12-29)
+
+- ✨ **Progressive Web App (PWA)** - Mobile Offline-App für Serviceberichte
+- ✨ **Multiple Arbeitseinträge** - Mehrere Einträge pro Anlage für mehrtägige Einsätze
+- ✨ **Kundenunterschrift in PWA** - Digitale Unterschrift vor Ort
+- ✨ **Dokument-Upload** - Fotos direkt in der PWA hochladen
+- ✨ **Online-Signatur** - Integration mit Dolibarr Online-Signatur
+- ✨ **PWA-Link in Top-Bar** - Schneller Zugriff auf die Mobile App
+- ✨ **REST-API** - Vollständige API für alle Equipment-Operationen
+- 🎨 **PDF-Layout** - Dynamische Seitenumbrüche, letzte Anlage + Unterschrift auf einer Seite
+- 🎨 **PDF-Formatierung** - Verbesserte Abstände und Linienführung
+- 🐛 **Fix:** Mehrere Einträge pro Anlage möglich (entry_number)
+- 🐛 **Fix:** PDF-Signatur korrekt positioniert
 
 ### v1.6.3 (2024-12-24)
 
@@ -89,14 +141,13 @@ chmod -R 755 equipmentmanager
 - ✨ **Material-Listen** - Verbrauchtes Material mit Preisen im PDF
 - ✨ **Signaturen** - Unterschriftenfelder für Techniker und Kunde
 - ✨ **Zusammenfassung** - Gesamt-Arbeitszeit und Materialkosten
-- 📚 **Detaillierte Dokumentation**: Siehe [PDF_TEMPLATE_GUIDE.md](PDF_TEMPLATE_GUIDE.md)
 
 ### v1.5.1 (2024-12-19)
 
 - ✨ **Letzte Wartung** auf Equipment-Karte mit Link zu Serviceauftrag
 - ✨ **Icon in Top Bar** für schnellen Zugriff
 - 🐛 **Fix:** Serviceauftrags-Link verwendet jetzt `ref` statt `id`
-- 🐛 **Fix:** Status “In Bearbeitung” bereits ab Validierung (Status 1)
+- 🐛 **Fix:** Status "In Bearbeitung" bereits ab Validierung (Status 1)
 - 🎨 **Dark Mode:** Tabellenfarben mit rgba-Transparenz
 
 ### v1.5 (2024-12-18)
@@ -107,23 +158,11 @@ chmod -R 755 equipmentmanager
 - ✨ Manuelle Erledigung für Sonderfälle
 - 🐛 Bug fixes und Performance-Verbesserungen
 
-### v1.4 (2024-12-15)
+### Frühere Versionen
 
-- ✨ Getrennte Equipment-Ansicht (View/Edit)
-- ✨ Suche nach Objektadresse
-- ✨ Farbcodierte Status-Badges
-
-### v1.3 (2024-11)
-
-- ✨ Automatische Equipment-Nummerierung
-- ✨ Equipment-Typen erweitert
-- ✨ Serviceauftrag-Verknüpfung
-
-### v1.0 (2024-10)
-
-- 🎉 Erste Version
-- Equipment-Verwaltung
-- Serviceberichte
+- **v1.4** (2024-12) - Getrennte Equipment-Ansicht, Suche nach Objektadresse
+- **v1.3** (2024-11) - Automatische Equipment-Nummerierung
+- **v1.0** (2024-10) - Erste Version
 
 -----
 
@@ -161,6 +200,13 @@ git pull
 # 3. Browser-Cache leeren
 ```
 
+### Update auf v2.0
+
+```bash
+# SQL-Migration für Multiple Entries ausführen:
+mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_v1.7.sql
+```
+
 -----
 
 ## 🐛 Troubleshooting
@@ -173,13 +219,18 @@ git pull
 
 **Serviceauftrag-Link fehlt?**
 
-- Equipment als “Wartung” verknüpft? ✓
+- Equipment als "Wartung" verknüpft? ✓
 - Serviceauftrag Status 1-2? ✓
 
-**Equipment verschwindet nicht?**
+**PWA funktioniert nicht?**
 
-- Serviceauftrag Status 3? ✓
-- Manuelle Erledigung nutzen (✓-Button)
+- HTTPS erforderlich (außer localhost)
+- Browser-Cache leeren
+- Service Worker neu registrieren
+
+**Mehrere Einträge nicht möglich?**
+
+- SQL-Migration ausgeführt? (sql/llx_equipmentmanager_v1.7.sql)
 
 -----
 
@@ -213,6 +264,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 1.6.3
+**Current Version:** 2.0.0
 **Released:** December 2024
 **Compatibility:** Dolibarr 22.0+
