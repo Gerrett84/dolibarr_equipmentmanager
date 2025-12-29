@@ -305,8 +305,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $page_bottom = $this->page_hauteur - $this->marge_basse - 15;
                     $available_space = $page_bottom - $curY;
 
-                    // Add new page only if section won't fit
-                    if ($available_space < $estimated_height) {
+                    // For last equipment: ensure it fits WITH signature on same page
+                    // Signature needs ~60mm (45mm boxes + 15mm gap)
+                    $signatureSpace = $is_last ? 60 : 0;
+                    $total_needed = $estimated_height + $signatureSpace;
+
+                    // Add new page if section (+ signature for last) won't fit
+                    if ($available_space < $total_needed) {
                         $pdf->AddPage();
                         $pagenb++;
                         // Start at top of new page (after small margin)
@@ -972,8 +977,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         // Get technician name: first check for configured name, then fall back to user's full name
         $technicianName = '';
-        if (!empty($conf->global->EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_.$user->id)) {
-            $technicianName = $conf->global->{'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id};
+        $techNameKey = 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id;
+        if (isset($conf->global->$techNameKey) && !empty($conf->global->$techNameKey)) {
+            $technicianName = $conf->global->$techNameKey;
         } else {
             $technicianName = $user->getFullName($outputlangs);
         }
