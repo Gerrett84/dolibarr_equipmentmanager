@@ -170,7 +170,7 @@ class InterventionDetail extends CommonObject
     /**
      * Set object properties from database row
      */
-    public function setVarsFromFetchObj($obj)
+    public function setVarsFromFetchObj(&$obj)
     {
         $this->id = $obj->rowid;
         $this->fk_intervention = $obj->fk_intervention;
