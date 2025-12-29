@@ -759,13 +759,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY = $pdf->GetY() + 1;
             }
 
-            // Add small separator between entries (not after last)
+            // Small spacing between entries (no separator line)
             if ($entryIndex < $entryCount - 1) {
-                $curY += 1;
-                $pdf->SetDrawColor(180, 180, 180);
-                $pdf->Line($leftMargin + 10, $curY, $leftMargin + $sectionWidth - 10, $curY);
-                $pdf->SetDrawColor(0, 0, 0);
-                $curY += 2;
+                $curY += 3;
             }
         }
 
@@ -832,20 +828,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetDrawColor(0, 0, 0);
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // Left border (from header or top to bottom)
+        // Top border (only if not first - first has "Beschreibung" header)
+        if (!$is_first) {
+            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
+        }
+        // Left border
         $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
         // Right border
         $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
-
-        // Bottom border logic:
-        // - Materials table already has bottom border, so skip if has materials
-        // - Always draw for equipment without materials (serves as separator for next, or closes section if last)
+        // Bottom border - skip if materials exist (table has its own border)
         if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
-        // Note: No separate top borders - the bottom border of previous equipment serves as top for next
 
-        return $curY + 2;
+        return $curY + 4;
     }
 
     /**
