@@ -12,6 +12,7 @@ class ServiceReportApp {
         this.isOnline = navigator.onLine;
         this.signatureInstance = null;
         this.user = null;
+        this.pwaToken = null; // v1.8 - PWA authentication token
 
         this.init();
     }
@@ -41,31 +42,71 @@ class ServiceReportApp {
         // Load initial data
         await this.loadInterventions();
 
-        // Sync if online
+        // Prefetch all data for offline use when online
         if (this.isOnline) {
-            this.syncData();
+            // Run prefetch in background (don't await - let user interact)
+            this.prefetchAllData().catch(err => {
+                console.warn('Background prefetch failed:', err);
+            });
         }
     }
 
     async checkAuth() {
-        // If server says we're authenticated, cache the auth data
+        // If server says we're authenticated, cache the auth data and request PWA token
         if (CONFIG.isAuthenticated && CONFIG.authData) {
             this.user = CONFIG.authData;
             await offlineDB.setMeta('auth', CONFIG.authData);
-            // console.log('Auth cached for offline use');
+
+            // Request a PWA token for persistent authentication
+            await this.requestPwaToken();
             return true;
         }
 
-        // Not authenticated on server - check for cached auth
-        const cachedAuth = await offlineDB.getMeta('auth');
-
-        if (cachedAuth && cachedAuth.valid_until > Date.now() / 1000) {
-            // Cached auth is still valid
-            this.user = cachedAuth;
-            // console.log('Using cached auth for:', cachedAuth.login);
+        // Not authenticated on server - try PWA token first
+        const pwaToken = await offlineDB.getMeta('pwaToken');
+        if (pwaToken && pwaToken.valid_until > Date.now() / 1000) {
+            // We have a valid PWA token - try to use it
+            this.pwaToken = pwaToken.token;
 
             if (this.isOnline) {
-                // Online but not authenticated - session expired
+                // Verify token works by making a test API call
+                try {
+                    const result = await this.apiCall('pwa-token');
+                    if (result.authenticated) {
+                        this.user = {
+                            id: result.user_id,
+                            login: result.user_login,
+                            name: result.user_login,
+                            valid_until: pwaToken.valid_until
+                        };
+                        await offlineDB.setMeta('auth', this.user);
+                        this.showToast('Automatisch angemeldet');
+                        return true;
+                    }
+                } catch (err) {
+                    console.warn('PWA token validation failed:', err);
+                    // Token might be invalid - clear it
+                    await offlineDB.setMeta('pwaToken', null);
+                    this.pwaToken = null;
+                }
+            } else {
+                // Offline with valid PWA token - use cached auth
+                const cachedAuth = await offlineDB.getMeta('auth');
+                if (cachedAuth) {
+                    this.user = cachedAuth;
+                    this.showToast('Offline-Modus: ' + cachedAuth.name);
+                    return true;
+                }
+            }
+        }
+
+        // Fallback to cached auth (for offline mode)
+        const cachedAuth = await offlineDB.getMeta('auth');
+        if (cachedAuth && cachedAuth.valid_until > Date.now() / 1000) {
+            this.user = cachedAuth;
+
+            if (this.isOnline) {
+                // Online but no valid session or token - need to re-login
                 this.showAuthError('Sitzung abgelaufen. Bitte neu anmelden.');
                 return false;
             }
@@ -82,6 +123,43 @@ class ServiceReportApp {
             this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
         }
         return false;
+    }
+
+    async requestPwaToken() {
+        if (!this.isOnline) return;
+
+        try {
+            // Check if we already have a valid token
+            const existingToken = await offlineDB.getMeta('pwaToken');
+            if (existingToken && existingToken.valid_until > (Date.now() / 1000) + 86400) {
+                // Token still valid for more than 1 day - keep using it
+                this.pwaToken = existingToken.token;
+                return;
+            }
+
+            // Request new token
+            const result = await fetch(CONFIG.apiBase + '?route=pwa-token', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (result.ok) {
+                const data = await result.json();
+                if (data.token) {
+                    this.pwaToken = data.token;
+                    await offlineDB.setMeta('pwaToken', {
+                        token: data.token,
+                        valid_until: data.valid_until,
+                        user_id: data.user_id,
+                        user_login: data.user_login
+                    });
+                    console.log('PWA token obtained, valid for 90 days');
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to request PWA token:', err);
+        }
     }
 
     showAuthError(message) {
@@ -337,25 +415,38 @@ class ServiceReportApp {
             url = CONFIG.apiBase + '?route=' + encodeURIComponent(endpoint);
         }
 
-        // console.log('API call:', url);
-
         if (!this.isOnline) {
             throw new Error('Offline');
+        }
+
+        // Build headers - include PWA token if available
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        // Add PWA token for persistent authentication
+        if (this.pwaToken) {
+            headers['X-PWA-Token'] = this.pwaToken;
         }
 
         try {
             const response = await fetch(url, {
                 credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                },
+                headers,
                 ...options
             });
 
             if (!response.ok) {
                 const text = await response.text();
                 console.error('API Error:', response.status, text);
+
+                // If unauthorized and we have a PWA token, it might be expired
+                if (response.status === 401 && this.pwaToken) {
+                    this.pwaToken = null;
+                    await offlineDB.setMeta('pwaToken', null);
+                }
+
                 throw new Error(`HTTP ${response.status}`);
             }
 
@@ -517,32 +608,44 @@ class ServiceReportApp {
         try {
             let equipment = [];
             let signedStatus = intervention.signed_status || 0;
+            let loadedFromCache = false;
 
             if (this.isOnline) {
-                // Fetch full intervention data to get updated signed_status
-                const fullData = await this.apiCall(`intervention/${intervention.id}`);
-                if (fullData.intervention) {
-                    signedStatus = fullData.intervention.signed_status || 0;
-                    // Update currentIntervention with fresh data
-                    this.currentIntervention.signed_status = signedStatus;
-                    this.currentIntervention.status = fullData.intervention.status;
-                }
-                equipment = fullData.equipment || [];
-                await offlineDB.saveEquipment(intervention.id, equipment);
-
-                // Also update intervention in IndexedDB
                 try {
-                    const interventions = await offlineDB.getAll('interventions');
-                    const idx = interventions.findIndex(i => i.id === intervention.id);
-                    if (idx >= 0) {
-                        interventions[idx].signed_status = signedStatus;
-                        await offlineDB.saveInterventions(interventions);
+                    // Fetch full intervention data to get updated signed_status
+                    const fullData = await this.apiCall(`intervention/${intervention.id}`);
+                    if (fullData.intervention) {
+                        signedStatus = fullData.intervention.signed_status || 0;
+                        // Update currentIntervention with fresh data
+                        this.currentIntervention.signed_status = signedStatus;
+                        this.currentIntervention.status = fullData.intervention.status;
                     }
-                } catch (e) {
-                    console.error('Failed to update IndexedDB:', e);
+                    equipment = fullData.equipment || [];
+                    await offlineDB.saveEquipment(intervention.id, equipment);
+
+                    // Also update intervention in IndexedDB
+                    try {
+                        const interventions = await offlineDB.getAll('interventions');
+                        const idx = interventions.findIndex(i => i.id === intervention.id);
+                        if (idx >= 0) {
+                            interventions[idx].signed_status = signedStatus;
+                            await offlineDB.saveInterventions(interventions);
+                        }
+                    } catch (e) {
+                        console.error('Failed to update IndexedDB:', e);
+                    }
+                } catch (apiErr) {
+                    console.warn('API call failed, falling back to cache:', apiErr);
+                    equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
+                    loadedFromCache = true;
                 }
             } else {
                 equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
+                loadedFromCache = true;
+            }
+
+            if (loadedFromCache && equipment.length > 0) {
+                this.showToast('Offline-Daten geladen');
             }
 
             loadingEl.style.display = 'none';
@@ -664,14 +767,39 @@ class ServiceReportApp {
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-            // Fetch entries from API
+            // Fetch entries from API or IndexedDB
             let entriesData = { entries: [], recommendations: '', notes: '', total_duration: 0 };
 
             if (this.isOnline) {
                 try {
                     entriesData = await this.apiCall(`detail/${this.currentIntervention.id}/${equipment.id}`);
+
+                    // Save to IndexedDB for offline use
+                    const detail = {
+                        intervention_id: this.currentIntervention.id,
+                        equipment_id: equipment.id,
+                        entries: entriesData.entries || [],
+                        recommendations: entriesData.recommendations || '',
+                        notes: entriesData.notes || '',
+                        total_duration: entriesData.total_duration || 0,
+                        materials: equipment.materials || [],
+                        synced: true
+                    };
+                    await offlineDB.put('details', detail);
                 } catch (err) {
-                    // console.log('API call failed, using equipment data');
+                    console.log('API call failed, trying IndexedDB');
+                    // Try IndexedDB
+                    const cachedDetail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
+                    if (cachedDetail) {
+                        entriesData = cachedDetail;
+                    }
+                }
+            } else {
+                // Offline - load from IndexedDB
+                const cachedDetail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
+                if (cachedDetail) {
+                    entriesData = cachedDetail;
+                    this.showToast('Offline-Daten geladen');
                 }
             }
 
@@ -1016,40 +1144,38 @@ class ServiceReportApp {
             // Get sync queue
             const queue = await offlineDB.getSyncQueue();
 
-            if (queue.length === 0) {
-                this.showToast('Alles synchronisiert');
-                this.updateOnlineStatus();
-                return;
-            }
+            if (queue.length > 0) {
+                // Build changes array
+                const changes = queue.map(item => ({
+                    type: item.type,
+                    data: item.data
+                }));
 
-            // Build changes array
-            const changes = queue.map(item => ({
-                type: item.type,
-                data: item.data
-            }));
+                // Send to server
+                const result = await this.apiCall('sync', {
+                    method: 'POST',
+                    body: JSON.stringify({ changes })
+                });
 
-            // Send to server
-            const result = await this.apiCall('sync', {
-                method: 'POST',
-                body: JSON.stringify({ changes })
-            });
+                if (result.status === 'ok' || result.status === 'partial') {
+                    // Clear queue
+                    await offlineDB.clearSyncQueue();
 
-            if (result.status === 'ok' || result.status === 'partial') {
-                // Clear queue
-                await offlineDB.clearSyncQueue();
+                    // Mark details as synced
+                    const details = await offlineDB.getAll('details');
+                    for (const detail of details) {
+                        detail.synced = true;
+                        await offlineDB.put('details', detail);
+                    }
 
-                // Mark details as synced
-                const details = await offlineDB.getAll('details');
-                for (const detail of details) {
-                    detail.synced = true;
-                    await offlineDB.put('details', detail);
+                    this.showToast(`${changes.length} Änderungen synchronisiert`);
                 }
-
-                this.showToast(`${changes.length} Änderungen synchronisiert`);
             }
 
-            // Refresh data from server
-            await this.loadInterventions();
+            // Prefetch ALL data for offline use
+            await this.prefetchAllData();
+
+            this.showToast('Alle Daten synchronisiert');
 
         } catch (err) {
             console.error('Sync failed:', err);
@@ -1057,6 +1183,66 @@ class ServiceReportApp {
         }
 
         this.updateOnlineStatus();
+    }
+
+    // Prefetch all data for offline use
+    async prefetchAllData() {
+        if (!this.isOnline) return;
+
+        const statusEl = document.getElementById('syncStatus');
+        statusEl.textContent = 'Lade...';
+        statusEl.className = 'sync-status syncing';
+
+        try {
+            // 1. Fetch all interventions
+            const data = await this.apiCall('interventions?status=all');
+            const interventions = data.interventions || [];
+            await offlineDB.saveInterventions(interventions);
+
+            // 2. For each intervention, fetch equipment and entries
+            for (const intervention of interventions) {
+                try {
+                    // Fetch full intervention data with equipment
+                    const fullData = await this.apiCall(`intervention/${intervention.id}`);
+                    const equipment = fullData.equipment || [];
+
+                    // Save equipment
+                    await offlineDB.saveEquipment(intervention.id, equipment);
+
+                    // 3. For each equipment, fetch entries/details
+                    for (const eq of equipment) {
+                        try {
+                            const detailData = await this.apiCall(`detail/${intervention.id}/${eq.id}`);
+
+                            // Save detail to IndexedDB
+                            const detail = {
+                                intervention_id: intervention.id,
+                                equipment_id: eq.id,
+                                entries: detailData.entries || [],
+                                recommendations: detailData.recommendations || '',
+                                notes: detailData.notes || '',
+                                total_duration: detailData.total_duration || 0,
+                                materials: eq.materials || [],
+                                synced: true
+                            };
+                            await offlineDB.put('details', detail);
+                        } catch (detailErr) {
+                            console.warn(`Failed to fetch detail for equipment ${eq.id}:`, detailErr);
+                        }
+                    }
+                } catch (intErr) {
+                    console.warn(`Failed to fetch data for intervention ${intervention.id}:`, intErr);
+                }
+            }
+
+            // Save last sync time
+            await offlineDB.setMeta('lastSync', Date.now());
+            console.log('Prefetch complete: all data cached for offline use');
+
+        } catch (err) {
+            console.error('Prefetch failed:', err);
+            throw err;
+        }
     }
 
     // Utility functions

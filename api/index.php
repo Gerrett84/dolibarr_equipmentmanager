@@ -43,8 +43,23 @@ dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
 
-// Check authentication
-if (!$user->id) {
+// Check authentication - support both session and PWA token
+$authenticated = false;
+
+// First check Dolibarr session
+if ($user->id > 0) {
+    $authenticated = true;
+}
+
+// If no session, check for PWA token
+if (!$authenticated) {
+    $pwaToken = $_SERVER['HTTP_X_PWA_TOKEN'] ?? '';
+    if ($pwaToken) {
+        $authenticated = validatePwaToken($pwaToken, $db, $user);
+    }
+}
+
+if (!$authenticated) {
     http_response_code(401);
     echo json_encode(['error' => 'Not authenticated']);
     exit;
@@ -138,6 +153,10 @@ try {
 
         case 'link-equipment':
             handleLinkEquipment($method, $parts, $input);
+            break;
+
+        case 'pwa-token':
+            handlePwaToken($method, $input);
             break;
 
         default:
@@ -1631,4 +1650,138 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             'signed_pdf' => $signedPdfFile
         ];
     }
+}
+
+/**
+ * POST /pwa-token - Generate or refresh PWA authentication token
+ * GET /pwa-token - Check if token is valid and get token info
+ */
+function handlePwaToken($method, $input) {
+    global $db, $user;
+
+    if ($method === 'POST') {
+        // Generate new token for current user
+        // Only works if user is authenticated via session
+        if (!$user->id) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Must be authenticated to generate PWA token']);
+            return;
+        }
+
+        // Generate secure token
+        $token = bin2hex(random_bytes(32)); // 64 character hex token
+        $validUntil = time() + (90 * 24 * 3600); // 90 days validity
+
+        // Store token in database
+        // First check if table exists, create if not
+        createPwaTokenTableIfNeeded($db);
+
+        // Delete existing tokens for this user (one token per user)
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$user->id;
+        $db->query($sql);
+
+        // Insert new token
+        $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
+        $sql .= " (fk_user, token, valid_until, date_creation, last_use)";
+        $sql .= " VALUES (";
+        $sql .= (int)$user->id.",";
+        $sql .= "'".$db->escape(hash('sha256', $token))."',"; // Store hashed
+        $sql .= "'".$db->idate($validUntil)."',";
+        $sql .= "'".$db->idate(dol_now())."',";
+        $sql .= "'".$db->idate(dol_now())."'";
+        $sql .= ")";
+
+        $resql = $db->query($sql);
+
+        if ($resql) {
+            echo json_encode([
+                'status' => 'ok',
+                'token' => $token, // Return plain token (client stores this)
+                'valid_until' => $validUntil,
+                'user_id' => (int)$user->id,
+                'user_login' => $user->login,
+                'user_name' => $user->getFullName($GLOBALS['langs'])
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to create token: ' . $db->lasterror()]);
+        }
+    } elseif ($method === 'GET') {
+        // Check token validity (user must be authenticated somehow)
+        echo json_encode([
+            'status' => 'ok',
+            'authenticated' => true,
+            'user_id' => (int)$user->id,
+            'user_login' => $user->login
+        ]);
+    } elseif ($method === 'DELETE') {
+        // Revoke current user's PWA token
+        if ($user->id) {
+            $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$user->id;
+            $db->query($sql);
+        }
+        echo json_encode(['status' => 'ok', 'message' => 'Token revoked']);
+    } else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+    }
+}
+
+/**
+ * Validate PWA token and set up user context
+ */
+function validatePwaToken($token, $db, &$user) {
+    if (empty($token)) {
+        return false;
+    }
+
+    // Hash the provided token for comparison
+    $hashedToken = hash('sha256', $token);
+
+    // Look up token in database
+    $sql = "SELECT fk_user, valid_until FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
+    $sql .= " WHERE token = '".$db->escape($hashedToken)."'";
+    $sql .= " AND valid_until > '".$db->idate(dol_now())."'";
+
+    $resql = $db->query($sql);
+
+    if ($resql && $db->num_rows($resql) > 0) {
+        $obj = $db->fetch_object($resql);
+        $userId = (int)$obj->fk_user;
+
+        // Load the user
+        require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+        $user = new User($db);
+        $user->fetch($userId);
+
+        if ($user->id > 0) {
+            // Update last use timestamp
+            $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
+            $sqlUpdate .= " SET last_use = '".$db->idate(dol_now())."'";
+            $sqlUpdate .= " WHERE token = '".$db->escape($hashedToken)."'";
+            $db->query($sqlUpdate);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Create PWA token table if it doesn't exist
+ */
+function createPwaTokenTableIfNeeded($db) {
+    $sql = "CREATE TABLE IF NOT EXISTS ".MAIN_DB_PREFIX."equipmentmanager_pwa_token (";
+    $sql .= "rowid INT AUTO_INCREMENT PRIMARY KEY,";
+    $sql .= "fk_user INT NOT NULL,";
+    $sql .= "token VARCHAR(64) NOT NULL,";
+    $sql .= "valid_until DATETIME NOT NULL,";
+    $sql .= "date_creation DATETIME NOT NULL,";
+    $sql .= "last_use DATETIME,";
+    $sql .= "UNIQUE KEY uk_token (token),";
+    $sql .= "KEY idx_user (fk_user)";
+    $sql .= ") ENGINE=InnoDB";
+
+    $db->query($sql);
 }
