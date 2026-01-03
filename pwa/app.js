@@ -1141,38 +1141,102 @@ class ServiceReportApp {
         statusEl.className = 'sync-status syncing';
 
         try {
-            // Get sync queue
+            let syncedCount = 0;
+
+            // 1. Get sync queue (details, signatures, link-equipment)
             const queue = await offlineDB.getSyncQueue();
 
             if (queue.length > 0) {
-                // Build changes array
-                const changes = queue.map(item => ({
-                    type: item.type,
-                    data: item.data
-                }));
+                // Separate link-equipment from other changes
+                const linkEquipmentChanges = queue.filter(item => item.type === 'link-equipment');
+                const otherChanges = queue.filter(item => item.type !== 'link-equipment');
 
-                // Send to server
-                const result = await this.apiCall('sync', {
-                    method: 'POST',
-                    body: JSON.stringify({ changes })
-                });
-
-                if (result.status === 'ok' || result.status === 'partial') {
-                    // Clear queue
-                    await offlineDB.clearSyncQueue();
-
-                    // Mark details as synced
-                    const details = await offlineDB.getAll('details');
-                    for (const detail of details) {
-                        detail.synced = true;
-                        await offlineDB.put('details', detail);
+                // Sync link-equipment separately (direct API calls)
+                for (const item of linkEquipmentChanges) {
+                    try {
+                        await this.apiCall('link-equipment', {
+                            method: 'POST',
+                            body: JSON.stringify(item.data)
+                        });
+                        syncedCount++;
+                    } catch (err) {
+                        console.warn('Failed to sync link-equipment:', err);
                     }
+                }
 
-                    this.showToast(`${changes.length} Änderungen synchronisiert`);
+                // Sync other changes via batch sync endpoint
+                if (otherChanges.length > 0) {
+                    const changes = otherChanges.map(item => ({
+                        type: item.type,
+                        data: item.data
+                    }));
+
+                    const result = await this.apiCall('sync', {
+                        method: 'POST',
+                        body: JSON.stringify({ changes })
+                    });
+
+                    if (result.status === 'ok' || result.status === 'partial') {
+                        syncedCount += changes.length;
+                    }
+                }
+
+                // Clear queue
+                await offlineDB.clearSyncQueue();
+
+                // Mark details as synced
+                const details = await offlineDB.getAll('details');
+                for (const detail of details) {
+                    detail.synced = true;
+                    await offlineDB.put('details', detail);
                 }
             }
 
-            // Prefetch ALL data for offline use
+            // 2. Sync pending file uploads
+            const pendingUploads = await offlineDB.getAllPendingUploads();
+            if (pendingUploads.length > 0) {
+                statusEl.textContent = 'Uploads...';
+
+                for (const upload of pendingUploads) {
+                    try {
+                        // Convert base64 back to blob
+                        const response = await fetch(upload.file_data);
+                        const blob = await response.blob();
+                        const file = new File([blob], upload.file_name, { type: upload.file_type });
+
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        const url = CONFIG.apiBase + '?route=' + encodeURIComponent(`intervention/${upload.intervention_id}/documents`);
+
+                        const headers = {};
+                        if (this.pwaToken) {
+                            headers['X-PWA-Token'] = this.pwaToken;
+                        }
+
+                        const uploadResponse = await fetch(url, {
+                            method: 'POST',
+                            body: formData,
+                            credentials: 'same-origin',
+                            headers
+                        });
+
+                        if (uploadResponse.ok) {
+                            // Remove from pending
+                            await offlineDB.removePendingUpload(upload.id);
+                            syncedCount++;
+                        }
+                    } catch (err) {
+                        console.warn('Failed to upload file:', upload.file_name, err);
+                    }
+                }
+            }
+
+            if (syncedCount > 0) {
+                this.showToast(`${syncedCount} Änderungen synchronisiert`);
+            }
+
+            // 3. Prefetch ALL data for offline use
             await this.prefetchAllData();
 
             this.showToast('Alle Daten synchronisiert');
@@ -1199,7 +1263,7 @@ class ServiceReportApp {
             const interventions = data.interventions || [];
             await offlineDB.saveInterventions(interventions);
 
-            // 2. For each intervention, fetch equipment and entries
+            // 2. For each intervention, fetch equipment, entries, available equipment, and documents
             for (const intervention of interventions) {
                 try {
                     // Fetch full intervention data with equipment
@@ -1230,6 +1294,23 @@ class ServiceReportApp {
                             console.warn(`Failed to fetch detail for equipment ${eq.id}:`, detailErr);
                         }
                     }
+
+                    // 4. Fetch available equipment (all customer equipment not yet linked)
+                    try {
+                        const availData = await this.apiCall(`available-equipment/${intervention.id}`);
+                        await offlineDB.saveAvailableEquipment(intervention.id, availData.equipment || []);
+                    } catch (availErr) {
+                        console.warn(`Failed to fetch available equipment for intervention ${intervention.id}:`, availErr);
+                    }
+
+                    // 5. Fetch document metadata
+                    try {
+                        const docsData = await this.apiCall(`intervention/${intervention.id}/documents`);
+                        await offlineDB.saveDocuments(intervention.id, docsData.documents || []);
+                    } catch (docsErr) {
+                        console.warn(`Failed to fetch documents for intervention ${intervention.id}:`, docsErr);
+                    }
+
                 } catch (intErr) {
                     console.warn(`Failed to fetch data for intervention ${intervention.id}:`, intErr);
                 }
@@ -1477,8 +1558,17 @@ class ServiceReportApp {
         `;
 
         try {
-            const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
-            const equipment = data.equipment || [];
+            let equipment = [];
+
+            if (this.isOnline) {
+                const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
+                equipment = data.equipment || [];
+                // Cache for offline use
+                await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
+            } else {
+                // Load from cache when offline
+                equipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+            }
 
             if (equipment.length === 0) {
                 listEl.innerHTML = `
@@ -1503,6 +1593,15 @@ class ServiceReportApp {
             });
 
             listEl.innerHTML = '';
+
+            // Show offline indicator if offline
+            if (!this.isOnline) {
+                const offlineNote = document.createElement('div');
+                offlineNote.style.cssText = 'padding:8px 12px;background:#fff3e0;color:#e65100;font-size:12px;border-bottom:1px solid #ddd;';
+                offlineNote.textContent = '📴 Offline - Verknüpfung wird bei Verbindung synchronisiert';
+                listEl.appendChild(offlineNote);
+            }
+
             Object.keys(byAddress).forEach(addrKey => {
                 const group = byAddress[addrKey];
 
@@ -1533,7 +1632,7 @@ class ServiceReportApp {
                     item.querySelectorAll('button').forEach(btn => {
                         btn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            this.linkEquipment(eq.id, btn.dataset.type);
+                            this.linkEquipment(eq.id, btn.dataset.type, eq);
                         });
                     });
 
@@ -1543,6 +1642,17 @@ class ServiceReportApp {
 
         } catch (err) {
             console.error('Failed to load available equipment:', err);
+            // Try to load from cache on error
+            try {
+                const cachedEquipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+                if (cachedEquipment.length > 0) {
+                    this.showToast('Offline-Daten geladen');
+                    // Recursively render with cached data
+                    return this.renderAvailableEquipmentList(cachedEquipment, listEl);
+                }
+            } catch (cacheErr) {
+                console.error('Cache load also failed:', cacheErr);
+            }
             listEl.innerHTML = `
                 <div class="empty-state" style="padding: 20px 0;">
                     <p>Fehler beim Laden</p>
@@ -1551,29 +1661,138 @@ class ServiceReportApp {
         }
     }
 
+    renderAvailableEquipmentList(equipment, listEl) {
+        if (equipment.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <p>Keine weiteren Anlagen verfügbar</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Group by address
+        const byAddress = {};
+        equipment.forEach(eq => {
+            const addrKey = eq.address?.town || 'Ohne Adresse';
+            if (!byAddress[addrKey]) {
+                byAddress[addrKey] = {
+                    address: eq.address,
+                    equipment: []
+                };
+            }
+            byAddress[addrKey].equipment.push(eq);
+        });
+
+        listEl.innerHTML = '';
+
+        Object.keys(byAddress).forEach(addrKey => {
+            const group = byAddress[addrKey];
+
+            const header = document.createElement('div');
+            header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
+            header.innerHTML = `📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            listEl.appendChild(header);
+
+            group.equipment.forEach(eq => {
+                const item = document.createElement('div');
+                item.className = 'equipment-item';
+                item.style.cursor = 'pointer';
+                item.innerHTML = `
+                    <div class="equipment-icon">🚪</div>
+                    <div class="equipment-info">
+                        <div class="equipment-ref">${eq.ref}</div>
+                        <div class="equipment-label">${eq.label || eq.type || ''}</div>
+                        ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">Service</button>
+                        <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">Wartung</button>
+                    </div>
+                `;
+
+                item.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.linkEquipment(eq.id, btn.dataset.type, eq);
+                    });
+                });
+
+                listEl.appendChild(item);
+            });
+        });
+    }
+
     closeEquipmentModal() {
         document.getElementById('equipmentModal').classList.remove('show');
     }
 
-    async linkEquipment(equipmentId, linkType) {
-        try {
-            await this.apiCall('link-equipment', {
-                method: 'POST',
-                body: JSON.stringify({
-                    intervention_id: this.currentIntervention.id,
-                    equipment_id: equipmentId,
-                    link_type: linkType
-                })
-            });
+    async linkEquipment(equipmentId, linkType, equipmentData = null) {
+        if (this.isOnline) {
+            try {
+                await this.apiCall('link-equipment', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        intervention_id: this.currentIntervention.id,
+                        equipment_id: equipmentId,
+                        link_type: linkType
+                    })
+                });
 
-            this.showToast('Anlage hinzugefügt');
-            this.closeEquipmentModal();
+                this.showToast('Anlage hinzugefügt');
+                this.closeEquipmentModal();
 
-            // Reload equipment list
-            this.loadEquipment(this.currentIntervention);
-        } catch (err) {
-            console.error('Failed to link equipment:', err);
-            this.showToast('Fehler beim Hinzufügen');
+                // Reload equipment list
+                this.loadEquipment(this.currentIntervention);
+            } catch (err) {
+                console.error('Failed to link equipment:', err);
+                this.showToast('Fehler beim Hinzufügen');
+            }
+        } else {
+            // Offline: Queue the link operation and update local cache
+            try {
+                // Add to sync queue
+                await offlineDB.addToSyncQueue({
+                    type: 'link-equipment',
+                    data: {
+                        intervention_id: this.currentIntervention.id,
+                        equipment_id: equipmentId,
+                        link_type: linkType
+                    }
+                });
+
+                // Update local cache: add equipment to intervention's equipment list
+                if (equipmentData) {
+                    const currentEquipment = await offlineDB.getEquipmentForIntervention(this.currentIntervention.id);
+                    const newEquipment = {
+                        id: equipmentData.id,
+                        ref: equipmentData.ref,
+                        label: equipmentData.label,
+                        type: equipmentData.type,
+                        location: equipmentData.location,
+                        link_type: linkType,
+                        detail: null,
+                        materials: [],
+                        _pendingSync: true
+                    };
+                    currentEquipment.push(newEquipment);
+                    await offlineDB.saveEquipment(this.currentIntervention.id, currentEquipment);
+
+                    // Remove from available equipment
+                    const availableEquipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+                    const filteredAvailable = availableEquipment.filter(eq => eq.id !== equipmentId);
+                    await offlineDB.saveAvailableEquipment(this.currentIntervention.id, filteredAvailable);
+                }
+
+                this.showToast('Offline gespeichert - wird synchronisiert');
+                this.closeEquipmentModal();
+
+                // Reload equipment list from cache
+                this.loadEquipment(this.currentIntervention);
+            } catch (err) {
+                console.error('Failed to queue link operation:', err);
+                this.showToast('Fehler beim Speichern');
+            }
         }
     }
 
@@ -1660,30 +1879,35 @@ class ServiceReportApp {
         `;
 
         try {
-            const data = await this.apiCall(`intervention/${this.currentIntervention.id}/documents`);
-            // console.log('Documents response:', data);
-            const documents = data.documents || [];
+            let documents = [];
 
-            if (documents.length === 0) {
-                listEl.innerHTML = `
-                    <div class="empty-state" style="padding: 20px 0;">
-                        <div class="empty-icon">📄</div>
-                        <p>Keine Dokumente vorhanden</p>
-                        <p style="font-size:12px;color:#666;">Bitte zuerst freigeben um PDF zu erstellen.</p>
-                    </div>
-                `;
-                return;
+            if (this.isOnline) {
+                const data = await this.apiCall(`intervention/${this.currentIntervention.id}/documents`);
+                documents = data.documents || [];
+                // Cache for offline use
+                await offlineDB.saveDocuments(this.currentIntervention.id, documents);
+            } else {
+                // Load from cache when offline
+                documents = await offlineDB.getDocuments(this.currentIntervention.id);
             }
 
-            // Add upload button at top
-            listEl.innerHTML = `
-                <div class="upload-section" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #eee;">
-                    <input type="file" id="fileUpload" accept="image/*,.pdf" style="display:none;" multiple>
-                    <button type="button" class="btn btn-primary btn-block" id="btnUpload">
-                        📷 Foto/Datei hochladen
-                    </button>
-                </div>
+            // Get pending uploads for this intervention
+            const pendingUploads = await offlineDB.getPendingUploads(this.currentIntervention.id);
+
+            // Start building the list
+            listEl.innerHTML = '';
+
+            // Always show upload button
+            const uploadSection = document.createElement('div');
+            uploadSection.className = 'upload-section';
+            uploadSection.style.cssText = 'margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #eee;';
+            uploadSection.innerHTML = `
+                <input type="file" id="fileUpload" accept="image/*,.pdf" style="display:none;" multiple>
+                <button type="button" class="btn btn-primary btn-block" id="btnUpload">
+                    📷 Foto/Datei hochladen
+                </button>
             `;
+            listEl.appendChild(uploadSection);
 
             // Add upload handlers
             document.getElementById('btnUpload').addEventListener('click', () => {
@@ -1691,7 +1915,64 @@ class ServiceReportApp {
             });
             document.getElementById('fileUpload').addEventListener('change', (e) => this.uploadFiles(e.target.files));
 
-            // Render documents
+            // Show offline indicator
+            if (!this.isOnline) {
+                const offlineNote = document.createElement('div');
+                offlineNote.style.cssText = 'padding:8px 12px;background:#fff3e0;color:#e65100;font-size:12px;margin-bottom:12px;border-radius:4px;';
+                offlineNote.textContent = '📴 Offline - Dokumente werden bei Verbindung synchronisiert';
+                listEl.appendChild(offlineNote);
+            }
+
+            // Show pending uploads first
+            if (pendingUploads.length > 0) {
+                const pendingHeader = document.createElement('div');
+                pendingHeader.style.cssText = 'padding:8px 12px;background:#e3f2fd;font-weight:600;font-size:13px;margin-bottom:8px;border-radius:4px;';
+                pendingHeader.textContent = `⏳ Ausstehende Uploads (${pendingUploads.length})`;
+                listEl.appendChild(pendingHeader);
+
+                pendingUploads.forEach(upload => {
+                    const item = document.createElement('div');
+                    item.className = 'document-item';
+                    item.style.opacity = '0.7';
+                    item.innerHTML = `
+                        <div class="document-icon">⏳</div>
+                        <div class="document-info">
+                            <div class="document-name">${upload.file_name}</div>
+                            <div class="document-date" style="color:#1976d2;">Wartet auf Upload...</div>
+                        </div>
+                        <div class="document-actions">
+                            <button type="button" class="doc-action doc-remove-pending" data-id="${upload.id}" title="Entfernen">❌</button>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+
+                // Add remove handlers for pending
+                listEl.querySelectorAll('.doc-remove-pending').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = parseInt(e.target.dataset.id);
+                        await offlineDB.removePendingUpload(id);
+                        this.showToast('Ausstehender Upload entfernt');
+                        this.showDocuments(); // Refresh
+                    });
+                });
+            }
+
+            // Show server documents
+            if (documents.length === 0 && pendingUploads.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'empty-state';
+                emptyState.style.padding = '20px 0';
+                emptyState.innerHTML = `
+                    <div class="empty-icon">📄</div>
+                    <p>Keine Dokumente vorhanden</p>
+                    <p style="font-size:12px;color:#666;">Bitte zuerst freigeben um PDF zu erstellen.</p>
+                `;
+                listEl.appendChild(emptyState);
+                return;
+            }
+
+            // Render server documents
             documents.forEach(doc => {
                 const item = document.createElement('div');
                 item.className = 'document-item';
@@ -1709,26 +1990,56 @@ class ServiceReportApp {
                     icon = '🖼️';
                 }
 
-                item.innerHTML = `
-                    <div class="document-icon">${icon}</div>
-                    <a href="${doc.url}" class="document-info" target="_blank" title="Download">
-                        <div class="document-name">${doc.name}</div>
-                        <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
-                    </a>
-                    <div class="document-actions">
-                        <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
-                        <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
-                    </div>
-                `;
+                // Offline: show document info but disable actions
+                if (this.isOnline) {
+                    item.innerHTML = `
+                        <div class="document-icon">${icon}</div>
+                        <a href="${doc.url}" class="document-info" target="_blank" title="Download">
+                            <div class="document-name">${doc.name}</div>
+                            <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
+                        </a>
+                        <div class="document-actions">
+                            <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
+                            <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
+                        </div>
+                    `;
+                } else {
+                    // Offline: just show document name without clickable actions
+                    item.innerHTML = `
+                        <div class="document-icon">${icon}</div>
+                        <div class="document-info">
+                            <div class="document-name">${doc.name}</div>
+                            <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
+                        </div>
+                        <div class="document-actions" style="color:#999;">
+                            <span title="Offline nicht verfügbar">📴</span>
+                        </div>
+                    `;
+                }
                 listEl.appendChild(item);
             });
 
-            // Add delete event handlers
-            listEl.querySelectorAll('.doc-delete').forEach(btn => {
-                btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
-            });
+            // Add delete event handlers (only when online)
+            if (this.isOnline) {
+                listEl.querySelectorAll('.doc-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
+                });
+            }
         } catch (err) {
             console.error('Failed to load documents:', err);
+            // Try to show cached documents on error
+            try {
+                const cachedDocs = await offlineDB.getDocuments(this.currentIntervention.id);
+                const pendingUploads = await offlineDB.getPendingUploads(this.currentIntervention.id);
+                if (cachedDocs.length > 0 || pendingUploads.length > 0) {
+                    this.showToast('Offline-Daten geladen');
+                    // Reload with offline flag
+                    this.isOnline = false;
+                    return this.showDocuments();
+                }
+            } catch (cacheErr) {
+                console.error('Cache load also failed:', cacheErr);
+            }
             listEl.innerHTML = `
                 <div class="empty-state" style="padding: 20px 0;">
                     <p>Fehler beim Laden der Dokumente</p>
@@ -1866,54 +2177,104 @@ class ServiceReportApp {
     async uploadFiles(files) {
         if (!files || files.length === 0) return;
 
-        this.showToast('Lade hoch...');
-
         let successCount = 0;
         let errorCount = 0;
 
-        for (const file of files) {
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
+        if (this.isOnline) {
+            this.showToast('Lade hoch...');
 
-                // Use same URL format as apiCall (query parameter style)
-                const url = CONFIG.apiBase + '?route=' + encodeURIComponent(`intervention/${this.currentIntervention.id}/documents`);
+            for (const file of files) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin'
-                });
+                    // Use same URL format as apiCall (query parameter style)
+                    const url = CONFIG.apiBase + '?route=' + encodeURIComponent(`intervention/${this.currentIntervention.id}/documents`);
 
-                if (!response.ok) {
-                    const text = await response.text();
-                    console.error('Upload response:', response.status, text);
+                    // Include PWA token if available
+                    const headers = {};
+                    if (this.pwaToken) {
+                        headers['X-PWA-Token'] = this.pwaToken;
+                    }
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin',
+                        headers
+                    });
+
+                    if (!response.ok) {
+                        const text = await response.text();
+                        console.error('Upload response:', response.status, text);
+                        errorCount++;
+                        continue;
+                    }
+
+                    const result = await response.json();
+
+                    if (result.status === 'ok') {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                        console.error('Upload failed:', result.error);
+                    }
+                } catch (err) {
                     errorCount++;
-                    continue;
+                    console.error('Upload error:', err);
                 }
+            }
 
-                const result = await response.json();
+            if (successCount > 0) {
+                this.showToast(`${successCount} Datei(en) hochgeladen`);
+                // Refresh the documents list
+                this.showDocuments();
+            }
+            if (errorCount > 0) {
+                this.showToast(`${errorCount} Fehler beim Hochladen`);
+            }
+        } else {
+            // Offline: Store files for later upload
+            this.showToast('Speichere offline...');
 
-                if (result.status === 'ok') {
+            for (const file of files) {
+                try {
+                    // Read file as base64
+                    const fileData = await this.fileToBase64(file);
+
+                    // Store in IndexedDB
+                    await offlineDB.addPendingUpload(
+                        this.currentIntervention.id,
+                        fileData,
+                        file.name,
+                        file.type
+                    );
                     successCount++;
-                } else {
+                } catch (err) {
                     errorCount++;
-                    console.error('Upload failed:', result.error);
+                    console.error('Offline save error:', err);
                 }
-            } catch (err) {
-                errorCount++;
-                console.error('Upload error:', err);
+            }
+
+            if (successCount > 0) {
+                this.showToast(`${successCount} Datei(en) offline gespeichert`);
+                // Refresh the documents list to show pending uploads
+                this.showDocuments();
+            }
+            if (errorCount > 0) {
+                this.showToast(`${errorCount} Fehler beim Speichern`);
             }
         }
+    }
 
-        if (successCount > 0) {
-            this.showToast(`${successCount} Datei(en) hochgeladen`);
-            // Refresh the documents list
-            this.showDocuments();
-        }
-        if (errorCount > 0) {
-            this.showToast(`${errorCount} Fehler beim Hochladen`);
-        }
+    // Helper to convert file to base64
+    fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
     }
 
     formatFileSize(bytes) {

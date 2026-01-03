@@ -3,7 +3,7 @@
  */
 
 const DB_NAME = 'equipmentmanager_pwa';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 class OfflineDB {
     constructor() {
@@ -64,6 +64,22 @@ class OfflineDB {
                 // Meta store (last sync time, etc.)
                 if (!db.objectStoreNames.contains('meta')) {
                     db.createObjectStore('meta', { keyPath: 'key' });
+                }
+
+                // v2: Available equipment per intervention (all customer equipment not yet linked)
+                if (!db.objectStoreNames.contains('available_equipment')) {
+                    const availEquip = db.createObjectStore('available_equipment', { keyPath: 'intervention_id' });
+                }
+
+                // v2: Document metadata per intervention
+                if (!db.objectStoreNames.contains('documents')) {
+                    const docs = db.createObjectStore('documents', { keyPath: 'intervention_id' });
+                }
+
+                // v2: Pending document uploads (for offline upload)
+                if (!db.objectStoreNames.contains('pending_uploads')) {
+                    const uploads = db.createObjectStore('pending_uploads', { keyPath: 'id', autoIncrement: true });
+                    uploads.createIndex('intervention_id', 'intervention_id', { unique: false });
                 }
             };
         });
@@ -226,6 +242,62 @@ class OfflineDB {
     async getPendingSyncCount() {
         const queue = await this.getSyncQueue();
         return queue.length;
+    }
+
+    // v2: Save available equipment for intervention
+    async saveAvailableEquipment(interventionId, equipment) {
+        await this.put('available_equipment', {
+            intervention_id: interventionId,
+            equipment: equipment,
+            timestamp: Date.now()
+        });
+    }
+
+    // v2: Get available equipment for intervention
+    async getAvailableEquipment(interventionId) {
+        const data = await this.get('available_equipment', interventionId);
+        return data ? data.equipment : [];
+    }
+
+    // v2: Save document metadata for intervention
+    async saveDocuments(interventionId, documents) {
+        await this.put('documents', {
+            intervention_id: interventionId,
+            documents: documents,
+            timestamp: Date.now()
+        });
+    }
+
+    // v2: Get document metadata for intervention
+    async getDocuments(interventionId) {
+        const data = await this.get('documents', interventionId);
+        return data ? data.documents : [];
+    }
+
+    // v2: Add pending upload
+    async addPendingUpload(interventionId, fileData, fileName, fileType) {
+        await this.put('pending_uploads', {
+            intervention_id: interventionId,
+            file_data: fileData,
+            file_name: fileName,
+            file_type: fileType,
+            timestamp: Date.now()
+        });
+    }
+
+    // v2: Get pending uploads for intervention
+    async getPendingUploads(interventionId) {
+        return await this.getByIndex('pending_uploads', 'intervention_id', interventionId);
+    }
+
+    // v2: Get all pending uploads
+    async getAllPendingUploads() {
+        return await this.getAll('pending_uploads');
+    }
+
+    // v2: Remove pending upload
+    async removePendingUpload(id) {
+        await this.delete('pending_uploads', id);
     }
 }
 
