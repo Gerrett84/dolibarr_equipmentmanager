@@ -3,6 +3,54 @@
  * PWA Entry Point - Serviceberichte Offline
  */
 
+// Handle auto-login via POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
+    // This is an auto-login attempt from the PWA
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+
+    if ($username && $password) {
+        // Try to authenticate
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/security2.lib.php';
+
+        $login = checkLoginPassEntity($username, $password, 1, array('dolibarr'));
+
+        if ($login && $login !== '--bad-login-validity--') {
+            // Login successful - create session
+            require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+            $tmpuser = new User($db);
+            $tmpuser->fetch('', $login);
+
+            if ($tmpuser->id > 0) {
+                // Set session
+                $_SESSION['dol_login'] = $tmpuser->login;
+                $_SESSION['dol_authmode'] = 'dolibarr';
+                $_SESSION['dol_tz'] = $_POST['tz'] ?? '';
+                $_SESSION['dol_entity'] = 1;
+
+                // Return success as JSON for AJAX request
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'ok',
+                    'message' => 'Login successful',
+                    'user' => [
+                        'id' => (int)$tmpuser->id,
+                        'login' => $tmpuser->login,
+                        'name' => $tmpuser->getFullName($langs)
+                    ]
+                ]);
+                exit;
+            }
+        }
+
+        // Login failed
+        header('Content-Type: application/json');
+        http_response_code(401);
+        echo json_encode(['status' => 'error', 'message' => 'Login failed']);
+        exit;
+    }
+}
+
 // Load Dolibarr environment
 $res = 0;
 if (!$res && file_exists("../../../main.inc.php")) {
@@ -26,7 +74,7 @@ if ($isAuthenticated) {
         'login' => $user->login,
         'name' => $user->getFullName($langs),
         'timestamp' => time(),
-        'valid_until' => time() + (7 * 24 * 3600) // 7 days
+        'valid_until' => time() + (90 * 24 * 3600) // 90 days for PWA
     ];
 }
 

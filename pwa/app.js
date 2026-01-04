@@ -52,49 +52,21 @@ class ServiceReportApp {
     }
 
     async checkAuth() {
-        // If server says we're authenticated, cache the auth data and request PWA token
+        // If server says we're authenticated, cache the auth data
         if (CONFIG.isAuthenticated && CONFIG.authData) {
             this.user = CONFIG.authData;
             await offlineDB.setMeta('auth', CONFIG.authData);
-
-            // Request a PWA token for persistent authentication
-            await this.requestPwaToken();
             return true;
         }
 
-        // Not authenticated on server - try PWA token first
-        const pwaToken = await offlineDB.getMeta('pwaToken');
-        if (pwaToken && pwaToken.valid_until > Date.now() / 1000) {
-            // We have a valid PWA token - try to use it
-            this.pwaToken = pwaToken.token;
-
-            if (this.isOnline) {
-                // Verify token works by making a test API call
-                try {
-                    const result = await this.apiCall('pwa-token');
-                    if (result.authenticated) {
-                        this.user = {
-                            id: result.user_id,
-                            login: result.user_login,
-                            name: result.user_login,
-                            valid_until: pwaToken.valid_until
-                        };
-                        await offlineDB.setMeta('auth', this.user);
-                        this.showToast('Automatisch angemeldet');
-                        return true;
-                    }
-                } catch (err) {
-                    console.warn('PWA token validation failed:', err);
-                    // Token might be invalid - clear it
-                    await offlineDB.setMeta('pwaToken', null);
-                    this.pwaToken = null;
-                }
-            } else {
-                // Offline with valid PWA token - use cached auth
-                const cachedAuth = await offlineDB.getMeta('auth');
-                if (cachedAuth) {
-                    this.user = cachedAuth;
-                    this.showToast('Offline-Modus: ' + cachedAuth.name);
+        // Not authenticated on server - try auto-login with saved credentials
+        if (this.isOnline) {
+            const savedCredentials = await offlineDB.getMeta('credentials');
+            if (savedCredentials) {
+                console.log('Attempting auto-login...');
+                const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
+                if (loginResult) {
+                    this.showToast('Automatisch angemeldet');
                     return true;
                 }
             }
@@ -106,8 +78,8 @@ class ServiceReportApp {
             this.user = cachedAuth;
 
             if (this.isOnline) {
-                // Online but no valid session or token - need to re-login
-                this.showAuthError('Sitzung abgelaufen. Bitte neu anmelden.');
+                // Online but no valid session - show login form
+                this.showLoginForm();
                 return false;
             }
 
@@ -116,49 +88,149 @@ class ServiceReportApp {
             return true;
         }
 
-        // No valid auth
+        // No valid auth - show login form
         if (this.isOnline) {
-            this.showAuthError('Bitte melden Sie sich an.');
+            this.showLoginForm();
         } else {
             this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
         }
         return false;
     }
 
-    async requestPwaToken() {
-        if (!this.isOnline) return;
+    // Show login form
+    showLoginForm() {
+        document.getElementById('interventionsLoading').style.display = 'none';
+        document.getElementById('interventionsList').innerHTML = `
+            <div class="login-form" style="padding: 20px;">
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="font-size:48px;">🔐</div>
+                    <h3 style="margin:10px 0;">Anmeldung erforderlich</h3>
+                    <p style="color:#666;font-size:14px;">Bitte melden Sie sich an, um fortzufahren.</p>
+                </div>
+                <form id="pwaLoginForm">
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:4px;font-weight:600;">Benutzername</label>
+                        <input type="text" id="loginUsername" required
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:4px;font-weight:600;">Passwort</label>
+                        <input type="password" id="loginPassword" required
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
+                            <span>Angemeldet bleiben</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" style="padding:14px;font-size:16px;">
+                        Anmelden
+                    </button>
+                    <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
+                </form>
+            </div>
+        `;
+
+        document.getElementById('pwaLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleLogin();
+        });
+    }
+
+    // Handle login form submission
+    async handleLogin() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+        const remember = document.getElementById('loginRemember').checked;
+        const errorEl = document.getElementById('loginError');
+
+        errorEl.style.display = 'none';
 
         try {
-            // Check if we already have a valid token
-            const existingToken = await offlineDB.getMeta('pwaToken');
-            if (existingToken && existingToken.valid_until > (Date.now() / 1000) + 86400) {
-                // Token still valid for more than 1 day - keep using it
-                this.pwaToken = existingToken.token;
-                return;
-            }
+            const formData = new FormData();
+            formData.append('pwa_autologin', '1');
+            formData.append('username', username);
+            formData.append('password', password);
 
-            // Request new token
-            const result = await fetch(CONFIG.apiBase + '?route=pwa-token', {
+            const response = await fetch(window.location.href, {
                 method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' }
+                body: formData,
+                credentials: 'same-origin'
             });
 
-            if (result.ok) {
-                const data = await result.json();
-                if (data.token) {
-                    this.pwaToken = data.token;
-                    await offlineDB.setMeta('pwaToken', {
-                        token: data.token,
-                        valid_until: data.valid_until,
-                        user_id: data.user_id,
-                        user_login: data.user_login
-                    });
-                    console.log('PWA token obtained, valid for 90 days');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.status === 'ok') {
+                    // Save credentials if "remember" is checked
+                    if (remember) {
+                        await offlineDB.setMeta('credentials', {
+                            username: username,
+                            password: password,
+                            saved_at: Date.now()
+                        });
+                    }
+
+                    // Save auth data
+                    this.user = {
+                        id: result.user.id,
+                        login: result.user.login,
+                        name: result.user.name,
+                        valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
+                    };
+                    await offlineDB.setMeta('auth', this.user);
+
+                    // Reload page to get fresh session
+                    window.location.reload();
+                    return;
                 }
             }
+
+            // Login failed
+            errorEl.textContent = 'Benutzername oder Passwort falsch';
+            errorEl.style.display = 'block';
         } catch (err) {
-            console.warn('Failed to request PWA token:', err);
+            console.error('Login error:', err);
+            errorEl.textContent = 'Verbindungsfehler';
+            errorEl.style.display = 'block';
+        }
+    }
+
+    // Try auto-login with saved credentials
+    async tryAutoLogin(username, password) {
+        try {
+            const formData = new FormData();
+            formData.append('pwa_autologin', '1');
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.status === 'ok') {
+                    // Update auth data
+                    this.user = {
+                        id: result.user.id,
+                        login: result.user.login,
+                        name: result.user.name,
+                        valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
+                    };
+                    await offlineDB.setMeta('auth', this.user);
+
+                    // Reload to get fresh session
+                    window.location.reload();
+                    return true;
+                }
+            }
+            return false;
+        } catch (err) {
+            console.error('Auto-login failed:', err);
+            return false;
         }
     }
 
