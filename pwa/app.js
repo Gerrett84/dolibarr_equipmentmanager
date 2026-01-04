@@ -118,10 +118,16 @@ class ServiceReportApp {
                         <input type="password" id="loginPassword" required
                             style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
                     </div>
+                    <div style="margin-bottom:16px;" id="login2faGroup" style="display:none;">
+                        <label style="display:block;margin-bottom:4px;font-weight:600;">2FA-Code (falls aktiviert)</label>
+                        <input type="text" id="login2faCode" placeholder="6-stelliger Code"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
+                            maxlength="10" inputmode="numeric" autocomplete="one-time-code">
+                    </div>
                     <div style="margin-bottom:16px;">
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                             <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
-                            <span>Angemeldet bleiben</span>
+                            <span>Angemeldet bleiben (90 Tage)</span>
                         </label>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block" style="padding:14px;font-size:16px;">
@@ -142,6 +148,7 @@ class ServiceReportApp {
     async handleLogin() {
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
+        const totpCode = document.getElementById('login2faCode')?.value || '';
         const remember = document.getElementById('loginRemember').checked;
         const errorEl = document.getElementById('loginError');
 
@@ -152,6 +159,9 @@ class ServiceReportApp {
             formData.append('pwa_autologin', '1');
             formData.append('username', username);
             formData.append('password', password);
+            if (totpCode) {
+                formData.append('totp_code', totpCode);
+            }
 
             const response = await fetch(window.location.href, {
                 method: 'POST',
@@ -186,8 +196,23 @@ class ServiceReportApp {
                 }
             }
 
-            // Login failed
-            errorEl.textContent = 'Benutzername oder Passwort falsch';
+            // Login failed - check for 2FA requirement
+            try {
+                const result = await response.json();
+                if (result.requires_2fa) {
+                    errorEl.textContent = '2FA-Code erforderlich. Bitte Code eingeben.';
+                    // Highlight 2FA field
+                    const tfaInput = document.getElementById('login2faCode');
+                    if (tfaInput) {
+                        tfaInput.style.borderColor = '#d32f2f';
+                        tfaInput.focus();
+                    }
+                } else {
+                    errorEl.textContent = result.message || 'Benutzername oder Passwort falsch';
+                }
+            } catch (e) {
+                errorEl.textContent = 'Benutzername oder Passwort falsch';
+            }
             errorEl.style.display = 'block';
         } catch (err) {
             console.error('Login error:', err);

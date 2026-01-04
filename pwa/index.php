@@ -3,32 +3,118 @@
  * PWA Entry Point - Serviceberichte Offline
  */
 
-// Handle auto-login via POST
+// Define constants to prevent redirects during auto-login
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
-    // This is an auto-login attempt from the PWA
+    define('NOLOGIN', 1); // Prevent login redirect
+    define('NOCSRFCHECK', 1); // Skip CSRF for PWA auto-login
+}
+
+// Load Dolibarr environment FIRST
+$res = 0;
+if (!$res && file_exists("../../../main.inc.php")) {
+    $res = include "../../../main.inc.php";
+}
+if (!$res && file_exists("../../../../main.inc.php")) {
+    $res = include "../../../../main.inc.php";
+}
+if (!$res) {
+    die("Dolibarr environment not found");
+}
+
+// Handle auto-login via POST (after Dolibarr is loaded)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
+    $totp_code = $_POST['totp_code'] ?? '';
 
     if ($username && $password) {
-        // Try to authenticate
         require_once DOL_DOCUMENT_ROOT.'/core/lib/security2.lib.php';
 
         $login = checkLoginPassEntity($username, $password, 1, array('dolibarr'));
 
         if ($login && $login !== '--bad-login-validity--') {
-            // Login successful - create session
             require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
             $tmpuser = new User($db);
             $tmpuser->fetch('', $login);
 
             if ($tmpuser->id > 0) {
+                // Check if TOTP 2FA is enabled and verify code
+                $totp2fa_required = false;
+                $totp2fa_verified = false;
+
+                if (!empty($conf->totp2fa->enabled)) {
+                    dol_include_once('/totp2fa/class/user2fa.class.php');
+
+                    if (class_exists('User2FA')) {
+                        $user2fa = new User2FA($db);
+                        $result = $user2fa->fetch($tmpuser->id);
+
+                        if ($result > 0 && $user2fa->is_enabled) {
+                            $totp2fa_required = true;
+
+                            // Check if device is trusted
+                            $trustedEnabled = getDolGlobalInt('TOTP2FA_TRUSTED_DEVICE_ENABLED', 0);
+                            if ($trustedEnabled) {
+                                // Check device hash
+                                $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+                                $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+                                $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
+
+                                $sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
+                                $sql .= " WHERE fk_user = ".(int)$tmpuser->id;
+                                $sql .= " AND device_hash = '".$db->escape($deviceHash)."'";
+                                $sql .= " AND trusted_until > NOW()";
+
+                                $resql = $db->query($sql);
+                                if ($resql && $db->num_rows($resql) > 0) {
+                                    // Device is trusted - skip 2FA
+                                    $totp2fa_verified = true;
+
+                                    // Update last use
+                                    $obj = $db->fetch_object($resql);
+                                    $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
+                                    $sqlUpdate .= " SET date_last_use = NOW()";
+                                    $sqlUpdate .= " WHERE rowid = ".(int)$obj->rowid;
+                                    $db->query($sqlUpdate);
+                                }
+                            }
+
+                            // If not trusted, verify TOTP code
+                            if (!$totp2fa_verified && !empty($totp_code)) {
+                                $totp2fa_verified = $user2fa->verifyCode($totp_code);
+
+                                // Try backup code if TOTP fails
+                                if (!$totp2fa_verified && strpos($totp_code, '-') !== false) {
+                                    $totp2fa_verified = $user2fa->verifyBackupCode($totp_code);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // If 2FA is required but not verified, return error
+                if ($totp2fa_required && !$totp2fa_verified) {
+                    header('Content-Type: application/json');
+                    http_response_code(401);
+                    echo json_encode([
+                        'status' => 'error',
+                        'message' => '2FA-Code erforderlich',
+                        'requires_2fa' => true
+                    ]);
+                    exit;
+                }
+
                 // Set session
                 $_SESSION['dol_login'] = $tmpuser->login;
                 $_SESSION['dol_authmode'] = 'dolibarr';
                 $_SESSION['dol_tz'] = $_POST['tz'] ?? '';
                 $_SESSION['dol_entity'] = 1;
 
-                // Return success as JSON for AJAX request
+                // Mark 2FA as verified in session
+                if ($totp2fa_required) {
+                    $_SESSION['totp2fa_verified'] = $tmpuser->id;
+                }
+
                 header('Content-Type: application/json');
                 echo json_encode([
                     'status' => 'ok',
@@ -43,24 +129,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
             }
         }
 
-        // Login failed
         header('Content-Type: application/json');
         http_response_code(401);
-        echo json_encode(['status' => 'error', 'message' => 'Login failed']);
+        echo json_encode(['status' => 'error', 'message' => 'Login fehlgeschlagen']);
         exit;
     }
-}
-
-// Load Dolibarr environment
-$res = 0;
-if (!$res && file_exists("../../../main.inc.php")) {
-    $res = include "../../../main.inc.php";
-}
-if (!$res && file_exists("../../../../main.inc.php")) {
-    $res = include "../../../../main.inc.php";
-}
-if (!$res) {
-    die("Dolibarr environment not found");
 }
 
 // Check authentication
