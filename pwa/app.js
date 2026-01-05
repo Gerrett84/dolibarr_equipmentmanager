@@ -199,8 +199,9 @@ class ServiceReportApp {
                     };
                     await offlineDB.setMeta('auth', this.user);
 
-                    // Reload page to get fresh session
-                    window.location.reload();
+                    // Success! Load interventions directly (no reload needed)
+                    this.showToast('Anmeldung erfolgreich');
+                    await this.loadInterventions();
                     return;
                 }
             }
@@ -247,7 +248,7 @@ class ServiceReportApp {
             if (response.ok) {
                 const result = await response.json();
                 if (result.status === 'ok') {
-                    // Update auth data
+                    // Update auth data - don't reload, just continue
                     this.user = {
                         id: result.user.id,
                         login: result.user.login,
@@ -255,10 +256,7 @@ class ServiceReportApp {
                         valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
                     };
                     await offlineDB.setMeta('auth', this.user);
-
-                    // Reload to get fresh session
-                    window.location.reload();
-                    return true;
+                    return true; // No reload - session is set, API calls will work
                 }
             }
             return false;

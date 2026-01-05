@@ -3,7 +3,7 @@
  * PWA Entry Point - Serviceberichte Offline
  */
 
-// ALWAYS prevent Dolibarr login redirect - PWA handles its own auth
+// Prevent Dolibarr login redirect - PWA handles its own auth display
 define('NOLOGIN', 1);
 define('NOCSRFCHECK', 1);
 
@@ -19,7 +19,28 @@ if (!$res) {
     die("Dolibarr environment not found");
 }
 
-// Handle auto-login via POST (after Dolibarr is loaded)
+// Since we use NOLOGIN, we need to manually check session and load user
+$isAuthenticated = false;
+$authData = null;
+
+if (!empty($_SESSION['dol_login'])) {
+    require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+    $tmpuser = new User($db);
+    $result = $tmpuser->fetch('', $_SESSION['dol_login']);
+    if ($result > 0 && $tmpuser->id > 0) {
+        $user = $tmpuser;
+        $isAuthenticated = true;
+        $authData = [
+            'id' => (int)$user->id,
+            'login' => $user->login,
+            'name' => $user->getFullName($langs),
+            'timestamp' => time(),
+            'valid_until' => time() + (90 * 24 * 3600)
+        ];
+    }
+}
+
+// Handle auto-login via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
@@ -53,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
                             // Check if device is trusted
                             $trustedEnabled = getDolGlobalInt('TOTP2FA_TRUSTED_DEVICE_ENABLED', 0);
                             if ($trustedEnabled) {
-                                // Check device hash
                                 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
                                 $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
                                 $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
@@ -65,23 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
 
                                 $resql = $db->query($sql);
                                 if ($resql && $db->num_rows($resql) > 0) {
-                                    // Device is trusted - skip 2FA
                                     $totp2fa_verified = true;
-
-                                    // Update last use
                                     $obj = $db->fetch_object($resql);
-                                    $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
-                                    $sqlUpdate .= " SET date_last_use = NOW()";
-                                    $sqlUpdate .= " WHERE rowid = ".(int)$obj->rowid;
-                                    $db->query($sqlUpdate);
+                                    $db->query("UPDATE ".MAIN_DB_PREFIX."totp2fa_trusted_devices SET date_last_use = NOW() WHERE rowid = ".(int)$obj->rowid);
                                 }
                             }
 
-                            // If not trusted, verify TOTP code
                             if (!$totp2fa_verified && !empty($totp_code)) {
                                 $totp2fa_verified = $user2fa->verifyCode($totp_code);
-
-                                // Try backup code if TOTP fails
                                 if (!$totp2fa_verified && strpos($totp_code, '-') !== false) {
                                     $totp2fa_verified = $user2fa->verifyBackupCode($totp_code);
                                 }
@@ -90,25 +101,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
                     }
                 }
 
-                // If 2FA is required but not verified, return error
                 if ($totp2fa_required && !$totp2fa_verified) {
                     header('Content-Type: application/json');
                     http_response_code(401);
-                    echo json_encode([
-                        'status' => 'error',
-                        'message' => '2FA-Code erforderlich',
-                        'requires_2fa' => true
-                    ]);
+                    echo json_encode(['status' => 'error', 'message' => '2FA-Code erforderlich', 'requires_2fa' => true]);
                     exit;
                 }
 
-                // Set session
+                // Set Dolibarr session
                 $_SESSION['dol_login'] = $tmpuser->login;
                 $_SESSION['dol_authmode'] = 'dolibarr';
                 $_SESSION['dol_tz'] = $_POST['tz'] ?? '';
                 $_SESSION['dol_entity'] = 1;
 
-                // Mark 2FA as verified in session
                 if ($totp2fa_required) {
                     $_SESSION['totp2fa_verified'] = $tmpuser->id;
                 }
@@ -134,20 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
     }
 }
 
-// Check authentication
-$isAuthenticated = ($user->id > 0);
-$authData = null;
-
-if ($isAuthenticated) {
-    // User is authenticated - prepare auth data for offline caching
-    $authData = [
-        'id' => (int)$user->id,
-        'login' => $user->login,
-        'name' => $user->getFullName($langs),
-        'timestamp' => time(),
-        'valid_until' => time() + (90 * 24 * 3600) // 90 days for PWA
-    ];
-}
+// $authData is already set above when session is valid
 
 $title = 'Serviceberichte';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
