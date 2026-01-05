@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 2.0.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
+**Version 2.1.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -10,7 +10,13 @@
 
 ## 🎯 Features
 
-### NEU in v2.0: Progressive Web App (PWA)
+### NEU in v2.1: Dark Mode & Auto-Login
+- **Dark Mode** - Hell/Dunkel/Auto-Modus mit System-Präferenz
+- **Auto-Login** - Zugangsdaten speichern für schnellen Zugriff
+- **2FA-Unterstützung** - TOTP 2FA mit Trusted Device Support
+- **Einstellungsseite** - Zentrale PWA-Konfiguration
+
+### Progressive Web App (PWA)
 - **Mobile Offline-App** - Serviceberichte direkt vor Ort erfassen
 - **Installierbar** - Als App auf Smartphone/Tablet installieren
 - **Offline-fähig** - Arbeiten ohne Internetverbindung, automatische Synchronisation
@@ -99,6 +105,18 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v2.1.0 (2025-01-05)
+
+- ✨ **Dark Mode** - Hell/Dunkel/Auto-Modus für PWA
+- ✨ **Auto-Login** - Zugangsdaten speichern mit Test-Funktion
+- ✨ **2FA-Unterstützung** - TOTP 2FA mit Trusted Device Support
+- ✨ **Einstellungsseite** - Neue PWA-Settings mit Theme-Switcher
+- ✨ **Trusted Device Banner** - Anzeige der verbleibenden Tage
+- 🎨 **Dark Mode Styling** - Vollständige UI-Anpassung für alle Elemente
+- 🎨 **Akzentfarben** - Überschriften und Titel farblich hervorgehoben
+- 🐛 **Fix:** Login-Loop beim Speichern der Anmeldedaten behoben
+- 🐛 **Fix:** Trusted Device Tage zeigt nun verbleibende statt konfigurierte Tage
 
 ### v2.0.0 (2024-12-29)
 
@@ -190,6 +208,23 @@ Jahreswechsel: Januar-Wartung zeigt ab Dezember
 
 ## 🔄 Update
 
+### ⚠️ Backup vor dem Update
+
+```bash
+# Datenbank sichern
+mysqldump -u root -p dolibarr \
+  llx_equipmentmanager_equipment \
+  llx_equipmentmanager_intervention_equipment \
+  llx_equipmentmanager_equipment_socpeople \
+  > equipmentmanager_backup_$(date +%Y%m%d).sql
+
+# Modul-Verzeichnis sichern (optional)
+cp -r /var/www/dolibarr/htdocs/custom/equipmentmanager \
+      /var/www/dolibarr/htdocs/custom/equipmentmanager_backup_$(date +%Y%m%d)
+```
+
+### Update durchführen
+
 ```bash
 cd /var/www/dolibarr/htdocs/custom/equipmentmanager
 git pull
@@ -264,6 +299,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 2.0.0
-**Released:** December 2024
+**Current Version:** 2.1.0
+**Released:** January 2025
 **Compatibility:** Dolibarr 22.0+
