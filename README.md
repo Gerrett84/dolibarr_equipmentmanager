@@ -1,16 +1,24 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 2.1.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
+**Version 2.2.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://www.php.net)
 
+> ⚠️ **Hinweis:** Die Installation und Nutzung dieses Moduls erfolgt auf eigene Verantwortung. Es wird empfohlen, vor der Installation ein Backup der Datenbank und des Dolibarr-Verzeichnisses zu erstellen.
+
 -----
 
 ## 🎯 Features
 
-### NEU in v2.1: Dark Mode & Auto-Login
+### NEU in v2.2: Wartungs-Dashboard Verbesserungen
+- **Überfällige Wartungen** - Werden bis zur Erledigung angezeigt (nicht mehr ausgeblendet)
+- **Visuelle Unterscheidung** - Überfällig (dunkelrot), Aktuell (rot), Nächster Monat (orange)
+- **Dark Mode** - Wartungs-Dashboard vollständig für Dark Mode optimiert
+- **PWA Sync-Fix** - Status bleibt nicht mehr auf "Lade..." hängen
+
+### Dark Mode & Auto-Login (v2.1)
 - **Dark Mode** - Hell/Dunkel/Auto-Modus mit System-Präferenz
 - **Auto-Login** - Zugangsdaten speichern für schnellen Zugriff
 - **2FA-Unterstützung** - TOTP 2FA mit Trusted Device Support
@@ -105,6 +113,15 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v2.2.0 (2025-01-06)
+
+- ✨ **Überfällige Wartungen** - Werden bis zur Erledigung angezeigt
+- ✨ **Visuelle Unterscheidung** - Überfällig (dunkelrot), Aktuell (rot), Nächster (orange)
+- ✨ **Wartungs-Dashboard Dark Mode** - Zusammenfassung und Legende angepasst
+- 🐛 **Fix:** PWA Status bleibt nicht mehr auf "Lade..." hängen
+- 🐛 **Fix:** Dezember-Wartungen werden im Januar korrekt angezeigt
+- 🐛 **Fix:** Vorjahres-Erledigungen werden berücksichtigt
 
 ### v2.1.0 (2025-01-05)
 
@@ -299,6 +316,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 2.1.0
+**Current Version:** 2.2.0
 **Released:** January 2025
 **Compatibility:** Dolibarr 22.0+
