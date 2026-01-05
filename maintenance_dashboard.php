@@ -67,6 +67,39 @@ $help_url = '';
 
 llxHeader('', $title, $help_url);
 
+// Dark Mode Styles
+print '<style>
+/* Dark Mode für Wartungs-Dashboard */
+@media (prefers-color-scheme: dark) {
+    .maintenance-summary {
+        background: #2d2d2d !important;
+        border-color: #404040 !important;
+    }
+    .maintenance-legend {
+        background: #2d2d2d !important;
+        border-color: #404040 !important;
+        color: #e0e0e0 !important;
+    }
+    .maintenance-legend li {
+        color: #e0e0e0 !important;
+    }
+}
+/* Dolibarr Dark Mode (eldy_menu class check) */
+body.class-colorblind-b .maintenance-summary,
+body[class*="dark"] .maintenance-summary,
+.bodywebsite[style*="background-color: rgb(28, 28, 28)"] .maintenance-summary {
+    background: #2d2d2d !important;
+    border-color: #404040 !important;
+}
+body.class-colorblind-b .maintenance-legend,
+body[class*="dark"] .maintenance-legend,
+.bodywebsite[style*="background-color: rgb(28, 28, 28)"] .maintenance-legend {
+    background: #2d2d2d !important;
+    border-color: #404040 !important;
+    color: #e0e0e0 !important;
+}
+</style>';
+
 print load_fiche_titre($title, '', 'fa-wrench');
 
 // Aktueller Monat und nächster Monat
@@ -265,7 +298,7 @@ if ($resql) {
         }
         
         // Zusammenfassung
-        print '<div class="info" style="margin-bottom: 20px; padding: 10px;">';
+        print '<div class="info maintenance-summary" style="margin-bottom: 20px; padding: 10px;">';
         print '<h3 style="margin-top: 0; margin-bottom: 10px;"><span class="fa fa-info-circle"></span> '.$langs->trans('Summary').'</h3>';
         print '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">';
         
@@ -521,7 +554,7 @@ if ($resql) {
         }
         
     } else {
-        print '<div class="info" style="padding: 30px; text-align: center;">';
+        print '<div class="info maintenance-summary" style="padding: 30px; text-align: center;">';
         print '<span class="fa fa-check-circle" style="font-size: 48px; color: #4caf50;"></span>';
         print '<h3>'.$langs->trans('NoMaintenanceDue').'</h3>';
         print '<p class="opacitymedium">'.$langs->trans('NoMaintenanceDueDescription').'</p>';
@@ -535,7 +568,7 @@ if ($resql) {
 
 // Legende
 print '<br><br>';
-print '<div class="info">';
+print '<div class="info maintenance-legend">';
 print '<h4><span class="fa fa-info-circle"></span> '.$langs->trans('Legend').'</h4>';
 print '<ul>';
 print '<li><span class="badge badge-status8" style="background: #f44336;"><span class="fa fa-exclamation-triangle"></span> '.$langs->trans('Pending').'</span> - '.$langs->trans('MaintenancePendingDescription').'</li>';
