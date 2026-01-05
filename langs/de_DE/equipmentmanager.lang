@@ -161,6 +161,7 @@ December=Dezember
 # Maintenance Dashboard
 
 TotalMaintenanceDue=Fällige Wartungen
+Overdue=Überfällig
 CurrentMonth=Aktuell
 NextMonth=Nächster
 InProgress=In Bearbeitung

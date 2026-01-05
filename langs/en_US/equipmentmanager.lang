@@ -89,6 +89,7 @@ LastMaintenance=Last Maintenance
 LastMaintenanceDate=Last Maintenance Date
 NextMaintenanceDate=Next Maintenance Date
 TotalMaintenanceDue=Due Maintenances
+Overdue=Overdue
 CurrentMonth=Current
 NextMonth=Next
 InProgress=In Progress

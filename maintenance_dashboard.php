@@ -205,27 +205,36 @@ if ($resql) {
     }
     
     if ($num > 0) {
-        // Gruppierung
-        $grouped = array(
-            $current_month => array(),
-            $next_month => array()
-        );
-        
+        // Gruppierung - dynamisch für alle gefundenen Monate
+        $grouped = array();
+
         $stats = array(
             'total' => 0,
             'current_month' => 0,
             'next_month' => 0,
+            'overdue' => 0,
             'open_maintenance' => 0,
             'completed' => 0,
             'without_address' => 0
         );
-        
+
         while ($obj = $db->fetch_object($resql)) {
             $month = (int)$obj->maintenance_month;
-            
+
+            // Initialisiere Monat wenn noch nicht vorhanden
+            if (!isset($grouped[$month])) {
+                $grouped[$month] = array();
+            }
+
             $stats['total']++;
-            if ($month == $current_month) $stats['current_month']++;
-            if ($month == $next_month) $stats['next_month']++;
+            if ($month == $current_month) {
+                $stats['current_month']++;
+            } elseif ($month == $next_month) {
+                $stats['next_month']++;
+            } else {
+                // Überfällig (Vormonat oder älter)
+                $stats['overdue']++;
+            }
             if ($obj->has_open_maintenance > 0) $stats['open_maintenance']++;
             if (!$obj->fk_address) $stats['without_address']++;
             
@@ -265,12 +274,20 @@ if ($resql) {
         print '<div style="font-size: 0.85em;">'.$langs->trans('TotalMaintenanceDue').'</div>';
         print '</div>';
         
+        // Überfällig (rot, dunkel)
+        if ($stats['overdue'] > 0) {
+            print '<div style="background: #b71c1c; color: white; padding: 10px; border-radius: 5px; text-align: center;">';
+            print '<div style="font-size: 24px; font-weight: bold;">'.$stats['overdue'].'</div>';
+            print '<div style="font-size: 0.85em;">'.$langs->trans('Overdue').'</div>';
+            print '</div>';
+        }
+
         $month_name = dol_print_date(dol_mktime(0, 0, 0, $current_month, 1, $current_year), '%B');
         print '<div style="background: #f44336; color: white; padding: 10px; border-radius: 5px; text-align: center;">';
         print '<div style="font-size: 24px; font-weight: bold;">'.$stats['current_month'].'</div>';
         print '<div style="font-size: 0.85em;">'.$month_name.'</div>';
         print '</div>';
-        
+
         $month_name = dol_print_date(dol_mktime(0, 0, 0, $next_month, 1, $next_year), '%B');
         print '<div style="background: #ff9800; color: white; padding: 10px; border-radius: 5px; text-align: center;">';
         print '<div style="font-size: 24px; font-weight: bold;">'.$stats['next_month'].'</div>';
@@ -301,17 +318,51 @@ if ($resql) {
             'other' => $langs->trans('Other')
         );
         
-        // Zeige nach Monat gruppiert
-        foreach (array($current_month, $next_month) as $month) {
+        // Zeige nach Monat gruppiert - sortiert: überfällige zuerst, dann aktuell, dann nächster
+        // Sortiere Monate: überfällige aufsteigend, dann current, dann next
+        $display_months = array_keys($grouped);
+        usort($display_months, function($a, $b) use ($current_month, $next_month) {
+            // Überfällige zuerst (aufsteigend), dann current, dann next
+            $a_overdue = ($a != $current_month && $a != $next_month);
+            $b_overdue = ($b != $current_month && $b != $next_month);
+            if ($a_overdue && !$b_overdue) return -1;
+            if (!$a_overdue && $b_overdue) return 1;
+            if ($a == $current_month) return ($b == $next_month) ? -1 : 1;
+            if ($b == $current_month) return ($a == $next_month) ? 1 : -1;
+            return $a - $b;
+        });
+
+        foreach ($display_months as $month) {
             if (empty($grouped[$month])) continue;
-            
-            $month_name = dol_print_date(dol_mktime(0, 0, 0, $month, 1, ($month == $next_month && $next_month == 1) ? $next_year : $current_year), '%B %Y');
+
+            // Bestimme Jahr für Monatsanzeige
+            $display_year = $current_year;
+            if ($month == $next_month && $next_month == 1) {
+                $display_year = $next_year;
+            } elseif ($month == 12 && $current_month == 1) {
+                // Dezember im Januar = Vorjahr
+                $display_year = $current_year - 1;
+            }
+
+            $month_name = dol_print_date(dol_mktime(0, 0, 0, $month, 1, $display_year), '%B %Y');
             $is_current = ($month == $current_month);
-            $icon_color = $is_current ? '#f44336' : '#ff9800';
+            $is_next = ($month == $next_month);
+            $is_overdue = (!$is_current && !$is_next);
+
+            // Farbe je nach Status
+            if ($is_overdue) {
+                $icon_color = '#b71c1c'; // Dunkelrot für überfällig
+            } elseif ($is_current) {
+                $icon_color = '#f44336'; // Rot für aktuell
+            } else {
+                $icon_color = '#ff9800'; // Orange für nächsten Monat
+            }
             
             print '<h2 style="margin-top: 30px; color: '.$icon_color.';">';
             print '<span class="fa fa-calendar"></span> '.$month_name;
-            if ($is_current) {
+            if ($is_overdue) {
+                print ' <span class="badge" style="background: #b71c1c; color: white; font-size: 14px; margin-left: 10px;">'.$langs->trans('Overdue').'</span>';
+            } elseif ($is_current) {
                 print ' <span class="badge" style="background: #f44336; color: white; font-size: 14px; margin-left: 10px;">'.$langs->trans('CurrentMonth').'</span>';
             }
             print '</h2>';
@@ -323,8 +374,17 @@ if ($resql) {
                 print '<table class="noborder centpercent">';
                 
                 // FIX: Dunkelmodus-kompatible Farben mit rgba und Transparenz
-                $header_bg = $is_current ? 'rgba(244, 67, 54, 0.15)' : 'rgba(255, 152, 0, 0.15)';
-                $header_border = $is_current ? 'rgba(244, 67, 54, 0.3)' : 'rgba(255, 152, 0, 0.3)';
+                // Farben für Überfällig/Aktuell/Nächster Monat
+                if ($is_overdue) {
+                    $header_bg = 'rgba(183, 28, 28, 0.15)'; // Dunkelrot
+                    $header_border = 'rgba(183, 28, 28, 0.3)';
+                } elseif ($is_current) {
+                    $header_bg = 'rgba(244, 67, 54, 0.15)';
+                    $header_border = 'rgba(244, 67, 54, 0.3)';
+                } else {
+                    $header_bg = 'rgba(255, 152, 0, 0.15)';
+                    $header_border = 'rgba(255, 152, 0, 0.3)';
+                }
                 
                 print '<tr class="liste_titre" style="background-color: '.$header_bg.'; border-left: 4px solid '.$icon_color.';">';
                 print '<th colspan="7">';
