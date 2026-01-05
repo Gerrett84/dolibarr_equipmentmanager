@@ -350,6 +350,7 @@ if (!empty($conf->totp2fa->enabled)) {
         .theme-option-label {
             font-size: 12px;
             font-weight: 500;
+            color: var(--text-primary);
         }
         .back-link {
             display: block;

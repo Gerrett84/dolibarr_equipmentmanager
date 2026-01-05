@@ -334,7 +334,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .card-clickable:active {
-            background: #f9f9f9;
+            background: var(--bg-secondary);
         }
 
         /* Status Badge */
@@ -369,10 +369,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .form-input, .form-textarea {
             width: 100%;
             padding: 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--input-border);
             border-radius: 6px;
             font-size: 16px;
             font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            transition: background-color 0.3s, border-color 0.3s;
         }
 
         .form-textarea {
@@ -430,9 +433,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         /* Signature Canvas */
         .signature-container {
-            border: 2px dashed #ccc;
+            border: 2px dashed var(--border-color);
             border-radius: 8px;
-            background: white;
+            background: var(--input-bg);
             margin-bottom: 12px;
         }
 
@@ -448,11 +451,12 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             bottom: 0;
             left: 0;
             right: 0;
-            background: white;
-            border-top: 1px solid #ddd;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
             display: flex;
             padding: 8px 0;
             padding-bottom: max(8px, env(safe-area-inset-bottom));
+            transition: background-color 0.3s;
         }
 
         .nav-item {
@@ -538,7 +542,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: flex;
             align-items: center;
             padding: 12px 16px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .equipment-item:last-child {
@@ -548,7 +552,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .equipment-icon {
             width: 40px;
             height: 40px;
-            background: #e3f2fd;
+            background: var(--bg-secondary);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -620,17 +624,18 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .modal-content {
-            background: white;
+            background: var(--bg-card);
             border-radius: 12px;
             width: 95%;
             max-width: 500px;
             max-height: 90vh;
+            color: var(--text-primary);
             overflow-y: auto;
         }
 
         .modal-header {
             padding: 16px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -657,7 +662,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .modal-footer {
             padding: 16px;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--border-color);
         }
 
         /* Material Item */
@@ -665,7 +670,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: flex;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .material-item:last-child {
@@ -815,7 +820,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .document-name {
             font-weight: 600;
             font-size: 14px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .document-date {
@@ -825,7 +830,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .document-size {
             font-size: 12px;
-            color: #999;
+            color: var(--text-muted);
         }
 
         .document-actions {
@@ -849,7 +854,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: #f5f5f5;
+            background: var(--bg-secondary);
             text-decoration: none;
             font-size: 16px;
             border: none;
@@ -857,11 +862,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .doc-action:active {
-            background: #e0e0e0;
+            background: var(--border-color);
         }
 
         .doc-delete:hover, .doc-delete:active {
-            background: #ffebee;
+            background: rgba(244, 67, 54, 0.15);
         }
 
         /* Entry Item (v1.7) */
@@ -869,7 +874,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: flex;
             align-items: center;
             padding: 12px 16px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             cursor: pointer;
         }
 
@@ -878,13 +883,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .entry-item:active {
-            background: #f9f9f9;
+            background: var(--bg-secondary);
         }
 
         .entry-date {
             font-weight: 600;
             font-size: 14px;
-            color: #263c5c;
+            color: var(--text-primary);
             min-width: 90px;
         }
 
@@ -900,7 +905,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .entry-summary {
             font-size: 13px;
-            color: #333;
+            color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -908,16 +913,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .entry-arrow {
-            color: #999;
+            color: var(--text-muted);
             font-size: 18px;
         }
 
         .total-duration {
-            background: #e3f2fd;
+            background: var(--bg-secondary);
             padding: 8px 16px;
             font-size: 13px;
-            color: #1565c0;
+            color: var(--text-secondary);
             font-weight: 500;
+            border-top: 1px solid var(--border-color);
         }
     </style>
 </head>
