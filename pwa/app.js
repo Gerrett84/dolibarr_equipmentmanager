@@ -97,7 +97,7 @@ class ServiceReportApp {
         return false;
     }
 
-    // Show login form
+    // Show login form - redirects to settings page for credential storage
     showLoginForm() {
         document.getElementById('interventionsLoading').style.display = 'none';
         document.getElementById('interventionsList').innerHTML = `
@@ -105,36 +105,45 @@ class ServiceReportApp {
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="font-size:48px;">🔐</div>
                     <h3 style="margin:10px 0;">Anmeldung erforderlich</h3>
-                    <p style="color:#666;font-size:14px;">Bitte melden Sie sich an, um fortzufahren.</p>
+                    <p style="color:#666;font-size:14px;">
+                        Bitte speichern Sie Ihre Login-Daten in den Einstellungen.
+                    </p>
                 </div>
-                <form id="pwaLoginForm">
-                    <div style="margin-bottom:16px;">
-                        <label style="display:block;margin-bottom:4px;font-weight:600;">Benutzername</label>
-                        <input type="text" id="loginUsername" required
-                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
-                    </div>
-                    <div style="margin-bottom:16px;">
-                        <label style="display:block;margin-bottom:4px;font-weight:600;">Passwort</label>
-                        <input type="password" id="loginPassword" required
-                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
-                    </div>
-                    <div style="margin-bottom:16px;" id="login2faGroup" style="display:none;">
-                        <label style="display:block;margin-bottom:4px;font-weight:600;">2FA-Code (falls aktiviert)</label>
-                        <input type="text" id="login2faCode" placeholder="6-stelliger Code"
-                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
-                            maxlength="10" inputmode="numeric" autocomplete="one-time-code">
-                    </div>
-                    <div style="margin-bottom:16px;">
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
-                            <span>Angemeldet bleiben (90 Tage)</span>
-                        </label>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block" style="padding:14px;font-size:16px;">
-                        Anmelden
-                    </button>
-                    <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
-                </form>
+
+                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;">
+                    ⚙️ Einstellungen öffnen
+                </a>
+
+                <div style="margin-top:20px;padding-top:20px;border-top:1px solid #eee;">
+                    <p style="color:#666;font-size:13px;text-align:center;margin:0 0 12px 0;">
+                        Oder melden Sie sich direkt an:
+                    </p>
+                    <form id="pwaLoginForm">
+                        <div style="margin-bottom:12px;">
+                            <input type="text" id="loginUsername" placeholder="Benutzername" required
+                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <input type="password" id="loginPassword" placeholder="Passwort" required
+                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <input type="text" id="login2faCode" placeholder="2FA-Code (falls aktiviert)"
+                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
+                                maxlength="10" inputmode="numeric">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                                <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
+                                <span>Daten speichern (90 Tage)</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" style="padding:12px;font-size:15px;background:#4caf50;border:none;border-radius:8px;color:white;width:100%;cursor:pointer;">
+                            Anmelden
+                        </button>
+                        <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
+                    </form>
+                </div>
             </div>
         `;
 

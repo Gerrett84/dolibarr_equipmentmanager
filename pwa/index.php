@@ -3,13 +3,11 @@
  * PWA Entry Point - Serviceberichte Offline
  */
 
-// Define constants to prevent redirects during auto-login
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
-    define('NOLOGIN', 1); // Prevent login redirect
-    define('NOCSRFCHECK', 1); // Skip CSRF for PWA auto-login
-}
+// ALWAYS prevent Dolibarr login redirect - PWA handles its own auth
+define('NOLOGIN', 1);
+define('NOCSRFCHECK', 1);
 
-// Load Dolibarr environment FIRST
+// Load Dolibarr environment
 $res = 0;
 if (!$res && file_exists("../../../main.inc.php")) {
     $res = include "../../../main.inc.php";
