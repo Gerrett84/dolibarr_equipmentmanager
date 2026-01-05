@@ -490,6 +490,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: #263c5c;
         }
 
+        [data-theme="dark"] .nav-item.active {
+            color: #ffffff;
+        }
+
         .nav-icon {
             font-size: 18px;
             margin-bottom: 1px;
@@ -924,6 +928,80 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: var(--text-secondary);
             font-weight: 500;
             border-top: 1px solid var(--border-color);
+        }
+
+        /* Info Section Styles for Dark Mode */
+        .info-heading {
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .info-section-divider {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .info-text {
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .info-text-secondary {
+            color: var(--text-secondary);
+        }
+
+        .info-text-muted {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Card Content Styles for Dark Mode */
+        .customer-name {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .customer-address {
+            margin: 4px 0 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .object-address-label {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .object-address-name {
+            margin: 4px 0 0;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .object-address-details {
+            margin: 2px 0 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .object-address-divider {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .date-text {
+            margin: 12px 0 0;
+            font-size: 12px;
+            color: var(--text-muted);
         }
     </style>
 </head>

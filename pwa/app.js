@@ -688,16 +688,16 @@ class ServiceReportApp {
         if (intervention.object_addresses && intervention.object_addresses.length > 0) {
             const addr = intervention.object_addresses[0]; // Show first address
             objectAddressHtml = `
-                <div style="margin-top:12px; padding-top:12px; border-top:1px solid #eee;">
-                    <p style="margin:0; font-size:12px; color:#263c5c; font-weight:600;">📍 Objektadresse</p>
-                    <p style="margin:4px 0 0; font-size:13px; color:#333;">
+                <div class="object-address-divider">
+                    <p class="object-address-label">📍 Objektadresse</p>
+                    <p class="object-address-name">
                         ${addr.name || ''}
                     </p>
-                    <p style="margin:2px 0 0; font-size:13px; color:#666;">
+                    <p class="object-address-details">
                         ${addr.address || ''}<br>
                         ${addr.zip || ''} ${addr.town || ''}
                     </p>
-                    ${intervention.object_addresses.length > 1 ? `<p style="margin:4px 0 0; font-size:11px; color:#999;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
+                    ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:4px 0 0; font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
                 </div>
             `;
         }
@@ -710,15 +710,15 @@ class ServiceReportApp {
                 <span class="badge badge-${statusClass}">${statusText}</span>
             </div>
             <div class="card-body">
-                <p style="margin:0; font-size:14px; font-weight:500; color:#333;">
+                <p class="customer-name">
                     ${intervention.customer?.name || 'Kunde'}
                 </p>
-                <p style="margin:4px 0 0; font-size:13px; color:#666;">
+                <p class="customer-address">
                     ${intervention.customer?.address || ''}<br>
                     ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
                 </p>
                 ${objectAddressHtml}
-                ${intervention.date_start ? `<p style="margin:12px 0 0; font-size:12px; color:#999;">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
+                ${intervention.date_start ? `<p class="date-text">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
             </div>
         `;
 
@@ -2205,7 +2205,7 @@ class ServiceReportApp {
         // Customer info first (most important)
         if (intervention.customer) {
             html += '<div class="info-section">';
-            html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Kunde</h4>';
+            html += '<h4 class="info-heading">Kunde</h4>';
             html += `<div class="info-text">`;
             html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
             if (intervention.customer.address) {
@@ -2219,8 +2219,8 @@ class ServiceReportApp {
         }
 
         // Object addresses (from socpeople linked to equipment)
-        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
-        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Objektadresse</h4>';
+        html += '<div class="info-section info-section-divider">';
+        html += '<h4 class="info-heading">Objektadresse</h4>';
 
         // Use object_addresses from intervention data (linked via equipment -> socpeople)
         if (intervention.object_addresses && intervention.object_addresses.length > 0) {
@@ -2238,32 +2238,32 @@ class ServiceReportApp {
                 html += `</div>`;
             });
         } else {
-            html += '<p style="color:#999;font-style:italic;">Keine Objektadresse hinterlegt</p>';
+            html += '<p class="info-text-muted">Keine Objektadresse hinterlegt</p>';
         }
         html += '</div>';
 
         // Description (Auftragsbeschreibung)
-        html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
-        html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Auftragsbeschreibung</h4>';
+        html += '<div class="info-section info-section-divider">';
+        html += '<h4 class="info-heading">Auftragsbeschreibung</h4>';
         if (intervention.description) {
             html += `<div class="info-text">${this.escapeHtml(intervention.description).replace(/\n/g, '<br>')}</div>`;
         } else {
-            html += '<p style="color:#999;font-style:italic;">Keine Beschreibung vorhanden</p>';
+            html += '<p class="info-text-muted">Keine Beschreibung vorhanden</p>';
         }
         html += '</div>';
 
         // Public Note
         if (intervention.note_public) {
-            html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
-            html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Öffentliche Anmerkung</h4>';
+            html += '<div class="info-section info-section-divider">';
+            html += '<h4 class="info-heading">Öffentliche Anmerkung</h4>';
             html += `<div class="info-text">${this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>')}</div>`;
             html += '</div>';
         }
 
         // Private Note
         if (intervention.note_private) {
-            html += '<div class="info-section" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">';
-            html += '<h4 style="margin:0 0 8px 0;color:#263c5c;">Private Anmerkung</h4>';
+            html += '<div class="info-section info-section-divider">';
+            html += '<h4 class="info-heading">Private Anmerkung</h4>';
             html += `<div class="info-text">${this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>')}</div>`;
             html += '</div>';
         }
