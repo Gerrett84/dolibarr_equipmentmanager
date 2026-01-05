@@ -933,9 +933,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         /* Info Section Styles for Dark Mode */
         .info-heading {
             margin: 0 0 8px 0;
-            color: var(--text-primary);
+            color: #263c5c;
             font-size: 14px;
             font-weight: 600;
+        }
+
+        [data-theme="dark"] .info-heading {
+            color: #6fa8dc;
         }
 
         .info-section-divider {
