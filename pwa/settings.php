@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
         $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
         $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
 
-        $sql = "SELECT trusted_until, device_name FROM ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
+        $sql = "SELECT trusted_until, device_name, DATEDIFF(trusted_until, NOW()) as days_left FROM ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
         $sql .= " WHERE fk_user = ".(int)$tmpuser->id;
         $sql .= " AND device_hash = '".$db->escape($deviceHash)."'";
         $sql .= " AND trusted_until > NOW()";
@@ -119,12 +119,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
         $resql = $db->query($sql);
         if ($resql && $db->num_rows($resql) > 0) {
             $obj = $db->fetch_object($resql);
-            $trustedUntil = strtotime($obj->trusted_until);
-            $daysRemaining = ceil(($trustedUntil - time()) / 86400);
             $trustedInfo = [
                 'device_name' => $obj->device_name,
                 'trusted_until' => $obj->trusted_until,
-                'days_remaining' => $daysRemaining
+                'days_remaining' => max(1, (int)$obj->days_left)
             ];
         }
     }
@@ -159,7 +157,44 @@ if (!empty($conf->totp2fa->enabled)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#263c5c">
     <title><?php echo $title; ?></title>
+
+    <!-- Theme initialization -->
+    <script>
+        (function() {
+            const stored = localStorage.getItem('pwa_theme');
+            let theme = stored || 'auto';
+            if (theme === 'auto') {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+
     <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-card: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border-color: #dddddd;
+            --header-bg: #263c5c;
+            --input-bg: #ffffff;
+            --input-border: #dddddd;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-card: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #808080;
+            --border-color: #404040;
+            --header-bg: #1e2d3d;
+            --input-bg: #3d3d3d;
+            --input-border: #505050;
+        }
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
@@ -168,12 +203,13 @@ if (!empty($conf->totp2fa->enabled)) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
             padding: 0;
-            background: #f5f5f5;
-            color: #333;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
         }
         .header {
-            background: #263c5c;
+            background: var(--header-bg);
             color: white;
             padding: 16px;
             text-align: center;
@@ -189,16 +225,17 @@ if (!empty($conf->totp2fa->enabled)) {
             margin: 0 auto;
         }
         .card {
-            background: white;
+            background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             padding: 20px;
             margin-bottom: 16px;
+            transition: background-color 0.3s;
         }
         .card h2 {
             margin: 0 0 16px 0;
             font-size: 18px;
-            color: #263c5c;
+            color: var(--text-primary);
         }
         .form-group {
             margin-bottom: 16px;
@@ -212,10 +249,13 @@ if (!empty($conf->totp2fa->enabled)) {
         .form-input {
             width: 100%;
             padding: 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--input-border);
             border-radius: 8px;
             font-size: 16px;
             font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            transition: background-color 0.3s, border-color 0.3s;
         }
         .form-input:focus {
             outline: none;
@@ -269,12 +309,47 @@ if (!empty($conf->totp2fa->enabled)) {
         .status {
             text-align: center;
             padding: 16px;
-            color: #666;
+            color: var(--text-secondary);
             font-size: 14px;
         }
         .status-icon {
             font-size: 48px;
             margin-bottom: 8px;
+        }
+        .help-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+        /* Theme Switcher */
+        .theme-switcher {
+            display: flex;
+            gap: 8px;
+        }
+        .theme-option {
+            flex: 1;
+            padding: 12px 8px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-card);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .theme-option:hover {
+            border-color: #263c5c;
+        }
+        .theme-option.active {
+            border-color: #263c5c;
+            background: rgba(38, 60, 92, 0.1);
+        }
+        .theme-option-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        .theme-option-label {
+            font-size: 12px;
+            font-weight: 500;
         }
         .back-link {
             display: block;
@@ -330,6 +405,27 @@ if (!empty($conf->totp2fa->enabled)) {
             </form>
         </div>
 
+        <div class="card">
+            <h2>🎨 Design</h2>
+            <div class="theme-switcher">
+                <div class="theme-option" data-theme="light" onclick="setTheme('light')">
+                    <div class="theme-option-icon">☀️</div>
+                    <div class="theme-option-label">Hell</div>
+                </div>
+                <div class="theme-option" data-theme="dark" onclick="setTheme('dark')">
+                    <div class="theme-option-icon">🌙</div>
+                    <div class="theme-option-label">Dunkel</div>
+                </div>
+                <div class="theme-option" data-theme="auto" onclick="setTheme('auto')">
+                    <div class="theme-option-icon">⚙️</div>
+                    <div class="theme-option-label">Auto</div>
+                </div>
+            </div>
+            <p class="help-text" style="margin-top:12px;text-align:center;">
+                Auto verwendet die Systemeinstellung
+            </p>
+        </div>
+
         <div class="card" id="statusCard">
             <h2>Gespeicherte Daten</h2>
             <div id="statusContent" class="status">
@@ -350,10 +446,48 @@ if (!empty($conf->totp2fa->enabled)) {
     <script>
         let savedCredentials = null;
 
+        // Theme functions
+        function setTheme(theme) {
+            localStorage.setItem('pwa_theme', theme);
+
+            let effectiveTheme = theme;
+            if (theme === 'auto') {
+                effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            if (effectiveTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+
+            updateThemeUI(theme);
+        }
+
+        function updateThemeUI(activeTheme) {
+            document.querySelectorAll('.theme-option').forEach(el => {
+                el.classList.toggle('active', el.dataset.theme === activeTheme);
+            });
+        }
+
+        function initTheme() {
+            const stored = localStorage.getItem('pwa_theme') || 'auto';
+            updateThemeUI(stored);
+
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                const current = localStorage.getItem('pwa_theme');
+                if (current === 'auto') {
+                    setTheme('auto');
+                }
+            });
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             await offlineDB.init();
             await loadStatus();
+            initTheme();
 
             document.getElementById('settingsForm').addEventListener('submit', handleSubmit);
         });
