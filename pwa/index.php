@@ -141,6 +141,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
 
 // $authData is already set above when session is valid
 
+// Get trusted device info for current user
+$trustedDeviceInfo = null;
+if ($isAuthenticated && !empty($conf->totp2fa->enabled)) {
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+    $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
+
+    $sql = "SELECT trusted_until, device_name FROM ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
+    $sql .= " WHERE fk_user = ".(int)$user->id;
+    $sql .= " AND device_hash = '".$db->escape($deviceHash)."'";
+    $sql .= " AND trusted_until > NOW()";
+
+    $resql = $db->query($sql);
+    if ($resql && $db->num_rows($resql) > 0) {
+        $obj = $db->fetch_object($resql);
+        $trustedUntil = strtotime($obj->trusted_until);
+        $daysRemaining = ceil(($trustedUntil - time()) / 86400);
+        $trustedDeviceInfo = [
+            'device_name' => $obj->device_name,
+            'trusted_until' => $obj->trusted_until,
+            'days_remaining' => $daysRemaining
+        ];
+    }
+}
+
 $title = 'Serviceberichte';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature.min.js';
@@ -859,8 +884,14 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
         <h1 id="headerTitle"><?php echo $title; ?></h1>
         <span class="sync-status" id="syncStatus">Offline</span>
+        <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
         <a href="<?php echo $dolibarrUrl; ?>" class="header-btn" id="btnDolibarr" title="Dolibarr öffnen" style="text-decoration:none;color:white;">&#127968;</a>
         <button class="header-btn" id="btnSync" title="Synchronisieren">&#8635;</button>
+    </div>
+
+    <!-- Trusted Device Info Banner -->
+    <div id="trustedDeviceBanner" style="display:none;background:#e8f5e9;padding:8px 16px;font-size:13px;color:#2e7d32;border-bottom:1px solid #c8e6c9;">
+        <span id="trustedDeviceText"></span>
     </div>
 
     <!-- Interventions List View -->
@@ -1156,7 +1187,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         const CONFIG = {
             apiBase: '<?php echo $apiBase; ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
-            authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>
+            authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,
+            trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
     <script src="db.js"></script>

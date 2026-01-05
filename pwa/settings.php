@@ -104,6 +104,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
         exit;
     }
 
+    // Get trusted device info
+    $trustedInfo = null;
+    if (!empty($conf->totp2fa->enabled)) {
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
+
+        $sql = "SELECT trusted_until, device_name FROM ".MAIN_DB_PREFIX."totp2fa_trusted_devices";
+        $sql .= " WHERE fk_user = ".(int)$tmpuser->id;
+        $sql .= " AND device_hash = '".$db->escape($deviceHash)."'";
+        $sql .= " AND trusted_until > NOW()";
+
+        $resql = $db->query($sql);
+        if ($resql && $db->num_rows($resql) > 0) {
+            $obj = $db->fetch_object($resql);
+            $trustedUntil = strtotime($obj->trusted_until);
+            $daysRemaining = ceil(($trustedUntil - time()) / 86400);
+            $trustedInfo = [
+                'device_name' => $obj->device_name,
+                'trusted_until' => $obj->trusted_until,
+                'days_remaining' => $daysRemaining
+            ];
+        }
+    }
+
     // Success!
     echo json_encode([
         'status' => 'ok',
@@ -112,12 +137,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
             'id' => (int)$tmpuser->id,
             'login' => $tmpuser->login,
             'name' => $tmpuser->getFullName($langs)
-        ]
+        ],
+        'trusted_device' => $trustedInfo
     ]);
     exit;
 }
 
 $title = 'PWA Einstellungen';
+
+// Get trusted device info
+$trustedDeviceInfo = null;
+if (!empty($conf->totp2fa->enabled)) {
+    // We need to get any logged-in user's trusted device - check saved credentials
+    // Since this is a no-login page, we can only show this after login test is successful
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -305,6 +338,11 @@ $title = 'PWA Einstellungen';
             </div>
         </div>
 
+        <div class="card" id="trustedDeviceCard" style="display:none;">
+            <h2>🔒 Vertrauenswürdiges Gerät</h2>
+            <div id="trustedDeviceContent" class="status"></div>
+        </div>
+
         <a href="index.php" class="back-link">← Zurück zur PWA</a>
     </div>
 
@@ -407,6 +445,13 @@ $title = 'PWA Einstellungen';
                         </div>
                     `;
 
+                    // Show trusted device info if available
+                    if (result.trusted_device) {
+                        showTrustedDeviceInfo(result.trusted_device);
+                    } else {
+                        document.getElementById('trustedDeviceCard').style.display = 'none';
+                    }
+
                     // Clear password field for security
                     document.getElementById('password').value = '';
                     document.getElementById('totp_code').value = '';
@@ -461,11 +506,43 @@ $title = 'PWA Einstellungen';
 
                 document.getElementById('username').value = '';
                 document.getElementById('password').value = '';
+                document.getElementById('trustedDeviceCard').style.display = 'none';
 
                 await loadStatus();
             } catch (err) {
                 console.error('Delete error:', err);
             }
+        }
+
+        function showTrustedDeviceInfo(trusted) {
+            const card = document.getElementById('trustedDeviceCard');
+            const content = document.getElementById('trustedDeviceContent');
+
+            const days = trusted.days_remaining;
+            const device = trusted.device_name || 'Dieses Gerät';
+            const until = new Date(trusted.trusted_until).toLocaleDateString('de-DE');
+
+            let bgColor = '#e8f5e9';
+            let textColor = '#2e7d32';
+
+            if (days <= 3) {
+                bgColor = '#fff3e0';
+                textColor = '#e65100';
+            }
+
+            content.innerHTML = `
+                <div style="padding:8px;">
+                    <p style="margin:0 0 8px 0;"><strong>${device}</strong></p>
+                    <p style="margin:0;color:${textColor};">
+                        2FA nicht erforderlich für <strong>${days} Tag${days !== 1 ? 'e' : ''}</strong>
+                    </p>
+                    <p style="margin:8px 0 0 0;font-size:12px;color:#999;">
+                        Gültig bis: ${until}
+                    </p>
+                </div>
+            `;
+
+            card.style.display = 'block';
         }
     </script>
 </body>

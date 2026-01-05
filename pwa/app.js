@@ -56,6 +56,10 @@ class ServiceReportApp {
         if (CONFIG.isAuthenticated && CONFIG.authData) {
             this.user = CONFIG.authData;
             await offlineDB.setMeta('auth', CONFIG.authData);
+
+            // Show trusted device banner if available
+            this.showTrustedDeviceBanner();
+
             return true;
         }
 
@@ -263,6 +267,33 @@ class ServiceReportApp {
         } catch (err) {
             console.error('Auto-login failed:', err);
             return false;
+        }
+    }
+
+    // Show trusted device info banner
+    showTrustedDeviceBanner() {
+        if (!CONFIG.trustedDevice) return;
+
+        const banner = document.getElementById('trustedDeviceBanner');
+        const text = document.getElementById('trustedDeviceText');
+
+        if (banner && text) {
+            const days = CONFIG.trustedDevice.days_remaining;
+            const device = CONFIG.trustedDevice.device_name || 'Dieses Gerät';
+
+            if (days <= 3) {
+                banner.style.background = '#fff3e0';
+                banner.style.color = '#e65100';
+                banner.style.borderColor = '#ffcc80';
+            }
+
+            text.innerHTML = `🔒 ${device} ist vertrauenswürdig - 2FA nicht erforderlich für <strong>${days} Tag${days !== 1 ? 'e' : ''}</strong>`;
+            banner.style.display = 'block';
+
+            // Hide after 10 seconds
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 10000);
         }
     }
 
