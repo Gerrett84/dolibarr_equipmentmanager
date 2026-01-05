@@ -317,6 +317,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: 600;
             font-size: 16px;
             margin: 0;
+            color: #263c5c;
+        }
+
+        [data-theme="dark"] .card-title {
+            color: #6fa8dc;
         }
 
         .card-subtitle {
@@ -1006,6 +1011,34 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             margin: 12px 0 0;
             font-size: 12px;
             color: var(--text-muted);
+        }
+
+        /* Equipment Modal Address Header */
+        .address-header {
+            padding: 12px;
+            background: var(--bg-secondary);
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-color);
+            color: #263c5c;
+        }
+
+        [data-theme="dark"] .address-header {
+            color: #6fa8dc;
+        }
+
+        /* Offline Note */
+        .offline-note {
+            padding: 8px 12px;
+            background: #fff3e0;
+            color: #e65100;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        [data-theme="dark"] .offline-note {
+            background: #3d2a00;
+            color: #ffb74d;
         }
     </style>
 </head>

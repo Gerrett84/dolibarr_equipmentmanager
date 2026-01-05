@@ -1732,7 +1732,7 @@ class ServiceReportApp {
             // Show offline indicator if offline
             if (!this.isOnline) {
                 const offlineNote = document.createElement('div');
-                offlineNote.style.cssText = 'padding:8px 12px;background:#fff3e0;color:#e65100;font-size:12px;border-bottom:1px solid #ddd;';
+                offlineNote.className = 'offline-note';
                 offlineNote.textContent = '📴 Offline - Verknüpfung wird bei Verbindung synchronisiert';
                 listEl.appendChild(offlineNote);
             }
@@ -1742,7 +1742,7 @@ class ServiceReportApp {
 
                 // Address header
                 const header = document.createElement('div');
-                header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
+                header.className = 'address-header';
                 header.innerHTML = `📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
                 listEl.appendChild(header);
 
