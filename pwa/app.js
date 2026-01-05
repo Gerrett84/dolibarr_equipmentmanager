@@ -45,6 +45,7 @@ class ServiceReportApp {
         // Prefetch all data for offline use when online
         if (this.isOnline) {
             // Run prefetch in background (don't await - let user interact)
+            // Status update is handled in prefetchAllData's finally block
             this.prefetchAllData().catch(err => {
                 console.warn('Background prefetch failed:', err);
             });
@@ -1458,6 +1459,9 @@ class ServiceReportApp {
         } catch (err) {
             console.error('Prefetch failed:', err);
             throw err;
+        } finally {
+            // Always update status when prefetch completes or fails
+            this.updateOnlineStatus();
         }
     }
 

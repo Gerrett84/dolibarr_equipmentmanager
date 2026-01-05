@@ -74,10 +74,16 @@ $current_month = (int)date('n');
 $current_year = (int)date('Y');
 $next_month = $current_month + 1;
 $next_year = $current_year;
+$prev_year = $current_year;
 
 if ($next_month > 12) {
     $next_month = 1;
     $next_year++;
+}
+
+// Vorjahr für Dezember-Überfällige (im Januar)
+if ($current_month == 1) {
+    $prev_year = $current_year - 1;
 }
 
 // SQL: Equipment mit fälligen Wartungen
@@ -109,29 +115,49 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
 $sql .= " AND t.maintenance_month IS NOT NULL";
+// Zeige: aktueller Monat, nächster Monat, UND alle überfälligen (Monat < aktueller Monat)
 $sql .= " AND (t.maintenance_month = ".$current_month;
-$sql .= " OR t.maintenance_month = ".$next_month.")";
+$sql .= " OR t.maintenance_month = ".$next_month;
+$sql .= " OR t.maintenance_month < ".$current_month;
+// Im Januar auch Dezember des Vorjahres (maintenance_month = 12)
+if ($current_month == 1) {
+    $sql .= " OR t.maintenance_month = 12";
+}
+$sql .= ")";
 // Blende bereits erledigte aus
+// Für Dezember-Wartungen im Januar: prüfe Vorjahr ODER aktuelles Jahr
 $sql .= " AND NOT EXISTS (";
 $sql .= "   SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il2";
 $sql .= "   INNER JOIN ".MAIN_DB_PREFIX."fichinter f2 ON il2.fk_intervention = f2.rowid";
 $sql .= "   WHERE il2.fk_equipment = t.rowid";
 $sql .= "   AND il2.link_type = 'maintenance'";
 $sql .= "   AND f2.fk_statut = 3";
-$sql .= "   AND YEAR(f2.date_valid) = ".$current_year;
 $sql .= "   AND (";
-$sql .= "     MONTH(f2.date_valid) = t.maintenance_month";
-$sql .= "     OR MONTH(f2.date_valid) = t.maintenance_month - 1";
-$sql .= "     OR (t.maintenance_month = 1 AND MONTH(f2.date_valid) = 12)";
+// Normale Wartungen: im aktuellen Jahr erledigt
+$sql .= "     (YEAR(f2.date_valid) = ".$current_year." AND (";
+$sql .= "       MONTH(f2.date_valid) = t.maintenance_month";
+$sql .= "       OR MONTH(f2.date_valid) = t.maintenance_month - 1";
+$sql .= "       OR (t.maintenance_month = 1 AND MONTH(f2.date_valid) = 12)";
+$sql .= "     ))";
+// Dezember-Wartungen: auch Vorjahr prüfen
+if ($current_month <= 2) {
+    $sql .= "     OR (t.maintenance_month = 12 AND YEAR(f2.date_valid) = ".($current_year - 1)." AND MONTH(f2.date_valid) = 12)";
+}
 $sql .= "   )";
 $sql .= " )";
 $sql .= " AND NOT (";
 $sql .= "   t.last_maintenance_date IS NOT NULL";
-$sql .= "   AND YEAR(t.last_maintenance_date) = ".$current_year;
 $sql .= "   AND (";
-$sql .= "     MONTH(t.last_maintenance_date) = t.maintenance_month";
-$sql .= "     OR MONTH(t.last_maintenance_date) = t.maintenance_month - 1";
-$sql .= "     OR (t.maintenance_month = 1 AND MONTH(t.last_maintenance_date) = 12)";
+// Normale Wartungen: im aktuellen Jahr erledigt
+$sql .= "     (YEAR(t.last_maintenance_date) = ".$current_year." AND (";
+$sql .= "       MONTH(t.last_maintenance_date) = t.maintenance_month";
+$sql .= "       OR MONTH(t.last_maintenance_date) = t.maintenance_month - 1";
+$sql .= "       OR (t.maintenance_month = 1 AND MONTH(t.last_maintenance_date) = 12)";
+$sql .= "     ))";
+// Dezember-Wartungen: auch Vorjahr prüfen
+if ($current_month <= 2) {
+    $sql .= "     OR (t.maintenance_month = 12 AND YEAR(t.last_maintenance_date) = ".($current_year - 1)." AND MONTH(t.last_maintenance_date) = 12)";
+}
 $sql .= "   )";
 $sql .= " )";
 $sql .= " ORDER BY t.maintenance_month, sp.town, sp.lastname, t.equipment_number";
