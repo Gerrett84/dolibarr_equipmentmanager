@@ -374,3 +374,5 @@ PleaseSelectAtLeastOne=Bitte mindestens eine Anlage auswählen
 ConfirmBulkUpdateMaintenanceMonth=Möchten Sie den Wartungsmonat für die ausgewählten Anlagen ändern?
 SelectAddress=Objektadresse auswählen
 Reset=Zurücksetzen
+ConfirmBulkLink=Möchten Sie die ausgewählten Anlagen verknüpfen?
+Processed=Bearbeitet

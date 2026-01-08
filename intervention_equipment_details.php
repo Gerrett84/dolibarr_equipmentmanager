@@ -296,26 +296,45 @@ if ($object->id > 0) {
     // DROPDOWN NAVIGATION
     // ========================================================================
 
+    // Get equipment with entries (processed)
+    $sql_processed = "SELECT DISTINCT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail";
+    $sql_processed .= " WHERE fk_intervention = ".(int)$object->id;
+    $resql_processed = $db->query($sql_processed);
+    $processed_equipment = array();
+    if ($resql_processed) {
+        while ($obj_proc = $db->fetch_object($resql_processed)) {
+            $processed_equipment[] = $obj_proc->fk_equipment;
+        }
+    }
+
     print '<div class="fichecenter" style="margin-bottom: 20px;">';
     print '<table class="border centpercent">';
     print '<tr>';
     print '<td class="titlefield">'.$langs->trans('SelectEquipment').'</td>';
     print '<td>';
 
-    print '<select name="equipment_selector" class="flat minwidth300" onchange="window.location.href=\''.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id=\'+this.value">';
+    print '<select name="equipment_selector" class="flat minwidth400" onchange="window.location.href=\''.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id=\'+this.value">';
     foreach ($linked_equipment as $eq_id) {
         $eq_temp = new Equipment($db);
         $eq_temp->fetch($eq_id);
 
         $selected = ($eq_id == $equipment_id) ? ' selected' : '';
+        $is_processed = in_array($eq_id, $processed_equipment);
+
         print '<option value="'.$eq_id.'"'.$selected.'>';
+        if ($is_processed) {
+            print '✓ ';
+        } else {
+            print '○ ';
+        }
         print $eq_temp->equipment_number.' - '.$eq_temp->label;
         print '</option>';
     }
     print '</select>';
 
-    print ' <span class="opacitymedium">';
-    print '('.count($linked_equipment).' '.$langs->trans('Equipment').')';
+    // Legend
+    print ' <span class="opacitymedium" style="margin-left: 15px;">';
+    print '✓ = '.$langs->trans('Processed').' | ○ = '.$langs->trans('Pending');
     print '</span>';
 
     print '</td>';
