@@ -231,3 +231,13 @@ NoEntries=No entries yet
 EntryDeleted=Entry deleted
 Entries=Entries
 RecommendationsAndNotes=Recommendations & Notes
+
+# Bulk Edit v2.3
+SelectAll=Select All
+SelectNone=Select None
+Selected=selected
+ApplyToSelected=Apply to Selected
+NoMaintenance=No Maintenance
+MaintenanceMonthUpdated=Maintenance month updated for %s equipment
+PleaseSelectAtLeastOne=Please select at least one equipment
+ConfirmBulkUpdateMaintenanceMonth=Do you want to change the maintenance month for the selected equipment?

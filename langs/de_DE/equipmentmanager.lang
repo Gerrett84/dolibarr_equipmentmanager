@@ -362,3 +362,13 @@ NoEntries=Keine Einträge vorhanden
 EntryDeleted=Eintrag gelöscht
 Entries=Einträge
 RecommendationsAndNotes=Empfehlungen & Notizen
+
+# Bulk Edit v2.3
+SelectAll=Alle auswählen
+SelectNone=Keine auswählen
+Selected=ausgewählt
+ApplyToSelected=Auf Auswahl anwenden
+NoMaintenance=Keine Wartung
+MaintenanceMonthUpdated=Wartungsmonat für %s Anlagen aktualisiert
+PleaseSelectAtLeastOne=Bitte mindestens eine Anlage auswählen
+ConfirmBulkUpdateMaintenanceMonth=Möchten Sie den Wartungsmonat für die ausgewählten Anlagen ändern?

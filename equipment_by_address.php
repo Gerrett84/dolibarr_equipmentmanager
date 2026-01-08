@@ -1,6 +1,6 @@
 <?php
-/* Copyright (C) 2024 Equipment Manager
- * Equipment Overview by Object Address
+/* Copyright (C) 2024-2025 Equipment Manager
+ * Equipment Overview by Object Address with Bulk Edit
  */
 
 // Load Dolibarr environment
@@ -32,9 +32,44 @@ if (!$user->rights->equipmentmanager->equipment->read) {
 
 $action = GETPOST('action', 'aZ09');
 $search_company = GETPOST('search_company', 'alpha');
+$massaction = GETPOST('massaction', 'alpha');
+$toselect = GETPOST('toselect', 'array');
+$new_maintenance_month = GETPOST('new_maintenance_month', 'int');
 
 $form = new Form($db);
 $formcompany = new FormCompany($db);
+
+// Handle bulk actions
+if ($massaction == 'update_maintenance_month' && !empty($toselect) && $new_maintenance_month >= 0) {
+    if (!$user->rights->equipmentmanager->equipment->write) {
+        accessforbidden();
+    }
+
+    $error = 0;
+    $db->begin();
+
+    foreach ($toselect as $equipment_id) {
+        $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_equipment SET";
+        $sql .= " maintenance_month = ".($new_maintenance_month > 0 ? (int)$new_maintenance_month : 'NULL').",";
+        $sql .= " fk_user_modif = ".$user->id;
+        $sql .= " WHERE rowid = ".(int)$equipment_id;
+        $sql .= " AND entity IN (".getEntity('equipmentmanager').")";
+
+        $resql = $db->query($sql);
+        if (!$resql) {
+            $error++;
+            break;
+        }
+    }
+
+    if (!$error) {
+        $db->commit();
+        setEventMessages($langs->trans('MaintenanceMonthUpdated', count($toselect)), null, 'mesgs');
+    } else {
+        $db->rollback();
+        setEventMessages($langs->trans('Error'), null, 'errors');
+    }
+}
 
 $title = $langs->trans("EquipmentByAddress");
 $help_url = '';
@@ -44,7 +79,7 @@ llxHeader('', $title, $help_url);
 print load_fiche_titre($title, '', 'object_generic');
 
 // Search form
-print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="searchform">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 
 print '<div class="fichecenter">';
@@ -64,6 +99,22 @@ print '</form>';
 
 print '<br>';
 
+// Month labels
+$month_labels = array(
+    1 => $langs->trans('January'),
+    2 => $langs->trans('February'),
+    3 => $langs->trans('March'),
+    4 => $langs->trans('April'),
+    5 => $langs->trans('May'),
+    6 => $langs->trans('June'),
+    7 => $langs->trans('July'),
+    8 => $langs->trans('August'),
+    9 => $langs->trans('September'),
+    10 => $langs->trans('October'),
+    11 => $langs->trans('November'),
+    12 => $langs->trans('December')
+);
+
 // Get data grouped by address
 if ($search_company > 0) {
     $sql = "SELECT";
@@ -73,6 +124,7 @@ if ($search_company > 0) {
     $sql .= " t.label,";
     $sql .= " t.manufacturer,";
     $sql .= " t.status,";
+    $sql .= " t.maintenance_month,";
     $sql .= " t.fk_address,";
     $sql .= " s.nom as company_name,";
     $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
@@ -85,17 +137,17 @@ if ($search_company > 0) {
     $sql .= " WHERE t.fk_soc = ".(int)$search_company;
     $sql .= " AND t.entity IN (".getEntity('equipmentmanager').")";
     $sql .= " ORDER BY sp.town, sp.lastname, sp.firstname, t.equipment_number";
-    
+
     $resql = $db->query($sql);
-    
+
     if ($resql) {
         $num = $db->num_rows($resql);
-        
+
         if ($num > 0) {
             // Group equipment by address
             $grouped = array();
             $no_address = array();
-            
+
             while ($obj = $db->fetch_object($resql)) {
                 if ($obj->fk_address > 0) {
                     $address_key = $obj->fk_address;
@@ -113,7 +165,7 @@ if ($search_company > 0) {
                     $no_address[] = $obj;
                 }
             }
-            
+
             // Type labels
             $type_labels = array(
                 'door_swing' => $langs->trans('DoorSwing'),
@@ -125,15 +177,57 @@ if ($search_company > 0) {
                 'rwa' => $langs->trans('RWA'),
                 'other' => $langs->trans('Other')
             );
-            
+
+            // Start bulk action form
+            print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="bulkform">';
+            print '<input type="hidden" name="token" value="'.newToken().'">';
+            print '<input type="hidden" name="search_company" value="'.$search_company.'">';
+            print '<input type="hidden" name="massaction" value="">';
+
+            // Bulk action bar
+            if ($user->rights->equipmentmanager->equipment->write) {
+                print '<div class="div-table-responsive-no-min" style="margin-bottom: 15px;">';
+                print '<div style="background: #f5f5f5; padding: 10px; border-radius: 4px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
+
+                // Select all / none buttons
+                print '<span>';
+                print '<a href="#" onclick="selectAll(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectAll').'</a> ';
+                print '<a href="#" onclick="selectNone(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectNone').'</a>';
+                print '</span>';
+
+                print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
+
+                // Maintenance month dropdown
+                print '<span style="display: flex; align-items: center; gap: 8px;">';
+                print '<label for="new_maintenance_month"><strong>'.$langs->trans('MaintenanceMonth').':</strong></label>';
+                print '<select name="new_maintenance_month" id="new_maintenance_month" class="flat minwidth150">';
+                print '<option value="0">-- '.$langs->trans('NoMaintenance').' --</option>';
+                for ($m = 1; $m <= 12; $m++) {
+                    print '<option value="'.$m.'">'.$month_labels[$m].'</option>';
+                }
+                print '</select>';
+                print '</span>';
+
+                // Apply button
+                print '<button type="button" onclick="applyBulkAction();" class="button">';
+                print '<span class="fa fa-check paddingright"></span>'.$langs->trans('ApplyToSelected');
+                print '</button>';
+
+                // Selected count
+                print '<span id="selected_count" class="opacitymedium" style="margin-left: auto;"></span>';
+
+                print '</div>';
+                print '</div>';
+            }
+
             // Display grouped equipment
             foreach ($grouped as $address_key => $address_data) {
                 print '<div class="div-table-responsive-no-min" style="margin-bottom: 30px;">';
                 print '<table class="noborder centpercent">';
-                
+
                 // Address header
                 print '<tr class="liste_titre" style="background-color: #e3f2fd;">';
-                print '<th colspan="5">';
+                print '<th colspan="7">';
                 print '<span class="fa fa-map-marker paddingright" style="color: #1976d2;"></span>';
                 print '<strong>'.dol_escape_htmltag($address_data['label']).'</strong>';
                 if ($address_data['street'] || $address_data['town']) {
@@ -144,22 +238,38 @@ if ($search_company > 0) {
                     print '</span>';
                 }
                 print ' <span class="badge" style="background: #1976d2; color: white; margin-left: 10px;">'.count($address_data['equipment']).' '.$langs->trans('Equipment').'</span>';
+
+                // Select all for this address
+                if ($user->rights->equipmentmanager->equipment->write) {
+                    print ' <a href="#" onclick="selectAddress('.$address_key.'); return false;" class="badge" style="background: #666; color: white; margin-left: 5px; cursor: pointer;">'.$langs->trans('SelectAll').'</a>';
+                }
                 print '</th>';
                 print '</tr>';
-                
+
                 // Equipment list headers
                 print '<tr class="liste_titre">';
+                if ($user->rights->equipmentmanager->equipment->write) {
+                    print '<th class="center" style="width: 30px;"><input type="checkbox" class="address-checkbox" data-address="'.$address_key.'" onclick="toggleAddress('.$address_key.', this.checked);"></th>';
+                }
                 print '<th>'.$langs->trans('EquipmentNumber').'</th>';
                 print '<th>'.$langs->trans('Type').'</th>';
                 print '<th>'.$langs->trans('Label').'</th>';
                 print '<th>'.$langs->trans('Manufacturer').'</th>';
+                print '<th class="center">'.$langs->trans('MaintenanceMonth').'</th>';
                 print '<th class="center">'.$langs->trans('MaintenanceContract').'</th>';
                 print '</tr>';
-                
+
                 // Equipment items
                 foreach ($address_data['equipment'] as $equip) {
                     print '<tr class="oddeven">';
-                    
+
+                    // Checkbox
+                    if ($user->rights->equipmentmanager->equipment->write) {
+                        print '<td class="center">';
+                        print '<input type="checkbox" name="toselect[]" value="'.$equip->rowid.'" class="equipment-checkbox address-'.$address_key.'" onchange="updateSelectedCount();">';
+                        print '</td>';
+                    }
+
                     // Equipment Number
                     print '<td>';
                     print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equip->rowid.'">';
@@ -167,7 +277,7 @@ if ($search_company > 0) {
                     print '<strong>'.$equip->equipment_number.'</strong>';
                     print '</a>';
                     print '</td>';
-                    
+
                     // Type
                     print '<td>';
                     if (isset($type_labels[$equip->equipment_type])) {
@@ -176,13 +286,22 @@ if ($search_company > 0) {
                         print dol_escape_htmltag($equip->equipment_type);
                     }
                     print '</td>';
-                    
+
                     // Label
                     print '<td>'.dol_escape_htmltag($equip->label).'</td>';
-                    
+
                     // Manufacturer
                     print '<td>'.dol_escape_htmltag($equip->manufacturer).'</td>';
-                    
+
+                    // Maintenance Month
+                    print '<td class="center">';
+                    if ($equip->maintenance_month > 0 && isset($month_labels[$equip->maintenance_month])) {
+                        print '<span class="badge badge-status1">'.$month_labels[$equip->maintenance_month].'</span>';
+                    } else {
+                        print '<span class="opacitymedium">-</span>';
+                    }
+                    print '</td>';
+
                     // Status
                     print '<td class="center">';
                     if ($equip->status == 1) {
@@ -191,45 +310,59 @@ if ($search_company > 0) {
                         print '<span class="badge badge-status8 badge-status">'.$langs->trans('NoContract').'</span>';
                     }
                     print '</td>';
-                    
+
                     print '</tr>';
                 }
-                
+
                 print '</table>';
                 print '</div>';
             }
-            
+
             // Equipment without address
             if (count($no_address) > 0) {
                 print '<div class="div-table-responsive-no-min" style="margin-bottom: 30px;">';
                 print '<table class="noborder centpercent">';
-                
+
                 print '<tr class="liste_titre" style="background-color: #fff3e0;">';
-                print '<th colspan="5">';
+                print '<th colspan="7">';
                 print '<span class="fa fa-exclamation-triangle paddingright" style="color: #f57c00;"></span>';
                 print '<strong>'.$langs->trans('EquipmentWithoutAddress').'</strong>';
                 print ' <span class="badge" style="background: #f57c00; color: white; margin-left: 10px;">'.count($no_address).' '.$langs->trans('Equipment').'</span>';
+                if ($user->rights->equipmentmanager->equipment->write) {
+                    print ' <a href="#" onclick="selectAddress(0); return false;" class="badge" style="background: #666; color: white; margin-left: 5px; cursor: pointer;">'.$langs->trans('SelectAll').'</a>';
+                }
                 print '</th>';
                 print '</tr>';
-                
+
                 print '<tr class="liste_titre">';
+                if ($user->rights->equipmentmanager->equipment->write) {
+                    print '<th class="center" style="width: 30px;"><input type="checkbox" class="address-checkbox" data-address="0" onclick="toggleAddress(0, this.checked);"></th>';
+                }
                 print '<th>'.$langs->trans('EquipmentNumber').'</th>';
                 print '<th>'.$langs->trans('Type').'</th>';
                 print '<th>'.$langs->trans('Label').'</th>';
                 print '<th>'.$langs->trans('Manufacturer').'</th>';
+                print '<th class="center">'.$langs->trans('MaintenanceMonth').'</th>';
                 print '<th class="center">'.$langs->trans('MaintenanceContract').'</th>';
                 print '</tr>';
-                
+
                 foreach ($no_address as $equip) {
                     print '<tr class="oddeven">';
-                    
+
+                    // Checkbox
+                    if ($user->rights->equipmentmanager->equipment->write) {
+                        print '<td class="center">';
+                        print '<input type="checkbox" name="toselect[]" value="'.$equip->rowid.'" class="equipment-checkbox address-0" onchange="updateSelectedCount();">';
+                        print '</td>';
+                    }
+
                     print '<td>';
                     print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equip->rowid.'">';
                     print img_object('', 'generic', 'class="pictofixedwidth"');
                     print '<strong>'.$equip->equipment_number.'</strong>';
                     print '</a>';
                     print '</td>';
-                    
+
                     print '<td>';
                     if (isset($type_labels[$equip->equipment_type])) {
                         print $type_labels[$equip->equipment_type];
@@ -237,10 +370,19 @@ if ($search_company > 0) {
                         print dol_escape_htmltag($equip->equipment_type);
                     }
                     print '</td>';
-                    
+
                     print '<td>'.dol_escape_htmltag($equip->label).'</td>';
                     print '<td>'.dol_escape_htmltag($equip->manufacturer).'</td>';
-                    
+
+                    // Maintenance Month
+                    print '<td class="center">';
+                    if ($equip->maintenance_month > 0 && isset($month_labels[$equip->maintenance_month])) {
+                        print '<span class="badge badge-status1">'.$month_labels[$equip->maintenance_month].'</span>';
+                    } else {
+                        print '<span class="opacitymedium">-</span>';
+                    }
+                    print '</td>';
+
                     print '<td class="center">';
                     if ($equip->status == 1) {
                         print '<span class="badge badge-status4 badge-status">'.$langs->trans('ActiveContract').'</span>';
@@ -248,14 +390,16 @@ if ($search_company > 0) {
                         print '<span class="badge badge-status8 badge-status">'.$langs->trans('NoContract').'</span>';
                     }
                     print '</td>';
-                    
+
                     print '</tr>';
                 }
-                
+
                 print '</table>';
                 print '</div>';
             }
-            
+
+            print '</form>';
+
             // Summary
             print '<div class="info" style="margin-top: 20px;">';
             print '<span class="fa fa-info-circle"></span> ';
@@ -265,11 +409,77 @@ if ($search_company > 0) {
                 print ' | <strong>'.$langs->trans('WithoutAddress').':</strong> '.count($no_address);
             }
             print '</div>';
-            
+
+            // JavaScript for bulk selection
+            print '<script>
+            function selectAll() {
+                document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
+                    cb.checked = true;
+                });
+                document.querySelectorAll(".address-checkbox").forEach(function(cb) {
+                    cb.checked = true;
+                });
+                updateSelectedCount();
+            }
+
+            function selectNone() {
+                document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
+                    cb.checked = false;
+                });
+                document.querySelectorAll(".address-checkbox").forEach(function(cb) {
+                    cb.checked = false;
+                });
+                updateSelectedCount();
+            }
+
+            function selectAddress(addressId) {
+                document.querySelectorAll(".address-" + addressId).forEach(function(cb) {
+                    cb.checked = true;
+                });
+                updateSelectedCount();
+            }
+
+            function toggleAddress(addressId, checked) {
+                document.querySelectorAll(".address-" + addressId).forEach(function(cb) {
+                    cb.checked = checked;
+                });
+                updateSelectedCount();
+            }
+
+            function updateSelectedCount() {
+                var count = document.querySelectorAll(".equipment-checkbox:checked").length;
+                var countEl = document.getElementById("selected_count");
+                if (countEl) {
+                    countEl.innerHTML = count + " '.$langs->trans('Selected').'";
+                }
+            }
+
+            function applyBulkAction() {
+                var selected = document.querySelectorAll(".equipment-checkbox:checked");
+                if (selected.length == 0) {
+                    alert("'.$langs->trans('PleaseSelectAtLeastOne').'");
+                    return;
+                }
+
+                var month = document.getElementById("new_maintenance_month").value;
+                var monthText = document.getElementById("new_maintenance_month").options[document.getElementById("new_maintenance_month").selectedIndex].text;
+
+                if (!confirm("'.$langs->trans('ConfirmBulkUpdateMaintenanceMonth').'\n\n" + selected.length + " '.$langs->trans('Equipment').' → " + monthText)) {
+                    return;
+                }
+
+                document.querySelector("input[name=massaction]").value = "update_maintenance_month";
+                document.forms["bulkform"].submit();
+            }
+
+            // Initial count
+            updateSelectedCount();
+            </script>';
+
         } else {
             print info_admin($langs->trans('NoEquipmentForThisThirdParty'));
         }
-        
+
         $db->free($resql);
     } else {
         dol_print_error($db);
