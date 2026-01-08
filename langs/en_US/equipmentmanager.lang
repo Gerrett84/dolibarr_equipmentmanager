@@ -246,4 +246,6 @@ Reset=Reset
 ConfirmBulkLink=Do you want to link the selected equipment?
 Processed=Processed
 EquipmentForAddress=Equipment for Address
-NoAddressLinkedShowingAll=No address linked - showing all
+PleaseAddAddressFirst=Please link an address first
+GoToContactTabToAddAddress=Go to "Contacts/Addresses" tab to add an object address
+NoEquipmentForThisAddress=No equipment found for this address

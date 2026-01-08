@@ -377,4 +377,6 @@ Reset=Zurücksetzen
 ConfirmBulkLink=Möchten Sie die ausgewählten Anlagen verknüpfen?
 Processed=Bearbeitet
 EquipmentForAddress=Anlagen für Objektadresse
-NoAddressLinkedShowingAll=Keine Adresse verknüpft - zeige alle
+PleaseAddAddressFirst=Bitte zuerst eine Adresse verknüpfen
+GoToContactTabToAddAddress=Wechseln Sie zum Tab "Kunden/Adressen" um eine Objektadresse hinzuzufügen
+NoEquipmentForThisAddress=Keine Anlagen für diese Adresse gefunden

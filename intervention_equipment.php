@@ -381,7 +381,8 @@ if ($object->id > 0) {
             }
         }
 
-        // Fetch equipment - filtered by address if set
+        // Fetch equipment - only if address is set
+        $equipments = array();
         if ($intervention_address_id > 0) {
             // Only fetch equipment for this specific address
             $sql_eq = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
@@ -390,7 +391,6 @@ if ($object->id > 0) {
             $sql_eq .= " AND entity IN (".getEntity('equipmentmanager').")";
             $sql_eq .= " ORDER BY equipment_number ASC";
 
-            $equipments = array();
             $resql_eq = $db->query($sql_eq);
             if ($resql_eq) {
                 while ($obj_eq = $db->fetch_object($resql_eq)) {
@@ -400,10 +400,8 @@ if ($object->id > 0) {
                     }
                 }
             }
-        } else {
-            // No address linked - show all equipment for customer
-            $equipments = Equipment::fetchAllBySoc($db, $object->socid);
         }
+        // No address linked = no equipment shown
 
         // Filter out already linked equipment
         $available_equipment = array();
@@ -428,11 +426,10 @@ if ($object->id > 0) {
         if ($intervention_address_id > 0) {
             print $langs->trans('EquipmentForAddress');
             print ': <strong>'.dol_escape_htmltag($intervention_address_name).'</strong>';
+            print ' <span class="badge">'.count($available_equipment).'</span>';
         } else {
             print $langs->trans('AvailableEquipmentsForCustomer');
-            print ' <span class="opacitymedium">('.$langs->trans('NoAddressLinkedShowingAll').')</span>';
         }
-        print ' <span class="badge">'.count($available_equipment).'</span>';
         print '</th>';
         print '</tr>';
 
@@ -541,8 +538,14 @@ if ($object->id > 0) {
             }
         } else {
             $colspan = $permissiontoadd ? 7 : 6;
-            print '<tr><td colspan="'.$colspan.'" class="opacitymedium center">';
-            print $langs->trans('NoEquipmentForThisThirdParty');
+            print '<tr><td colspan="'.$colspan.'" class="opacitymedium center" style="padding: 20px;">';
+            if ($intervention_address_id == 0) {
+                print '<span class="fa fa-exclamation-triangle" style="color: #f57c00;"></span> ';
+                print '<strong>'.$langs->trans('PleaseAddAddressFirst').'</strong><br>';
+                print '<span class="opacitymedium">'.$langs->trans('GoToContactTabToAddAddress').'</span>';
+            } else {
+                print $langs->trans('NoEquipmentForThisAddress');
+            }
             print '</td></tr>';
         }
 
