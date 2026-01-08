@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 2.2.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
+**Version 2.3.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -12,11 +12,16 @@
 
 ## 🎯 Features
 
-### NEU in v2.2: Wartungs-Dashboard Verbesserungen
+### NEU in v2.3: Mehrfachauswahl & Workflow-Verbesserungen
+- **Mehrfachauswahl Wartungsmonat** - In "Anlagen nach Objektadresse" mehrere Anlagen gleichzeitig bearbeiten
+- **Suche nach Objektadresse** - Direkte Suche nach Standort, nicht nur nach Auftraggeber
+- **Bulk-Verknüpfung** - Mehrere Anlagen auf einmal als Wartung/Service verknüpfen
+- **Bearbeitungsstatus** - Im Servicebericht-Dropdown: ✓ bearbeitet, ○ ausstehend
+
+### v2.2: Wartungs-Dashboard Verbesserungen
 - **Überfällige Wartungen** - Werden bis zur Erledigung angezeigt (nicht mehr ausgeblendet)
 - **Visuelle Unterscheidung** - Überfällig (dunkelrot), Aktuell (rot), Nächster Monat (orange)
 - **Dark Mode** - Wartungs-Dashboard vollständig für Dark Mode optimiert
-- **PWA Sync-Fix** - Status bleibt nicht mehr auf "Lade..." hängen
 
 ### Dark Mode & Auto-Login (v2.1)
 - **Dark Mode** - Hell/Dunkel/Auto-Modus mit System-Präferenz
@@ -113,6 +118,14 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v2.3.0 (2025-01-08)
+
+- ✨ **Mehrfachauswahl Wartungsmonat** - In "Anlagen nach Objektadresse" mehrere Anlagen gleichzeitig ändern
+- ✨ **Suche nach Objektadresse** - Direktsuche nach Standort zusätzlich zur Auftraggeber-Suche
+- ✨ **Bulk-Verknüpfung Serviceaufträge** - Mehrere Anlagen auf einmal als Wartung/Service verknüpfen
+- ✨ **Bearbeitungsstatus im Dropdown** - Servicebericht zeigt ✓ für bearbeitete, ○ für ausstehende Anlagen
+- 🎨 **Verbesserte UI** - Select All/None Buttons, Zähler für Auswahl
 
 ### v2.2.0 (2025-01-06)
 
@@ -316,6 +329,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 2.2.0
+**Current Version:** 2.3.0
 **Released:** January 2025
 **Compatibility:** Dolibarr 22.0+
