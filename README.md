@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager 🔧
 
-**Version 2.3.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
+**Version 2.4.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -12,7 +12,12 @@
 
 ## 🎯 Features
 
-### NEU in v2.3: Mehrfachauswahl & Workflow-Verbesserungen
+### NEU in v2.4: Adressbasierte Anlagenfilterung
+- **Objektadress-Filter** - Serviceaufträge zeigen nur Anlagen der verknüpften Adresse
+- **Pflichtfeld Adresse** - Ohne verknüpfte Adresse werden keine Anlagen angezeigt
+- **Klare Hinweise** - Benutzer wird auf Tab "Kunden/Adressen" verwiesen
+
+### v2.3: Mehrfachauswahl & Workflow-Verbesserungen
 - **Mehrfachauswahl Wartungsmonat** - In "Anlagen nach Objektadresse" mehrere Anlagen gleichzeitig bearbeiten
 - **Suche nach Objektadresse** - Direkte Suche nach Standort, nicht nur nach Auftraggeber
 - **Bulk-Verknüpfung** - Mehrere Anlagen auf einmal als Wartung/Service verknüpfen
@@ -118,6 +123,12 @@ chmod -R 755 equipmentmanager
 -----
 
 ## 📝 Changelog
+
+### v2.4.0 (2025-01-08)
+
+- ✨ **Adressbasierte Anlagenfilterung** - Serviceaufträge zeigen nur Anlagen der verknüpften Objektadresse
+- ✨ **Pflichtfeld Adresse** - Ohne verknüpfte Adresse werden keine Anlagen angezeigt
+- 🎨 **Benutzerführung** - Klarer Hinweis auf Tab "Kunden/Adressen" wenn keine Adresse verknüpft
 
 ### v2.3.0 (2025-01-08)
 
@@ -329,6 +340,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 2.3.0
+**Current Version:** 2.4.0
 **Released:** January 2025
 **Compatibility:** Dolibarr 22.0+
