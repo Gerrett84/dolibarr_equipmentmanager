@@ -365,7 +365,45 @@ if ($object->id > 0) {
     
     // Section 3: AVAILABLE EQUIPMENT
     if ($object->socid > 0) {
-        $equipments = Equipment::fetchAllBySoc($db, $object->socid);
+        // Get external contacts linked to this intervention (address)
+        $intervention_contacts = $object->liste_contact(-1, 'external');
+        $intervention_address_id = 0;
+        $intervention_address_name = '';
+
+        if (!empty($intervention_contacts)) {
+            foreach ($intervention_contacts as $contact) {
+                // Use first external contact as the address filter
+                if ($contact['source'] == 'external' && $contact['id'] > 0) {
+                    $intervention_address_id = $contact['id'];
+                    $intervention_address_name = $contact['lastname'].' '.$contact['firstname'];
+                    break;
+                }
+            }
+        }
+
+        // Fetch equipment - filtered by address if set
+        if ($intervention_address_id > 0) {
+            // Only fetch equipment for this specific address
+            $sql_eq = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
+            $sql_eq .= " WHERE fk_soc = ".(int)$object->socid;
+            $sql_eq .= " AND fk_address = ".(int)$intervention_address_id;
+            $sql_eq .= " AND entity IN (".getEntity('equipmentmanager').")";
+            $sql_eq .= " ORDER BY equipment_number ASC";
+
+            $equipments = array();
+            $resql_eq = $db->query($sql_eq);
+            if ($resql_eq) {
+                while ($obj_eq = $db->fetch_object($resql_eq)) {
+                    $eq = new Equipment($db);
+                    if ($eq->fetch($obj_eq->rowid) > 0) {
+                        $equipments[] = $eq;
+                    }
+                }
+            }
+        } else {
+            // No address linked - show all equipment for customer
+            $equipments = Equipment::fetchAllBySoc($db, $object->socid);
+        }
 
         // Filter out already linked equipment
         $available_equipment = array();
@@ -387,7 +425,13 @@ if ($object->id > 0) {
         print '<tr class="liste_titre">';
         print '<th colspan="7">';
         print '<span class="fa fa-list paddingright"></span>';
-        print $langs->trans('AvailableEquipmentsForCustomer');
+        if ($intervention_address_id > 0) {
+            print $langs->trans('EquipmentForAddress');
+            print ': <strong>'.dol_escape_htmltag($intervention_address_name).'</strong>';
+        } else {
+            print $langs->trans('AvailableEquipmentsForCustomer');
+            print ' <span class="opacitymedium">('.$langs->trans('NoAddressLinkedShowingAll').')</span>';
+        }
         print ' <span class="badge">'.count($available_equipment).'</span>';
         print '</th>';
         print '</tr>';

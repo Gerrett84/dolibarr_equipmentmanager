@@ -245,3 +245,5 @@ SelectAddress=Select Object Address
 Reset=Reset
 ConfirmBulkLink=Do you want to link the selected equipment?
 Processed=Processed
+EquipmentForAddress=Equipment for Address
+NoAddressLinkedShowingAll=No address linked - showing all

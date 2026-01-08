@@ -376,3 +376,5 @@ SelectAddress=Objektadresse auswählen
 Reset=Zurücksetzen
 ConfirmBulkLink=Möchten Sie die ausgewählten Anlagen verknüpfen?
 Processed=Bearbeitet
+EquipmentForAddress=Anlagen für Objektadresse
+NoAddressLinkedShowingAll=Keine Adresse verknüpft - zeige alle
