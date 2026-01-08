@@ -450,21 +450,21 @@ if ($search_company > 0) {
                 var count = document.querySelectorAll(".equipment-checkbox:checked").length;
                 var countEl = document.getElementById("selected_count");
                 if (countEl) {
-                    countEl.innerHTML = count + " '.$langs->trans('Selected').'";
+                    countEl.innerHTML = count + " '.html_entity_decode($langs->trans('Selected')).'";
                 }
             }
 
             function applyBulkAction() {
                 var selected = document.querySelectorAll(".equipment-checkbox:checked");
                 if (selected.length == 0) {
-                    alert("'.$langs->trans('PleaseSelectAtLeastOne').'");
+                    alert("'.html_entity_decode($langs->trans('PleaseSelectAtLeastOne')).'");
                     return;
                 }
 
                 var month = document.getElementById("new_maintenance_month").value;
                 var monthText = document.getElementById("new_maintenance_month").options[document.getElementById("new_maintenance_month").selectedIndex].text;
 
-                if (!confirm("'.$langs->trans('ConfirmBulkUpdateMaintenanceMonth').'\n\n" + selected.length + " '.$langs->trans('Equipment').' → " + monthText)) {
+                if (!confirm("'.html_entity_decode($langs->trans('ConfirmBulkUpdateMaintenanceMonth')).'\n\n" + selected.length + " '.html_entity_decode($langs->trans('Equipment')).' → " + monthText)) {
                     return;
                 }
 
