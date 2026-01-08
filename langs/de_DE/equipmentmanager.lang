@@ -372,3 +372,5 @@ NoMaintenance=Keine Wartung
 MaintenanceMonthUpdated=Wartungsmonat für %s Anlagen aktualisiert
 PleaseSelectAtLeastOne=Bitte mindestens eine Anlage auswählen
 ConfirmBulkUpdateMaintenanceMonth=Möchten Sie den Wartungsmonat für die ausgewählten Anlagen ändern?
+SelectAddress=Objektadresse auswählen
+Reset=Zurücksetzen

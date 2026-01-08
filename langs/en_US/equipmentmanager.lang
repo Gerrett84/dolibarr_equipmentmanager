@@ -241,3 +241,5 @@ NoMaintenance=No Maintenance
 MaintenanceMonthUpdated=Maintenance month updated for %s equipment
 PleaseSelectAtLeastOne=Please select at least one equipment
 ConfirmBulkUpdateMaintenanceMonth=Do you want to change the maintenance month for the selected equipment?
+SelectAddress=Select Object Address
+Reset=Reset

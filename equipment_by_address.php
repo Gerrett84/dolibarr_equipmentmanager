@@ -32,12 +32,31 @@ if (!$user->rights->equipmentmanager->equipment->read) {
 
 $action = GETPOST('action', 'aZ09');
 $search_company = GETPOST('search_company', 'alpha');
+$search_address = GETPOST('search_address', 'alpha');
 $massaction = GETPOST('massaction', 'alpha');
 $toselect = GETPOST('toselect', 'array');
 $new_maintenance_month = GETPOST('new_maintenance_month', 'int');
 
 $form = new Form($db);
 $formcompany = new FormCompany($db);
+
+// Get all addresses that have equipment for dropdown
+$address_options = array();
+$sql_addr = "SELECT DISTINCT sp.rowid, CONCAT(sp.lastname, ' ', sp.firstname) as label, sp.address, sp.zip, sp.town, s.nom as company_name";
+$sql_addr .= " FROM ".MAIN_DB_PREFIX."socpeople as sp";
+$sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as e ON e.fk_address = sp.rowid";
+$sql_addr .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON sp.fk_soc = s.rowid";
+$sql_addr .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+$sql_addr .= " ORDER BY sp.town, sp.lastname, sp.firstname";
+$resql_addr = $db->query($sql_addr);
+if ($resql_addr) {
+    while ($obj_addr = $db->fetch_object($resql_addr)) {
+        $addr_label = $obj_addr->label;
+        if ($obj_addr->town) $addr_label .= ' - '.$obj_addr->town;
+        if ($obj_addr->company_name) $addr_label .= ' ('.$obj_addr->company_name.')';
+        $address_options[$obj_addr->rowid] = $addr_label;
+    }
+}
 
 // Handle bulk actions
 if ($massaction == 'update_maintenance_month' && !empty($toselect) && $new_maintenance_month >= 0) {
@@ -87,15 +106,43 @@ print '<div class="underbanner clearboth"></div>';
 print '<table class="border centpercent">';
 
 // Company filter
-print '<tr><td class="fieldrequired" style="width: 25%">'.$langs->trans("ThirdParty").'</td><td>';
+print '<tr><td style="width: 25%">'.$langs->trans("ThirdParty").'</td><td>';
 print $form->select_company($search_company, 'search_company', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300');
-print ' <input type="submit" class="button" value="'.$langs->trans('Search').'">';
+print '</td></tr>';
+
+// Address filter
+print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
+print '<select name="search_address" id="search_address" class="flat minwidth300">';
+print '<option value="">'.$langs->trans("SelectAddress").'</option>';
+foreach ($address_options as $addr_id => $addr_label) {
+    $selected = ($search_address == $addr_id) ? ' selected' : '';
+    print '<option value="'.$addr_id.'"'.$selected.'>'.dol_escape_htmltag($addr_label).'</option>';
+}
+print '</select>';
+print '</td></tr>';
+
+// Search button
+print '<tr><td></td><td>';
+print '<input type="submit" class="button" value="'.$langs->trans('Search').'">';
+if ($search_company || $search_address) {
+    print ' <a href="'.$_SERVER["PHP_SELF"].'" class="button">'.$langs->trans('Reset').'</a>';
+}
 print '</td></tr>';
 
 print '</table>';
 print '</div>';
 
 print '</form>';
+
+// JavaScript to clear other field when one is selected
+print '<script>
+document.getElementById("search_company").addEventListener("change", function() {
+    if (this.value) document.getElementById("search_address").value = "";
+});
+document.getElementById("search_address").addEventListener("change", function() {
+    if (this.value) document.getElementById("search_company").value = "";
+});
+</script>';
 
 print '<br>';
 
@@ -116,7 +163,7 @@ $month_labels = array(
 );
 
 // Get data grouped by address
-if ($search_company > 0) {
+if ($search_company > 0 || $search_address > 0) {
     $sql = "SELECT";
     $sql .= " t.rowid,";
     $sql .= " t.equipment_number,";
@@ -134,8 +181,13 @@ if ($search_company > 0) {
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
-    $sql .= " WHERE t.fk_soc = ".(int)$search_company;
-    $sql .= " AND t.entity IN (".getEntity('equipmentmanager').")";
+    $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
+    if ($search_company > 0) {
+        $sql .= " AND t.fk_soc = ".(int)$search_company;
+    }
+    if ($search_address > 0) {
+        $sql .= " AND t.fk_address = ".(int)$search_address;
+    }
     $sql .= " ORDER BY sp.town, sp.lastname, sp.firstname, t.equipment_number";
 
     $resql = $db->query($sql);
@@ -182,6 +234,7 @@ if ($search_company > 0) {
             print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="bulkform">';
             print '<input type="hidden" name="token" value="'.newToken().'">';
             print '<input type="hidden" name="search_company" value="'.$search_company.'">';
+            print '<input type="hidden" name="search_address" value="'.$search_address.'">';
             print '<input type="hidden" name="massaction" value="">';
 
             // Bulk action bar
