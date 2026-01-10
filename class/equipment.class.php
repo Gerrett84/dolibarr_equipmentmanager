@@ -377,7 +377,76 @@ class Equipment extends CommonObject
         } else {
             dol_syslog("Equipment::fetchAllBySoc - SQL Error: ".$db->lasterror(), LOG_ERR);
         }
-        
+
         return $equipments;
+    }
+
+    /**
+     * Get all equipment types from database
+     * Returns array with code => label (translation key)
+     *
+     * @param DoliDB $db Database handler
+     * @param bool $activeOnly Only return active types (default true)
+     * @return array Array of equipment types (code => label)
+     */
+    public static function getEquipmentTypes($db, $activeOnly = true)
+    {
+        global $conf;
+
+        $types = array();
+
+        $sql = "SELECT code, label FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment_types";
+        $sql .= " WHERE entity = ".(int)$conf->entity;
+        if ($activeOnly) {
+            $sql .= " AND active = 1";
+        }
+        $sql .= " ORDER BY position ASC, code ASC";
+
+        $resql = $db->query($sql);
+        if ($resql) {
+            while ($obj = $db->fetch_object($resql)) {
+                $types[$obj->code] = $obj->label;
+            }
+            $db->free($resql);
+        }
+
+        // Fallback to hardcoded types if table is empty (backward compatibility)
+        if (empty($types)) {
+            $types = array(
+                'door_swing' => 'DoorSwing',
+                'door_sliding' => 'DoorSliding',
+                'fire_door' => 'FireDoor',
+                'fire_gate' => 'FireGate',
+                'door_closer' => 'DoorCloser',
+                'hold_open' => 'HoldOpen',
+                'rws' => 'RWS',
+                'rwa' => 'RWA',
+                'other' => 'Other'
+            );
+        }
+
+        return $types;
+    }
+
+    /**
+     * Get translated equipment types for display
+     *
+     * @param DoliDB $db Database handler
+     * @param Translate $langs Language object
+     * @param bool $activeOnly Only return active types
+     * @return array Array of equipment types (code => translated label)
+     */
+    public static function getEquipmentTypesTranslated($db, $langs, $activeOnly = true)
+    {
+        $types = self::getEquipmentTypes($db, $activeOnly);
+        $translated = array();
+
+        foreach ($types as $code => $label) {
+            $trans = $langs->trans($label);
+            // If no translation found, use label as-is
+            $translated[$code] = ($trans != $label) ? $trans : $label;
+        }
+
+        return $translated;
     }
 }

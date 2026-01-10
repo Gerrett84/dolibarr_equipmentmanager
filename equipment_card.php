@@ -224,21 +224,17 @@ if ($action == 'create') {
     print '<input type="text" name="label" size="30" placeholder="'.$langs->trans('Label').'" value="" required>';
     print '</td></tr>';
     
-    // Type
+    // Type (dynamic from database)
     print '<tr><td class="fieldrequired">'.$langs->trans("Type").'</td><td>';
     print '<select name="equipment_type" class="flat minwidth200" required>';
     print '<option value=""></option>';
-    print '<option value="door_swing">'.$langs->trans('DoorSwing').'</option>';
-    print '<option value="door_sliding">'.$langs->trans('DoorSliding').'</option>';
-    print '<option value="fire_door">'.$langs->trans('FireDoor').'</option>';
-    print '<option value="door_closer">'.$langs->trans('DoorCloser').'</option>';
-    print '<option value="hold_open">'.$langs->trans('HoldOpen').'</option>';
-    print '<option value="rws">'.$langs->trans('RWS').'</option>';
-    print '<option value="rwa">'.$langs->trans('RWA').'</option>';
-    print '<option value="other">'.$langs->trans('Other').'</option>';
+    $equipmentTypes = Equipment::getEquipmentTypes($db);
+    foreach ($equipmentTypes as $code => $label) {
+        print '<option value="'.dol_escape_htmltag($code).'">'.$langs->trans($label).'</option>';
+    }
     print '</select>';
     print '</td></tr>';
-    
+
     // Manufacturer
     print '<tr><td>'.$langs->trans("Manufacturer").'</td><td>';
     print '<input type="text" name="manufacturer" size="30" placeholder="'.$langs->trans('Manufacturer').'" value="">';
@@ -337,20 +333,17 @@ if (($id || $ref) && $action == 'edit') {
     print '<input type="text" name="label" size="30" value="'.dol_escape_htmltag($object->label).'" required>';
     print '</td></tr>';
     
-    // Type
+    // Type (dynamic from database)
     print '<tr><td class="fieldrequired">'.$langs->trans("Type").'</td><td>';
     print '<select name="equipment_type" class="flat minwidth200" required>';
-    print '<option value="door_swing"'.($object->equipment_type == 'door_swing' ? ' selected' : '').'>'.$langs->trans('DoorSwing').'</option>';
-    print '<option value="door_sliding"'.($object->equipment_type == 'door_sliding' ? ' selected' : '').'>'.$langs->trans('DoorSliding').'</option>';
-    print '<option value="fire_door"'.($object->equipment_type == 'fire_door' ? ' selected' : '').'>'.$langs->trans('FireDoor').'</option>';
-    print '<option value="door_closer"'.($object->equipment_type == 'door_closer' ? ' selected' : '').'>'.$langs->trans('DoorCloser').'</option>';
-    print '<option value="hold_open"'.($object->equipment_type == 'hold_open' ? ' selected' : '').'>'.$langs->trans('HoldOpen').'</option>';
-    print '<option value="rws"'.($object->equipment_type == 'rws' ? ' selected' : '').'>'.$langs->trans('RWS').'</option>';
-    print '<option value="rwa"'.($object->equipment_type == 'rwa' ? ' selected' : '').'>'.$langs->trans('RWA').'</option>';
-    print '<option value="other"'.($object->equipment_type == 'other' ? ' selected' : '').'>'.$langs->trans('Other').'</option>';
+    $equipmentTypes = Equipment::getEquipmentTypes($db);
+    foreach ($equipmentTypes as $code => $label) {
+        $selected = ($object->equipment_type == $code) ? ' selected' : '';
+        print '<option value="'.dol_escape_htmltag($code).'"'.$selected.'>'.$langs->trans($label).'</option>';
+    }
     print '</select>';
     print '</td></tr>';
-    
+
     // Manufacturer
     print '<tr><td>'.$langs->trans("Manufacturer").'</td><td>';
     print '<input type="text" name="manufacturer" size="30" value="'.dol_escape_htmltag($object->manufacturer).'">';

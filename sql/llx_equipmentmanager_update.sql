@@ -30,6 +30,34 @@ ALTER TABLE llx_equipmentmanager_equipment DROP INDEX IF EXISTS uk_equipment_ref
 ALTER TABLE llx_equipmentmanager_equipment ADD UNIQUE INDEX IF NOT EXISTS uk_equipment_number (equipment_number, entity);
 
 -- Fix any existing entries with 'auto' or 'manual' as ref
-UPDATE llx_equipmentmanager_equipment 
+UPDATE llx_equipmentmanager_equipment
 SET ref = CONCAT('EQU-', LPAD(rowid, 4, '0'))
 WHERE ref IN ('auto', 'manual', 'auto-1', 'manual-1');
+
+-- v2.5: Create equipment types table for dynamic type management
+CREATE TABLE IF NOT EXISTS llx_equipmentmanager_equipment_types (
+    rowid integer AUTO_INCREMENT PRIMARY KEY,
+    code varchar(50) NOT NULL,
+    label varchar(255) NOT NULL,
+    description text,
+    position integer DEFAULT 0,
+    active integer DEFAULT 1,
+    date_creation datetime NOT NULL,
+    tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat integer,
+    fk_user_modif integer,
+    entity integer DEFAULT 1,
+    UNIQUE KEY uk_equipment_type_code (code, entity)
+) ENGINE=innodb;
+
+-- v2.5: Insert default equipment types (only if table is empty)
+INSERT IGNORE INTO llx_equipmentmanager_equipment_types (code, label, position, active, date_creation, entity) VALUES
+('door_swing', 'DoorSwing', 10, 1, NOW(), 1),
+('door_sliding', 'DoorSliding', 20, 1, NOW(), 1),
+('fire_door', 'FireDoor', 30, 1, NOW(), 1),
+('fire_gate', 'FireGate', 35, 1, NOW(), 1),
+('door_closer', 'DoorCloser', 40, 1, NOW(), 1),
+('hold_open', 'HoldOpen', 50, 1, NOW(), 1),
+('rws', 'RWS', 60, 1, NOW(), 1),
+('rwa', 'RWA', 70, 1, NOW(), 1),
+('other', 'Other', 999, 1, NOW(), 1);

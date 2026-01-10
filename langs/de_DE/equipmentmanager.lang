@@ -380,3 +380,23 @@ EquipmentForAddress=Anlagen für Objektadresse
 PleaseAddAddressFirst=Bitte zuerst eine Adresse verknüpfen
 GoToContactTabToAddAddress=Wechseln Sie zum Tab "Kunden/Adressen" um eine Objektadresse hinzuzufügen
 NoEquipmentForThisAddress=Keine Anlagen für diese Adresse gefunden
+
+# Equipment Types v2.5
+FireGate=Brandschutztor
+EquipmentTypesSetup=Anlagentypen verwalten
+AddEquipmentType=Anlagentyp hinzufügen
+EditEquipmentType=Anlagentyp bearbeiten
+DeleteEquipmentType=Anlagentyp löschen
+ConfirmDeleteEquipmentType=Möchten Sie den Anlagentyp "%s" wirklich löschen?
+TypeIsUsedCannotDelete=Dieser Typ wird von %s Anlagen verwendet und kann nicht gelöscht werden.
+Code=Code
+NotEditable=Nicht änderbar
+EquipmentTypeLabelHelp=Übersetzungsschlüssel (z.B. "DoorSwing" für Drehtürantrieb)
+Position=Position
+Up=Nach oben
+Down=Nach unten
+BackToSetup=Zurück zur Einrichtung
+EquipmentTypesInfo=Hinweis zu Anlagentypen
+EquipmentTypesInfoDesc=Der "Label"-Wert dient als Übersetzungsschlüssel. Wenn eine Übersetzung für den Schlüssel existiert (z.B. DoorSwing → Drehtürantrieb), wird diese angezeigt. Andernfalls wird der Label-Wert direkt verwendet.
+ErrorCodeAlreadyExists=Dieser Code existiert bereits
+ManageEquipmentTypes=Anlagentypen verwalten
