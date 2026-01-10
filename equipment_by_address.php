@@ -218,17 +218,8 @@ if ($search_company > 0 || $search_address > 0) {
                 }
             }
 
-            // Type labels
-            $type_labels = array(
-                'door_swing' => $langs->trans('DoorSwing'),
-                'door_sliding' => $langs->trans('DoorSliding'),
-                'fire_door' => $langs->trans('FireDoor'),
-                'door_closer' => $langs->trans('DoorCloser'),
-                'hold_open' => $langs->trans('HoldOpen'),
-                'rws' => $langs->trans('RWS'),
-                'rwa' => $langs->trans('RWA'),
-                'other' => $langs->trans('Other')
-            );
+            // Type labels (dynamic from database)
+            $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
 
             // Start bulk action form
             print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="bulkform">';

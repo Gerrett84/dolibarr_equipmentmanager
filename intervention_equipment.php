@@ -187,18 +187,9 @@ if ($object->id > 0) {
     
     print '<br>';
     
-    // Type labels
-    $type_labels = array(
-        'door_swing' => $langs->trans('DoorSwing'),
-        'door_sliding' => $langs->trans('DoorSliding'),
-        'fire_door' => $langs->trans('FireDoor'),
-        'door_closer' => $langs->trans('DoorCloser'),
-        'hold_open' => $langs->trans('HoldOpen'),
-        'rws' => $langs->trans('RWS'),
-        'rwa' => $langs->trans('RWA'),
-        'other' => $langs->trans('Other')
-    );
-    
+    // Type labels (dynamic from database)
+    $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
+
     // Section 1: MAINTENANCE
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';

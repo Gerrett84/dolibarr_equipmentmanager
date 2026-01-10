@@ -109,18 +109,9 @@ if ($object->id > 0) {
     print dol_escape_htmltag($object->label);
     print '</td></tr>';
     
-    // Type
+    // Type (dynamic from database)
     print '<tr><td>'.$langs->trans("Type").'</td><td>';
-    $type_labels = array(
-        'door_swing' => $langs->trans('DoorSwing'),
-        'door_sliding' => $langs->trans('DoorSliding'),
-        'fire_door' => $langs->trans('FireDoor'),
-        'door_closer' => $langs->trans('DoorCloser'),
-        'hold_open' => $langs->trans('HoldOpen'),
-        'rws' => $langs->trans('RWS'),
-        'rwa' => $langs->trans('RWA'),
-        'other' => $langs->trans('Other')
-    );
+    $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
     print isset($type_labels[$object->equipment_type]) ? $type_labels[$object->equipment_type] : dol_escape_htmltag($object->equipment_type);
     print '</td></tr>';
     

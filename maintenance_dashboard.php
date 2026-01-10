@@ -340,17 +340,8 @@ if ($resql) {
         print '</div>';
         print '</div>';
         
-        $type_labels = array(
-            'door_swing' => $langs->trans('DoorSwing'),
-            'door_sliding' => $langs->trans('DoorSliding'),
-            'fire_door' => $langs->trans('FireDoor'),
-            'door_closer' => $langs->trans('DoorCloser'),
-            'hold_open' => $langs->trans('HoldOpen'),
-            'rws' => $langs->trans('RWS'),
-            'rwa' => $langs->trans('RWA'),
-            'other' => $langs->trans('Other')
-        );
-        
+        $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
+
         // Zeige nach Monat gruppiert - sortiert: überfällige zuerst, dann aktuell, dann nächster
         // Sortiere Monate: überfällige aufsteigend, dann current, dann next
         $display_months = array_keys($grouped);
