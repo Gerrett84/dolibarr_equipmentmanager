@@ -400,3 +400,150 @@ EquipmentTypesInfo=Hinweis zu Anlagentypen
 EquipmentTypesInfoDesc=Der "Label"-Wert dient als Übersetzungsschlüssel. Wenn eine Übersetzung für den Schlüssel existiert (z.B. DoorSwing → Drehtürantrieb), wird diese angezeigt. Andernfalls wird der Label-Wert direkt verwendet.
 ErrorCodeAlreadyExists=Dieser Code existiert bereits
 ManageEquipmentTypes=Anlagentypen verwalten
+
+# Checklists v3.0
+Checklist=Checkliste
+Checklists=Checklisten
+ChecklistTemplate=Checklisten-Vorlage
+ChecklistTemplates=Checklisten-Vorlagen
+ChecklistResult=Prüfergebnis
+ChecklistResults=Prüfergebnisse
+NewChecklist=Neue Checkliste
+EditChecklist=Checkliste bearbeiten
+ViewChecklist=Checkliste anzeigen
+DeleteChecklist=Checkliste löschen
+ConfirmDeleteChecklist=Möchten Sie diese Checkliste wirklich löschen?
+ChecklistCreated=Checkliste erstellt
+ChecklistUpdated=Checkliste aktualisiert
+ChecklistDeleted=Checkliste gelöscht
+ChecklistCompleted=Checkliste abgeschlossen
+StartChecklist=Checkliste starten
+CompleteChecklist=Checkliste abschließen
+ChecklistInProgress=Checkliste in Bearbeitung
+ChecklistDraft=Entwurf
+ChecklistPassed=Bestanden
+ChecklistFailed=Nicht bestanden
+NoChecklistYet=Noch keine Checkliste vorhanden
+ChecklistForEquipment=Checkliste für Anlage
+
+# Checklist Templates
+ChecklistDoorSwing=Checkliste Drehtürantrieb
+ChecklistDoorSliding=Checkliste Schiebetürantrieb
+ChecklistFireDoor=Checkliste Brandschutztür
+ChecklistFireDoorFSA=Checkliste Feststellanlage
+ChecklistFireGate=Checkliste Brandschutztor
+ChecklistDoorCloser=Checkliste Türschließer
+ChecklistRWS=Checkliste RWS
+ChecklistRWA=Checkliste RWA
+ChecklistOther=Checkliste Sonstiges
+HasFSA=Mit Feststellanlage
+
+# Checklist Sections
+SectionTuerelement=Türelement
+SectionTorelement=Torelement
+SectionAntriebFunktion=Antrieb / Funktion
+SectionFSA=FSA (Feststellanlage)
+SectionTuerschliesser=Türschließer
+SectionRWSTerminal=RWS Terminal
+SectionRWA=RWA
+SectionAusloesung=Auslösung
+SectionElektrik=Elektrik
+SectionAllgemein=Allgemein
+SectionErgebnis=Ergebnis
+
+# Checklist Items - Türelement
+ItemTuerblattZargeDichtungGlas=Türblatt, Zarge, Dichtung, Glas
+ItemFahrfluegelRahmenGlas=Fahrflügel, Rahmen, Glas
+ItemTorblattZargeDichtung=Torblatt, Zarge, Dichtung
+ItemLaufschieneF=Laufschiene / Führung
+ItemFuehrungsschienen=Führungsschienen
+ItemDrahtseil=Drahtseil
+ItemPanikschloss=Panikschloss
+ItemPanikschlossPanikstange=Panikschloss / Panikstange
+ItemSchliessfolgereglerBei2Flg=Schließfolgeregler (bei 2-flg.)
+ItemTuerschliesser=Türschließer
+
+# Checklist Items - Antrieb/Funktion
+ItemBefestigungAntrieb=Befestigung Antrieb
+ItemBewegungsablauf=Bewegungsablauf (Geschwindigkeit, Winkel, Zeit)
+ItemSicherheitssensorikFunktionErfassung=Sicherheitssensorik Funktion und Erfassung
+ItemEinklemmschutz=Einklemmschutz
+ItemNebenschliesskante=Nebenschließkante
+ItemVerdrahtung=Verdrahtung
+ItemAnsteuerung=Ansteuerung
+ItemBetriebsarten=Betriebsarten
+ItemBetriebsartenInklEinweg=Betriebsarten (inkl. Einweg)
+
+# Checklist Items - FSA
+ItemFeststellvorrichtung=Feststellvorrichtung
+ItemAusloesungRauchmelder=Auslösung durch Rauchmelder
+ItemHandausloesung=Handauslösung
+ItemSelbstschliessung=Selbstschließung
+ItemRauchmelderSichtpruefung=Rauchmelder (Sichtprüfung - NICHT reinigen!)
+ItemZulassungsschild=Zulassungsschild
+
+# Checklist Items - Türschließer
+ItemSchliesserklasseGroesse=Schließerklasse / -größe
+ItemBefestigung=Befestigung
+ItemGestaengeGleitschiene=Gestänge / Gleitschiene
+ItemSchliessgeschwindigkeit=Schließgeschwindigkeit
+ItemEndschlag=Endschlag
+ItemOeffnungsdaempfung=Öffnungsdämpfung
+
+# Checklist Items - RWS
+ItemTerminalgehaeuse=Terminalgehäuse
+ItemBedienelemente=Bedienelemente
+ItemAnzeigenSignalisierung=Anzeigen / Signalisierung
+ItemFreigabeUeberAnsteuerung=Freigabe über vorhandene Ansteuerung
+ItemAlarmfunktion=Alarmfunktion
+
+# Checklist Items - RWA
+ItemKlappeHaube=Klappe / Haube
+ItemMechanikAntrieb=Mechanik / Antrieb
+ItemHubOeffnungswinkel=Hub / Öffnungswinkel
+ItemAutomatischeAusloesung=Automatische Auslösung (Rauchmelder/Thermoauslöser)
+ItemRueckstellung=Rückstellung
+ItemSteuerzentrale=Steuerzentrale
+ItemAkkuNotstromversorgung=Akku / Notstromversorgung
+
+# Checklist Items - Allgemein
+ItemAllgemeinerZustand=Allgemeiner Zustand
+ItemFunktion=Funktion
+ItemSicherheit=Sicherheit
+
+# Checklist Items - Ergebnis
+ItemPruefungHerstellervorgabe=Prüfung nach Herstellervorgabe
+ItemEntsprichtEN16005ASRA17=Entspricht EN 16005, ASR A1.7
+ItemEntsprichtEN16005AutSchRASRA17=Entspricht EN 16005, AutSchR, ASR A1.7
+ItemEntsprichtZulassungsbescheid=Entspricht Zulassungsbescheid
+ItemEntsprichtDINEN1154=Entspricht DIN EN 1154
+ItemEntsprichtEltVTR=Entspricht EltVTR
+ItemEntsprichtDIN18232ASRA16=Entspricht DIN 18232-2, ASR A1.6
+ItemPruefungBestanden=Prüfung bestanden
+
+# Answer Types
+AnswerOK=OK
+AnswerMangel=Mangel
+AnswerNV=N.V.
+AnswerJa=Ja
+AnswerNein=Nein
+AnswerOk=OK
+AnswerNv=N.V.
+NotApplicable=Nicht vorhanden
+
+# Checklist UI
+CheckPoint=Prüfpunkt
+Result=Ergebnis
+Norm=Norm
+Sections=Abschnitte
+Items=Prüfpunkte
+Active=Aktiv
+Inactive=Inaktiv
+
+# Checklist Admin
+ChecklistTablesNotInstalled=Die Checklisten-Tabellen sind noch nicht installiert.
+PleaseRunModuleUpdate=Bitte führen Sie das Modul-Update aus oder deaktivieren und aktivieren Sie das Modul erneut.
+NoChecklistTemplatesFound=Keine Checklisten-Vorlagen gefunden.
+InitializeChecklistTemplates=Checklisten-Vorlagen initialisieren
+ChecklistTemplatesInitialized=Checklisten-Vorlagen wurden erfolgreich initialisiert.
+ChecklistTemplatesInfo=Diese Übersicht zeigt alle verfügbaren Checklisten-Vorlagen für die verschiedenen Anlagentypen. Die Vorlagen werden automatisch basierend auf dem Anlagentyp zugewiesen.

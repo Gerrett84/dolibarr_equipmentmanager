@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2024-2025 Equipment Manager
- * v2.5.0 - Dynamic Equipment Types
+ * v3.0.0 - Checklist System
  */
 
 include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
@@ -19,9 +19,9 @@ class modEquipmentManager extends DolibarrModules
         $this->name = preg_replace('/^mod/i', '', get_class($this));
 
         $this->description = "Equipment and Service Report Management";
-        $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports including PDF export with equipment details";
+        $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '2.5.0';
+        $this->version = '3.0.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';

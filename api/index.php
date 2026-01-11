@@ -42,6 +42,8 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
+dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
+dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 
 // Check authentication - support both session and PWA token
 $authenticated = false;
@@ -157,6 +159,10 @@ try {
 
         case 'pwa-token':
             handlePwaToken($method, $input);
+            break;
+
+        case 'checklist':
+            handleChecklist($method, $parts, $input);
             break;
 
         default:
@@ -1784,4 +1790,242 @@ function createPwaTokenTableIfNeeded($db) {
     $sql .= ") ENGINE=InnoDB";
 
     $db->query($sql);
+}
+
+/**
+ * GET /checklist/{intervention_id}/{equipment_id} - Get checklist for equipment
+ * POST /checklist/{intervention_id}/{equipment_id} - Create/update checklist
+ * POST /checklist/{intervention_id}/{equipment_id}/complete - Complete checklist
+ * DELETE /checklist/{checklist_id} - Delete checklist
+ */
+function handleChecklist($method, $parts, $input) {
+    global $db, $user, $langs;
+
+    $intervention_id = (int)($parts[1] ?? 0);
+    $equipment_id = (int)($parts[2] ?? 0);
+
+    // Handle DELETE by checklist_id
+    if ($method === 'DELETE' && $intervention_id > 0 && $equipment_id == 0) {
+        $checklist_id = $intervention_id; // In DELETE, first param is checklist_id
+        $checklist = new ChecklistResult($db);
+        if ($checklist->fetch($checklist_id) > 0) {
+            $result = $checklist->delete($user);
+            if ($result > 0) {
+                echo json_encode(['status' => 'ok', 'message' => 'Checklist deleted']);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to delete checklist']);
+            }
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Checklist not found']);
+        }
+        return;
+    }
+
+    if (!$intervention_id || !$equipment_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Intervention ID and Equipment ID required']);
+        return;
+    }
+
+    // Get equipment intervention link ID
+    $sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+    $sql .= " WHERE fk_intervention = ".(int)$intervention_id;
+    $sql .= " AND fk_equipment = ".(int)$equipment_id;
+    $resql = $db->query($sql);
+    $eq_inter_id = 0;
+    if ($resql && $db->num_rows($resql)) {
+        $obj = $db->fetch_object($resql);
+        $eq_inter_id = $obj->rowid;
+    }
+
+    if ($method === 'GET') {
+        // Get existing checklist
+        $checklist = new ChecklistResult($db);
+        $hasChecklist = ($checklist->fetchByEquipmentIntervention($equipment_id, $eq_inter_id) > 0);
+
+        if (!$hasChecklist) {
+            // Return available template info
+            $equipment = new Equipment($db);
+            $equipment->fetch($equipment_id);
+
+            $template = new ChecklistTemplate($db);
+            $templates = [];
+
+            // Check for standard template
+            if ($template->fetchByEquipmentType($equipment->equipment_type) > 0) {
+                $template->fetchSectionsWithItems();
+                $templates[] = formatTemplateForApi($template, $langs);
+            }
+
+            // For fire_door, also check FSA variant
+            if ($equipment->equipment_type == 'fire_door') {
+                $templateFsa = new ChecklistTemplate($db);
+                if ($templateFsa->fetchByEquipmentType('fire_door_fsa') > 0) {
+                    $templateFsa->fetchSectionsWithItems();
+                    $templates[] = formatTemplateForApi($templateFsa, $langs);
+                }
+            }
+
+            echo json_encode([
+                'status' => 'ok',
+                'has_checklist' => false,
+                'available_templates' => $templates,
+                'equipment_type' => $equipment->equipment_type
+            ]);
+            return;
+        }
+
+        // Load template and results
+        $template = new ChecklistTemplate($db);
+        $template->fetch($checklist->fk_template);
+        $template->fetchSectionsWithItems();
+        $checklist->fetchItemResults();
+
+        echo json_encode([
+            'status' => 'ok',
+            'has_checklist' => true,
+            'checklist' => [
+                'id' => (int)$checklist->id,
+                'ref' => $checklist->ref,
+                'status' => (int)$checklist->status,
+                'passed' => $checklist->passed,
+                'work_date' => $checklist->work_date ? dol_print_date($checklist->work_date, 'dayrfc') : null,
+                'date_completion' => $checklist->date_completion ? dol_print_date($checklist->date_completion, 'dayrfc') : null
+            ],
+            'template' => formatTemplateForApi($template, $langs),
+            'results' => $checklist->item_results
+        ]);
+
+    } elseif ($method === 'POST') {
+        // Check for complete action
+        if (isset($parts[3]) && $parts[3] === 'complete') {
+            $checklist_id = (int)($input['checklist_id'] ?? 0);
+            $checklist = new ChecklistResult($db);
+
+            if ($checklist->fetch($checklist_id) <= 0) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Checklist not found']);
+                return;
+            }
+
+            // Save all items first
+            if (!empty($input['items'])) {
+                foreach ($input['items'] as $item_id => $item_data) {
+                    $answer = $item_data['answer'] ?? '';
+                    $answer_text = $item_data['answer_text'] ?? '';
+                    $note = $item_data['note'] ?? '';
+                    $checklist->saveItemResult($item_id, $answer, $answer_text, $note);
+                }
+            }
+
+            // Complete checklist
+            $result = $checklist->complete($user);
+
+            if ($result > 0) {
+                echo json_encode([
+                    'status' => 'ok',
+                    'message' => 'Checklist completed',
+                    'passed' => $checklist->passed
+                ]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to complete checklist']);
+            }
+            return;
+        }
+
+        // Create new checklist or update existing
+        $checklist = new ChecklistResult($db);
+        $isNew = ($checklist->fetchByEquipmentIntervention($equipment_id, $eq_inter_id) <= 0);
+
+        if ($isNew) {
+            // Create new checklist
+            $template_type = $input['template_type'] ?? '';
+
+            if (empty($template_type)) {
+                // Get default template for equipment type
+                $equipment = new Equipment($db);
+                $equipment->fetch($equipment_id);
+                $template_type = $equipment->equipment_type;
+            }
+
+            $template = new ChecklistTemplate($db);
+            if ($template->fetchByEquipmentType($template_type) <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Template not found for type: '.$template_type]);
+                return;
+            }
+
+            $checklist->fk_template = $template->id;
+            $checklist->fk_equipment = $equipment_id;
+            $checklist->fk_intervention = $intervention_id;
+            $checklist->fk_equipment_intervention = $eq_inter_id;
+            $checklist->status = 0;
+            $checklist->work_date = dol_now();
+
+            $result = $checklist->create($user);
+
+            if ($result <= 0) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to create checklist']);
+                return;
+            }
+        }
+
+        // Save item results
+        if (!empty($input['items'])) {
+            foreach ($input['items'] as $item_id => $item_data) {
+                $answer = $item_data['answer'] ?? '';
+                $answer_text = $item_data['answer_text'] ?? '';
+                $note = $item_data['note'] ?? '';
+                $checklist->saveItemResult($item_id, $answer, $answer_text, $note);
+            }
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'checklist_id' => (int)$checklist->id,
+            'message' => $isNew ? 'Checklist created' : 'Checklist updated'
+        ]);
+    }
+}
+
+/**
+ * Format template data for API response
+ */
+function formatTemplateForApi($template, $langs) {
+    $sections = [];
+
+    foreach ($template->sections as $section) {
+        $items = [];
+        foreach ($section->items as $item) {
+            $items[] = [
+                'id' => (int)$item->id,
+                'code' => $item->code,
+                'label' => $langs->trans($item->label),
+                'label_key' => $item->label,
+                'answer_type' => $item->answer_type,
+                'required' => (int)$item->required
+            ];
+        }
+
+        $sections[] = [
+            'id' => (int)$section->id,
+            'code' => $section->code,
+            'label' => $langs->trans($section->label),
+            'label_key' => $section->label,
+            'items' => $items
+        ];
+    }
+
+    return [
+        'id' => (int)$template->id,
+        'equipment_type_code' => $template->equipment_type_code,
+        'label' => $langs->trans($template->label),
+        'label_key' => $template->label,
+        'norm_reference' => $template->norm_reference,
+        'sections' => $sections
+    ];
 }

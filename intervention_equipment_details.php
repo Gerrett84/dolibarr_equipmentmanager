@@ -27,6 +27,8 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
+dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
+dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 
 $langs->loadLangs(array('interventions', 'equipmentmanager@equipmentmanager', 'products'));
 
@@ -190,6 +192,143 @@ if ($action == 'delete_material' && $permissiontoadd && $material_id > 0) {
             setEventMessages($langs->trans('MaterialDeleted'), null, 'mesgs');
         } else {
             setEventMessages($material->error, $material->errors, 'errors');
+        }
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
+// Start checklist
+if ($action == 'start_checklist' && $permissiontoadd && $equipment_id > 0) {
+    $equipment_temp = new Equipment($db);
+    $equipment_temp->fetch($equipment_id);
+
+    // Get equipment intervention link ID
+    $sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+    $sql .= " WHERE fk_intervention = ".(int)$object->id;
+    $sql .= " AND fk_equipment = ".(int)$equipment_id;
+    $resql = $db->query($sql);
+    $eq_inter_id = 0;
+    if ($resql && $db->num_rows($resql)) {
+        $obj = $db->fetch_object($resql);
+        $eq_inter_id = $obj->rowid;
+    }
+
+    // Get template for equipment type
+    $template = new ChecklistTemplate($db);
+    $template_type = $equipment_temp->equipment_type;
+
+    // Check if FSA variant should be used (for fire_door with FSA)
+    $has_fsa = GETPOST('has_fsa', 'int');
+    if ($equipment_temp->equipment_type == 'fire_door' && $has_fsa) {
+        $template_type = 'fire_door_fsa';
+    }
+
+    if ($template->fetchByEquipmentType($template_type) > 0) {
+        $checklist = new ChecklistResult($db);
+        $checklist->fk_template = $template->id;
+        $checklist->fk_equipment = $equipment_id;
+        $checklist->fk_intervention = $object->id;
+        $checklist->fk_equipment_intervention = $eq_inter_id;
+        $checklist->status = 0;
+        $checklist->work_date = dol_now();
+
+        $result = $checklist->create($user);
+        if ($result > 0) {
+            setEventMessages($langs->trans('ChecklistCreated'), null, 'mesgs');
+        } else {
+            setEventMessages($checklist->error, $checklist->errors, 'errors');
+        }
+    } else {
+        setEventMessages('No checklist template found for equipment type: '.$template_type, null, 'errors');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
+// Save checklist item
+if ($action == 'save_checklist_item' && $permissiontoadd) {
+    $checklist_id = GETPOST('checklist_id', 'int');
+    $item_id = GETPOST('item_id', 'int');
+    $answer = GETPOST('answer', 'alpha');
+    $answer_text = GETPOST('answer_text', 'restricthtml');
+    $item_note = GETPOST('item_note', 'restricthtml');
+
+    $checklist = new ChecklistResult($db);
+    if ($checklist->fetch($checklist_id) > 0) {
+        $checklist->saveItemResult($item_id, $answer, $answer_text, $item_note);
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
+// Save all checklist items at once
+if ($action == 'save_checklist' && $permissiontoadd) {
+    $checklist_id = GETPOST('checklist_id', 'int');
+
+    $checklist = new ChecklistResult($db);
+    if ($checklist->fetch($checklist_id) > 0) {
+        // Get all posted items
+        foreach ($_POST as $key => $value) {
+            if (preg_match('/^answer_(\d+)$/', $key, $matches)) {
+                $item_id = $matches[1];
+                $answer = GETPOST('answer_'.$item_id, 'alpha');
+                $answer_text = GETPOST('answer_text_'.$item_id, 'restricthtml');
+                $item_note = GETPOST('note_'.$item_id, 'restricthtml');
+                $checklist->saveItemResult($item_id, $answer, $answer_text, $item_note);
+            }
+        }
+        setEventMessages($langs->trans('ChecklistUpdated'), null, 'mesgs');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
+// Complete checklist
+if ($action == 'complete_checklist' && $permissiontoadd) {
+    $checklist_id = GETPOST('checklist_id', 'int');
+
+    $checklist = new ChecklistResult($db);
+    if ($checklist->fetch($checklist_id) > 0) {
+        // First save all items
+        foreach ($_POST as $key => $value) {
+            if (preg_match('/^answer_(\d+)$/', $key, $matches)) {
+                $item_id = $matches[1];
+                $answer = GETPOST('answer_'.$item_id, 'alpha');
+                $answer_text = GETPOST('answer_text_'.$item_id, 'restricthtml');
+                $item_note = GETPOST('note_'.$item_id, 'restricthtml');
+                $checklist->saveItemResult($item_id, $answer, $answer_text, $item_note);
+            }
+        }
+
+        // Then complete
+        $result = $checklist->complete($user);
+        if ($result > 0) {
+            setEventMessages($langs->trans('ChecklistCompleted'), null, 'mesgs');
+        } else {
+            setEventMessages($checklist->error, $checklist->errors, 'errors');
+        }
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
+// Delete checklist
+if ($action == 'delete_checklist' && $permissiontoadd) {
+    $checklist_id = GETPOST('checklist_id', 'int');
+
+    $checklist = new ChecklistResult($db);
+    if ($checklist->fetch($checklist_id) > 0) {
+        $result = $checklist->delete($user);
+        if ($result > 0) {
+            setEventMessages($langs->trans('ChecklistDeleted'), null, 'mesgs');
+        } else {
+            setEventMessages($checklist->error, $checklist->errors, 'errors');
         }
     }
 
@@ -568,7 +707,188 @@ if ($object->id > 0) {
     print '<br>';
 
     // ========================================================================
-    // SECTION 3: RECOMMENDATIONS & NOTES
+    // SECTION 3: CHECKLIST
+    // ========================================================================
+
+    // Get equipment intervention link ID
+    $sql_eq_inter = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+    $sql_eq_inter .= " WHERE fk_intervention = ".(int)$object->id;
+    $sql_eq_inter .= " AND fk_equipment = ".(int)$equipment_id;
+    $resql_eq_inter = $db->query($sql_eq_inter);
+    $eq_inter_id = 0;
+    if ($resql_eq_inter && $db->num_rows($resql_eq_inter)) {
+        $obj_eq_inter = $db->fetch_object($resql_eq_inter);
+        $eq_inter_id = $obj_eq_inter->rowid;
+    }
+
+    // Check if checklist exists for this equipment/intervention
+    $checklistResult = new ChecklistResult($db);
+    $hasChecklist = ($checklistResult->fetchByEquipmentIntervention($equipment_id, $eq_inter_id) > 0);
+
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+
+    print '<tr class="liste_titre">';
+    print '<th colspan="4">';
+    print '<span class="fa fa-check-square-o paddingright"></span>'.$langs->trans('Checklist');
+
+    if (!$hasChecklist && $permissiontoadd) {
+        // Show start checklist button
+        // For fire_door, show option to select with/without FSA
+        if ($equipment->equipment_type == 'fire_door') {
+            print ' <a class="button buttongen" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=start_checklist&has_fsa=0&token='.newToken().'">';
+            print '<span class="fa fa-play"></span> '.$langs->trans('StartChecklist').' ('.$langs->trans('ChecklistFireDoor').')';
+            print '</a>';
+            print ' <a class="button buttongen" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=start_checklist&has_fsa=1&token='.newToken().'">';
+            print '<span class="fa fa-play"></span> '.$langs->trans('StartChecklist').' ('.$langs->trans('HasFSA').')';
+            print '</a>';
+        } else {
+            print ' <a class="button buttongen" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=start_checklist&token='.newToken().'">';
+            print '<span class="fa fa-play"></span> '.$langs->trans('StartChecklist');
+            print '</a>';
+        }
+    } elseif ($hasChecklist) {
+        print ' '.$checklistResult->getLibStatut(0);
+    }
+    print '</th>';
+    print '</tr>';
+
+    if ($hasChecklist) {
+        // Load template and sections
+        $template = new ChecklistTemplate($db);
+        $template->fetch($checklistResult->fk_template);
+        $template->fetchSectionsWithItems();
+
+        // Load existing answers
+        $checklistResult->fetchItemResults();
+
+        // Show norm reference
+        if ($template->norm_reference) {
+            print '<tr><td colspan="4" class="opacitymedium" style="padding: 5px 10px;">';
+            print '<strong>'.$langs->trans('Norm').':</strong> '.dol_escape_htmltag($template->norm_reference);
+            print '</td></tr>';
+        }
+
+        // Only show form if not completed
+        if ($checklistResult->status == 0) {
+            print '<tr><td colspan="4">';
+            print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" id="checklist_form">';
+            print '<input type="hidden" name="token" value="'.newToken().'">';
+            print '<input type="hidden" name="action" value="save_checklist">';
+            print '<input type="hidden" name="id" value="'.$object->id.'">';
+            print '<input type="hidden" name="equipment_id" value="'.$equipment_id.'">';
+            print '<input type="hidden" name="checklist_id" value="'.$checklistResult->id.'">';
+            print '</td></tr>';
+        }
+
+        // Display sections and items
+        foreach ($template->sections as $section) {
+            // Section header
+            print '<tr class="liste_titre">';
+            print '<th colspan="4" style="background-color: #f0f0f0;">';
+            print $langs->trans($section->label);
+            print '</th>';
+            print '</tr>';
+
+            // Items header
+            print '<tr class="liste_titre">';
+            print '<th style="width: 50%;">'.$langs->trans('CheckPoint').'</th>';
+            print '<th class="center" style="width: 30%;">'.$langs->trans('Result').'</th>';
+            print '<th style="width: 20%;">'.$langs->trans('Notes').'</th>';
+            print '</tr>';
+
+            foreach ($section->items as $item) {
+                $current_answer = isset($checklistResult->item_results[$item->id]) ? $checklistResult->item_results[$item->id]['answer'] : '';
+                $current_text = isset($checklistResult->item_results[$item->id]) ? $checklistResult->item_results[$item->id]['answer_text'] : '';
+                $current_note = isset($checklistResult->item_results[$item->id]) ? $checklistResult->item_results[$item->id]['note'] : '';
+
+                print '<tr class="oddeven">';
+
+                // Item label
+                print '<td>'.$langs->trans($item->label).'</td>';
+
+                // Answer input
+                print '<td class="center">';
+                if ($checklistResult->status == 0 && $permissiontoadd) {
+                    // Editable
+                    if ($item->answer_type == 'ok_mangel') {
+                        print '<select name="answer_'.$item->id.'" class="flat">';
+                        print '<option value="">--</option>';
+                        print '<option value="ok"'.($current_answer == 'ok' ? ' selected' : '').'>'.$langs->trans('AnswerOK').'</option>';
+                        print '<option value="mangel"'.($current_answer == 'mangel' ? ' selected' : '').'>'.$langs->trans('AnswerMangel').'</option>';
+                        print '</select>';
+                    } elseif ($item->answer_type == 'ok_mangel_nv') {
+                        print '<select name="answer_'.$item->id.'" class="flat">';
+                        print '<option value="">--</option>';
+                        print '<option value="ok"'.($current_answer == 'ok' ? ' selected' : '').'>'.$langs->trans('AnswerOK').'</option>';
+                        print '<option value="mangel"'.($current_answer == 'mangel' ? ' selected' : '').'>'.$langs->trans('AnswerMangel').'</option>';
+                        print '<option value="nv"'.($current_answer == 'nv' ? ' selected' : '').'>'.$langs->trans('AnswerNV').'</option>';
+                        print '</select>';
+                    } elseif ($item->answer_type == 'ja_nein') {
+                        print '<select name="answer_'.$item->id.'" class="flat">';
+                        print '<option value="">--</option>';
+                        print '<option value="ja"'.($current_answer == 'ja' ? ' selected' : '').'>'.$langs->trans('AnswerJa').'</option>';
+                        print '<option value="nein"'.($current_answer == 'nein' ? ' selected' : '').'>'.$langs->trans('AnswerNein').'</option>';
+                        print '</select>';
+                    } elseif ($item->answer_type == 'info') {
+                        print '<input type="text" name="answer_text_'.$item->id.'" value="'.dol_escape_htmltag($current_text).'" class="flat minwidth200">';
+                        print '<input type="hidden" name="answer_'.$item->id.'" value="info">';
+                    }
+                } else {
+                    // Read-only display
+                    if ($item->answer_type == 'info') {
+                        print dol_escape_htmltag($current_text);
+                    } else {
+                        $answer_class = '';
+                        if ($current_answer == 'ok' || $current_answer == 'ja') {
+                            $answer_class = 'badge badge-status4';
+                        } elseif ($current_answer == 'mangel' || $current_answer == 'nein') {
+                            $answer_class = 'badge badge-status8';
+                        } elseif ($current_answer == 'nv') {
+                            $answer_class = 'badge badge-status0';
+                        }
+                        if ($current_answer) {
+                            print '<span class="'.$answer_class.'">'.$langs->trans('Answer'.ucfirst($current_answer)).'</span>';
+                        }
+                    }
+                }
+                print '</td>';
+
+                // Note
+                print '<td>';
+                if ($checklistResult->status == 0 && $permissiontoadd) {
+                    print '<input type="text" name="note_'.$item->id.'" value="'.dol_escape_htmltag($current_note).'" class="flat" style="width: 100%;">';
+                } else {
+                    print dol_escape_htmltag($current_note);
+                }
+                print '</td>';
+
+                print '</tr>';
+            }
+        }
+
+        // Buttons
+        if ($checklistResult->status == 0 && $permissiontoadd) {
+            print '<tr><td colspan="4" class="center" style="padding: 15px;">';
+            print '<input type="submit" class="button" value="'.$langs->trans('Save').'">';
+            print ' <input type="submit" class="button button-save" name="action" value="'.$langs->trans('CompleteChecklist').'" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\'); return true;">';
+            print ' <a class="button button-cancel" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDeleteChecklist').'\');">'.$langs->trans('Delete').'</a>';
+            print '</td></tr>';
+            print '</form>';
+        }
+    } else {
+        print '<tr><td colspan="4" class="opacitymedium center" style="padding: 20px;">';
+        print $langs->trans('NoChecklistYet');
+        print '</td></tr>';
+    }
+
+    print '</table>';
+    print '</div>';
+
+    print '<br>';
+
+    // ========================================================================
+    // SECTION 4: RECOMMENDATIONS & NOTES
     // ========================================================================
 
     print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
