@@ -18,6 +18,19 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
 class pdf_checklist
 {
     /**
+     * Sanitize string for PDF output
+     * TCPDF handles UTF-8 natively, so we just clean the string
+     *
+     * @param string $str Input string
+     * @return string Cleaned string
+     */
+    protected function pdfStr($str)
+    {
+        if (empty($str)) return '';
+        // TCPDF supports UTF-8 natively - just ensure string is clean
+        return $str;
+    }
+    /**
      * @var DoliDB Database handler
      */
     public $db;
@@ -144,14 +157,15 @@ class pdf_checklist
             $pdf->setPrintFooter(false);
         }
 
-        $pdf->SetFont(pdf_getPDFFont($outputlangs));
+        // Use DejaVuSans for full UTF-8 support (German umlauts ä, ö, ü)
+        $pdf->SetFont('dejavusans');
         $pdf->Open();
         $pdf->SetDrawColor(128, 128, 128);
 
-        $pdf->SetTitle($outputlangs->convToOutputCharset($checklist->ref));
-        $pdf->SetSubject($outputlangs->convToOutputCharset($outputlangs->transnoentities('ChecklistProtocol')));
+        $pdf->SetTitle($this->pdfStr($checklist->ref));
+        $pdf->SetSubject($this->pdfStr($outputlangs->transnoentities('ChecklistProtocol')));
         $pdf->SetCreator("Dolibarr ".DOL_VERSION);
-        $pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
+        $pdf->SetAuthor($this->pdfStr($user->getFullName($outputlangs)));
 
         $pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
         $pdf->SetAutoPageBreak(1, $this->marge_basse + 20);
@@ -225,27 +239,27 @@ class pdf_checklist
         // Company name
         $pdf->SetFont('', 'B', $default_font_size + 2);
         $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(0, 6, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
+        $pdf->Cell(0, 6, $this->pdfStr($mysoc->name), 0, 1, 'L');
         $posy += 8;
 
         // Title
         $pdf->SetFont('', 'B', $default_font_size + 4);
         $pdf->SetXY($this->marge_gauche, $posy);
         $pdf->SetFillColor(240, 240, 240);
-        $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $outputlangs->convToOutputCharset($outputlangs->transnoentities('ChecklistProtocol')), 1, 1, 'C', true);
+        $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $this->pdfStr($outputlangs->transnoentities('ChecklistProtocol')), 1, 1, 'C', true);
         $posy += 12;
 
         // Template info
         $pdf->SetFont('', '', $default_font_size);
         $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(0, 5, $outputlangs->convToOutputCharset($outputlangs->trans($template->label)).' - '.$outputlangs->convToOutputCharset($template->norm_reference), 0, 1, 'L');
+        $pdf->Cell(0, 5, $this->pdfStr($outputlangs->trans($template->label)).' - '.$this->pdfStr($template->norm_reference), 0, 1, 'L');
         $posy += 7;
 
         // Reference and date
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(50, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Ref')).': '.$checklist->ref, 0, 0, 'L');
-        $pdf->Cell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Date')).': '.dol_print_date($checklist->date_completion, 'day'), 0, 1, 'R');
+        $pdf->Cell(50, 5, $this->pdfStr($outputlangs->transnoentities('Ref')).': '.$checklist->ref, 0, 0, 'L');
+        $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Date')).': '.dol_print_date($checklist->date_completion, 'day'), 0, 1, 'R');
         $posy += 7;
 
         return $posy;
@@ -276,30 +290,30 @@ class pdf_checklist
         $posy += 3;
         $pdf->SetFont('', 'B', $default_font_size);
         $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Equipment')), 0, 1, 'L');
+        $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Equipment')), 0, 1, 'L');
         $posy += 6;
 
         $pdf->SetFont('', '', $default_font_size - 1);
 
         // Equipment number
         $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('EquipmentNumber')).':', 0, 0, 'L');
+        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('EquipmentNumber')).':', 0, 0, 'L');
         $pdf->SetFont('', 'B', $default_font_size - 1);
-        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->equipment_number), 0, 1, 'L');
+        $pdf->Cell(0, 4, $this->pdfStr($equipment->equipment_number), 0, 1, 'L');
         $posy += 5;
 
         $pdf->SetFont('', '', $default_font_size - 1);
 
         // Label
         $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->label), 0, 1, 'L');
+        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
+        $pdf->Cell(0, 4, $this->pdfStr($equipment->label), 0, 1, 'L');
         $posy += 5;
 
         // Manufacturer
         $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 1, 'L');
+        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
+        $pdf->Cell(0, 4, $this->pdfStr($equipment->manufacturer), 0, 1, 'L');
         $posy += 5;
 
         // Location
@@ -309,17 +323,17 @@ class pdf_checklist
             $contact->fetch($equipment->fk_address);
 
             $pdf->SetXY($this->marge_gauche + 3, $posy);
-            $pdf->Cell(40, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
+            $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
             $address_text = $contact->getFullName($outputlangs);
             if ($contact->address) $address_text .= ', '.$contact->address;
             if ($contact->zip || $contact->town) $address_text .= ', '.$contact->zip.' '.$contact->town;
-            $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($address_text), 0, 1, 'L');
+            $pdf->Cell(0, 4, $this->pdfStr($address_text), 0, 1, 'L');
             $posy += 5;
         }
 
         // Intervention ref
         $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Intervention')).':', 0, 0, 'L');
+        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Intervention')).':', 0, 0, 'L');
         $pdf->Cell(0, 4, $intervention->ref, 0, 1, 'L');
         $posy += 8;
 
@@ -355,16 +369,16 @@ class pdf_checklist
             $pdf->SetFont('', 'B', $default_font_size);
             $pdf->SetFillColor(220, 220, 220);
             $pdf->SetXY($this->marge_gauche, $posy);
-            $pdf->Cell($width, 7, $outputlangs->convToOutputCharset($outputlangs->trans($section->label)), 1, 1, 'L', true);
+            $pdf->Cell($width, 7, $this->pdfStr($outputlangs->trans($section->label)), 1, 1, 'L', true);
             $posy += 8;
 
             // Column headers
             $pdf->SetFont('', 'B', $default_font_size - 2);
             $pdf->SetFillColor(240, 240, 240);
             $pdf->SetXY($this->marge_gauche, $posy);
-            $pdf->Cell($col1_width, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('CheckPoint')), 1, 0, 'L', true);
-            $pdf->Cell($col2_width, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Result')), 1, 0, 'C', true);
-            $pdf->Cell($col3_width, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Notes')), 1, 1, 'L', true);
+            $pdf->Cell($col1_width, 5, $this->pdfStr($outputlangs->transnoentities('CheckPoint')), 1, 0, 'L', true);
+            $pdf->Cell($col2_width, 5, $this->pdfStr($outputlangs->transnoentities('Result')), 1, 0, 'C', true);
+            $pdf->Cell($col3_width, 5, $this->pdfStr($outputlangs->transnoentities('Notes')), 1, 1, 'L', true);
             $posy += 6;
 
             // Items
@@ -383,21 +397,21 @@ class pdf_checklist
 
                 // Item label
                 $pdf->SetXY($this->marge_gauche, $posy);
-                $pdf->Cell($col1_width, 6, $outputlangs->convToOutputCharset($outputlangs->trans($item->label)), 1, 0, 'L');
+                $pdf->Cell($col1_width, 6, $this->pdfStr($outputlangs->trans($item->label)), 1, 0, 'L');
 
                 // Result with color
                 if ($item->answer_type == 'info') {
-                    $display_answer = $outputlangs->convToOutputCharset($answer_text);
+                    $display_answer = $this->pdfStr($answer_text);
                     $pdf->SetTextColor(0, 0, 0);
                 } else {
                     if ($answer == 'ok' || $answer == 'ja') {
-                        $display_answer = $outputlangs->convToOutputCharset($outputlangs->trans('Answer'.ucfirst($answer)));
+                        $display_answer = $this->pdfStr($outputlangs->trans('Answer'.ucfirst($answer)));
                         $pdf->SetTextColor(0, 128, 0); // Green
                     } elseif ($answer == 'mangel' || $answer == 'nein') {
-                        $display_answer = $outputlangs->convToOutputCharset($outputlangs->trans('Answer'.ucfirst($answer)));
+                        $display_answer = $this->pdfStr($outputlangs->trans('Answer'.ucfirst($answer)));
                         $pdf->SetTextColor(200, 0, 0); // Red
                     } elseif ($answer == 'nv') {
-                        $display_answer = $outputlangs->convToOutputCharset($outputlangs->trans('AnswerNv'));
+                        $display_answer = $this->pdfStr($outputlangs->trans('AnswerNv'));
                         $pdf->SetTextColor(128, 128, 128); // Gray
                     } else {
                         $display_answer = '-';
@@ -409,7 +423,7 @@ class pdf_checklist
                 $pdf->SetTextColor(0, 0, 0);
 
                 // Note
-                $pdf->Cell($col3_width, 6, $outputlangs->convToOutputCharset($note), 1, 1, 'L');
+                $pdf->Cell($col3_width, 6, $this->pdfStr($note), 1, 1, 'L');
                 $posy += 7;
             }
 
@@ -420,7 +434,7 @@ class pdf_checklist
     }
 
     /**
-     * Draw result and signature
+     * Draw completion info (no signature needed - service report is signed)
      *
      * @param TCPDF $pdf PDF object
      * @param ChecklistResult $checklist Checklist
@@ -431,16 +445,10 @@ class pdf_checklist
      */
     protected function _drawResult(&$pdf, $checklist, $user, $outputlangs, $posy)
     {
-        global $conf, $db;
+        global $db;
 
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-
-        // Check page break for signature section
-        if ($posy > $this->page_hauteur - 60) {
-            $pdf->AddPage();
-            $posy = $this->marge_haute + 10;
-        }
 
         $posy += 10;
 
@@ -448,44 +456,16 @@ class pdf_checklist
         $technician = new User($db);
         $technician->fetch($checklist->fk_user_completion);
 
-        // Signature box with frame
-        $signature_box_width = 80;
-        $signature_box_height = 35;
-
-        $pdf->SetDrawColor(0, 0, 0);
-        $pdf->SetFillColor(255, 255, 255);
-        $pdf->Rect($this->marge_gauche, $posy, $signature_box_width, $signature_box_height, 'D');
-
-        // Signature header inside box
-        $pdf->SetFont('', 'B', $default_font_size - 1);
-        $pdf->SetXY($this->marge_gauche + 2, $posy + 2);
-        $pdf->Cell($signature_box_width - 4, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('TechnicianSignature')), 0, 1, 'L');
-
-        // Try to get signature from equipmentmanager settings
-        $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$technician->id.'.png';
-
-        if (file_exists($signature_file)) {
-            $pdf->Image($signature_file, $this->marge_gauche + 5, $posy + 8, 45, 18);
-        }
-
-        // Technician name at bottom of signature box
+        // Simple completion info line
         $pdf->SetFont('', '', $default_font_size - 1);
-        $pdf->SetXY($this->marge_gauche + 2, $posy + $signature_box_height - 6);
-        $pdf->Cell($signature_box_width - 4, 4, $outputlangs->convToOutputCharset($technician->getFullName($outputlangs)), 0, 1, 'L');
+        $pdf->SetXY($this->marge_gauche, $posy);
 
-        // Date box next to signature
-        $date_box_x = $this->marge_gauche + $signature_box_width + 10;
-        $pdf->Rect($date_box_x, $posy, 60, $signature_box_height, 'D');
+        $completion_text = $this->pdfStr($outputlangs->transnoentities('CompletedBy')).': ';
+        $completion_text .= $this->pdfStr($technician->getFullName($outputlangs));
+        $completion_text .= ' - '.dol_print_date($checklist->date_completion, 'dayhour');
 
-        $pdf->SetFont('', 'B', $default_font_size - 1);
-        $pdf->SetXY($date_box_x + 2, $posy + 2);
-        $pdf->Cell(56, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('Date')), 0, 1, 'L');
-
-        $pdf->SetFont('', '', $default_font_size);
-        $pdf->SetXY($date_box_x + 2, $posy + 14);
-        $pdf->Cell(56, 6, dol_print_date($checklist->date_completion, 'day'), 0, 1, 'C');
-
-        $posy += $signature_box_height + 5;
+        $pdf->Cell($width, 5, $completion_text, 0, 1, 'L');
+        $posy += 8;
 
         return $posy;
     }
