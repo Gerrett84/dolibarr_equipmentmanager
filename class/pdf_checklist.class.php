@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2024-2025 Equipment Manager
- * PDF Generator for Checklists v3.0
+ * PDF Generator for Checklists v3.0.6
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,19 +17,6 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
  */
 class pdf_checklist
 {
-    /**
-     * Sanitize string for PDF output
-     * TCPDF handles UTF-8 natively, so we just clean the string
-     *
-     * @param string $str Input string
-     * @return string Cleaned string
-     */
-    protected function pdfStr($str)
-    {
-        if (empty($str)) return '';
-        // TCPDF supports UTF-8 natively - just ensure string is clean
-        return $str;
-    }
     /**
      * @var DoliDB Database handler
      */
@@ -81,6 +68,11 @@ class pdf_checklist
     public $emetteur;
 
     /**
+     * @var Translate Output language object
+     */
+    private $outputlangs;
+
+    /**
      * Constructor
      *
      * @param DoliDB $db Database handler
@@ -111,6 +103,21 @@ class pdf_checklist
     }
 
     /**
+     * Convert string to PDF output - decode HTML entities and convert charset
+     *
+     * @param string $str Input string
+     * @return string Converted string
+     */
+    protected function pdfStr($str)
+    {
+        if (empty($str)) return '';
+        // First decode HTML entities (&uuml; -> ü, &szlig; -> ß, etc.)
+        $str = html_entity_decode($str, ENT_QUOTES, 'UTF-8');
+        // Then convert to output charset
+        return $this->outputlangs->convToOutputCharset($str);
+    }
+
+    /**
      * Write the PDF file
      *
      * @param ChecklistResult $checklist Checklist result object
@@ -130,6 +137,7 @@ class pdf_checklist
             $outputlangs = $langs;
         }
 
+        $this->outputlangs = $outputlangs;
         $outputlangs->loadLangs(array("main", "dict", "companies", "equipmentmanager@equipmentmanager"));
 
         // Load checklist item results
@@ -146,7 +154,6 @@ class pdf_checklist
         $safe_equipment_number = dol_sanitizeFileName($equipment->equipment_number);
         $date_str = dol_print_date($checklist->date_completion, '%Y%m%d');
         $filename = $dir.'/Checklist_'.$safe_equipment_number.'_'.$date_str.'.pdf';
-        $filename_short = 'Checklist_'.$safe_equipment_number.'_'.$date_str.'.pdf';
 
         // Create PDF instance
         $pdf = pdf_getInstance($this->format);
@@ -157,22 +164,22 @@ class pdf_checklist
             $pdf->setPrintFooter(false);
         }
 
-        // Use DejaVuSans for full UTF-8 support (German umlauts ä, ö, ü)
-        $pdf->SetFont('dejavusans');
+        // Use same font as equipmentmanager PDF
+        $pdf->SetFont(pdf_getPDFFont($outputlangs));
         $pdf->Open();
         $pdf->SetDrawColor(128, 128, 128);
 
-        $pdf->SetTitle($this->pdfStr($checklist->ref));
+        $pdf->SetTitle($outputlangs->convToOutputCharset($checklist->ref));
         $pdf->SetSubject($this->pdfStr($outputlangs->transnoentities('ChecklistProtocol')));
         $pdf->SetCreator("Dolibarr ".DOL_VERSION);
-        $pdf->SetAuthor($this->pdfStr($user->getFullName($outputlangs)));
+        $pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
 
         $pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
-        $pdf->SetAutoPageBreak(1, $this->marge_basse + 20);
+        // No auto page break - we handle it manually
+        $pdf->SetAutoPageBreak(0);
 
         // Add first page
         $pdf->AddPage();
-        $pagenb = 1;
 
         // Draw header
         $posy = $this->_pagehead($pdf, $checklist, $equipment, $template, $intervention, $outputlangs);
@@ -185,22 +192,15 @@ class pdf_checklist
         // Draw checklist sections and items
         $posy = $this->_drawChecklistContent($pdf, $checklist, $template, $outputlangs, $posy);
 
-        // Draw result and signature
-        $posy = $this->_drawResult($pdf, $checklist, $user, $outputlangs, $posy);
+        // Draw completion info (ensure it fits on current page)
+        $this->_drawResult($pdf, $checklist, $user, $outputlangs, $posy);
 
-        // Draw footer
-        $this->_pagefoot($pdf, $outputlangs, $pagenb);
+        // NO footer - as requested
 
         // Save PDF
         $pdf->Output($filename, 'F');
 
         if (file_exists($filename)) {
-            // Add to linked files of the intervention
-            require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
-
-            // Update intervention to refresh file list
-            $intervention->add_object_linked('fichinter', $intervention->id);
-
             return $filename;
         }
 
@@ -239,21 +239,16 @@ class pdf_checklist
         // Company name
         $pdf->SetFont('', 'B', $default_font_size + 2);
         $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(0, 6, $this->pdfStr($mysoc->name), 0, 1, 'L');
+        $pdf->Cell(0, 6, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
         $posy += 8;
 
-        // Title
+        // Title - only template label, nothing else
         $pdf->SetFont('', 'B', $default_font_size + 4);
         $pdf->SetXY($this->marge_gauche, $posy);
         $pdf->SetFillColor(240, 240, 240);
-        $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $this->pdfStr($outputlangs->transnoentities('ChecklistProtocol')), 1, 1, 'C', true);
+        $title = $this->pdfStr($outputlangs->trans($template->label));
+        $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $title, 1, 1, 'C', true);
         $posy += 12;
-
-        // Template info
-        $pdf->SetFont('', '', $default_font_size);
-        $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(0, 5, $this->pdfStr($outputlangs->trans($template->label)).' - '.$this->pdfStr($template->norm_reference), 0, 1, 'L');
-        $posy += 7;
 
         // Reference and date
         $pdf->SetFont('', '', $default_font_size - 1);
@@ -299,7 +294,7 @@ class pdf_checklist
         $pdf->SetXY($this->marge_gauche + 3, $posy);
         $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('EquipmentNumber')).':', 0, 0, 'L');
         $pdf->SetFont('', 'B', $default_font_size - 1);
-        $pdf->Cell(0, 4, $this->pdfStr($equipment->equipment_number), 0, 1, 'L');
+        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->equipment_number), 0, 1, 'L');
         $posy += 5;
 
         $pdf->SetFont('', '', $default_font_size - 1);
@@ -307,13 +302,13 @@ class pdf_checklist
         // Label
         $pdf->SetXY($this->marge_gauche + 3, $posy);
         $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $this->pdfStr($equipment->label), 0, 1, 'L');
+        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->label), 0, 1, 'L');
         $posy += 5;
 
         // Manufacturer
         $pdf->SetXY($this->marge_gauche + 3, $posy);
         $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $this->pdfStr($equipment->manufacturer), 0, 1, 'L');
+        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 1, 'L');
         $posy += 5;
 
         // Location
@@ -327,7 +322,7 @@ class pdf_checklist
             $address_text = $contact->getFullName($outputlangs);
             if ($contact->address) $address_text .= ', '.$contact->address;
             if ($contact->zip || $contact->town) $address_text .= ', '.$contact->zip.' '.$contact->town;
-            $pdf->Cell(0, 4, $this->pdfStr($address_text), 0, 1, 'L');
+            $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($address_text), 0, 1, 'L');
             $posy += 5;
         }
 
@@ -359,8 +354,8 @@ class pdf_checklist
         $col3_width = $width * 0.20;
 
         foreach ($template->sections as $section) {
-            // Check page break
-            if ($posy > $this->page_hauteur - 60) {
+            // Check page break (leave space for at least header + a few items)
+            if ($posy > $this->page_hauteur - 50) {
                 $pdf->AddPage();
                 $posy = $this->marge_haute + 10;
             }
@@ -385,7 +380,7 @@ class pdf_checklist
             $pdf->SetFont('', '', $default_font_size - 2);
             foreach ($section->items as $item) {
                 // Check page break
-                if ($posy > $this->page_hauteur - 30) {
+                if ($posy > $this->page_hauteur - 25) {
                     $pdf->AddPage();
                     $posy = $this->marge_haute + 10;
                 }
@@ -401,7 +396,7 @@ class pdf_checklist
 
                 // Result with color
                 if ($item->answer_type == 'info') {
-                    $display_answer = $this->pdfStr($answer_text);
+                    $display_answer = $outputlangs->convToOutputCharset($answer_text);
                     $pdf->SetTextColor(0, 0, 0);
                 } else {
                     if ($answer == 'ok' || $answer == 'ja') {
@@ -423,7 +418,7 @@ class pdf_checklist
                 $pdf->SetTextColor(0, 0, 0);
 
                 // Note
-                $pdf->Cell($col3_width, 6, $this->pdfStr($note), 1, 1, 'L');
+                $pdf->Cell($col3_width, 6, $outputlangs->convToOutputCharset($note), 1, 1, 'L');
                 $posy += 7;
             }
 
@@ -435,13 +430,14 @@ class pdf_checklist
 
     /**
      * Draw completion info (no signature needed - service report is signed)
+     * This stays on the same page, no new page
      *
      * @param TCPDF $pdf PDF object
      * @param ChecklistResult $checklist Checklist
      * @param User $user User
      * @param Translate $outputlangs Language object
      * @param int $posy Current Y position
-     * @return int New Y position
+     * @return void
      */
     protected function _drawResult(&$pdf, $checklist, $user, $outputlangs, $posy)
     {
@@ -450,7 +446,8 @@ class pdf_checklist
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
 
-        $posy += 10;
+        // Small gap
+        $posy += 5;
 
         // Load technician info
         $technician = new User($db);
@@ -461,44 +458,10 @@ class pdf_checklist
         $pdf->SetXY($this->marge_gauche, $posy);
 
         $completion_text = $this->pdfStr($outputlangs->transnoentities('CompletedBy')).': ';
-        $completion_text .= $this->pdfStr($technician->getFullName($outputlangs));
+        $completion_text .= $outputlangs->convToOutputCharset($technician->getFullName($outputlangs));
         $completion_text .= ' - '.dol_print_date($checklist->date_completion, 'dayhour');
 
         $pdf->Cell($width, 5, $completion_text, 0, 1, 'L');
-        $posy += 8;
-
-        return $posy;
-    }
-
-    /**
-     * Draw page footer
-     *
-     * @param TCPDF $pdf PDF object
-     * @param Translate $outputlangs Language object
-     * @param int $pagenb Page number
-     */
-    protected function _pagefoot(&$pdf, $outputlangs, $pagenb)
-    {
-        global $conf, $mysoc;
-
-        $default_font_size = pdf_getPDFFontSize($outputlangs);
-        $posy = $this->page_hauteur - $this->marge_basse;
-
-        $pdf->SetFont('', '', $default_font_size - 3);
-        $pdf->SetTextColor(100, 100, 100);
-        $pdf->SetXY($this->marge_gauche, $posy);
-
-        // Company info
-        $footer_text = $mysoc->name;
-        if ($mysoc->address) $footer_text .= ' - '.$mysoc->address;
-        if ($mysoc->zip || $mysoc->town) $footer_text .= ' - '.$mysoc->zip.' '.$mysoc->town;
-
-        $pdf->Cell(0, 4, $footer_text, 0, 1, 'C');
-
-        // Page number
-        $pdf->SetXY($this->marge_gauche, $posy + 4);
-        $pdf->Cell(0, 4, $outputlangs->transnoentities('Page').' '.$pagenb, 0, 0, 'C');
-
-        $pdf->SetTextColor(0, 0, 0);
+        // Nothing more after this - no footer, no page number
     }
 }
