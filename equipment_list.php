@@ -20,6 +20,7 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
+dol_include_once('/equipmentmanager/class/equipment.class.php');
 
 $langs->loadLangs(array("equipmentmanager@equipmentmanager", "companies"));
 
@@ -184,14 +185,11 @@ if ($resql) {
     print '<td class="liste_titre">';
     print '<select class="flat maxwidth100" name="search_type">';
     print '<option value=""></option>';
-    print '<option value="door_swing"'.($search_type == 'door_swing' ? ' selected' : '').'>'.$langs->trans('DoorSwing').'</option>';
-    print '<option value="door_sliding"'.($search_type == 'door_sliding' ? ' selected' : '').'>'.$langs->trans('DoorSliding').'</option>';
-    print '<option value="fire_door"'.($search_type == 'fire_door' ? ' selected' : '').'>'.$langs->trans('FireDoor').'</option>';
-    print '<option value="door_closer"'.($search_type == 'door_closer' ? ' selected' : '').'>'.$langs->trans('DoorCloser').'</option>';
-    print '<option value="hold_open"'.($search_type == 'hold_open' ? ' selected' : '').'>'.$langs->trans('HoldOpen').'</option>';
-    print '<option value="rws"'.($search_type == 'rws' ? ' selected' : '').'>'.$langs->trans('RWS').'</option>';
-    print '<option value="rwa"'.($search_type == 'rwa' ? ' selected' : '').'>'.$langs->trans('RWA').'</option>';
-    print '<option value="other"'.($search_type == 'other' ? ' selected' : '').'>'.$langs->trans('Other').'</option>';
+    // Use dynamic types from database
+    $search_types = Equipment::getEquipmentTypesTranslated($db, $langs, false);
+    foreach ($search_types as $code => $label) {
+        print '<option value="'.$code.'"'.($search_type == $code ? ' selected' : '').'>'.dol_escape_htmltag($label).'</option>';
+    }
     print '</select>';
     print '</td>';
     

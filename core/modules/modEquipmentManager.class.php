@@ -210,6 +210,26 @@ class modEquipmentManager extends DolibarrModules
             return -1;
         }
 
+        // Initialize equipment types if table is empty
+        $sql = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment_types WHERE entity = ".$conf->entity;
+        $resql = $db->query($sql);
+        if ($resql) {
+            $obj = $db->fetch_object($resql);
+            if ($obj->nb == 0) {
+                $this->loadDataFile('/equipmentmanager/sql/llx_equipmentmanager_equipment_types.data.sql');
+            }
+        }
+
+        // Initialize checklist templates if table is empty
+        $sql = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_templates WHERE entity = ".$conf->entity;
+        $resql = $db->query($sql);
+        if ($resql) {
+            $obj = $db->fetch_object($resql);
+            if ($obj->nb == 0) {
+                $this->loadDataFile('/equipmentmanager/sql/llx_equipmentmanager_checklist.data.sql');
+            }
+        }
+
         // Register PDF template for Fichinter
         // Clean up old entries (both old name and wrong type)
         $sql = "DELETE FROM ".MAIN_DB_PREFIX."document_model WHERE nom IN ('pdf_equipmentmanager', 'equipmentmanager') AND type IN ('fichinter', 'ficheinter') AND entity = ".$conf->entity;
@@ -226,6 +246,43 @@ class modEquipmentManager extends DolibarrModules
         $this->_init(array(), $options);
 
         return 1;
+    }
+
+    /**
+     * Load a SQL data file
+     *
+     * @param string $relpath Relative path to SQL file
+     * @return int Number of statements executed, <0 if error
+     */
+    private function loadDataFile($relpath)
+    {
+        global $db;
+
+        $sqlfile = DOL_DOCUMENT_ROOT.'/custom'.$relpath;
+        if (!file_exists($sqlfile)) {
+            dol_syslog("Data file not found: ".$sqlfile, LOG_WARNING);
+            return -1;
+        }
+
+        $content = file_get_contents($sqlfile);
+        $statements = preg_split('/;\s*\n/', $content);
+        $count = 0;
+
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+            if (empty($statement) || strpos($statement, '--') === 0) {
+                continue;
+            }
+            $statement = str_replace('llx_', MAIN_DB_PREFIX, $statement);
+            if ($db->query($statement)) {
+                $count++;
+            } else {
+                dol_syslog("SQL error in data file: ".$db->lasterror(), LOG_WARNING);
+            }
+        }
+
+        dol_syslog("Loaded ".$count." statements from ".$relpath, LOG_INFO);
+        return $count;
     }
 
     public function remove($options = '')
