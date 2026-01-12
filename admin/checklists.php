@@ -50,24 +50,81 @@ $action = GETPOST('action', 'aZ09');
 
 // Initialize checklist templates from SQL data
 if ($action == 'init_templates') {
-    // Check if templates table is empty
-    $sql = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_templates WHERE entity = ".$conf->entity;
-    $resql = $db->query($sql);
-    $obj = $db->fetch_object($resql);
+    $error = 0;
+    $db->begin();
 
-    if ($obj->nb == 0) {
-        // Run the data SQL file
-        $sqlfile = DOL_DOCUMENT_ROOT.'/custom/equipmentmanager/sql/llx_equipmentmanager_checklist.data.sql';
-        if (file_exists($sqlfile)) {
-            $result = run_sql($sqlfile, 1, $conf->entity, 1, '', 0, 'default', 1);
-            if ($result > 0) {
-                setEventMessages($langs->trans('ChecklistTemplatesInitialized'), null, 'mesgs');
-            } else {
-                setEventMessages('Error initializing templates', null, 'errors');
+    // Run the data SQL file line by line
+    $sqlfile = DOL_DOCUMENT_ROOT.'/custom/equipmentmanager/sql/llx_equipmentmanager_checklist.data.sql';
+    if (file_exists($sqlfile)) {
+        $content = file_get_contents($sqlfile);
+
+        // Replace entity placeholder with actual entity
+        $content = str_replace('entity) VALUES', 'entity) VALUES', $content);
+
+        // Split into statements (simple split on semicolon followed by newline)
+        $statements = preg_split('/;\s*\n/', $content);
+
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+
+            // Skip empty statements and comments
+            if (empty($statement) || strpos($statement, '--') === 0) {
+                continue;
+            }
+
+            // Replace table prefix
+            $statement = str_replace('llx_', MAIN_DB_PREFIX, $statement);
+
+            // Execute statement
+            $resql = $db->query($statement);
+            if (!$resql) {
+                // Log error but continue (some may fail due to duplicates)
+                dol_syslog("Checklist init SQL error: ".$db->lasterror(), LOG_WARNING);
             }
         }
+
+        $db->commit();
+        setEventMessages($langs->trans('ChecklistTemplatesInitialized'), null, 'mesgs');
     } else {
-        setEventMessages('Templates already exist', null, 'warnings');
+        $db->rollback();
+        setEventMessages('SQL file not found: '.$sqlfile, null, 'errors');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
+// Re-initialize (drop and recreate)
+if ($action == 'reinit_templates') {
+    $db->begin();
+
+    // Delete all existing data
+    $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results");
+    $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results");
+    $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items");
+    $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections");
+    $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_templates WHERE entity = ".$conf->entity);
+
+    // Now run init
+    $sqlfile = DOL_DOCUMENT_ROOT.'/custom/equipmentmanager/sql/llx_equipmentmanager_checklist.data.sql';
+    if (file_exists($sqlfile)) {
+        $content = file_get_contents($sqlfile);
+        $statements = preg_split('/;\s*\n/', $content);
+
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+            if (empty($statement) || strpos($statement, '--') === 0) {
+                continue;
+            }
+            $statement = str_replace('llx_', MAIN_DB_PREFIX, $statement);
+            $db->query($statement);
+        }
+
+        $db->commit();
+        setEventMessages($langs->trans('ChecklistTemplatesReinitialized'), null, 'mesgs');
+    } else {
+        $db->rollback();
+        setEventMessages('SQL file not found', null, 'errors');
     }
 
     header("Location: ".$_SERVER["PHP_SELF"]);
@@ -118,6 +175,15 @@ if (!$tablesExist) {
     $templateObj = new ChecklistTemplate($db);
     $templates = $templateObj->fetchAll($conf->entity, 0);
 
+    // Check total items count to see if data was initialized
+    $sql_total_items = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items";
+    $resql_total = $db->query($sql_total_items);
+    $total_items = 0;
+    if ($resql_total) {
+        $obj_total = $db->fetch_object($resql_total);
+        $total_items = $obj_total->nb;
+    }
+
     if (count($templates) == 0) {
         print '<div class="info">';
         print $langs->trans('NoChecklistTemplatesFound');
@@ -126,9 +192,21 @@ if (!$tablesExist) {
         print $langs->trans('InitializeChecklistTemplates');
         print '</a>';
         print '</div>';
+    } elseif ($total_items == 0) {
+        // Templates exist but no items - need to re-init
+        print '<div class="warning">';
+        print $langs->trans('ChecklistTemplatesExistButNoItems');
+        print '<br><br>';
+        print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?action=reinit_templates&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmReinitialize').'\');">';
+        print $langs->trans('ReinitializeChecklistTemplates');
+        print '</a>';
+        print '</div>';
     } else {
         print '<div class="info opacitymedium" style="margin-bottom: 15px;">';
         print $langs->trans('ChecklistTemplatesInfo');
+        print ' <a class="button buttongen" href="'.$_SERVER["PHP_SELF"].'?action=reinit_templates&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmReinitialize').'\');">';
+        print $langs->trans('ReinitializeChecklistTemplates');
+        print '</a>';
         print '</div>';
 
         // Templates table

@@ -177,6 +177,20 @@ llxHeader('', $langs->trans($page_name));
 $linkback = '<a href="'.DOL_URL_ROOT.'/admin/modules.php?restore_lastsearch_values=1">'.$langs->trans("BackToModuleList").'</a>';
 print load_fiche_titre($langs->trans($page_name), $linkback, 'title_setup');
 
+// Admin tabs
+$head = array();
+$head[0][0] = dol_buildpath('/equipmentmanager/admin/setup.php', 1);
+$head[0][1] = $langs->trans('ModuleSetup');
+$head[0][2] = 'setup';
+$head[1][0] = dol_buildpath('/equipmentmanager/admin/equipment_types.php', 1);
+$head[1][1] = $langs->trans('EquipmentTypesSetup');
+$head[1][2] = 'equipment_types';
+$head[2][0] = dol_buildpath('/equipmentmanager/admin/checklists.php', 1);
+$head[2][1] = $langs->trans('ChecklistTemplates');
+$head[2][2] = 'checklists';
+
+print dol_get_fiche_head($head, 'setup', '', -1);
+
 // Quick Links
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
@@ -597,6 +611,8 @@ print '</form>';
 })();
 </script>
 <?php
+
+print dol_get_fiche_end();
 
 // End of page
 llxFooter();

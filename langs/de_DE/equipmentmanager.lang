@@ -547,3 +547,7 @@ NoChecklistTemplatesFound=Keine Checklisten-Vorlagen gefunden.
 InitializeChecklistTemplates=Checklisten-Vorlagen initialisieren
 ChecklistTemplatesInitialized=Checklisten-Vorlagen wurden erfolgreich initialisiert.
 ChecklistTemplatesInfo=Diese Übersicht zeigt alle verfügbaren Checklisten-Vorlagen für die verschiedenen Anlagentypen. Die Vorlagen werden automatisch basierend auf dem Anlagentyp zugewiesen.
+ChecklistTemplatesExistButNoItems=Checklisten-Vorlagen existieren, aber die Prüfpunkte wurden nicht geladen. Bitte initialisieren Sie die Vorlagen neu.
+ReinitializeChecklistTemplates=Checklisten-Vorlagen neu initialisieren
+ConfirmReinitialize=Sind Sie sicher? Alle bestehenden Checklisten-Daten werden gelöscht und neu geladen.
+ChecklistTemplatesReinitialized=Checklisten-Vorlagen wurden erfolgreich neu initialisiert.

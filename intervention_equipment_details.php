@@ -219,6 +219,14 @@ if ($action == 'start_checklist' && $permissiontoadd && $equipment_id > 0) {
     $template = new ChecklistTemplate($db);
     $template_type = $equipment_temp->equipment_type;
 
+    // Equipment type mapping - some types share the same checklist template
+    $type_mapping = array(
+        'hold_open' => 'fire_door_fsa',  // Feststellanlage = FSA Template
+    );
+    if (isset($type_mapping[$template_type])) {
+        $template_type = $type_mapping[$template_type];
+    }
+
     // Check if FSA variant should be used (for fire_door with FSA)
     $has_fsa = GETPOST('has_fsa', 'int');
     if ($equipment_temp->equipment_type == 'fire_door' && $has_fsa) {

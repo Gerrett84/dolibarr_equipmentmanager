@@ -235,8 +235,22 @@ $page_name = "EquipmentTypesSetup";
 llxHeader('', $langs->trans($page_name));
 
 // Page title
-$linkback = '<a href="'.dol_buildpath('/equipmentmanager/admin/setup.php', 1).'">'.$langs->trans("BackToSetup").'</a>';
+$linkback = '<a href="'.DOL_URL_ROOT.'/admin/modules.php?restore_lastsearch_values=1">'.$langs->trans("BackToModuleList").'</a>';
 print load_fiche_titre($langs->trans($page_name), $linkback, 'title_setup');
+
+// Admin tabs
+$head = array();
+$head[0][0] = dol_buildpath('/equipmentmanager/admin/setup.php', 1);
+$head[0][1] = $langs->trans('ModuleSetup');
+$head[0][2] = 'setup';
+$head[1][0] = dol_buildpath('/equipmentmanager/admin/equipment_types.php', 1);
+$head[1][1] = $langs->trans('EquipmentTypesSetup');
+$head[1][2] = 'equipment_types';
+$head[2][0] = dol_buildpath('/equipmentmanager/admin/checklists.php', 1);
+$head[2][1] = $langs->trans('ChecklistTemplates');
+$head[2][2] = 'checklists';
+
+print dol_get_fiche_head($head, 'equipment_types', '', -1);
 
 // Confirm delete dialog
 if ($action == 'delete' && $id > 0) {
@@ -421,6 +435,8 @@ print '<div class="info">';
 print '<strong>'.$langs->trans("EquipmentTypesInfo").'</strong><br>';
 print $langs->trans("EquipmentTypesInfoDesc");
 print '</div>';
+
+print dol_get_fiche_end();
 
 // End of page
 llxFooter();
