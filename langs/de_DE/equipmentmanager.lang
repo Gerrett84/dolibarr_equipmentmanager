@@ -551,3 +551,15 @@ ChecklistTemplatesExistButNoItems=Checklisten-Vorlagen existieren, aber die Prü
 ReinitializeChecklistTemplates=Checklisten-Vorlagen neu initialisieren
 ConfirmReinitialize=Sind Sie sicher? Alle bestehenden Checklisten-Daten werden gelöscht und neu geladen.
 ChecklistTemplatesReinitialized=Checklisten-Vorlagen wurden erfolgreich neu initialisiert.
+
+# Checklist PDF
+ChecklistProtocol=Prüfprotokoll
+GeneratePDF=PDF erstellen
+ChecklistResultPassed=PRÜFUNG BESTANDEN - Anlage funktionsfähig
+ChecklistResultFailed=PRÜFUNG NICHT BESTANDEN - Mängel festgestellt
+TechnicianSignature=Unterschrift Techniker
+NoSignatureAvailable=Keine Unterschrift hinterlegt
+CompleteChecklist=Checkliste abschließen
+ChecklistCompleted=Checkliste wurde erfolgreich abgeschlossen.
+ChecklistDeleted=Checkliste wurde gelöscht.
+ConfirmDeleteChecklist=Möchten Sie diese Checkliste wirklich löschen?

@@ -344,6 +344,39 @@ if ($action == 'delete_checklist' && $permissiontoadd) {
     exit;
 }
 
+// Generate PDF for checklist
+if ($action == 'pdf_checklist' && $permissiontoread) {
+    $checklist_id = GETPOST('checklist_id', 'int');
+
+    dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+
+    $checklist = new ChecklistResult($db);
+    if ($checklist->fetch($checklist_id) > 0) {
+        $equipment_obj = new Equipment($db);
+        $equipment_obj->fetch($checklist->fk_equipment);
+
+        $template = new ChecklistTemplate($db);
+        $template->fetch($checklist->fk_template);
+        $template->fetchSectionsWithItems();
+
+        $pdf = new pdf_checklist($db);
+        $filename = $pdf->write_file($checklist, $equipment_obj, $template, $object, $user, $langs);
+
+        if ($filename) {
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="'.basename($filename).'"');
+            header('Content-Length: '.filesize($filename));
+            readfile($filename);
+            exit;
+        } else {
+            setEventMessages($pdf->error, null, 'errors');
+        }
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
 /*
  * View
  */
@@ -879,10 +912,17 @@ if ($object->id > 0) {
         if ($checklistResult->status == 0 && $permissiontoadd) {
             print '<tr><td colspan="4" class="center" style="padding: 15px;">';
             print '<input type="submit" class="button" value="'.$langs->trans('Save').'">';
-            print ' <input type="submit" class="button button-save" name="action" value="'.$langs->trans('CompleteChecklist').'" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\'); return true;">';
+            print ' <button type="submit" class="button button-save" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\');">'.$langs->trans('CompleteChecklist').'</button>';
             print ' <a class="button button-cancel" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDeleteChecklist').'\');">'.$langs->trans('Delete').'</a>';
             print '</td></tr>';
             print '</form>';
+        } elseif ($checklistResult->status > 0) {
+            // Completed checklist - show PDF button
+            print '<tr><td colspan="4" class="center" style="padding: 15px;">';
+            print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=pdf_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'">';
+            print '<span class="fa fa-file-pdf-o"></span> '.$langs->trans('GeneratePDF');
+            print '</a>';
+            print '</td></tr>';
         }
     } else {
         print '<tr><td colspan="4" class="opacitymedium center" style="padding: 20px;">';
