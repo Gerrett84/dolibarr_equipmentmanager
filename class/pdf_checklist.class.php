@@ -277,10 +277,12 @@ class pdf_checklist
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
 
-        // Box
+        // Box (height depends on whether location_note exists)
+        $boxHeight = 35;
+        if (!empty($equipment->location_note)) $boxHeight += 5;
         $pdf->SetDrawColor(200, 200, 200);
         $pdf->SetFillColor(250, 250, 250);
-        $pdf->Rect($this->marge_gauche, $posy, $width, 35, 'DF');
+        $pdf->Rect($this->marge_gauche, $posy, $width, $boxHeight, 'DF');
 
         $posy += 3;
         $pdf->SetFont('', 'B', $default_font_size);
@@ -311,7 +313,15 @@ class pdf_checklist
         $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 1, 'L');
         $posy += 5;
 
-        // Location
+        // Standort (location_note)
+        if (!empty($equipment->location_note)) {
+            $pdf->SetXY($this->marge_gauche + 3, $posy);
+            $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('LocationNote')).':', 0, 0, 'L');
+            $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->location_note), 0, 1, 'L');
+            $posy += 5;
+        }
+
+        // Object Address
         if ($equipment->fk_address > 0) {
             require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
             $contact = new Contact($db);

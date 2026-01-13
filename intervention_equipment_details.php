@@ -824,10 +824,18 @@ if ($object->id > 0) {
 
         // Display sections and items
         foreach ($template->sections as $section) {
-            // Section header
+            $isErgebnisSection = ($section->code == 'ergebnis');
+
+            // Section header with "Alle OK" button
             print '<tr class="liste_titre">';
             print '<th colspan="4" style="background-color: #f0f0f0;">';
-            print $langs->trans($section->label);
+            print '<div style="display: flex; justify-content: space-between; align-items: center;">';
+            print '<span>'.$langs->trans($section->label).'</span>';
+            // "Alle OK" button (not for Ergebnis section and only if editable)
+            if (!$isErgebnisSection && $checklistResult->status == 0 && $permissiontoadd) {
+                print '<button type="button" class="button small" onclick="setAllOK(\''.$section->code.'\')" style="padding: 2px 8px; font-size: 11px;">'.$langs->trans('SetAllOK').'</button>';
+            }
+            print '</div>';
             print '</th>';
             print '</tr>';
 
@@ -851,28 +859,26 @@ if ($object->id > 0) {
                 // Answer input
                 print '<td class="center">';
                 if ($checklistResult->status == 0 && $permissiontoadd) {
-                    // Editable
-                    if ($item->answer_type == 'ok_mangel') {
-                        print '<select name="answer_'.$item->id.'" class="flat">';
+                    // Editable - all ok_mangel types now include N.V. option (except Ergebnis section)
+                    if ($item->answer_type == 'ok_mangel' || $item->answer_type == 'ok_mangel_nv') {
+                        print '<select name="answer_'.$item->id.'" class="flat checklist-answer" data-section="'.$section->code.'">';
                         print '<option value="">--</option>';
                         print '<option value="ok"'.($current_answer == 'ok' ? ' selected' : '').'>'.$langs->trans('AnswerOK').'</option>';
                         print '<option value="mangel"'.($current_answer == 'mangel' ? ' selected' : '').'>'.$langs->trans('AnswerMangel').'</option>';
-                        print '</select>';
-                    } elseif ($item->answer_type == 'ok_mangel_nv') {
-                        print '<select name="answer_'.$item->id.'" class="flat">';
-                        print '<option value="">--</option>';
-                        print '<option value="ok"'.($current_answer == 'ok' ? ' selected' : '').'>'.$langs->trans('AnswerOK').'</option>';
-                        print '<option value="mangel"'.($current_answer == 'mangel' ? ' selected' : '').'>'.$langs->trans('AnswerMangel').'</option>';
-                        print '<option value="nv"'.($current_answer == 'nv' ? ' selected' : '').'>'.$langs->trans('AnswerNV').'</option>';
+                        // N.V. option for all items (except Ergebnis section)
+                        if (!$isErgebnisSection) {
+                            print '<option value="nv"'.($current_answer == 'nv' ? ' selected' : '').'>'.$langs->trans('AnswerNV').'</option>';
+                        }
                         print '</select>';
                     } elseif ($item->answer_type == 'ja_nein') {
-                        print '<select name="answer_'.$item->id.'" class="flat">';
+                        // Ja/Nein for Ergebnis section - no N.V. option
+                        print '<select name="answer_'.$item->id.'" class="flat checklist-answer" data-section="'.$section->code.'">';
                         print '<option value="">--</option>';
                         print '<option value="ja"'.($current_answer == 'ja' ? ' selected' : '').'>'.$langs->trans('AnswerJa').'</option>';
                         print '<option value="nein"'.($current_answer == 'nein' ? ' selected' : '').'>'.$langs->trans('AnswerNein').'</option>';
                         print '</select>';
                     } elseif ($item->answer_type == 'info') {
-                        print '<input type="text" name="answer_text_'.$item->id.'" value="'.dol_escape_htmltag($current_text).'" class="flat minwidth200">';
+                        print '<input type="text" name="answer_text_'.$item->id.'" value="'.dol_escape_htmltag($current_text).'" class="flat minwidth200" data-section="'.$section->code.'">';
                         print '<input type="hidden" name="answer_'.$item->id.'" value="info">';
                     }
                 } else {
@@ -1146,6 +1152,20 @@ function fillProductData() {
         document.getElementById('material_name').value = '';
         document.getElementById('material_price').value = '0';
     }
+}
+
+// Set all items in a section to "OK"
+function setAllOK(sectionCode) {
+    var selects = document.querySelectorAll('select.checklist-answer[data-section="' + sectionCode + '"]');
+    selects.forEach(function(select) {
+        // Only set if it has an "ok" option
+        for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === 'ok') {
+                select.value = 'ok';
+                break;
+            }
+        }
+    });
 }
 </script>
 <?php

@@ -419,6 +419,7 @@ ChecklistDeleted=Checkliste gelöscht
 ChecklistCompleted=Checkliste abgeschlossen
 StartChecklist=Checkliste starten
 CompleteChecklist=Checkliste abschließen
+SetAllOK=Alle OK
 ChecklistInProgress=Checkliste in Bearbeitung
 ChecklistDraft=Entwurf
 ChecklistPassed=Bestanden
@@ -479,7 +480,7 @@ ItemFeststellvorrichtung=Feststellvorrichtung
 ItemAusloesungRauchmelder=Auslösung durch Rauchmelder
 ItemHandausloesung=Handauslösung
 ItemSelbstschliessung=Selbstschließung
-ItemRauchmelderSichtpruefung=Rauchmelder (Sichtprüfung - NICHT reinigen!)
+ItemRauchmelderSichtpruefung=Rauchmelder
 ItemZulassungsschild=Zulassungsschild
 
 # Checklist Items - Türschließer
