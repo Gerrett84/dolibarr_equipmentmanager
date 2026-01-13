@@ -313,6 +313,31 @@ if ($action == 'complete_checklist' && $permissiontoadd) {
             }
         }
 
+        // Validate: Check if all Ergebnis items are filled
+        $ergebnisMissing = false;
+        $template = new ChecklistTemplate($db);
+        if ($template->fetch($checklist->fk_template) > 0) {
+            $template->fetchSectionsWithItems();
+            foreach ($template->sections as $section) {
+                if ($section->code == 'ergebnis') {
+                    foreach ($section->items as $item) {
+                        $answer = GETPOST('answer_'.$item->id, 'alpha');
+                        if (empty($answer) || $answer == '') {
+                            $ergebnisMissing = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($ergebnisMissing) {
+            setEventMessages($langs->trans('ErgebnisMustBeFilled'), null, 'errors');
+            // Redirect back without completing
+            header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+            exit;
+        }
+
         // Then complete
         $result = $checklist->complete($user);
         if ($result > 0) {

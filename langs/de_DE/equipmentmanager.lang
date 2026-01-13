@@ -420,6 +420,7 @@ ChecklistCompleted=Checkliste abgeschlossen
 StartChecklist=Checkliste starten
 CompleteChecklist=Checkliste abschließen
 SetAllOK=Alle OK
+ErgebnisMustBeFilled=Bitte füllen Sie alle Felder im Abschnitt "Ergebnis" aus, bevor Sie die Checkliste abschließen.
 ChecklistInProgress=Checkliste in Bearbeitung
 ChecklistDraft=Entwurf
 ChecklistPassed=Bestanden

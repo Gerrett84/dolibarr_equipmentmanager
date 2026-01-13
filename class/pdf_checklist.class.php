@@ -359,9 +359,10 @@ class pdf_checklist
     {
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-        $col1_width = $width * 0.55;
-        $col2_width = $width * 0.25;
-        $col3_width = $width * 0.20;
+        // Column widths: Checkpoint narrower, Notes wider for customer remarks
+        $col1_width = $width * 0.45;  // Prüfpunkt
+        $col2_width = $width * 0.15;  // Ergebnis (OK/Mangel/N.V.)
+        $col3_width = $width * 0.40;  // Anmerkungen (wichtig für Kunden)
 
         foreach ($template->sections as $section) {
             // Check page break (leave space for at least header + a few items)
