@@ -432,7 +432,7 @@ if ($object->id > 0) {
 
     print dol_get_fiche_end();
 
-    // Get linked equipment
+    // Get linked equipment with link_type
     $sql = "SELECT l.fk_equipment, l.link_type";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as l";
     $sql .= " WHERE l.fk_intervention = ".(int)$object->id;
@@ -440,10 +440,12 @@ if ($object->id > 0) {
 
     $resql = $db->query($sql);
     $linked_equipment = array();
+    $equipment_link_types = array(); // Store link_type per equipment
 
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
             $linked_equipment[] = $obj->fk_equipment;
+            $equipment_link_types[$obj->fk_equipment] = $obj->link_type;
         }
         $db->free($resql);
     }
@@ -787,16 +789,22 @@ if ($object->id > 0) {
         $eq_inter_id = $obj_eq_inter->rowid;
     }
 
-    // Check if checklist exists for this equipment/intervention
-    $checklistResult = new ChecklistResult($db);
-    $hasChecklist = ($checklistResult->fetchByEquipmentIntervention($equipment_id, $eq_inter_id) > 0);
+    // Check if this is a maintenance link (not service) - checklist only for maintenance
+    $currentLinkType = isset($equipment_link_types[$equipment_id]) ? $equipment_link_types[$equipment_id] : 'service';
+    $isMaintenanceLink = ($currentLinkType == 'maintenance');
 
-    print '<div class="div-table-responsive-no-min">';
-    print '<table class="noborder centpercent">';
+    // Only show checklist section for maintenance, not for service
+    if ($isMaintenanceLink) {
+        // Check if checklist exists for this equipment/intervention
+        $checklistResult = new ChecklistResult($db);
+        $hasChecklist = ($checklistResult->fetchByEquipmentIntervention($equipment_id, $eq_inter_id) > 0);
 
-    print '<tr class="liste_titre">';
-    print '<th colspan="4">';
-    print '<span class="fa fa-check-square-o paddingright"></span>'.$langs->trans('Checklist');
+        print '<div class="div-table-responsive-no-min">';
+        print '<table class="noborder centpercent">';
+
+        print '<tr class="liste_titre">';
+        print '<th colspan="4">';
+        print '<span class="fa fa-check-square-o paddingright"></span>'.$langs->trans('Checklist');
 
     if (!$hasChecklist && $permissiontoadd) {
         // Show start checklist button
@@ -961,10 +969,11 @@ if ($object->id > 0) {
         print '</td></tr>';
     }
 
-    print '</table>';
-    print '</div>';
+        print '</table>';
+        print '</div>';
 
-    print '<br>';
+        print '<br>';
+    } // End of isMaintenanceLink check for checklist
 
     // ========================================================================
     // SECTION 4: RECOMMENDATIONS & NOTES
