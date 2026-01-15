@@ -967,15 +967,18 @@ if ($object->id > 0) {
         if ($checklistResult->status == 0 && $permissiontoadd) {
             print '<tr><td colspan="4" class="center" style="padding: 15px;">';
             print '<input type="submit" class="button" value="'.$langs->trans('Save').'">';
+            print ' <a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=pdf_checklist&checklist_id='.$checklistResult->id.'&preview=1&token='.newToken().'" target="_blank">';
+            print '<span class="fa fa-eye"></span> '.$langs->trans('PDFPreview');
+            print '</a>';
             print ' <button type="submit" class="button button-save" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\');">'.$langs->trans('CompleteChecklist').'</button>';
             print ' <a class="button button-cancel" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDeleteChecklist').'\');">'.$langs->trans('Delete').'</a>';
             print '</td></tr>';
             print '</form>';
         } elseif ($checklistResult->status > 0) {
-            // Completed checklist - show PDF button
+            // Completed checklist - show PDF button (opens saved PDF)
             print '<tr><td colspan="4" class="center" style="padding: 15px;">';
-            print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=pdf_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'">';
-            print '<span class="fa fa-file-pdf-o"></span> '.$langs->trans('GeneratePDF');
+            print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=pdf_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" target="_blank">';
+            print '<span class="fa fa-file-pdf-o"></span> '.$langs->trans('ViewPDF');
             print '</a>';
             print '</td></tr>';
         }

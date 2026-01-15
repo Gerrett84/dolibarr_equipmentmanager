@@ -1856,8 +1856,17 @@ function handleChecklist($method, $parts, $input) {
             $template = new ChecklistTemplate($db);
             $templates = [];
 
-            // Check for standard template
-            if ($template->fetchByEquipmentType($equipment->equipment_type) > 0) {
+            // Equipment type mapping - some types share the same checklist template
+            $type_mapping = array(
+                'hold_open' => 'fire_door_fsa',  // Feststellanlage = FSA Template
+            );
+            $template_type = $equipment->equipment_type;
+            if (isset($type_mapping[$template_type])) {
+                $template_type = $type_mapping[$template_type];
+            }
+
+            // Check for standard template (or mapped template)
+            if ($template->fetchByEquipmentType($template_type) > 0) {
                 $template->fetchSectionsWithItems();
                 $templates[] = formatTemplateForApi($template, $langs);
             }
@@ -1987,6 +1996,14 @@ function handleChecklist($method, $parts, $input) {
                 $equipment = new Equipment($db);
                 $equipment->fetch($equipment_id);
                 $template_type = $equipment->equipment_type;
+            }
+
+            // Equipment type mapping - some types share the same checklist template
+            $type_mapping = array(
+                'hold_open' => 'fire_door_fsa',  // Feststellanlage = FSA Template
+            );
+            if (isset($type_mapping[$template_type])) {
+                $template_type = $type_mapping[$template_type];
             }
 
             $template = new ChecklistTemplate($db);

@@ -558,6 +558,8 @@ ChecklistTemplatesReinitialized=Checklisten-Vorlagen wurden erfolgreich neu init
 # Checklist PDF
 ChecklistProtocol=Prüfprotokoll
 GeneratePDF=PDF erstellen
+PDFPreview=PDF Vorschau
+ViewPDF=PDF anzeigen
 CompletedBy=Abgeschlossen von
 ChecklistResultPassed=PRÜFUNG BESTANDEN - Anlage funktionsfähig
 ChecklistResultFailed=PRÜFUNG NICHT BESTANDEN - Mängel festgestellt

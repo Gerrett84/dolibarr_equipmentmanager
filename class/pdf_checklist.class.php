@@ -403,20 +403,33 @@ class pdf_checklist
             // Items
             $pdf->SetFont('', '', $default_font_size - 2);
             foreach ($section->items as $item) {
-                // Check page break
-                if ($posy > $this->page_hauteur - 25) {
-                    $pdf->AddPage();
-                    $posy = $this->marge_haute + 10;
-                }
-
                 $item_result = isset($checklist->item_results[$item->id]) ? $checklist->item_results[$item->id] : array();
                 $answer = isset($item_result['answer']) ? $item_result['answer'] : '';
                 $answer_text = isset($item_result['answer_text']) ? $item_result['answer_text'] : '';
                 $note = isset($item_result['note']) ? $item_result['note'] : '';
+                $note_converted = $outputlangs->convToOutputCharset($note);
+
+                // Calculate row height based on note text (allow multi-line)
+                $min_row_height = 6;
+                $row_height = $min_row_height;
+                if (!empty($note_converted)) {
+                    // Calculate how many lines the note needs
+                    $note_lines = $pdf->getNumLines($note_converted, $col3_width - 2);
+                    $calculated_height = $note_lines * 4; // ~4 units per line
+                    if ($calculated_height > $row_height) {
+                        $row_height = $calculated_height;
+                    }
+                }
+
+                // Check page break (with calculated row height)
+                if ($posy + $row_height > $this->page_hauteur - 25) {
+                    $pdf->AddPage();
+                    $posy = $this->marge_haute + 10;
+                }
 
                 // Item label
                 $pdf->SetXY($this->marge_gauche, $posy);
-                $pdf->Cell($col1_width, 6, $this->pdfStr($outputlangs->trans($item->label)), 1, 0, 'L');
+                $pdf->Cell($col1_width, $row_height, $this->pdfStr($outputlangs->trans($item->label)), 1, 0, 'L');
 
                 // Result with color
                 if ($item->answer_type == 'info') {
@@ -438,12 +451,14 @@ class pdf_checklist
                     }
                 }
 
-                $pdf->Cell($col2_width, 6, $display_answer, 1, 0, 'C');
+                $pdf->Cell($col2_width, $row_height, $display_answer, 1, 0, 'C');
                 $pdf->SetTextColor(0, 0, 0);
 
-                // Note
-                $pdf->Cell($col3_width, 6, $outputlangs->convToOutputCharset($note), 1, 1, 'L');
-                $posy += 7;
+                // Note with MultiCell for wrapping (save position first)
+                $note_x = $pdf->GetX();
+                $note_y = $pdf->GetY();
+                $pdf->MultiCell($col3_width, $row_height, $note_converted, 1, 'L', false, 1, $note_x, $note_y, true, 0, false, true, $row_height, 'T');
+                $posy += $row_height + 1;
             }
 
             $posy += 3;
