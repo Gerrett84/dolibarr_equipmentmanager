@@ -2007,7 +2007,7 @@ function formatTemplateForApi($template, $langs) {
             $items[] = [
                 'id' => (int)$item->id,
                 'code' => $item->code,
-                'label' => $langs->trans($item->label),
+                'label' => html_entity_decode($langs->trans($item->label), ENT_QUOTES, 'UTF-8'),
                 'label_key' => $item->label,
                 'answer_type' => $item->answer_type,
                 'required' => (int)$item->required
@@ -2017,7 +2017,7 @@ function formatTemplateForApi($template, $langs) {
         $sections[] = [
             'id' => (int)$section->id,
             'code' => $section->code,
-            'label' => $langs->trans($section->label),
+            'label' => html_entity_decode($langs->trans($section->label), ENT_QUOTES, 'UTF-8'),
             'label_key' => $section->label,
             'items' => $items
         ];
@@ -2026,7 +2026,7 @@ function formatTemplateForApi($template, $langs) {
     return [
         'id' => (int)$template->id,
         'equipment_type_code' => $template->equipment_type_code,
-        'label' => $langs->trans($template->label),
+        'label' => html_entity_decode($langs->trans($template->label), ENT_QUOTES, 'UTF-8'),
         'label_key' => $template->label,
         'norm_reference' => $template->norm_reference,
         'sections' => $sections

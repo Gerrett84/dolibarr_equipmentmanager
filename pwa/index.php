@@ -1271,6 +1271,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <div class="card" style="margin-top:12px;display:none;" id="checklistCard">
                 <div class="card-header">
                     <h3 class="card-title" id="checklistTitle">Checkliste</h3>
+                    <button type="button" class="btn btn-secondary" id="btnChecklistPdf" style="display:none;padding:6px 12px;font-size:14px;" onclick="app.openChecklistPdf()">PDF</button>
                 </div>
                 <div class="card-body" id="checklistContent">
                     <div class="loading">

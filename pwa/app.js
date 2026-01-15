@@ -2525,6 +2525,12 @@ class ServiceReportApp {
         const checklist = data.checklist || {};
         const isCompleted = checklist.status === 1;
 
+        // Show/hide PDF button based on completion status
+        const pdfBtn = document.getElementById('btnChecklistPdf');
+        if (pdfBtn) {
+            pdfBtn.style.display = isCompleted ? 'block' : 'none';
+        }
+
         let html = '';
 
         // Show completion status if completed
@@ -2835,6 +2841,31 @@ class ServiceReportApp {
         } else {
             this.showToast('Offline - Abschließen nicht möglich');
         }
+    }
+
+    // Open checklist PDF in new tab
+    openChecklistPdf() {
+        if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist) {
+            this.showToast('Fehler: Keine Checkliste verfügbar');
+            return;
+        }
+
+        const checklistId = this.currentChecklist.checklist?.id;
+        if (!checklistId) {
+            this.showToast('Fehler: Checkliste nicht gefunden');
+            return;
+        }
+
+        if (!this.isOnline) {
+            this.showToast('Offline - PDF nicht verfügbar');
+            return;
+        }
+
+        // Build URL to generate PDF
+        const baseUrl = this.apiUrl.replace('/api/', '/');
+        const pdfUrl = `${baseUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}`;
+
+        window.open(pdfUrl, '_blank');
     }
 }
 
