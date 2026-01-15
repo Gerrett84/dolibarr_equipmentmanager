@@ -1927,10 +1927,45 @@ function handleChecklist($method, $parts, $input) {
             $result = $checklist->complete($user);
 
             if ($result > 0) {
+                // Auto-generate PDF and link to intervention
+                $pdf_generated = false;
+                $pdf_error = '';
+
+                try {
+                    dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+                    dol_include_once('/fichinter/class/fichinter.class.php');
+
+                    // Fetch equipment
+                    $equipment_obj = new Equipment($db);
+                    $equipment_obj->fetch($checklist->fk_equipment);
+
+                    // Fetch template
+                    $template = new ChecklistTemplate($db);
+                    $template->fetch($checklist->fk_template);
+
+                    // Fetch intervention
+                    $intervention = new Fichinter($db);
+                    $intervention->fetch($checklist->fk_intervention);
+
+                    // Generate PDF (not preview mode - save to documents)
+                    $pdf = new pdf_checklist($db);
+                    $pdf_result = $pdf->write_file($checklist, $equipment_obj, $template, $intervention, $user, $langs, false);
+
+                    if ($pdf_result && $pdf_result !== 'preview') {
+                        $pdf_generated = true;
+                    } else {
+                        $pdf_error = 'PDF generation returned no file';
+                    }
+                } catch (Exception $e) {
+                    $pdf_error = $e->getMessage();
+                }
+
                 echo json_encode([
                     'status' => 'ok',
                     'message' => 'Checklist completed',
-                    'passed' => $checklist->passed
+                    'passed' => $checklist->passed,
+                    'pdf_generated' => $pdf_generated,
+                    'pdf_error' => $pdf_error
                 ]);
             } else {
                 http_response_code(500);

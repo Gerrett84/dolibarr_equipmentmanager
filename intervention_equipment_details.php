@@ -342,6 +342,17 @@ if ($action == 'complete_checklist' && $permissiontoadd) {
         $result = $checklist->complete($user);
         if ($result > 0) {
             setEventMessages($langs->trans('ChecklistCompleted'), null, 'mesgs');
+
+            // Auto-generate and save PDF
+            dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+            $equipment_obj = new Equipment($db);
+            $equipment_obj->fetch($checklist->fk_equipment);
+
+            $pdf = new pdf_checklist($db);
+            $pdf_result = $pdf->write_file($checklist, $equipment_obj, $template, $object, $user, $langs, false);
+            if ($pdf_result && $pdf_result !== 'preview') {
+                setEventMessages($langs->trans('ChecklistPDFGenerated'), null, 'mesgs');
+            }
         } else {
             setEventMessages($checklist->error, $checklist->errors, 'errors');
         }
@@ -369,9 +380,10 @@ if ($action == 'delete_checklist' && $permissiontoadd) {
     exit;
 }
 
-// Generate PDF for checklist
+// Generate PDF for checklist (preview or final)
 if ($action == 'pdf_checklist' && $permissiontoread) {
     $checklist_id = GETPOST('checklist_id', 'int');
+    $preview = GETPOST('preview', 'int') ? true : false;
 
     dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
 
@@ -385,13 +397,17 @@ if ($action == 'pdf_checklist' && $permissiontoread) {
         $template->fetchSectionsWithItems();
 
         $pdf = new pdf_checklist($db);
-        $filename = $pdf->write_file($checklist, $equipment_obj, $template, $object, $user, $langs);
+        $result = $pdf->write_file($checklist, $equipment_obj, $template, $object, $user, $langs, $preview);
 
-        if ($filename) {
+        if ($result === 'preview') {
+            // Preview was output directly, exit
+            exit;
+        } elseif ($result) {
+            // File was saved, stream it to browser
             header('Content-Type: application/pdf');
-            header('Content-Disposition: inline; filename="'.basename($filename).'"');
-            header('Content-Length: '.filesize($filename));
-            readfile($filename);
+            header('Content-Disposition: inline; filename="'.basename($result).'"');
+            header('Content-Length: '.filesize($result));
+            readfile($result);
             exit;
         } else {
             setEventMessages($pdf->error, null, 'errors');

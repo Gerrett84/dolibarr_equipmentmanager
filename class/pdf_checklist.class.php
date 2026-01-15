@@ -126,9 +126,10 @@ class pdf_checklist
      * @param Fichinter $intervention Intervention object
      * @param User $user User object
      * @param Translate $outputlangs Language object
-     * @return string|bool File path on success, false on failure
+     * @param bool $preview If true, output to browser without saving; if false, save to disk
+     * @return string|bool File path on success (or 'preview' in preview mode), false on failure
      */
-    public function write_file($checklist, $equipment, $template, $intervention, $user, $outputlangs)
+    public function write_file($checklist, $equipment, $template, $intervention, $user, $outputlangs, $preview = false)
     {
         global $conf, $mysoc, $db;
 
@@ -143,17 +144,20 @@ class pdf_checklist
         // Load checklist item results
         $checklist->fetchItemResults();
 
-        // Define output directory - use intervention document folder
-        $objectref = dol_sanitizeFileName($intervention->ref);
-        $dir = $conf->ficheinter->dir_output.'/'.$objectref;
-        if (!file_exists($dir)) {
-            dol_mkdir($dir);
-        }
+        // Define output directory and filename - only needed for non-preview mode
+        $filename = '';
+        if (!$preview) {
+            $objectref = dol_sanitizeFileName($intervention->ref);
+            $dir = $conf->ficheinter->dir_output.'/'.$objectref;
+            if (!file_exists($dir)) {
+                dol_mkdir($dir);
+            }
 
-        // Filename: Checklist_EquipmentNumber_Date.pdf
-        $safe_equipment_number = dol_sanitizeFileName($equipment->equipment_number);
-        $date_str = dol_print_date($checklist->date_completion, '%Y%m%d');
-        $filename = $dir.'/Checklist_'.$safe_equipment_number.'_'.$date_str.'.pdf';
+            // Filename: Checklist_EquipmentNumber_Date.pdf
+            $safe_equipment_number = dol_sanitizeFileName($equipment->equipment_number);
+            $date_str = dol_print_date($checklist->date_completion ?: dol_now(), '%Y%m%d');
+            $filename = $dir.'/Checklist_'.$safe_equipment_number.'_'.$date_str.'.pdf';
+        }
 
         // Create PDF instance
         $pdf = pdf_getInstance($this->format);
@@ -197,15 +201,24 @@ class pdf_checklist
 
         // NO footer - as requested
 
-        // Save PDF
-        $pdf->Output($filename, 'F');
+        // Output PDF
+        if ($preview) {
+            // Preview mode - output directly to browser without saving
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="Checklist_Preview.pdf"');
+            $pdf->Output('', 'I'); // I = inline to browser
+            return 'preview';
+        } else {
+            // Save PDF to disk
+            $pdf->Output($filename, 'F');
 
-        if (file_exists($filename)) {
-            return $filename;
+            if (file_exists($filename)) {
+                return $filename;
+            }
+
+            $this->error = 'Error creating PDF file';
+            return false;
         }
-
-        $this->error = 'Error creating PDF file';
-        return false;
     }
 
     /**

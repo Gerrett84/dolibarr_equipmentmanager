@@ -417,6 +417,7 @@ ChecklistCreated=Checkliste erstellt
 ChecklistUpdated=Checkliste aktualisiert
 ChecklistDeleted=Checkliste gelöscht
 ChecklistCompleted=Checkliste abgeschlossen
+ChecklistPDFGenerated=Checklisten-PDF wurde erstellt
 StartChecklist=Checkliste starten
 CompleteChecklist=Checkliste abschließen
 SetAllOK=Alle OK

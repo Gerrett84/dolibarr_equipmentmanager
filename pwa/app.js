@@ -2441,10 +2441,6 @@ class ServiceReportApp {
     async loadChecklist(interventionId, equipmentId) {
         const contentEl = document.getElementById('checklistContent');
         const titleEl = document.getElementById('checklistTitle');
-        const pdfBtn = document.getElementById('btnChecklistPdf');
-
-        // Hide PDF button initially
-        if (pdfBtn) pdfBtn.style.display = 'none';
 
         contentEl.innerHTML = `
             <div class="loading">
@@ -2495,17 +2491,10 @@ class ServiceReportApp {
                 return;
             }
 
-            // If no checklist exists but templates are available, show template selection or auto-create
+            // If no checklist exists but templates are available, show start button
             if (!checklistData.has_checklist && checklistData.available_templates && checklistData.available_templates.length > 0) {
-                // Show template selection if multiple templates available
-                if (checklistData.available_templates.length > 1) {
-                    this.renderTemplateSelection(checklistData.available_templates, contentEl);
-                    return;
-                } else {
-                    // Auto-create checklist with the only available template
-                    await this.createChecklist(checklistData.available_templates[0].equipment_type_code);
-                    return;
-                }
+                this.renderChecklistStart(checklistData.available_templates, contentEl);
+                return;
             }
 
             this.currentChecklist = checklistData;
@@ -2535,12 +2524,6 @@ class ServiceReportApp {
         const results = data.results || {};
         const checklist = data.checklist || {};
         const isCompleted = checklist.status === 1;
-
-        // Show/hide PDF button based on completion status
-        const pdfBtn = document.getElementById('btnChecklistPdf');
-        if (pdfBtn) {
-            pdfBtn.style.display = isCompleted ? 'block' : 'none';
-        }
 
         let html = '';
 
@@ -2631,31 +2614,66 @@ class ServiceReportApp {
             html += `</div>`;
         });
 
+        // Action buttons
+        html += '<div class="checklist-actions" style="margin-top:16px;">';
+
+        // PDF Preview button (always available)
+        html += `
+            <button type="button" class="btn btn-secondary btn-block" style="margin-bottom:8px;" onclick="app.openChecklistPdf(true)">
+                PDF Vorschau
+            </button>
+        `;
+
         // Complete button (if not already completed)
         if (!isCompleted) {
             html += `
-                <button type="button" class="btn btn-success btn-block checklist-complete-btn" onclick="app.completeChecklist()">
+                <button type="button" class="btn btn-success btn-block" onclick="app.completeChecklist()">
                     Checkliste abschließen
                 </button>
             `;
         }
 
+        html += '</div>';
+
         contentEl.innerHTML = html;
     }
 
-    // Render template selection when multiple templates available
-    renderTemplateSelection(templates, contentEl) {
-        let html = '<p style="margin-bottom:12px;">Wählen Sie eine Vorlage:</p>';
+    // Render checklist start view when no checklist exists yet
+    renderChecklistStart(templates, contentEl) {
+        let html = '<div class="empty-state" style="padding: 20px 0;">';
+        html += '<p style="margin-bottom:16px;">Noch keine Checkliste gestartet</p>';
 
-        templates.forEach(template => {
+        if (templates.length === 1) {
+            // Single template - show simple start button
+            const template = templates[0];
+            let templateName = template.label || 'Wartung';
+            if (templateName.toLowerCase().startsWith('checkliste ')) {
+                templateName = templateName.substring(11);
+            }
             html += `
-                <button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;"
+                <button type="button" class="btn btn-success btn-block"
                     onclick="app.createChecklist('${template.equipment_type_code}')">
-                    ${this.escapeHtml(template.label)}
+                    Checkliste starten (${this.escapeHtml(templateName)})
                 </button>
             `;
-        });
+        } else {
+            // Multiple templates - show selection
+            html += '<p style="margin-bottom:12px;font-size:13px;color:#666;">Vorlage auswählen:</p>';
+            templates.forEach(template => {
+                let templateName = template.label || template.equipment_type_code;
+                if (templateName.toLowerCase().startsWith('checkliste ')) {
+                    templateName = templateName.substring(11);
+                }
+                html += `
+                    <button type="button" class="btn btn-success btn-block" style="margin-bottom:8px;"
+                        onclick="app.createChecklist('${template.equipment_type_code}')">
+                        ${this.escapeHtml(templateName)}
+                    </button>
+                `;
+            });
+        }
 
+        html += '</div>';
         contentEl.innerHTML = html;
     }
 
@@ -2853,14 +2871,23 @@ class ServiceReportApp {
                     };
                 });
 
-                await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}/complete`, {
+                const response = await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}/complete`, {
                     method: 'POST',
                     body: JSON.stringify({
                         checklist_id: checklistId,
                         items: items
                     })
                 });
-                this.showToast('Checkliste abgeschlossen');
+
+                // Show feedback about completion and PDF generation
+                if (response.pdf_generated) {
+                    this.showToast('Checkliste abgeschlossen & PDF erstellt');
+                } else {
+                    this.showToast('Checkliste abgeschlossen');
+                    if (response.pdf_error) {
+                        console.error('PDF generation error:', response.pdf_error);
+                    }
+                }
 
                 // Reload checklist to show completion status
                 await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);
@@ -2873,8 +2900,8 @@ class ServiceReportApp {
         }
     }
 
-    // Open checklist PDF in new tab
-    openChecklistPdf() {
+    // Open checklist PDF in new tab (preview = true for preview only, not saved)
+    openChecklistPdf(preview = false) {
         if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist) {
             this.showToast('Fehler: Keine Checkliste verfügbar');
             return;
@@ -2892,7 +2919,9 @@ class ServiceReportApp {
         }
 
         // Build URL to generate PDF using module URL from config
-        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}`;
+        // preview=1 means PDF is just displayed, not saved to documents
+        const previewParam = preview ? '&preview=1' : '';
+        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}`;
 
         window.open(pdfUrl, '_blank');
     }
