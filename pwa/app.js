@@ -850,6 +850,8 @@ class ServiceReportApp {
                 'door_swing': 'Drehtür',
                 'door_sliding': 'Schiebetür',
                 'fire_door': 'Brandschutztür',
+                'fire_door_fsa': 'Brandschutztür (FSA)',
+                'fire_gate': 'Brandschutztor',
                 'door_closer': 'Türschließer',
                 'hold_open': 'Feststellanlage',
                 'rws': 'RWS',
@@ -2585,6 +2587,14 @@ class ServiceReportApp {
                     html += `<option value="ok" ${currentAnswer === 'ok' ? 'selected' : ''}>OK</option>`;
                     html += `<option value="bedingt_ok" ${currentAnswer === 'bedingt_ok' ? 'selected' : ''}>Bedingt OK</option>`;
                     html += `<option value="nicht_ok" ${currentAnswer === 'nicht_ok' ? 'selected' : ''}>Nicht OK</option>`;
+                } else if (answerType === 'ja_nein') {
+                    html += `<option value="ja" ${currentAnswer === 'ja' ? 'selected' : ''}>Ja</option>`;
+                    html += `<option value="nein" ${currentAnswer === 'nein' ? 'selected' : ''}>Nein</option>`;
+                } else {
+                    // Default fallback to ok_mangel
+                    html += `<option value="ok" ${currentAnswer === 'ok' ? 'selected' : ''}>OK</option>`;
+                    html += `<option value="mangel" ${currentAnswer === 'mangel' ? 'selected' : ''}>Mangel</option>`;
+                    html += `<option value="nv" ${currentAnswer === 'nv' ? 'selected' : ''}>n.V.</option>`;
                 }
 
                 html += `</select>`;
@@ -2655,9 +2665,11 @@ class ServiceReportApp {
         switch (answer) {
             case 'ok':
             case 'bedingt_ok':
+            case 'ja':
                 return 'answer-ok';
             case 'mangel':
             case 'nicht_ok':
+            case 'nein':
                 return 'answer-mangel';
             case 'nv':
                 return 'answer-nv';

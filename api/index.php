@@ -67,6 +67,9 @@ if (!$authenticated) {
     exit;
 }
 
+// Load language files for translations
+$langs->loadLangs(array("main", "equipmentmanager@equipmentmanager"));
+
 // Parse request
 $method = $_SERVER['REQUEST_METHOD'];
 
