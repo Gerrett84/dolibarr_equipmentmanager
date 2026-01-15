@@ -1040,6 +1040,145 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: #3d2a00;
             color: #ffb74d;
         }
+
+        /* Checklist Styles */
+        .checklist-section {
+            margin-bottom: 16px;
+        }
+
+        .checklist-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 14px;
+            color: #263c5c;
+        }
+
+        [data-theme="dark"] .checklist-section-header {
+            color: #6fa8dc;
+        }
+
+        .checklist-section-header .btn-all-ok {
+            padding: 4px 10px;
+            font-size: 11px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .checklist-section-header .btn-all-ok:active {
+            background: #388e3c;
+        }
+
+        .checklist-item {
+            display: flex;
+            flex-direction: column;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+
+        .checklist-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .checklist-item-label {
+            font-size: 14px;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .checklist-item-select {
+            padding: 6px 10px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            font-size: 13px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            min-width: 80px;
+        }
+
+        .checklist-item-select.answer-ok {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .checklist-item-select.answer-mangel {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+
+        .checklist-item-select.answer-nv {
+            background: #f5f5f5;
+            border-color: #9e9e9e;
+        }
+
+        [data-theme="dark"] .checklist-item-select.answer-ok {
+            background: #1b3d1b;
+            border-color: #4caf50;
+        }
+
+        [data-theme="dark"] .checklist-item-select.answer-mangel {
+            background: #3d1b1b;
+            border-color: #f44336;
+        }
+
+        [data-theme="dark"] .checklist-item-select.answer-nv {
+            background: #2d2d2d;
+            border-color: #666;
+        }
+
+        .checklist-item-note {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            font-size: 13px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            margin-top: 6px;
+        }
+
+        .checklist-item-note::placeholder {
+            color: var(--text-muted);
+        }
+
+        .checklist-complete-btn {
+            margin-top: 12px;
+        }
+
+        .checklist-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: #e8f5e9;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #2e7d32;
+        }
+
+        .checklist-status.completed {
+            background: #c8e6c9;
+        }
+
+        [data-theme="dark"] .checklist-status {
+            background: #1b3d1b;
+            color: #81c784;
+        }
     </style>
 </head>
 <body>
@@ -1124,6 +1263,19 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <div class="card-body" id="materialsList">
                     <div class="empty-state" style="padding: 20px 0;">
                         <p style="margin: 0; color: #666;">Kein Material erfasst</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Checklist Section (only for maintenance) -->
+            <div class="card" style="margin-top:12px;display:none;" id="checklistCard">
+                <div class="card-header">
+                    <h3 class="card-title" id="checklistTitle">Checkliste</h3>
+                </div>
+                <div class="card-body" id="checklistContent">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Lade Checkliste...</p>
                     </div>
                 </div>
             </div>

@@ -13,6 +13,7 @@ class ServiceReportApp {
         this.signatureInstance = null;
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
+        this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
 
         this.init();
     }
@@ -995,6 +996,16 @@ class ServiceReportApp {
             // Load and display materials
             const materials = equipment.materials || [];
             this.renderMaterials(materials);
+
+            // Load checklist if maintenance equipment
+            const checklistCard = document.getElementById('checklistCard');
+            if (equipment.link_type === 'maintenance') {
+                checklistCard.style.display = 'block';
+                await this.loadChecklist(this.currentIntervention.id, equipment.id);
+            } else {
+                checklistCard.style.display = 'none';
+                this.currentChecklist = null;
+            }
 
         } catch (err) {
             console.error('Error loading entries:', err);
@@ -2420,6 +2431,398 @@ class ServiceReportApp {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ===== Checklist Methods (v2.0) =====
+
+    // Load checklist for equipment
+    async loadChecklist(interventionId, equipmentId) {
+        const contentEl = document.getElementById('checklistContent');
+        const titleEl = document.getElementById('checklistTitle');
+
+        contentEl.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Lade Checkliste...</p>
+            </div>
+        `;
+
+        try {
+            let checklistData = null;
+
+            if (this.isOnline) {
+                try {
+                    checklistData = await this.apiCall(`checklist/${interventionId}/${equipmentId}`);
+                    // Cache for offline use
+                    await offlineDB.put('checklists', {
+                        key: `${interventionId}_${equipmentId}`,
+                        intervention_id: interventionId,
+                        equipment_id: equipmentId,
+                        data: checklistData
+                    });
+                } catch (err) {
+                    console.warn('API call failed, trying cache:', err);
+                    const cached = await offlineDB.get('checklists', `${interventionId}_${equipmentId}`);
+                    if (cached) {
+                        checklistData = cached.data;
+                    }
+                }
+            } else {
+                // Offline - load from cache
+                const cached = await offlineDB.get('checklists', `${interventionId}_${equipmentId}`);
+                if (cached) {
+                    checklistData = cached.data;
+                    this.showToast('Offline-Daten geladen');
+                }
+            }
+
+            // Handle case where no checklist exists yet but templates are available
+            if (!checklistData || (!checklistData.has_checklist && (!checklistData.available_templates || checklistData.available_templates.length === 0))) {
+                contentEl.innerHTML = `
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <p>Keine Checkliste verfügbar</p>
+                        <p style="font-size: 12px; color: #999;">Für diesen Anlagentyp ist keine Vorlage hinterlegt.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // If no checklist exists but templates are available, show template selection or auto-create
+            if (!checklistData.has_checklist && checklistData.available_templates && checklistData.available_templates.length > 0) {
+                // Show template selection if multiple templates available
+                if (checklistData.available_templates.length > 1) {
+                    this.renderTemplateSelection(checklistData.available_templates, contentEl);
+                    return;
+                } else {
+                    // Auto-create checklist with the only available template
+                    await this.createChecklist(checklistData.available_templates[0].equipment_type_code);
+                    return;
+                }
+            }
+
+            this.currentChecklist = checklistData;
+            titleEl.textContent = `Checkliste: ${checklistData.template.label || 'Wartung'}`;
+
+            this.renderChecklist(checklistData);
+
+        } catch (err) {
+            console.error('Error loading checklist:', err);
+            contentEl.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <p>Fehler beim Laden der Checkliste</p>
+                </div>
+            `;
+        }
+    }
+
+    // Render checklist with sections and items
+    renderChecklist(data) {
+        const contentEl = document.getElementById('checklistContent');
+        const sections = data.template.sections || [];
+        const results = data.results || {};
+        const checklist = data.checklist || {};
+        const isCompleted = checklist.status === 1;
+
+        let html = '';
+
+        // Show completion status if completed
+        if (isCompleted) {
+            html += `
+                <div class="checklist-status completed">
+                    <span>✅</span>
+                    <span>Checkliste abgeschlossen${checklist.date_completion ? ' am ' + this.formatDate(checklist.date_completion) : ''}</span>
+                </div>
+            `;
+        }
+
+        // Render sections
+        sections.forEach(section => {
+            const sectionCode = section.code;
+            const isErgebnisSection = sectionCode === 'ergebnis';
+
+            html += `<div class="checklist-section" data-section="${sectionCode}">`;
+
+            // Section header with "Alle OK" button (except for Ergebnis section)
+            html += `<div class="checklist-section-header">`;
+            html += `<span>${this.escapeHtml(section.label)}</span>`;
+            if (!isErgebnisSection && !isCompleted) {
+                html += `<button type="button" class="btn-all-ok" onclick="app.setAllOK('${sectionCode}')">Alle OK</button>`;
+            }
+            html += `</div>`;
+
+            // Section items
+            const items = section.items || [];
+            items.forEach(item => {
+                const itemId = item.id;
+                const itemCode = item.code;
+                const result = results[itemId] || {};
+                const currentAnswer = result.answer || '';
+                const currentNote = result.note || '';
+                const answerType = item.answer_type || 'ok_mangel';
+
+                html += `<div class="checklist-item" data-item="${itemId}" data-code="${itemCode}">`;
+                html += `<div class="checklist-item-header">`;
+                html += `<span class="checklist-item-label">${this.escapeHtml(item.label)}</span>`;
+
+                // Answer select
+                const selectClass = this.getAnswerClass(currentAnswer);
+                html += `<select class="checklist-item-select ${selectClass}"
+                            data-item="${itemId}"
+                            data-section="${sectionCode}"
+                            ${isCompleted ? 'disabled' : ''}
+                            onchange="app.onChecklistAnswerChange(this)">`;
+
+                // Options based on answer type
+                html += `<option value="">-</option>`;
+
+                if (answerType === 'ok_mangel' || answerType === 'ok_mangel_nv') {
+                    html += `<option value="ok" ${currentAnswer === 'ok' ? 'selected' : ''}>OK</option>`;
+                    html += `<option value="mangel" ${currentAnswer === 'mangel' ? 'selected' : ''}>Mangel</option>`;
+                    if (answerType === 'ok_mangel_nv' || !isErgebnisSection) {
+                        html += `<option value="nv" ${currentAnswer === 'nv' ? 'selected' : ''}>n.V.</option>`;
+                    }
+                } else if (answerType === 'ergebnis') {
+                    html += `<option value="ok" ${currentAnswer === 'ok' ? 'selected' : ''}>OK</option>`;
+                    html += `<option value="bedingt_ok" ${currentAnswer === 'bedingt_ok' ? 'selected' : ''}>Bedingt OK</option>`;
+                    html += `<option value="nicht_ok" ${currentAnswer === 'nicht_ok' ? 'selected' : ''}>Nicht OK</option>`;
+                }
+
+                html += `</select>`;
+                html += `</div>`;
+
+                // Note field
+                html += `<input type="text" class="checklist-item-note"
+                            placeholder="Anmerkung..."
+                            data-item="${itemId}"
+                            value="${this.escapeHtml(currentNote)}"
+                            ${isCompleted ? 'disabled' : ''}
+                            onchange="app.onChecklistNoteChange(this)">`;
+
+                html += `</div>`;
+            });
+
+            html += `</div>`;
+        });
+
+        // Complete button (if not already completed)
+        if (!isCompleted) {
+            html += `
+                <button type="button" class="btn btn-success btn-block checklist-complete-btn" onclick="app.completeChecklist()">
+                    Checkliste abschließen
+                </button>
+            `;
+        }
+
+        contentEl.innerHTML = html;
+    }
+
+    // Render template selection when multiple templates available
+    renderTemplateSelection(templates, contentEl) {
+        let html = '<p style="margin-bottom:12px;">Wählen Sie eine Vorlage:</p>';
+
+        templates.forEach(template => {
+            html += `
+                <button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;"
+                    onclick="app.createChecklist('${template.equipment_type_code}')">
+                    ${this.escapeHtml(template.label)}
+                </button>
+            `;
+        });
+
+        contentEl.innerHTML = html;
+    }
+
+    // Create a new checklist from template
+    async createChecklist(templateType) {
+        if (!this.currentIntervention || !this.currentEquipment) return;
+
+        try {
+            await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}`, {
+                method: 'POST',
+                body: JSON.stringify({ template_type: templateType })
+            });
+
+            // Reload checklist
+            await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);
+        } catch (err) {
+            console.error('Failed to create checklist:', err);
+            this.showToast('Fehler beim Erstellen der Checkliste');
+        }
+    }
+
+    // Get CSS class for answer styling
+    getAnswerClass(answer) {
+        switch (answer) {
+            case 'ok':
+            case 'bedingt_ok':
+                return 'answer-ok';
+            case 'mangel':
+            case 'nicht_ok':
+                return 'answer-mangel';
+            case 'nv':
+                return 'answer-nv';
+            default:
+                return '';
+        }
+    }
+
+    // Set all items in a section to OK
+    setAllOK(sectionCode) {
+        const section = document.querySelector(`.checklist-section[data-section="${sectionCode}"]`);
+        if (!section) return;
+
+        const selects = section.querySelectorAll('.checklist-item-select');
+        selects.forEach(select => {
+            // Find and select the "ok" option
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === 'ok') {
+                    select.value = 'ok';
+                    select.className = 'checklist-item-select answer-ok';
+                    // Trigger change to save
+                    this.onChecklistAnswerChange(select, true);
+                    break;
+                }
+            }
+        });
+
+        this.showToast('Alle auf OK gesetzt');
+    }
+
+    // Handle answer change
+    async onChecklistAnswerChange(selectEl, skipToast = false) {
+        const itemCode = selectEl.dataset.item;
+        const answer = selectEl.value;
+
+        // Update styling
+        selectEl.className = 'checklist-item-select ' + this.getAnswerClass(answer);
+
+        // Get note value
+        const noteEl = selectEl.closest('.checklist-item').querySelector('.checklist-item-note');
+        const note = noteEl ? noteEl.value : '';
+
+        await this.saveChecklistItem(itemCode, answer, note, skipToast);
+    }
+
+    // Handle note change
+    async onChecklistNoteChange(inputEl) {
+        const itemCode = inputEl.dataset.item;
+        const note = inputEl.value;
+
+        // Get answer value
+        const selectEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-select');
+        const answer = selectEl ? selectEl.value : '';
+
+        await this.saveChecklistItem(itemCode, answer, note);
+    }
+
+    // Save a single checklist item
+    async saveChecklistItem(itemId, answer, note, skipToast = false) {
+        if (!this.currentIntervention || !this.currentEquipment) return;
+
+        // Build items object with item ID as key (API expects this format)
+        const items = {};
+        items[itemId] = {
+            answer: answer,
+            note: note
+        };
+
+        const data = { items };
+
+        if (this.isOnline) {
+            try {
+                await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                if (!skipToast) {
+                    // Don't show toast for individual saves to avoid spam
+                }
+            } catch (err) {
+                console.error('Failed to save checklist item:', err);
+                this.showToast('Fehler beim Speichern');
+            }
+        } else {
+            // Queue for offline sync
+            await offlineDB.addToSyncQueue({
+                type: 'checklist-item',
+                data: {
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: this.currentEquipment.id,
+                    ...data
+                }
+            });
+            if (!skipToast) {
+                this.showToast('Offline gespeichert');
+            }
+        }
+    }
+
+    // Complete the checklist
+    async completeChecklist() {
+        if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist) {
+            this.showToast('Fehler: Keine Checkliste geladen');
+            return;
+        }
+
+        const checklistId = this.currentChecklist.checklist?.id;
+        if (!checklistId) {
+            this.showToast('Fehler: Checkliste nicht gefunden');
+            return;
+        }
+
+        // Validate Ergebnis section is filled
+        const ergebnisSection = this.currentChecklist.template.sections?.find(s => s.code === 'ergebnis');
+        if (ergebnisSection) {
+            const ergebnisItems = ergebnisSection.items || [];
+            for (const item of ergebnisItems) {
+                const selectEl = document.querySelector(`.checklist-item-select[data-item="${item.id}"]`);
+                if (!selectEl || !selectEl.value) {
+                    this.showToast('Bitte Ergebnis ausfüllen');
+                    // Scroll to ergebnis section
+                    const ergebnisSectionEl = document.querySelector('.checklist-section[data-section="ergebnis"]');
+                    if (ergebnisSectionEl) {
+                        ergebnisSectionEl.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    return;
+                }
+            }
+        }
+
+        if (!confirm('Checkliste wirklich abschließen? Danach sind keine Änderungen mehr möglich.')) {
+            return;
+        }
+
+        if (this.isOnline) {
+            try {
+                // Gather all current item values
+                const items = {};
+                document.querySelectorAll('.checklist-item-select').forEach(select => {
+                    const itemId = select.dataset.item;
+                    const noteEl = select.closest('.checklist-item').querySelector('.checklist-item-note');
+                    items[itemId] = {
+                        answer: select.value,
+                        note: noteEl ? noteEl.value : ''
+                    };
+                });
+
+                await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}/complete`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        checklist_id: checklistId,
+                        items: items
+                    })
+                });
+                this.showToast('Checkliste abgeschlossen');
+
+                // Reload checklist to show completion status
+                await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);
+            } catch (err) {
+                console.error('Failed to complete checklist:', err);
+                this.showToast('Fehler beim Abschließen');
+            }
+        } else {
+            this.showToast('Offline - Abschließen nicht möglich');
+        }
     }
 }
 

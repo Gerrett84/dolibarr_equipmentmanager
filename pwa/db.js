@@ -3,7 +3,7 @@
  */
 
 const DB_NAME = 'equipmentmanager_pwa';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // v3: Added checklists store
 
 class OfflineDB {
     constructor() {
@@ -80,6 +80,12 @@ class OfflineDB {
                 if (!db.objectStoreNames.contains('pending_uploads')) {
                     const uploads = db.createObjectStore('pending_uploads', { keyPath: 'id', autoIncrement: true });
                     uploads.createIndex('intervention_id', 'intervention_id', { unique: false });
+                }
+
+                // v3: Checklists per intervention/equipment
+                if (!db.objectStoreNames.contains('checklists')) {
+                    const checklists = db.createObjectStore('checklists', { keyPath: 'key' });
+                    checklists.createIndex('intervention_id', 'intervention_id', { unique: false });
                 }
             };
         });
