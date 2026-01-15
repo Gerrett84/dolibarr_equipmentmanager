@@ -2441,6 +2441,10 @@ class ServiceReportApp {
     async loadChecklist(interventionId, equipmentId) {
         const contentEl = document.getElementById('checklistContent');
         const titleEl = document.getElementById('checklistTitle');
+        const pdfBtn = document.getElementById('btnChecklistPdf');
+
+        // Hide PDF button initially
+        if (pdfBtn) pdfBtn.style.display = 'none';
 
         contentEl.innerHTML = `
             <div class="loading">
@@ -2455,6 +2459,7 @@ class ServiceReportApp {
             if (this.isOnline) {
                 try {
                     checklistData = await this.apiCall(`checklist/${interventionId}/${equipmentId}`);
+                    console.log('Checklist API response:', checklistData);
                     // Cache for offline use
                     await offlineDB.put('checklists', {
                         key: `${interventionId}_${equipmentId}`,
@@ -2480,10 +2485,11 @@ class ServiceReportApp {
 
             // Handle case where no checklist exists yet but templates are available
             if (!checklistData || (!checklistData.has_checklist && (!checklistData.available_templates || checklistData.available_templates.length === 0))) {
+                console.log('No checklist data or templates:', checklistData);
                 contentEl.innerHTML = `
                     <div class="empty-state" style="padding: 20px 0;">
                         <p>Keine Checkliste verfügbar</p>
-                        <p style="font-size: 12px; color: #999;">Für diesen Anlagentyp ist keine Vorlage hinterlegt.</p>
+                        <p style="font-size: 12px; color: #999;">Für diesen Anlagentyp (${checklistData?.equipment_type || 'unbekannt'}) ist keine Vorlage hinterlegt.</p>
                     </div>
                 `;
                 return;
@@ -2503,7 +2509,12 @@ class ServiceReportApp {
             }
 
             this.currentChecklist = checklistData;
-            titleEl.textContent = `Checkliste: ${checklistData.template.label || 'Wartung'}`;
+            // Use template name without "Checkliste" prefix if it already starts with it
+            let templateName = checklistData.template.label || 'Wartung';
+            if (templateName.toLowerCase().startsWith('checkliste ')) {
+                templateName = templateName.substring(11); // Remove "Checkliste " prefix
+            }
+            titleEl.textContent = `Checkliste: ${templateName}`;
 
             this.renderChecklist(checklistData);
 
@@ -2650,19 +2661,38 @@ class ServiceReportApp {
 
     // Create a new checklist from template
     async createChecklist(templateType) {
-        if (!this.currentIntervention || !this.currentEquipment) return;
+        if (!this.currentIntervention || !this.currentEquipment) {
+            this.showToast('Fehler: Keine Intervention/Anlage');
+            return;
+        }
+
+        const contentEl = document.getElementById('checklistContent');
+        contentEl.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Erstelle Checkliste...</p>
+            </div>
+        `;
 
         try {
-            await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}`, {
+            const result = await this.apiCall(`checklist/${this.currentIntervention.id}/${this.currentEquipment.id}`, {
                 method: 'POST',
                 body: JSON.stringify({ template_type: templateType })
             });
+
+            console.log('Checklist created:', result);
 
             // Reload checklist
             await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);
         } catch (err) {
             console.error('Failed to create checklist:', err);
             this.showToast('Fehler beim Erstellen der Checkliste');
+            contentEl.innerHTML = `
+                <div class="empty-state" style="padding: 20px 0;">
+                    <p>Fehler beim Erstellen</p>
+                    <p style="font-size: 12px; color: #999;">${err.message || 'Unbekannter Fehler'}</p>
+                </div>
+            `;
         }
     }
 
@@ -2861,9 +2891,8 @@ class ServiceReportApp {
             return;
         }
 
-        // Build URL to generate PDF
-        const baseUrl = this.apiUrl.replace('/api/', '/');
-        const pdfUrl = `${baseUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}`;
+        // Build URL to generate PDF using module URL from config
+        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}`;
 
         window.open(pdfUrl, '_blank');
     }

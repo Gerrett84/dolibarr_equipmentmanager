@@ -1503,6 +1503,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         // Configuration
         const CONFIG = {
             apiBase: '<?php echo $apiBase; ?>',
+            moduleUrl: '<?php echo dol_buildpath('/custom/equipmentmanager/', 1); ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
             authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
