@@ -1948,9 +1948,10 @@ function handleChecklist($method, $parts, $input) {
                     $equipment_obj = new Equipment($db);
                     $equipment_obj->fetch($checklist->fk_equipment);
 
-                    // Fetch template
+                    // Fetch template with sections
                     $template = new ChecklistTemplate($db);
                     $template->fetch($checklist->fk_template);
+                    $template->fetchSectionsWithItems();
 
                     // Fetch intervention
                     $intervention = new Fichinter($db);

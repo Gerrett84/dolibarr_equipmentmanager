@@ -901,7 +901,11 @@ class ServiceReportApp {
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
 
-            document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
+            // Show equipment ref, label and link type (Wartung/Service)
+            const linkTypeBadge = equipment.link_type === 'maintenance'
+                ? '<span class="link-type-badge maintenance">Wartung</span>'
+                : '<span class="link-type-badge service">Service</span>';
+            document.getElementById('entriesEquipmentRef').innerHTML = `${this.escapeHtml(equipment.ref)} - ${this.escapeHtml(equipment.label || '')} ${linkTypeBadge}`;
 
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';

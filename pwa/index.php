@@ -427,6 +427,20 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: white;
         }
 
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:active {
+            background: #545b62;
+        }
+
+        [data-theme="dark"] .btn-secondary {
+            background: #5a6268;
+            color: #e0e0e0;
+        }
+
         .btn-block {
             width: 100%;
         }
@@ -797,6 +811,16 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .link-type-badge.maintenance {
             background: #e8f5e9;
             color: #2e7d32;
+        }
+
+        [data-theme="dark"] .link-type-badge.service {
+            background: #3d2a00;
+            color: #ffb74d;
+        }
+
+        [data-theme="dark"] .link-type-badge.maintenance {
+            background: #1b3d1b;
+            color: #81c784;
         }
 
         /* Document Item */
