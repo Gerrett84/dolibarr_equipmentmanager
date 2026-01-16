@@ -69,7 +69,6 @@ class ServiceReportApp {
         if (this.isOnline) {
             const savedCredentials = await offlineDB.getMeta('credentials');
             if (savedCredentials) {
-                console.log('Attempting auto-login...');
                 const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
                 if (loginResult) {
                     this.showToast('Automatisch angemeldet');
@@ -933,7 +932,6 @@ class ServiceReportApp {
                     };
                     await offlineDB.put('details', detail);
                 } catch (err) {
-                    console.log('API call failed, trying IndexedDB');
                     // Try IndexedDB
                     const cachedDetail = await offlineDB.getDetail(this.currentIntervention.id, equipment.id);
                     if (cachedDetail) {
@@ -1474,7 +1472,6 @@ class ServiceReportApp {
 
             // Save last sync time
             await offlineDB.setMeta('lastSync', Date.now());
-            console.log('Prefetch complete: all data cached for offline use');
 
         } catch (err) {
             console.error('Prefetch failed:', err);
@@ -2541,7 +2538,6 @@ class ServiceReportApp {
             if (this.isOnline) {
                 try {
                     checklistData = await this.apiCall(`checklist/${interventionId}/${equipmentId}`);
-                    console.log('Checklist API response:', checklistData);
                     // Cache for offline use
                     await offlineDB.put('checklists', {
                         key: `${interventionId}_${equipmentId}`,
@@ -2567,7 +2563,6 @@ class ServiceReportApp {
 
             // Handle case where no checklist exists yet but templates are available
             if (!checklistData || (!checklistData.has_checklist && (!checklistData.available_templates || checklistData.available_templates.length === 0))) {
-                console.log('No checklist data or templates:', checklistData);
                 contentEl.innerHTML = `
                     <div class="empty-state" style="padding: 20px 0;">
                         <p>Keine Checkliste verfügbar</p>
@@ -2783,8 +2778,6 @@ class ServiceReportApp {
                 method: 'POST',
                 body: JSON.stringify({ template_type: templateType })
             });
-
-            console.log('Checklist created:', result);
 
             // Reload checklist
             await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);

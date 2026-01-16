@@ -270,9 +270,9 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<table class="noborder centpercent">';
 
                 // Address header
-                print '<tr class="liste_titre" style="background-color: #e3f2fd;">';
+                print '<tr class="liste_titre">';
                 print '<th colspan="7">';
-                print '<span class="fa fa-map-marker paddingright" style="color: #1976d2;"></span>';
+                print '<span class="fa fa-map-marker paddingright"></span>';
                 print '<strong>'.dol_escape_htmltag($address_data['label']).'</strong>';
                 if ($address_data['street'] || $address_data['town']) {
                     print '<br><span class="opacitymedium" style="font-weight: normal;">';
@@ -367,9 +367,9 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<div class="div-table-responsive-no-min" style="margin-bottom: 30px;">';
                 print '<table class="noborder centpercent">';
 
-                print '<tr class="liste_titre" style="background-color: #fff3e0;">';
+                print '<tr class="liste_titre">';
                 print '<th colspan="7">';
-                print '<span class="fa fa-exclamation-triangle paddingright" style="color: #f57c00;"></span>';
+                print '<span class="fa fa-exclamation-triangle paddingright warning"></span>';
                 print '<strong>'.$langs->trans('EquipmentWithoutAddress').'</strong>';
                 print ' <span class="badge" style="background: #f57c00; color: white; margin-left: 10px;">'.count($no_address).' '.$langs->trans('Equipment').'</span>';
                 if ($user->rights->equipmentmanager->equipment->write) {

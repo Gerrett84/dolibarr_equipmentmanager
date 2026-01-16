@@ -427,7 +427,7 @@ if ($object->id > 0) {
         // Bulk action bar
         if ($permissiontoadd && count($available_equipment) > 0) {
             print '<tr class="liste_titre">';
-            print '<td colspan="7" style="background: #f5f5f5; padding: 8px;">';
+            print '<td colspan="7" class="nobottom" style="padding: 8px;">';
             print '<div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
 
             // Select all / none buttons

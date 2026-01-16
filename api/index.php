@@ -1371,15 +1371,7 @@ function generateInterventionPDF($fichinter, $user) {
     $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
 
     $docDir = getFichinterDocDir();
-    error_log("PDF generation: using doc dir: " . $docDir . " with model: " . $modele);
-
     $result = $fichinter->generateDocument($modele, $outputlangs);
-
-    if ($result <= 0) {
-        error_log("PDF generation failed for intervention " . $fichinter->ref . ": " . $fichinter->error);
-    } else {
-        error_log("PDF generated successfully for intervention " . $fichinter->ref);
-    }
 
     return $result > 0;
 }
@@ -1621,7 +1613,6 @@ function processSignature($intervention_id, $signatureData, $signerName) {
 
             $signedPdfFile = basename($newpdffilename);
         } catch (Exception $e) {
-            error_log("Error creating signed PDF: " . $e->getMessage());
             // Continue without signed PDF - signature PNG is still saved
         }
     }

@@ -887,7 +887,7 @@ if ($object->id > 0) {
 
             // Section header with "Alle OK" button
             print '<tr class="liste_titre">';
-            print '<th colspan="4" style="background-color: #f0f0f0;">';
+            print '<th colspan="4">';
             print '<div style="display: flex; justify-content: space-between; align-items: center;">';
             print '<span>'.$langs->trans($section->label).'</span>';
             // "Alle OK" button (not for Ergebnis section and only if editable)
