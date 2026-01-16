@@ -301,19 +301,9 @@ print "</tr>\n";
 clearstatcache();
 $dir = dol_buildpath('/equipmentmanager/core/modules/fichinter/doc', 0);
 
-// Debug: Show directory path
-print '<tr class="liste_titre">';
-print '<td colspan="6">';
-print '<details><summary style="cursor:pointer;"><small>Debug: Module Loading</small></summary>';
-print '<ul style="margin:5px 0; font-family: monospace; font-size: 11px;">';
-print '<li>Directory: <code>'.$dir.'</code></li>';
-print '<li>Directory exists: '.(is_dir($dir) ? 'YES ✓' : 'NO ✗').'</li>';
-
 if (is_dir($dir)) {
     $handle = opendir($dir);
     if (is_resource($handle)) {
-        print '<li>Files found:</li>';
-        print '<ul>';
 
         $var = false;
         $modules_found = 0;
@@ -323,8 +313,6 @@ if (is_dir($dir)) {
         while (($file = readdir($handle)) !== false) {
             if (preg_match('/^(pdf_.*|equipmentmanager)\.modules\.php$/i', $file, $reg)) {
                 $modules_found++;
-                print '<li>Found: <code>'.$file.'</code></li>';
-
                 $name = $reg[1];
                 $classname = $name;
 
@@ -340,7 +328,6 @@ if (is_dir($dir)) {
                     $modules_loaded++;
 
                     $var = !$var;
-                    print '</ul></details></td></tr>';
 
                     print '<tr class="oddeven">';
                     print '<td width="100">';
@@ -398,33 +385,17 @@ if (is_dir($dir)) {
 
                     print "</tr>\n";
 
-                    // Re-open debug section for next module
-                    print '<tr class="liste_titre"><td colspan="6"><details><summary style="cursor:pointer;"><small>Debug: Module Loading</small></summary><ul style="margin:5px 0; font-family: monospace; font-size: 11px;">';
-
                 } catch (Exception $e) {
                     $errors[] = $name.': '.$e->getMessage();
-                    print '<li style="color:red;">ERROR loading <code>'.$name.'</code>: '.$e->getMessage().'</li>';
+                    dol_syslog('EquipmentManager PDF module error: '.$e->getMessage(), LOG_ERR);
                 } catch (Error $e) {
                     $errors[] = $name.': '.$e->getMessage();
-                    print '<li style="color:red;">FATAL ERROR loading <code>'.$name.'</code>: '.$e->getMessage().'</li>';
+                    dol_syslog('EquipmentManager PDF module fatal error: '.$e->getMessage(), LOG_ERR);
                 }
             }
         }
         closedir($handle);
-
-        print '</ul>';
-        print '<li>Total modules found: '.$modules_found.'</li>';
-        print '<li>Successfully loaded: '.$modules_loaded.'</li>';
-        if (count($errors) > 0) {
-            print '<li style="color:red;">Errors: '.count($errors).'</li>';
-        }
-        print '</ul></details></td></tr>';
-    } else {
-        print '<li style="color:red;">Cannot open directory</li>';
-        print '</ul></details></td></tr>';
     }
-} else {
-    print '</ul></details></td></tr>';
 }
 
 print '</table>';
@@ -461,7 +432,7 @@ if ($has_signature) {
     $base64 = base64_encode($imageData);
     $dataUrl = 'data:image/png;base64,'.$base64;
 
-    print '<img src="'.$dataUrl.'" style="border: 1px solid #ccc; max-width: 400px; background: white; padding: 10px;" alt="Signature"><br><br>';
+    print '<img src="'.$dataUrl.'" style="border: 1px solid var(--colortext, #ccc); max-width: 400px; background: var(--inputbackgroundcolor, #fff); padding: 10px;" alt="Signature"><br><br>';
     print '<a class="button butActionDelete" href="'.$_SERVER["PHP_SELF"].'?action=delete_signature&token='.newToken().'" onclick="return confirm(\''.$langs->trans("ConfirmDeleteSignature").'\');">';
     print $langs->trans("DeleteSignature");
     print '</a>';
@@ -483,7 +454,7 @@ print '<br><small class="opacitymedium">'.$langs->trans("TechnicianNameHelp").'<
 print '</div>';
 
 // Signature Pad Canvas
-print '<div style="border: 2px solid #ccc; display: inline-block; background: white;">';
+print '<div style="border: 2px solid var(--colortext, #ccc); display: inline-block; background: var(--inputbackgroundcolor, #fff);">';
 print '<canvas id="signature-pad" width="400" height="200" style="touch-action: none; cursor: crosshair;"></canvas>';
 print '</div><br><br>';
 
