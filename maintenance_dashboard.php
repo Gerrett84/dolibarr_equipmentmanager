@@ -111,7 +111,8 @@ body[class*="dark"] .maintenance-legend,
 }
 </style>';
 
-print load_fiche_titre($title, '', 'fa-wrench');
+$linkback = '<a class="button" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_calendar.php"><span class="fa fa-calendar"></span> '.$langs->trans("MaintenanceCalendar").'</a>';
+print load_fiche_titre($title, $linkback, 'fa-wrench');
 
 // Aktueller Monat und nächster Monat
 $current_month = (int)date('n');

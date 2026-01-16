@@ -138,6 +138,23 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // Left Menu - Maintenance Calendar
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'MaintenanceCalendar',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_calendar',
+            'url' => '/equipmentmanager/maintenance_calendar.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
         // Left Menu - Equipment List
         $r++;
         $this->menu[$r] = array(
