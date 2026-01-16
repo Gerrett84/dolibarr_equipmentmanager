@@ -1,63 +1,58 @@
-# Dolibarr Equipment Manager 🔧
+# Dolibarr Equipment Manager
 
-**Version 2.4.0** | Professionelle Anlagenverwaltung mit PWA & Wartungsplanung
+**Version 3.1.10** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
-[![Dolibarr](https://img.shields.io/badge/Dolibarr-22.0%2B-blue.svg)](https://www.dolibarr.org)
+[![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://www.php.net)
 
-> ⚠️ **Hinweis:** Die Installation und Nutzung dieses Moduls erfolgt auf eigene Verantwortung. Es wird empfohlen, vor der Installation ein Backup der Datenbank und des Dolibarr-Verzeichnisses zu erstellen.
+> **Hinweis:** Die Installation und Nutzung dieses Moduls erfolgt auf eigene Verantwortung. Es wird empfohlen, vor der Installation ein Backup der Datenbank und des Dolibarr-Verzeichnisses zu erstellen.
 
 -----
 
-## 🎯 Features
+## Features
 
-### NEU in v2.4: Adressbasierte Anlagenfilterung
-- **Objektadress-Filter** - Serviceaufträge zeigen nur Anlagen der verknüpften Adresse
-- **Pflichtfeld Adresse** - Ohne verknüpfte Adresse werden keine Anlagen angezeigt
-- **Klare Hinweise** - Benutzer wird auf Tab "Kunden/Adressen" verwiesen
+### NEU in v3.0: Checklisten-System
 
-### v2.3: Mehrfachauswahl & Workflow-Verbesserungen
-- **Mehrfachauswahl Wartungsmonat** - In "Anlagen nach Objektadresse" mehrere Anlagen gleichzeitig bearbeiten
-- **Suche nach Objektadresse** - Direkte Suche nach Standort, nicht nur nach Auftraggeber
-- **Bulk-Verknüpfung** - Mehrere Anlagen auf einmal als Wartung/Service verknüpfen
-- **Bearbeitungsstatus** - Im Servicebericht-Dropdown: ✓ bearbeitet, ○ ausstehend
+- **Wartungs-Checklisten** - Vordefinierte Checklisten pro Anlagentyp
+- **Abschnitte & Prüfpunkte** - Strukturierte Prüflisten mit OK/Mangel/N/A Bewertung
+- **Kommentare** - Anmerkungen pro Prüfpunkt
+- **PDF-Export** - Checklisten-Ergebnisse im Servicebericht-PDF
+- **PWA-Integration** - Checklisten mobil ausfüllen (offline-fähig)
+- **Wartung/Service Unterscheidung** - Checklisten nur bei Wartung, nicht bei Service
 
-### v2.2: Wartungs-Dashboard Verbesserungen
-- **Überfällige Wartungen** - Werden bis zur Erledigung angezeigt (nicht mehr ausgeblendet)
-- **Visuelle Unterscheidung** - Überfällig (dunkelrot), Aktuell (rot), Nächster Monat (orange)
-- **Dark Mode** - Wartungs-Dashboard vollständig für Dark Mode optimiert
+### v3.1: PWA-Verbesserungen & Dark Mode
 
-### Dark Mode & Auto-Login (v2.1)
-- **Dark Mode** - Hell/Dunkel/Auto-Modus mit System-Präferenz
-- **Auto-Login** - Zugangsdaten speichern für schnellen Zugriff
-- **2FA-Unterstützung** - TOTP 2FA mit Trusted Device Support
-- **Einstellungsseite** - Zentrale PWA-Konfiguration
+- **Multi-Select Equipment** - Mehrere Anlagen gleichzeitig verknüpfen
+- **Wartung/Service Badge** - Klare visuelle Unterscheidung
+- **Dark Mode Fixes** - Vollständige Dark Mode Kompatibilität im Backend
+- **Admin Cleanup** - Debug-Code entfernt, optimierte Setup-Seite
 
 ### Progressive Web App (PWA)
+
 - **Mobile Offline-App** - Serviceberichte direkt vor Ort erfassen
+- **Checklisten mobil** - Wartungschecklisten auf dem Smartphone ausfüllen
 - **Installierbar** - Als App auf Smartphone/Tablet installieren
 - **Offline-fähig** - Arbeiten ohne Internetverbindung, automatische Synchronisation
-- **Multiple Einträge** - Mehrere Arbeitseinträge pro Anlage für mehrtägige Einsätze
-- **Schneller Zugriff** - PWA-Link in Dolibarr Top-Bar
+- **Multiple Einträge** - Mehrere Arbeitseinträge pro Anlage
+- **Dark Mode** - Hell/Dunkel/Auto-Modus
 
 ### Kernfunktionen
+
 - **Wartungs-Dashboard** - Fällige Wartungen auf einen Blick, gruppiert nach Standort
-- **Automatische Nummerierung** - Equipment-Nummern (A000001, A000002, …) automatisch oder manuell
+- **Automatische Nummerierung** - Equipment-Nummern (A000001, A000002, ...) automatisch oder manuell
 - **Objektadressen** - Separate Lieferadressen pro Anlage für optimale Tourenplanung
 - **Serviceauftrag-Integration** - Zweistufig: Wartung/Service mit automatischer Status-Synchronisation
 - **Wartungs-Historie** - Vollständige Dokumentation aller Arbeiten mit Link zu Serviceaufträgen
-- **Status-Tracking** - Ausstehend → In Bearbeitung → Erledigt
-- **Manuelle Erledigung** - Für Sonderfälle außerhalb des Workflows
-- **PDF-Export** - Professionelle Serviceberichte mit Equipment-Details, Material und Signaturen
+- **PDF-Export** - Professionelle Serviceberichte mit Equipment-Details, Checklisten und Signaturen
 
 ### Equipment-Typen
 
-Drehtürantrieb • Schiebetürantrieb • Brandschutztür • Türschließer • Feststellanlage • RWS • RWA
+Drehtürantrieb | Schiebetürantrieb | Brandschutztür | Türschließer | Feststellanlage | RWS | RWA | Sonstige
 
 -----
 
-## 📦 Installation
+## Installation
 
 ```bash
 # 1. Download
@@ -69,27 +64,31 @@ chown -R www-data:www-data equipmentmanager
 chmod -R 755 equipmentmanager
 
 # 3. In Dolibarr aktivieren
-# Setup → Modules → Equipment Manager → Activate
+# Setup -> Modules -> Equipment Manager -> Activate
 ```
 
-**Voraussetzungen:** Dolibarr 22.0+, PHP 7.4+, MySQL/MariaDB
+**Voraussetzungen:** Dolibarr 16.0+, PHP 7.4+, MySQL/MariaDB
 
 -----
 
-## 📱 PWA (Mobile App)
+## PWA (Mobile App)
 
 ### Zugriff
-- **In Dolibarr:** Klick auf 🏠-Icon in der Top-Bar → "Service Report PWA"
+
+- **In Dolibarr:** Klick auf Home-Icon in der Top-Bar -> "Service Report PWA"
 - **Direkt:** `https://ihr-dolibarr.de/custom/equipmentmanager/pwa/`
 
 ### Installation als App
+
 1. PWA im Browser öffnen
-2. **iOS:** Teilen → "Zum Home-Bildschirm"
-3. **Android:** Menü → "App installieren"
+2. **iOS:** Teilen -> "Zum Home-Bildschirm"
+3. **Android:** Menü -> "App installieren"
 
 ### Funktionen
+
 - Serviceaufträge anzeigen und bearbeiten
 - Equipment mit Arbeitseinträgen dokumentieren
+- Wartungs-Checklisten ausfüllen
 - Material erfassen
 - Kundenunterschrift vor Ort
 - Dokumente hochladen (Fotos)
@@ -97,159 +96,127 @@ chmod -R 755 equipmentmanager
 
 -----
 
-## 🚀 Schnellstart
+## Schnellstart
 
 ### Equipment anlegen
 
-1. **Equipment Manager → Neue Anlage**
-1. Ausfüllen: Nummer (auto), Typ, Kunde, Objektadresse, Wartungsmonat
-1. Erstellen
+1. **Equipment Manager -> Neue Anlage**
+2. Ausfüllen: Nummer (auto), Typ, Kunde, Objektadresse, Wartungsmonat
+3. Erstellen
 
 ### Wartung planen
 
 1. **Wartungs-Übersicht** zeigt fällige Wartungen (1 Monat Vorlauf)
-1. **Serviceauftrag** erstellen → Tab "Equipment" → Als "Wartung" verknüpfen
-1. Nach Erledigung: Equipment verschwindet automatisch
+2. **Serviceauftrag** erstellen -> Tab "Equipment" -> Als "Wartung" verknüpfen
+3. Nach Erledigung: Equipment verschwindet automatisch
+
+### Checkliste ausfüllen
+
+1. Serviceauftrag -> Tab "Servicebericht"
+2. Equipment auswählen (nur bei Wartung wird Checkliste angezeigt)
+3. Prüfpunkte bewerten: OK / Mangel / N/A
+4. Bei Mängeln: Kommentar hinzufügen
+5. Speichern
 
 ### Servicebericht mit PWA
 
 1. Serviceauftrag in PWA öffnen
 2. Equipment auswählen
-3. Arbeitseinträge hinzufügen (Datum, Zeit, Arbeiten, Mängel)
-4. Material erfassen
-5. Kundenunterschrift holen
-6. Speichern & Freigeben
+3. Checkliste ausfüllen (bei Wartung)
+4. Arbeitseinträge hinzufügen
+5. Material erfassen
+6. Kundenunterschrift holen
+7. Speichern & Freigeben
 
 -----
 
-## 📝 Changelog
+## Changelog
 
-### v2.4.0 (2025-01-08)
+### v3.1.10 (2025-01-16)
 
-- ✨ **Adressbasierte Anlagenfilterung** - Serviceaufträge zeigen nur Anlagen der verknüpften Objektadresse
-- ✨ **Pflichtfeld Adresse** - Ohne verknüpfte Adresse werden keine Anlagen angezeigt
-- 🎨 **Benutzerführung** - Klarer Hinweis auf Tab "Kunden/Adressen" wenn keine Adresse verknüpft
+- **Admin Cleanup** - Debug-Code aus PDF-Template-Bereich entfernt
+- **Dark Mode Fix** - Signatur-Vorschau und Pad mit CSS-Variablen
+- **Version Update** - Modulversion auf 3.1.10 aktualisiert
 
-### v2.3.0 (2025-01-08)
+### v3.1.9 (2025-01-16)
 
-- ✨ **Mehrfachauswahl Wartungsmonat** - In "Anlagen nach Objektadresse" mehrere Anlagen gleichzeitig ändern
-- ✨ **Suche nach Objektadresse** - Direktsuche nach Standort zusätzlich zur Auftraggeber-Suche
-- ✨ **Bulk-Verknüpfung Serviceaufträge** - Mehrere Anlagen auf einmal als Wartung/Service verknüpfen
-- ✨ **Bearbeitungsstatus im Dropdown** - Servicebericht zeigt ✓ für bearbeitete, ○ für ausstehende Anlagen
-- 🎨 **Verbesserte UI** - Select All/None Buttons, Zähler für Auswahl
+- **Dark Mode** - Fixes für equipment_by_address.php
+- **Badge-Styles** - Dolibarr Standard-Badge-Klassen verwendet
 
-### v2.2.0 (2025-01-06)
+### v3.1.8 (2025-01-16)
 
-- ✨ **Überfällige Wartungen** - Werden bis zur Erledigung angezeigt
-- ✨ **Visuelle Unterscheidung** - Überfällig (dunkelrot), Aktuell (rot), Nächster (orange)
-- ✨ **Wartungs-Dashboard Dark Mode** - Zusammenfassung und Legende angepasst
-- 🐛 **Fix:** PWA Status bleibt nicht mehr auf "Lade..." hängen
-- 🐛 **Fix:** Dezember-Wartungen werden im Januar korrekt angezeigt
-- 🐛 **Fix:** Vorjahres-Erledigungen werden berücksichtigt
+- **Dark Mode Fixes** - Backend-weite Korrekturen für Dark Mode
+- **Debug Cleanup** - Debug-Einträge aus API und PWA entfernt
 
-### v2.1.0 (2025-01-05)
+### v3.1.7 (2025-01-15)
 
-- ✨ **Dark Mode** - Hell/Dunkel/Auto-Modus für PWA
-- ✨ **Auto-Login** - Zugangsdaten speichern mit Test-Funktion
-- ✨ **2FA-Unterstützung** - TOTP 2FA mit Trusted Device Support
-- ✨ **Einstellungsseite** - Neue PWA-Settings mit Theme-Switcher
-- ✨ **Trusted Device Banner** - Anzeige der verbleibenden Tage
-- 🎨 **Dark Mode Styling** - Vollständige UI-Anpassung für alle Elemente
-- 🎨 **Akzentfarben** - Überschriften und Titel farblich hervorgehoben
-- 🐛 **Fix:** Login-Loop beim Speichern der Anmeldedaten behoben
-- 🐛 **Fix:** Trusted Device Tage zeigt nun verbleibende statt konfigurierte Tage
+- **Wartung/Service Badge** - Anzeige im PWA nach rechts verschoben
+- **Backend Badge** - Verknüpfungsart im Backend-Servicebericht angezeigt
 
-### v2.0.0 (2024-12-29)
+### v3.1.0-3.1.6 (2025-01)
 
-- ✨ **Progressive Web App (PWA)** - Mobile Offline-App für Serviceberichte
-- ✨ **Multiple Arbeitseinträge** - Mehrere Einträge pro Anlage für mehrtägige Einsätze
-- ✨ **Kundenunterschrift in PWA** - Digitale Unterschrift vor Ort
-- ✨ **Dokument-Upload** - Fotos direkt in der PWA hochladen
-- ✨ **Online-Signatur** - Integration mit Dolibarr Online-Signatur
-- ✨ **PWA-Link in Top-Bar** - Schneller Zugriff auf die Mobile App
-- ✨ **REST-API** - Vollständige API für alle Equipment-Operationen
-- 🎨 **PDF-Layout** - Dynamische Seitenumbrüche, letzte Anlage + Unterschrift auf einer Seite
-- 🎨 **PDF-Formatierung** - Verbesserte Abstände und Linienführung
-- 🐛 **Fix:** Mehrere Einträge pro Anlage möglich (entry_number)
-- 🐛 **Fix:** PDF-Signatur korrekt positioniert
+- **PWA Checklisten** - Vollständige Offline-Unterstützung
+- **Multi-Select** - Mehrfachauswahl für Equipment-Verknüpfung
+- **PDF-Verbesserungen** - Checklisten im PDF-Export
+- **Workflow-Optimierungen** - Bessere Benutzerführung
 
-### v1.6.3 (2024-12-24)
+### v3.0.0 (2025-01)
 
-- ✨ **Techniker-Unterschrift** - Unterschrift im Setup zeichnen und in allen PDFs automatisch einfügen
-- ✨ **Signatur-Verwaltung** - Canvas-basierter Unterschriften-Pad mit Speichern/Löschen
-- ✨ **Auto-Insert in PDF** - Gespeicherte Unterschrift wird automatisch ins PDF eingefügt
-- 🎨 **PDF-Formatierung** - Verbesserte Zeitdarstellung mit Punkt nach "min."
-- 🎨 **PDF-Layout** - Dauer rechtsbündig für bessere Konsistenz mit Gesamtdauer
-- 📁 **Signatur-Speicherung** - Als transparentes PNG in `/equipmentmanager/signatures/`
+- **Checklisten-System** - Komplettes Wartungschecklisten-Management
+- **Abschnitte & Items** - Strukturierte Prüflisten
+- **Ergebnis-Tracking** - OK/Mangel/N/A mit Kommentaren
+- **Anlagentyp-spezifisch** - Unterschiedliche Checklisten je Typ
+- **PWA-Integration** - Mobile Checklisten-Erfassung
 
-### v1.6.2 (2024-12-23)
+### v2.x (2024-2025)
 
-- ✨ **Produkt-Auswahl für Material** - Integration mit Dolibarr Produktkatalog
-- ✨ **Auto-Fill** - Automatische Übernahme von Produktname und -preis
-- ✨ **Auto-Freigabe** - Serviceauftrag kann direkt nach Bericht-Speicherung freigegeben werden
-- 🏷️ **Tab umbenannt** - "Anlagen Details" → "Servicebericht" (passender zum Zweck)
-- 🐛 **Fix:** Bearbeitung gespeicherter Serviceberichte funktioniert jetzt
-- 🐛 **Fix:** Material-Dropdown zeigt nur Produkte (keine Leistungen/Services)
-- 🐛 **Fix:** PDF-Seitenumbruch - Equipment-Berichte bleiben komplett auf einer Seite
-- 🐛 **Fix:** Preis-Formatierung mit korrekter Dezimalanzahl
+- **v2.4** - Adressbasierte Anlagenfilterung
+- **v2.3** - Mehrfachauswahl & Workflow-Verbesserungen
+- **v2.2** - Wartungs-Dashboard Verbesserungen
+- **v2.1** - Dark Mode & Auto-Login
+- **v2.0** - Progressive Web App (PWA)
 
-### v1.6.1 (2024-12-21)
+### v1.x (2024)
 
-- ✨ **PDF-Export für Serviceaufträge** - Professionelles Template mit Equipment-Details
-- ✨ **Equipment-spezifische PDFs** - Arbeiten, Mängel, Empfehlungen pro Anlage
-- ✨ **Material-Listen** - Verbrauchtes Material mit Preisen im PDF
-- ✨ **Signaturen** - Unterschriftenfelder für Techniker und Kunde
-- ✨ **Zusammenfassung** - Gesamt-Arbeitszeit und Materialkosten
-
-### v1.5.1 (2024-12-19)
-
-- ✨ **Letzte Wartung** auf Equipment-Karte mit Link zu Serviceauftrag
-- ✨ **Icon in Top Bar** für schnellen Zugriff
-- 🐛 **Fix:** Serviceauftrags-Link verwendet jetzt `ref` statt `id`
-- 🐛 **Fix:** Status "In Bearbeitung" bereits ab Validierung (Status 1)
-- 🎨 **Dark Mode:** Tabellenfarben mit rgba-Transparenz
-
-### v1.5 (2024-12-18)
-
-- ✨ Wartungs-Dashboard mit Standort-Gruppierung
-- ✨ Jährliche Wartungsplanung pro Equipment (Wartungsmonat)
-- ✨ Zweistufige Serviceauftrag-Integration (Wartung/Service)
-- ✨ Manuelle Erledigung für Sonderfälle
-- 🐛 Bug fixes und Performance-Verbesserungen
-
-### Frühere Versionen
-
-- **v1.4** (2024-12) - Getrennte Equipment-Ansicht, Suche nach Objektadresse
-- **v1.3** (2024-11) - Automatische Equipment-Nummerierung
-- **v1.0** (2024-10) - Erste Version
+- **v1.6** - PDF-Export, Techniker-Unterschrift
+- **v1.5** - Wartungs-Dashboard, Serviceauftrag-Integration
+- **v1.0-1.4** - Grundfunktionen, Equipment-Verwaltung
 
 -----
 
-## 🔧 Konfiguration
+## Konfiguration
 
 ### Wartungsmonat-Logik
 
 ```
 Equipment: Wartungsmonat Oktober (10)
 Dashboard-Anzeige:
-  ├─ September (9): Vorlauf beginnt
-  ├─ Oktober (10): Hauptmonat
-  └─ Nach Erledigung: Verschwindet
+  - September (9): Vorlauf beginnt
+  - Oktober (10): Hauptmonat
+  - Nach Erledigung: Verschwindet
 
 Jahreswechsel: Januar-Wartung zeigt ab Dezember
 ```
 
 ### Status-Bedeutung
 
-- 🔴 **Ausstehend** - Noch nicht begonnen
-- 🟢 **In Bearbeitung** - Serviceauftrag zugeordnet (Status 1-2)
-- ✅ **Erledigt** - Serviceauftrag abgeschlossen (Status 3)
+- **Ausstehend** - Noch nicht begonnen
+- **In Bearbeitung** - Serviceauftrag zugeordnet (Status 1-2)
+- **Erledigt** - Serviceauftrag abgeschlossen (Status 3)
+
+### Checklisten-Admin
+
+Setup -> Equipment Manager -> Checklisten
+
+- Vorlagen anzeigen und bearbeiten
+- Abschnitte und Prüfpunkte verwalten
+- Anlagentyp-Zuordnung
 
 -----
 
-## 🔄 Update
+## Update
 
-### ⚠️ Backup vor dem Update
+### Backup vor dem Update
 
 ```bash
 # Datenbank sichern
@@ -257,11 +224,12 @@ mysqldump -u root -p dolibarr \
   llx_equipmentmanager_equipment \
   llx_equipmentmanager_intervention_equipment \
   llx_equipmentmanager_equipment_socpeople \
+  llx_equipmentmanager_checklist_templates \
+  llx_equipmentmanager_checklist_sections \
+  llx_equipmentmanager_checklist_items \
+  llx_equipmentmanager_checklist_results \
+  llx_equipmentmanager_checklist_item_results \
   > equipmentmanager_backup_$(date +%Y%m%d).sql
-
-# Modul-Verzeichnis sichern (optional)
-cp -r /var/www/dolibarr/htdocs/custom/equipmentmanager \
-      /var/www/dolibarr/htdocs/custom/equipmentmanager_backup_$(date +%Y%m%d)
 ```
 
 ### Update durchführen
@@ -276,27 +244,28 @@ git pull
 # 3. Browser-Cache leeren
 ```
 
-### Update auf v2.0
+### Update auf v3.0
 
 ```bash
-# SQL-Migration für Multiple Entries ausführen:
-mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_v1.7.sql
+# SQL-Migration für Checklisten ausführen:
+mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_v3.0.sql
+mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_checklist.data.sql
 ```
 
 -----
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **Equipment erscheint nicht im Dashboard?**
 
-- Wartungsvertrag = Aktiv? ✓
-- Wartungsmonat gesetzt? ✓
-- Aktueller oder nächster Monat? ✓
+- Wartungsvertrag = Aktiv?
+- Wartungsmonat gesetzt?
+- Aktueller oder nächster Monat?
 
-**Serviceauftrag-Link fehlt?**
+**Checkliste wird nicht angezeigt?**
 
-- Equipment als "Wartung" verknüpft? ✓
-- Serviceauftrag Status 1-2? ✓
+- Equipment als "Wartung" (nicht "Service") verknüpft?
+- Checklisten-Template für Anlagentyp vorhanden?
 
 **PWA funktioniert nicht?**
 
@@ -304,13 +273,9 @@ mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_v1.7.sql
 - Browser-Cache leeren
 - Service Worker neu registrieren
 
-**Mehrere Einträge nicht möglich?**
-
-- SQL-Migration ausgeführt? (sql/llx_equipmentmanager_v1.7.sql)
-
 -----
 
-## 🤝 Contributing
+## Contributing
 
 Pull Requests sind willkommen!
 
@@ -318,28 +283,27 @@ Pull Requests sind willkommen!
 git checkout -b feature/NeuesFeature
 git commit -m 'Add: Tolles Feature'
 git push origin feature/NeuesFeature
-# → Pull Request erstellen
+# -> Pull Request erstellen
 ```
 
 -----
 
-## 📄 Lizenz
+## Lizenz
 
 GPL v3 oder höher
 
 -----
 
-## 👤 Autor
+## Autor
 
 **Gerrett84** - [GitHub](https://github.com/Gerrett84)
 
 -----
 
-
-**Feedback?** → [GitHub Issues](https://github.com/Gerrett84/dolibarr_equipmentmanager/issues)
+**Feedback?** -> [GitHub Issues](https://github.com/Gerrett84/dolibarr_equipmentmanager/issues)
 
 -----
 
-**Current Version:** 2.4.0
+**Current Version:** 3.1.10
 **Released:** January 2025
-**Compatibility:** Dolibarr 22.0+
+**Compatibility:** Dolibarr 16.0+
