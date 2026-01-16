@@ -51,12 +51,13 @@ ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten fü
 NoConfigurationRequired=Keine Konfiguration erforderlich
 
 # Intervention Integration v1.4
-MaintenanceWork=Gewartete Anlagen
+MaintenanceWork=Wartung
 MaintenanceWorkDescription=Regelmäßige Wartung nach DIN/Wartungsvertrag
-ServiceWork=Bearbeitete Anlagen
+ServiceWork=Service
 ServiceWorkDescription=Reparatur, Störungsbehebung, Umbau
 Maintenance=Wartung
 Service=Service/Reparatur
+LinkType=Verknüpfungsart
 
 LinkAsMaintenance=Als Wartung verknüpfen
 LinkAsService=Als Service verknüpfen

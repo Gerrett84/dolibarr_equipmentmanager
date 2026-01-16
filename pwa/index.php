@@ -1247,8 +1247,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
     <div class="view" id="viewEntries">
         <div class="content">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title" id="entriesEquipmentRef">Equipment</h3>
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 class="card-title" id="entriesEquipmentRef" style="margin:0;">Equipment</h3>
+                    <span id="entriesLinkType"></span>
                 </div>
                 <div class="card-body" style="padding:0;">
                     <!-- Add Entry Button -->
@@ -1478,10 +1479,19 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <h3>Anlage hinzufügen</h3>
                 <button type="button" class="modal-close" id="btnCloseEquipment">&times;</button>
             </div>
-            <div class="modal-body" id="availableEquipmentList">
+            <div class="modal-body" id="availableEquipmentList" style="padding-bottom:70px;">
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Lade verfügbare Anlagen...</p>
+                </div>
+            </div>
+            <div class="modal-footer" id="equipmentModalFooter" style="display:none;position:absolute;bottom:0;left:0;right:0;background:var(--bg-card);border-top:1px solid var(--border-color);padding:12px;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                    <span id="selectedCount" style="font-size:13px;">0 ausgewählt</span>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" class="btn btn-primary" style="padding:8px 12px;font-size:13px;" onclick="app.linkSelectedEquipment('service')">Service</button>
+                        <button type="button" class="btn btn-success" style="padding:8px 12px;font-size:13px;" onclick="app.linkSelectedEquipment('maintenance')">Wartung</button>
+                    </div>
                 </div>
             </div>
         </div>

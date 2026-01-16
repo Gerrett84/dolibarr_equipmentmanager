@@ -591,6 +591,16 @@ if ($object->id > 0) {
     print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
     print '</td></tr>';
 
+    // Link type (Wartung/Service)
+    $currentLinkType = isset($equipment_link_types[$equipment_id]) ? $equipment_link_types[$equipment_id] : 'service';
+    print '<tr><td>'.$langs->trans("LinkType").'</td><td>';
+    if ($currentLinkType == 'maintenance') {
+        print '<span class="badge badge-status4" style="background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:4px;">'.$langs->trans("MaintenanceWork").'</span>';
+    } else {
+        print '<span class="badge badge-status1" style="background:#fff3e0;color:#e65100;padding:3px 8px;border-radius:4px;">'.$langs->trans("ServiceWork").'</span>';
+    }
+    print '</td></tr>';
+
     if ($equipment->location_note) {
         print '<tr><td class="tdtop">'.$langs->trans("LocationNote").'</td><td>';
         print nl2br(dol_escape_htmltag($equipment->location_note));

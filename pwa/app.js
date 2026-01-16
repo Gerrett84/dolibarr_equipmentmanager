@@ -901,11 +901,14 @@ class ServiceReportApp {
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
 
-            // Show equipment ref, label and link type (Wartung/Service)
+            // Show equipment ref and label
+            document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
+
+            // Show link type badge (Wartung/Service) on the right
             const linkTypeBadge = equipment.link_type === 'maintenance'
                 ? '<span class="link-type-badge maintenance">Wartung</span>'
                 : '<span class="link-type-badge service">Service</span>';
-            document.getElementById('entriesEquipmentRef').innerHTML = `${this.escapeHtml(equipment.ref)} - ${this.escapeHtml(equipment.label || '')} ${linkTypeBadge}`;
+            document.getElementById('entriesLinkType').innerHTML = linkTypeBadge;
 
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -1704,6 +1707,9 @@ class ServiceReportApp {
     // Equipment modal
     async showEquipmentModal() {
         document.getElementById('equipmentModal').classList.add('show');
+        document.getElementById('equipmentModalFooter').style.display = 'none';
+        this.selectedEquipment = []; // Reset selection
+        this.availableEquipmentData = []; // Store equipment data for multi-select
 
         const listEl = document.getElementById('availableEquipmentList');
         listEl.innerHTML = `
@@ -1725,6 +1731,8 @@ class ServiceReportApp {
                 // Load from cache when offline
                 equipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
             }
+
+            this.availableEquipmentData = equipment; // Store for multi-select
 
             if (equipment.length === 0) {
                 listEl.innerHTML = `
@@ -1761,10 +1769,25 @@ class ServiceReportApp {
             Object.keys(byAddress).forEach(addrKey => {
                 const group = byAddress[addrKey];
 
-                // Address header
+                // Address header with select all checkbox
                 const header = document.createElement('div');
                 header.className = 'address-header';
-                header.innerHTML = `📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+                header.style.display = 'flex';
+                header.style.alignItems = 'center';
+                header.style.gap = '8px';
+                const addressIds = group.equipment.map(eq => eq.id);
+                header.innerHTML = `
+                    <input type="checkbox" class="address-select-all" data-address="${addrKey}" style="width:18px;height:18px;">
+                    <span>📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}</span>
+                `;
+                header.querySelector('.address-select-all').addEventListener('change', (e) => {
+                    const checked = e.target.checked;
+                    addressIds.forEach(id => {
+                        const checkbox = document.querySelector(`.equipment-checkbox[data-id="${id}"]`);
+                        if (checkbox) checkbox.checked = checked;
+                    });
+                    this.updateEquipmentSelection();
+                });
                 listEl.appendChild(header);
 
                 // Equipment items
@@ -1773,17 +1796,31 @@ class ServiceReportApp {
                     item.className = 'equipment-item';
                     item.style.cursor = 'pointer';
                     item.innerHTML = `
+                        <input type="checkbox" class="equipment-checkbox" data-id="${eq.id}" style="width:18px;height:18px;margin-right:8px;">
                         <div class="equipment-icon">🚪</div>
-                        <div class="equipment-info">
+                        <div class="equipment-info" style="flex:1;">
                             <div class="equipment-ref">${eq.ref}</div>
                             <div class="equipment-label">${eq.label || eq.type || ''}</div>
                             ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
                         </div>
                         <div style="display:flex;gap:8px;">
-                            <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">Service</button>
-                            <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">Wartung</button>
+                            <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">S</button>
+                            <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">W</button>
                         </div>
                     `;
+
+                    // Checkbox handling
+                    const checkbox = item.querySelector('.equipment-checkbox');
+                    checkbox.addEventListener('click', (e) => e.stopPropagation());
+                    checkbox.addEventListener('change', () => this.updateEquipmentSelection());
+
+                    // Click on row toggles checkbox
+                    item.addEventListener('click', (e) => {
+                        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                            checkbox.checked = !checkbox.checked;
+                            this.updateEquipmentSelection();
+                        }
+                    });
 
                     item.querySelectorAll('button').forEach(btn => {
                         btn.addEventListener('click', (e) => {
@@ -1881,9 +1918,48 @@ class ServiceReportApp {
 
     closeEquipmentModal() {
         document.getElementById('equipmentModal').classList.remove('show');
+        document.getElementById('equipmentModalFooter').style.display = 'none';
+        this.selectedEquipment = [];
     }
 
-    async linkEquipment(equipmentId, linkType, equipmentData = null) {
+    // Update selection state and show/hide footer
+    updateEquipmentSelection() {
+        const checkboxes = document.querySelectorAll('.equipment-checkbox:checked');
+        this.selectedEquipment = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
+
+        const footer = document.getElementById('equipmentModalFooter');
+        const countEl = document.getElementById('selectedCount');
+
+        if (this.selectedEquipment.length > 0) {
+            footer.style.display = 'flex';
+            countEl.textContent = `${this.selectedEquipment.length} ausgewählt`;
+        } else {
+            footer.style.display = 'none';
+        }
+    }
+
+    // Link all selected equipment with the given type
+    async linkSelectedEquipment(linkType) {
+        if (!this.selectedEquipment || this.selectedEquipment.length === 0) {
+            this.showToast('Keine Anlagen ausgewählt');
+            return;
+        }
+
+        const count = this.selectedEquipment.length;
+        const linkTypeName = linkType === 'maintenance' ? 'Wartung' : 'Service';
+
+        // Link each selected equipment (batch mode - don't close/reload for each)
+        for (const equipmentId of this.selectedEquipment) {
+            const equipmentData = this.availableEquipmentData?.find(eq => eq.id === equipmentId);
+            await this.linkEquipment(equipmentId, linkType, equipmentData, true);
+        }
+
+        this.showToast(`${count} Anlagen als ${linkTypeName} hinzugefügt`);
+        this.closeEquipmentModal();
+        this.loadEquipment(this.currentIntervention);
+    }
+
+    async linkEquipment(equipmentId, linkType, equipmentData = null, batchMode = false) {
         if (this.isOnline) {
             try {
                 await this.apiCall('link-equipment', {
@@ -1895,14 +1971,17 @@ class ServiceReportApp {
                     })
                 });
 
-                this.showToast('Anlage hinzugefügt');
-                this.closeEquipmentModal();
-
-                // Reload equipment list
-                this.loadEquipment(this.currentIntervention);
+                // Skip toast/close/reload in batch mode (handled by linkSelectedEquipment)
+                if (!batchMode) {
+                    this.showToast('Anlage hinzugefügt');
+                    this.closeEquipmentModal();
+                    this.loadEquipment(this.currentIntervention);
+                }
             } catch (err) {
                 console.error('Failed to link equipment:', err);
-                this.showToast('Fehler beim Hinzufügen');
+                if (!batchMode) {
+                    this.showToast('Fehler beim Hinzufügen');
+                }
             }
         } else {
             // Offline: Queue the link operation and update local cache
@@ -1940,14 +2019,17 @@ class ServiceReportApp {
                     await offlineDB.saveAvailableEquipment(this.currentIntervention.id, filteredAvailable);
                 }
 
-                this.showToast('Offline gespeichert - wird synchronisiert');
-                this.closeEquipmentModal();
-
-                // Reload equipment list from cache
-                this.loadEquipment(this.currentIntervention);
+                // Skip toast/close/reload in batch mode (handled by linkSelectedEquipment)
+                if (!batchMode) {
+                    this.showToast('Offline gespeichert - wird synchronisiert');
+                    this.closeEquipmentModal();
+                    this.loadEquipment(this.currentIntervention);
+                }
             } catch (err) {
                 console.error('Failed to queue link operation:', err);
-                this.showToast('Fehler beim Speichern');
+                if (!batchMode) {
+                    this.showToast('Fehler beim Speichern');
+                }
             }
         }
     }
