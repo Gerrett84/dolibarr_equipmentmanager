@@ -172,6 +172,23 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // Left Menu - Maintenance Map
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'MaintenanceMap',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_map',
+            'url' => '/equipmentmanager/maintenance_map.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
         // Left Menu - Equipment List
         $r++;
         $this->menu[$r] = array(
