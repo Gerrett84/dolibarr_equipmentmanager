@@ -155,6 +155,23 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // Left Menu - Auto Create Service Orders
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'AutoCreateServiceOrders',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_autocreate',
+            'url' => '/equipmentmanager/maintenance_auto_create.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
         // Left Menu - Equipment List
         $r++;
         $this->menu[$r] = array(

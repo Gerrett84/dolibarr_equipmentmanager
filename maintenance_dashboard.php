@@ -112,6 +112,7 @@ body[class*="dark"] .maintenance-legend,
 </style>';
 
 $linkback = '<a class="button" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_calendar.php"><span class="fa fa-calendar"></span> '.$langs->trans("MaintenanceCalendar").'</a>';
+$linkback .= ' <a class="button" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_auto_create.php"><span class="fa fa-magic"></span> '.$langs->trans("AutoCreateServiceOrders").'</a>';
 print load_fiche_titre($title, $linkback, 'fa-wrench');
 
 // Aktueller Monat und nächster Monat
