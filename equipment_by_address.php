@@ -231,7 +231,7 @@ if ($search_company > 0 || $search_address > 0) {
             // Bulk action bar
             if ($user->rights->equipmentmanager->equipment->write) {
                 print '<div class="div-table-responsive-no-min" style="margin-bottom: 15px;">';
-                print '<div style="background: #f5f5f5; padding: 10px; border-radius: 4px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
+                print '<div class="liste_titre" style="padding: 10px; border-radius: 4px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
 
                 // Select all / none buttons
                 print '<span>';
@@ -281,11 +281,11 @@ if ($search_company > 0 || $search_address > 0) {
                     if ($address_data['town']) print dol_escape_htmltag($address_data['town']);
                     print '</span>';
                 }
-                print ' <span class="badge" style="background: #1976d2; color: white; margin-left: 10px;">'.count($address_data['equipment']).' '.$langs->trans('Equipment').'</span>';
+                print ' <span class="badge badge-status4" style="margin-left: 10px;">'.count($address_data['equipment']).' '.$langs->trans('Equipment').'</span>';
 
                 // Select all for this address
                 if ($user->rights->equipmentmanager->equipment->write) {
-                    print ' <a href="#" onclick="selectAddress('.$address_key.'); return false;" class="badge" style="background: #666; color: white; margin-left: 5px; cursor: pointer;">'.$langs->trans('SelectAll').'</a>';
+                    print ' <a href="#" onclick="selectAddress('.$address_key.'); return false;" class="badge badge-status0" style="margin-left: 5px; cursor: pointer;">'.$langs->trans('SelectAll').'</a>';
                 }
                 print '</th>';
                 print '</tr>';
@@ -371,9 +371,9 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<th colspan="7">';
                 print '<span class="fa fa-exclamation-triangle paddingright warning"></span>';
                 print '<strong>'.$langs->trans('EquipmentWithoutAddress').'</strong>';
-                print ' <span class="badge" style="background: #f57c00; color: white; margin-left: 10px;">'.count($no_address).' '.$langs->trans('Equipment').'</span>';
+                print ' <span class="badge badge-status1" style="margin-left: 10px;">'.count($no_address).' '.$langs->trans('Equipment').'</span>';
                 if ($user->rights->equipmentmanager->equipment->write) {
-                    print ' <a href="#" onclick="selectAddress(0); return false;" class="badge" style="background: #666; color: white; margin-left: 5px; cursor: pointer;">'.$langs->trans('SelectAll').'</a>';
+                    print ' <a href="#" onclick="selectAddress(0); return false;" class="badge badge-status0" style="margin-left: 5px; cursor: pointer;">'.$langs->trans('SelectAll').'</a>';
                 }
                 print '</th>';
                 print '</tr>';
