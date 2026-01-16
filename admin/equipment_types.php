@@ -61,6 +61,8 @@ $label = GETPOST('label', 'alphanohtml');
 $description = GETPOST('description', 'restricthtml');
 $position = GETPOSTINT('position');
 $active = GETPOSTINT('active');
+$default_duration = GETPOSTINT('default_duration');
+$default_interval = GETPOST('default_interval', 'alpha');
 
 /*
  * Actions
@@ -92,13 +94,15 @@ if ($action == 'add') {
 
     if (!$error) {
         $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_equipment_types";
-        $sql .= " (code, label, description, position, active, date_creation, fk_user_creat, entity)";
+        $sql .= " (code, label, description, position, active, default_duration, default_interval, date_creation, fk_user_creat, entity)";
         $sql .= " VALUES (";
         $sql .= "'".$db->escape($code)."',";
         $sql .= "'".$db->escape($label)."',";
         $sql .= "'".$db->escape($description)."',";
         $sql .= (int)$position.",";
         $sql .= "1,";
+        $sql .= (int)$default_duration.",";
+        $sql .= "'".$db->escape($default_interval ?: 'yearly')."',";
         $sql .= "NOW(),";
         $sql .= (int)$user->id.",";
         $sql .= (int)$conf->entity;
@@ -130,6 +134,8 @@ if ($action == 'update' && $id > 0) {
         $sql .= " label = '".$db->escape($label)."',";
         $sql .= " description = '".$db->escape($description)."',";
         $sql .= " position = ".(int)$position.",";
+        $sql .= " default_duration = ".(int)$default_duration.",";
+        $sql .= " default_interval = '".$db->escape($default_interval ?: 'yearly')."',";
         $sql .= " fk_user_modif = ".(int)$user->id;
         $sql .= " WHERE rowid = ".(int)$id;
         $sql .= " AND entity = ".(int)$conf->entity;
@@ -325,6 +331,25 @@ if ($action == 'create' || $action == 'edit') {
     print '<td><input type="number" name="position" value="'.($editType ? $editType->position : (GETPOSTINT('position') ?: 100)).'" class="width100"></td>';
     print '</tr>';
 
+    // Default Duration
+    print '<tr class="oddeven">';
+    print '<td>'.$langs->trans("DefaultDuration").'</td>';
+    print '<td><input type="number" name="default_duration" value="'.($editType ? $editType->default_duration : GETPOSTINT('default_duration')).'" class="width100" min="0"> '.$langs->trans("Minutes");
+    print '<br><span class="opacitymedium">'.$langs->trans("DefaultDurationHelp").'</span></td>';
+    print '</tr>';
+
+    // Default Interval
+    print '<tr class="oddeven">';
+    print '<td>'.$langs->trans("DefaultInterval").'</td>';
+    print '<td>';
+    $currentInterval = $editType ? $editType->default_interval : (GETPOST('default_interval', 'alpha') ?: 'yearly');
+    print '<select name="default_interval" class="minwidth200">';
+    print '<option value="yearly"'.($currentInterval == 'yearly' ? ' selected' : '').'>'.$langs->trans("IntervalYearly").'</option>';
+    print '<option value="semi_annual"'.($currentInterval == 'semi_annual' ? ' selected' : '').'>'.$langs->trans("IntervalSemiAnnual").'</option>';
+    print '</select>';
+    print '<br><span class="opacitymedium">'.$langs->trans("DefaultIntervalHelp").'</span></td>';
+    print '</tr>';
+
     print '</table>';
     print '</div>';
 
@@ -351,6 +376,8 @@ print '<tr class="liste_titre">';
 print '<td>'.$langs->trans("Code").'</td>';
 print '<td>'.$langs->trans("Label").'</td>';
 print '<td>'.$langs->trans("TranslatedLabel").'</td>';
+print '<td class="center">'.$langs->trans("Duration").'</td>';
+print '<td class="center">'.$langs->trans("Interval").'</td>';
 print '<td class="center">'.$langs->trans("Position").'</td>';
 print '<td class="center">'.$langs->trans("Status").'</td>';
 print '<td class="center">'.$langs->trans("Action").'</td>';
@@ -382,6 +409,30 @@ if ($resql) {
             } else {
                 print '<td>'.dol_escape_htmltag($translated).'</td>';
             }
+
+            // Duration
+            print '<td class="center">';
+            if ($obj->default_duration > 0) {
+                if ($obj->default_duration >= 60) {
+                    $hours = floor($obj->default_duration / 60);
+                    $mins = $obj->default_duration % 60;
+                    print $hours.'h'.($mins > 0 ? ' '.$mins.'min' : '');
+                } else {
+                    print $obj->default_duration.' min';
+                }
+            } else {
+                print '<span class="opacitymedium">-</span>';
+            }
+            print '</td>';
+
+            // Interval
+            print '<td class="center">';
+            if ($obj->default_interval == 'semi_annual') {
+                print '<span class="badge badge-status1">'.$langs->trans("IntervalSemiAnnual").'</span>';
+            } else {
+                print '<span class="badge badge-status4">'.$langs->trans("IntervalYearly").'</span>';
+            }
+            print '</td>';
 
             // Position
             print '<td class="center">'.$obj->position.'</td>';
@@ -420,7 +471,7 @@ if ($resql) {
             $i++;
         }
     } else {
-        print '<tr class="oddeven"><td colspan="6" class="opacitymedium">'.$langs->trans("NoRecordFound").'</td></tr>';
+        print '<tr class="oddeven"><td colspan="8" class="opacitymedium">'.$langs->trans("NoRecordFound").'</td></tr>';
     }
 } else {
     dol_print_error($db);
