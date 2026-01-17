@@ -86,87 +86,6 @@ print '</form>';
 
 print '<br>';
 
-// DEBUG: Check what data exists
-if (GETPOST('debug', 'int')) {
-    print '<div class="warning" style="padding: 10px; margin-bottom: 10px;">';
-    print '<strong>DEBUG INFO:</strong><br>';
-
-    // Count all active equipment
-    $sql_debug0 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1";
-    $res0 = $db->query($sql_debug0);
-    $obj0 = $db->fetch_object($res0);
-    print "Total active equipment: ".$obj0->cnt."<br>";
-
-    // Count equipment with fk_soc (customer)
-    $sql_debug0b = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE fk_soc IS NOT NULL AND fk_soc > 0 AND status = 1";
-    $res0b = $db->query($sql_debug0b);
-    $obj0b = $db->fetch_object($res0b);
-    print "Equipment with fk_soc (customer): ".$obj0b->cnt."<br>";
-
-    // Count equipment with fk_address
-    $sql_debug1 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE fk_address IS NOT NULL AND fk_address > 0 AND status = 1";
-    $res1 = $db->query($sql_debug1);
-    $obj1 = $db->fetch_object($res1);
-    print "Equipment with fk_address (object address): ".$obj1->cnt."<br>";
-
-    // Count equipment with maintenance_month
-    $sql_debug2 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE maintenance_month IS NOT NULL AND status = 1";
-    $res2 = $db->query($sql_debug2);
-    $obj2 = $db->fetch_object($res2);
-    print "Equipment with maintenance_month: ".$obj2->cnt."<br>";
-
-    // Count equipment that would show on map (has address AND maintenance_month)
-    $sql_debug3 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE (fk_address > 0 OR fk_soc > 0) AND maintenance_month IS NOT NULL AND status = 1";
-    $res3 = $db->query($sql_debug3);
-    $obj3 = $db->fetch_object($res3);
-    print "Equipment for map (has address AND maintenance_month): ".$obj3->cnt."<br>";
-
-    // Show sample equipment
-    $sql_debug4 = "SELECT rowid, equipment_number, fk_soc, fk_address, maintenance_month FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1 LIMIT 10";
-    $res4 = $db->query($sql_debug4);
-    print "<br>Sample equipment:<br>";
-    print "<table class='noborder' style='font-size: 11px;'><tr class='liste_titre'><td>ID</td><td>Nr</td><td>fk_soc</td><td>fk_address</td><td>maintenance_month</td></tr>";
-    while ($obj4 = $db->fetch_object($res4)) {
-        print "<tr class='oddeven'>";
-        print "<td>".$obj4->rowid."</td>";
-        print "<td>".$obj4->equipment_number."</td>";
-        print "<td>".($obj4->fk_soc ?: '<span style="color:red">NULL</span>')."</td>";
-        print "<td>".($obj4->fk_address ?: '<span style="color:orange">NULL</span>')."</td>";
-        print "<td>".($obj4->maintenance_month ?: '<span style="color:red">NULL</span>')."</td>";
-        print "</tr>";
-    }
-    print "</table>";
-
-    // Show current filter values
-    print "<br><strong>Current filters:</strong><br>";
-    print "Month filter: ".($month ?: "All months")."<br>";
-    print "Year: ".$year."<br>";
-    print "Show all: ".($show_all ? "Yes" : "No")."<br>";
-
-    // Count equipment matching current filter
-    $sql_filter = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1 AND (fk_address > 0 OR fk_soc > 0)";
-    if (!$show_all) {
-        $sql_filter .= " AND maintenance_month IS NOT NULL";
-        if ($month > 0) {
-            $sql_filter .= " AND maintenance_month = ".(int)$month;
-        }
-    }
-    $res_filter = $db->query($sql_filter);
-    $obj_filter = $db->fetch_object($res_filter);
-    print "Equipment matching filter: ".$obj_filter->cnt."<br>";
-
-    // Count by maintenance_month
-    print "<br><strong>Equipment per maintenance_month:</strong><br>";
-    $sql_months = "SELECT maintenance_month, COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1 GROUP BY maintenance_month ORDER BY maintenance_month";
-    $res_months = $db->query($sql_months);
-    while ($obj_m = $db->fetch_object($res_months)) {
-        $month_name = $obj_m->maintenance_month ? date('F', mktime(0, 0, 0, $obj_m->maintenance_month, 1)) : 'NULL';
-        print "Month ".$obj_m->maintenance_month." (".$month_name."): ".$obj_m->cnt."<br>";
-    }
-
-    print '</div>';
-}
-
 // Get addresses with equipment
 // Priority: 1) Object address (socpeople via fk_address), 2) Customer address (societe)
 $sql = "SELECT DISTINCT";
@@ -195,22 +114,7 @@ if (!$show_all) {
 }
 $sql .= " ORDER BY COALESCE(sp.town, s.town), address_label";
 
-// Debug: show the SQL query
-if (GETPOST('debug', 'int')) {
-    print '<div class="warning" style="padding: 10px; margin-bottom: 10px;">';
-    print '<strong>SQL Query:</strong><br>';
-    print '<pre style="font-size: 10px; overflow-x: auto;">'.htmlspecialchars($sql).'</pre>';
-    print '</div>';
-}
-
 $resql = $db->query($sql);
-
-// Debug: show query result count
-if (GETPOST('debug', 'int')) {
-    print '<div class="warning" style="padding: 10px; margin-bottom: 10px;">';
-    print '<strong>Query result:</strong> '.($resql ? $db->num_rows($resql) : 'ERROR: '.$db->lasterror()).' rows<br>';
-    print '</div>';
-}
 
 $locations = array();
 $locations_to_geocode = array();
