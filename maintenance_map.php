@@ -137,6 +137,33 @@ if (GETPOST('debug', 'int')) {
     }
     print "</table>";
 
+    // Show current filter values
+    print "<br><strong>Current filters:</strong><br>";
+    print "Month filter: ".($month ?: "All months")."<br>";
+    print "Year: ".$year."<br>";
+    print "Show all: ".($show_all ? "Yes" : "No")."<br>";
+
+    // Count equipment matching current filter
+    $sql_filter = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1 AND (fk_address > 0 OR fk_soc > 0)";
+    if (!$show_all) {
+        $sql_filter .= " AND maintenance_month IS NOT NULL";
+        if ($month > 0) {
+            $sql_filter .= " AND maintenance_month = ".(int)$month;
+        }
+    }
+    $res_filter = $db->query($sql_filter);
+    $obj_filter = $db->fetch_object($res_filter);
+    print "Equipment matching filter: ".$obj_filter->cnt."<br>";
+
+    // Count by maintenance_month
+    print "<br><strong>Equipment per maintenance_month:</strong><br>";
+    $sql_months = "SELECT maintenance_month, COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1 GROUP BY maintenance_month ORDER BY maintenance_month";
+    $res_months = $db->query($sql_months);
+    while ($obj_m = $db->fetch_object($res_months)) {
+        $month_name = $obj_m->maintenance_month ? date('F', mktime(0, 0, 0, $obj_m->maintenance_month, 1)) : 'NULL';
+        print "Month ".$obj_m->maintenance_month." (".$month_name."): ".$obj_m->cnt."<br>";
+    }
+
     print '</div>';
 }
 
@@ -170,7 +197,22 @@ if (!$show_all) {
 }
 $sql .= " ORDER BY COALESCE(sp.town, s.town), address_label";
 
+// Debug: show the SQL query
+if (GETPOST('debug', 'int')) {
+    print '<div class="warning" style="padding: 10px; margin-bottom: 10px;">';
+    print '<strong>SQL Query:</strong><br>';
+    print '<pre style="font-size: 10px; overflow-x: auto;">'.htmlspecialchars($sql).'</pre>';
+    print '</div>';
+}
+
 $resql = $db->query($sql);
+
+// Debug: show query result count
+if (GETPOST('debug', 'int')) {
+    print '<div class="warning" style="padding: 10px; margin-bottom: 10px;">';
+    print '<strong>Query result:</strong> '.($resql ? $db->num_rows($resql) : 'ERROR: '.$db->lasterror()).' rows<br>';
+    print '</div>';
+}
 
 $locations = array();
 $locations_to_geocode = array();
