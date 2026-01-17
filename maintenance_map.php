@@ -86,20 +86,81 @@ print '</form>';
 
 print '<br>';
 
-// Get addresses with equipment (using object address from socpeople)
+// DEBUG: Check what data exists
+if (GETPOST('debug', 'int')) {
+    print '<div class="warning" style="padding: 10px; margin-bottom: 10px;">';
+    print '<strong>DEBUG INFO:</strong><br>';
+
+    // Count all active equipment
+    $sql_debug0 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1";
+    $res0 = $db->query($sql_debug0);
+    $obj0 = $db->fetch_object($res0);
+    print "Total active equipment: ".$obj0->cnt."<br>";
+
+    // Count equipment with fk_soc (customer)
+    $sql_debug0b = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE fk_soc IS NOT NULL AND fk_soc > 0 AND status = 1";
+    $res0b = $db->query($sql_debug0b);
+    $obj0b = $db->fetch_object($res0b);
+    print "Equipment with fk_soc (customer): ".$obj0b->cnt."<br>";
+
+    // Count equipment with fk_address
+    $sql_debug1 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE fk_address IS NOT NULL AND fk_address > 0 AND status = 1";
+    $res1 = $db->query($sql_debug1);
+    $obj1 = $db->fetch_object($res1);
+    print "Equipment with fk_address (object address): ".$obj1->cnt."<br>";
+
+    // Count equipment with maintenance_month
+    $sql_debug2 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE maintenance_month IS NOT NULL AND status = 1";
+    $res2 = $db->query($sql_debug2);
+    $obj2 = $db->fetch_object($res2);
+    print "Equipment with maintenance_month: ".$obj2->cnt."<br>";
+
+    // Count equipment that would show on map (has address AND maintenance_month)
+    $sql_debug3 = "SELECT COUNT(*) as cnt FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE (fk_address > 0 OR fk_soc > 0) AND maintenance_month IS NOT NULL AND status = 1";
+    $res3 = $db->query($sql_debug3);
+    $obj3 = $db->fetch_object($res3);
+    print "Equipment for map (has address AND maintenance_month): ".$obj3->cnt."<br>";
+
+    // Show sample equipment
+    $sql_debug4 = "SELECT rowid, equipment_number, fk_soc, fk_address, maintenance_month FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment WHERE status = 1 LIMIT 10";
+    $res4 = $db->query($sql_debug4);
+    print "<br>Sample equipment:<br>";
+    print "<table class='noborder' style='font-size: 11px;'><tr class='liste_titre'><td>ID</td><td>Nr</td><td>fk_soc</td><td>fk_address</td><td>maintenance_month</td></tr>";
+    while ($obj4 = $db->fetch_object($res4)) {
+        print "<tr class='oddeven'>";
+        print "<td>".$obj4->rowid."</td>";
+        print "<td>".$obj4->equipment_number."</td>";
+        print "<td>".($obj4->fk_soc ?: '<span style="color:red">NULL</span>')."</td>";
+        print "<td>".($obj4->fk_address ?: '<span style="color:orange">NULL</span>')."</td>";
+        print "<td>".($obj4->maintenance_month ?: '<span style="color:red">NULL</span>')."</td>";
+        print "</tr>";
+    }
+    print "</table>";
+
+    print '</div>';
+}
+
+// Get addresses with equipment
+// Priority: 1) Object address (socpeople via fk_address), 2) Customer address (societe)
 $sql = "SELECT DISTINCT";
-$sql .= " sp.rowid as address_id,";
-$sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-$sql .= " sp.address, sp.zip, sp.town, sp.fk_pays,";
-$sql .= " sp.latitude, sp.longitude,";
+$sql .= " COALESCE(sp.rowid, 0) as address_id,";
+$sql .= " CASE WHEN sp.rowid IS NOT NULL THEN CONCAT(sp.lastname, ' ', sp.firstname) ELSE s.nom END as address_label,";
+$sql .= " COALESCE(sp.address, s.address) as address,";
+$sql .= " COALESCE(sp.zip, s.zip) as zip,";
+$sql .= " COALESCE(sp.town, s.town) as town,";
+$sql .= " COALESCE(sp.fk_pays, s.fk_pays) as fk_pays,";
+$sql .= " COALESCE(sp.latitude, 0) as latitude,";
+$sql .= " COALESCE(sp.longitude, 0) as longitude,";
 $sql .= " s.nom as company_name,";
-$sql .= " s.rowid as company_id";
+$sql .= " s.rowid as company_id,";
+$sql .= " CASE WHEN sp.rowid IS NOT NULL THEN 'socpeople' ELSE 'societe' END as address_source";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
-$sql .= " INNER JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
-$sql .= " AND t.fk_address IS NOT NULL AND t.fk_address > 0";
+// Must have at least customer address or object address
+$sql .= " AND (t.fk_address > 0 OR t.fk_soc > 0)";
 if (!$show_all) {
     // Same logic as dashboard: show equipment with maintenance_month set
     $sql .= " AND t.maintenance_month IS NOT NULL";
@@ -107,7 +168,7 @@ if (!$show_all) {
         $sql .= " AND t.maintenance_month = ".(int)$month;
     }
 }
-$sql .= " ORDER BY sp.town, sp.lastname";
+$sql .= " ORDER BY COALESCE(sp.town, s.town), address_label";
 
 $resql = $db->query($sql);
 
@@ -130,8 +191,15 @@ if ($resql) {
         $sql2 .= "  AND f2.fk_statut = 3 AND YEAR(f2.date_valid) = ".(int)$year.") as is_completed";
         $sql2 .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
         $sql2 .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
-        $sql2 .= " WHERE t.fk_address = ".(int)$obj->address_id;
-        $sql2 .= " AND t.status = 1";
+        $sql2 .= " WHERE t.status = 1";
+        // Match by object address (socpeople) OR by customer (societe) if no object address
+        if ($obj->address_source == 'socpeople' && $obj->address_id > 0) {
+            $sql2 .= " AND t.fk_address = ".(int)$obj->address_id;
+        } else {
+            // No object address - match by customer and exclude those with object address
+            $sql2 .= " AND t.fk_soc = ".(int)$obj->company_id;
+            $sql2 .= " AND (t.fk_address IS NULL OR t.fk_address = 0)";
+        }
         if (!$show_all) {
             $sql2 .= " AND t.maintenance_month IS NOT NULL";
             if ($month > 0) {
@@ -171,6 +239,7 @@ if ($resql) {
                 'town' => $obj->town,
                 'company_name' => $obj->company_name,
                 'company_id' => $obj->company_id,
+                'address_source' => $obj->address_source,
                 'lat' => $obj->latitude,
                 'lng' => $obj->longitude,
                 'equipment' => $equipment,
@@ -180,8 +249,8 @@ if ($resql) {
                 'completed' => $completed_count
             );
 
-            // Check if we have coordinates
-            if (!empty($obj->latitude) && !empty($obj->longitude)) {
+            // Check if we have coordinates (not 0/NULL)
+            if (!empty($obj->latitude) && !empty($obj->longitude) && $obj->latitude != 0 && $obj->longitude != 0) {
                 $locations[] = $location;
             } else {
                 // Add to geocoding queue - will be geocoded via JavaScript
