@@ -633,3 +633,15 @@ AllMaintenanceCompleted=Alle Wartungen erledigt
 NoLocationsFound=Keine Standorte gefunden
 GeocodingAddresses=Adressen werden geocodiert
 GeocodingInfo=%s Adressen werden automatisch von OpenStreetMap geocodiert.
+
+# Contract Integration v4.0
+Contract=Vertrag
+UseTypeDefault=Typ-Standard
+NoContractLinked=Kein Vertrag verknüpft
+SelectContract=Vertrag auswählen
+ContractRequired=Für die automatische Auftragserstellung ist ein Vertrag erforderlich
+EquipmentWithoutContract=Anlagen ohne Vertrag
+BulkEditDuration=Planzeit ändern
+BulkEditContract=Vertrag zuweisen
+ApplyDuration=Planzeit anwenden
+ApplyContract=Vertrag anwenden

@@ -36,6 +36,8 @@ $search_address = GETPOST('search_address', 'alpha');
 $massaction = GETPOST('massaction', 'alpha');
 $toselect = GETPOST('toselect', 'array');
 $new_maintenance_month = GETPOST('new_maintenance_month', 'int');
+$new_planned_duration = GETPOST('new_planned_duration', 'int');
+$new_fk_contract = GETPOST('new_fk_contract', 'int');
 
 $form = new Form($db);
 $formcompany = new FormCompany($db);
@@ -84,6 +86,70 @@ if ($massaction == 'update_maintenance_month' && !empty($toselect) && $new_maint
     if (!$error) {
         $db->commit();
         setEventMessages($langs->trans('MaintenanceMonthUpdated', count($toselect)), null, 'mesgs');
+    } else {
+        $db->rollback();
+        setEventMessages($langs->trans('Error'), null, 'errors');
+    }
+}
+
+// Bulk update planned duration
+if ($massaction == 'update_planned_duration' && !empty($toselect)) {
+    if (!$user->rights->equipmentmanager->equipment->write) {
+        accessforbidden();
+    }
+
+    $error = 0;
+    $db->begin();
+
+    foreach ($toselect as $equipment_id) {
+        $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_equipment SET";
+        $sql .= " planned_duration = ".($new_planned_duration > 0 ? (int)$new_planned_duration : 'NULL').",";
+        $sql .= " fk_user_modif = ".$user->id;
+        $sql .= " WHERE rowid = ".(int)$equipment_id;
+        $sql .= " AND entity IN (".getEntity('equipmentmanager').")";
+
+        $resql = $db->query($sql);
+        if (!$resql) {
+            $error++;
+            break;
+        }
+    }
+
+    if (!$error) {
+        $db->commit();
+        setEventMessages($langs->trans('Processed').': '.count($toselect).' '.$langs->trans('Equipment'), null, 'mesgs');
+    } else {
+        $db->rollback();
+        setEventMessages($langs->trans('Error'), null, 'errors');
+    }
+}
+
+// Bulk update contract
+if ($massaction == 'update_contract' && !empty($toselect)) {
+    if (!$user->rights->equipmentmanager->equipment->write) {
+        accessforbidden();
+    }
+
+    $error = 0;
+    $db->begin();
+
+    foreach ($toselect as $equipment_id) {
+        $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_equipment SET";
+        $sql .= " fk_contract = ".($new_fk_contract > 0 ? (int)$new_fk_contract : 'NULL').",";
+        $sql .= " fk_user_modif = ".$user->id;
+        $sql .= " WHERE rowid = ".(int)$equipment_id;
+        $sql .= " AND entity IN (".getEntity('equipmentmanager').")";
+
+        $resql = $db->query($sql);
+        if (!$resql) {
+            $error++;
+            break;
+        }
+    }
+
+    if (!$error) {
+        $db->commit();
+        setEventMessages($langs->trans('Processed').': '.count($toselect).' '.$langs->trans('Equipment'), null, 'mesgs');
     } else {
         $db->rollback();
         setEventMessages($langs->trans('Error'), null, 'errors');
@@ -172,15 +238,22 @@ if ($search_company > 0 || $search_address > 0) {
     $sql .= " t.manufacturer,";
     $sql .= " t.status,";
     $sql .= " t.maintenance_month,";
+    $sql .= " t.planned_duration,";
+    $sql .= " t.fk_contract,";
+    $sql .= " t.fk_soc,";
     $sql .= " t.fk_address,";
+    $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
     $sql .= " s.nom as company_name,";
     $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
     $sql .= " sp.address as address_street,";
     $sql .= " sp.zip as address_zip,";
-    $sql .= " sp.town as address_town";
+    $sql .= " sp.town as address_town,";
+    $sql .= " c.ref as contract_ref";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
     $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
     if ($search_company > 0) {
         $sql .= " AND t.fk_soc = ".(int)$search_company;
@@ -228,38 +301,76 @@ if ($search_company > 0 || $search_address > 0) {
             print '<input type="hidden" name="search_address" value="'.$search_address.'">';
             print '<input type="hidden" name="massaction" value="">';
 
+            // Get contracts for bulk assignment (for selected company)
+            $bulk_contracts = array();
+            if ($search_company > 0) {
+                $sql_c = "SELECT c.rowid, c.ref, c.ref_customer FROM ".MAIN_DB_PREFIX."contrat as c";
+                $sql_c .= " WHERE c.fk_soc = ".(int)$search_company;
+                $sql_c .= " AND c.statut > 0";
+                $sql_c .= " ORDER BY c.ref DESC";
+                $res_c = $db->query($sql_c);
+                if ($res_c) {
+                    while ($obj_c = $db->fetch_object($res_c)) {
+                        $clabel = $obj_c->ref;
+                        if ($obj_c->ref_customer) $clabel .= ' ('.$obj_c->ref_customer.')';
+                        $bulk_contracts[$obj_c->rowid] = $clabel;
+                    }
+                }
+            }
+
             // Bulk action bar
             if ($user->rights->equipmentmanager->equipment->write) {
                 print '<div class="div-table-responsive-no-min" style="margin-bottom: 15px;">';
-                print '<div class="liste_titre" style="padding: 10px; border-radius: 4px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
+                print '<div class="liste_titre" style="padding: 10px; border-radius: 4px;">';
 
-                // Select all / none buttons
+                // Row 1: Selection buttons
+                print '<div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 10px;">';
                 print '<span>';
                 print '<a href="#" onclick="selectAll(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectAll').'</a> ';
                 print '<a href="#" onclick="selectNone(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectNone').'</a>';
                 print '</span>';
+                print '<span id="selected_count" class="opacitymedium"></span>';
+                print '</div>';
 
-                print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
+                // Row 2: Bulk actions
+                print '<div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">';
 
-                // Maintenance month dropdown
-                print '<span style="display: flex; align-items: center; gap: 8px;">';
-                print '<label for="new_maintenance_month"><strong>'.$langs->trans('MaintenanceMonth').':</strong></label>';
-                print '<select name="new_maintenance_month" id="new_maintenance_month" class="flat minwidth150">';
+                // Maintenance month
+                print '<span style="display: flex; align-items: center; gap: 5px;">';
+                print '<label><strong>'.$langs->trans('MaintenanceMonth').':</strong></label>';
+                print '<select name="new_maintenance_month" id="new_maintenance_month" class="flat minwidth100">';
                 print '<option value="0">-- '.$langs->trans('NoMaintenance').' --</option>';
                 for ($m = 1; $m <= 12; $m++) {
                     print '<option value="'.$m.'">'.$month_labels[$m].'</option>';
                 }
                 print '</select>';
+                print '<button type="button" onclick="applyBulkAction(\'update_maintenance_month\');" class="button smallpaddingimp">'.$langs->trans('Apply').'</button>';
                 print '</span>';
 
-                // Apply button
-                print '<button type="button" onclick="applyBulkAction();" class="button">';
-                print '<span class="fa fa-check paddingright"></span>'.$langs->trans('ApplyToSelected');
-                print '</button>';
+                print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
 
-                // Selected count
-                print '<span id="selected_count" class="opacitymedium" style="margin-left: auto;"></span>';
+                // Planned duration
+                print '<span style="display: flex; align-items: center; gap: 5px;">';
+                print '<label><strong>'.$langs->trans('PlannedDuration').':</strong></label>';
+                print '<input type="number" name="new_planned_duration" id="new_planned_duration" class="flat width50" min="0" step="5" placeholder="min">';
+                print '<button type="button" onclick="applyBulkAction(\'update_planned_duration\');" class="button smallpaddingimp">'.$langs->trans('Apply').'</button>';
+                print '</span>';
 
+                print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
+
+                // Contract
+                print '<span style="display: flex; align-items: center; gap: 5px;">';
+                print '<label><strong>'.$langs->trans('Contract').':</strong></label>';
+                print '<select name="new_fk_contract" id="new_fk_contract" class="flat minwidth150">';
+                print '<option value="0">-- '.$langs->trans('NoContractLinked').' --</option>';
+                foreach ($bulk_contracts as $cid => $clabel) {
+                    print '<option value="'.$cid.'">'.dol_escape_htmltag($clabel).'</option>';
+                }
+                print '</select>';
+                print '<button type="button" onclick="applyBulkAction(\'update_contract\');" class="button smallpaddingimp">'.$langs->trans('Apply').'</button>';
+                print '</span>';
+
+                print '</div>';
                 print '</div>';
                 print '</div>';
             }
@@ -298,9 +409,9 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<th>'.$langs->trans('EquipmentNumber').'</th>';
                 print '<th>'.$langs->trans('Type').'</th>';
                 print '<th>'.$langs->trans('Label').'</th>';
-                print '<th>'.$langs->trans('Manufacturer').'</th>';
                 print '<th class="center">'.$langs->trans('MaintenanceMonth').'</th>';
-                print '<th class="center">'.$langs->trans('MaintenanceContract').'</th>';
+                print '<th class="center">'.$langs->trans('PlannedDuration').'</th>';
+                print '<th>'.$langs->trans('Contract').'</th>';
                 print '</tr>';
 
                 // Equipment items
@@ -334,9 +445,6 @@ if ($search_company > 0 || $search_address > 0) {
                     // Label
                     print '<td>'.dol_escape_htmltag($equip->label).'</td>';
 
-                    // Manufacturer
-                    print '<td>'.dol_escape_htmltag($equip->manufacturer).'</td>';
-
                     // Maintenance Month
                     print '<td class="center">';
                     if ($equip->maintenance_month > 0 && isset($month_labels[$equip->maintenance_month])) {
@@ -346,12 +454,32 @@ if ($search_company > 0 || $search_address > 0) {
                     }
                     print '</td>';
 
-                    // Status
+                    // Planned Duration
                     print '<td class="center">';
-                    if ($equip->status == 1) {
-                        print '<span class="badge badge-status4 badge-status">'.$langs->trans('ActiveContract').'</span>';
+                    if ($equip->effective_duration > 0) {
+                        if ($equip->effective_duration >= 60) {
+                            $hours = floor($equip->effective_duration / 60);
+                            $mins = $equip->effective_duration % 60;
+                            print $hours.'h'.($mins > 0 ? ' '.$mins.'min' : '');
+                        } else {
+                            print $equip->effective_duration.' min';
+                        }
+                        if (empty($equip->planned_duration)) {
+                            print ' <span class="opacitymedium">(Std)</span>';
+                        }
                     } else {
-                        print '<span class="badge badge-status8 badge-status">'.$langs->trans('NoContract').'</span>';
+                        print '<span class="opacitymedium">-</span>';
+                    }
+                    print '</td>';
+
+                    // Contract
+                    print '<td>';
+                    if ($equip->contract_ref) {
+                        print '<a href="'.DOL_URL_ROOT.'/contrat/card.php?id='.$equip->fk_contract.'">';
+                        print dol_escape_htmltag($equip->contract_ref);
+                        print '</a>';
+                    } else {
+                        print '<span class="opacitymedium">-</span>';
                     }
                     print '</td>';
 
@@ -385,9 +513,9 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<th>'.$langs->trans('EquipmentNumber').'</th>';
                 print '<th>'.$langs->trans('Type').'</th>';
                 print '<th>'.$langs->trans('Label').'</th>';
-                print '<th>'.$langs->trans('Manufacturer').'</th>';
                 print '<th class="center">'.$langs->trans('MaintenanceMonth').'</th>';
-                print '<th class="center">'.$langs->trans('MaintenanceContract').'</th>';
+                print '<th class="center">'.$langs->trans('PlannedDuration').'</th>';
+                print '<th>'.$langs->trans('Contract').'</th>';
                 print '</tr>';
 
                 foreach ($no_address as $equip) {
@@ -416,7 +544,6 @@ if ($search_company > 0 || $search_address > 0) {
                     print '</td>';
 
                     print '<td>'.dol_escape_htmltag($equip->label).'</td>';
-                    print '<td>'.dol_escape_htmltag($equip->manufacturer).'</td>';
 
                     // Maintenance Month
                     print '<td class="center">';
@@ -427,11 +554,32 @@ if ($search_company > 0 || $search_address > 0) {
                     }
                     print '</td>';
 
+                    // Planned Duration
                     print '<td class="center">';
-                    if ($equip->status == 1) {
-                        print '<span class="badge badge-status4 badge-status">'.$langs->trans('ActiveContract').'</span>';
+                    if ($equip->effective_duration > 0) {
+                        if ($equip->effective_duration >= 60) {
+                            $hours = floor($equip->effective_duration / 60);
+                            $mins = $equip->effective_duration % 60;
+                            print $hours.'h'.($mins > 0 ? ' '.$mins.'min' : '');
+                        } else {
+                            print $equip->effective_duration.' min';
+                        }
+                        if (empty($equip->planned_duration)) {
+                            print ' <span class="opacitymedium">(Std)</span>';
+                        }
                     } else {
-                        print '<span class="badge badge-status8 badge-status">'.$langs->trans('NoContract').'</span>';
+                        print '<span class="opacitymedium">-</span>';
+                    }
+                    print '</td>';
+
+                    // Contract
+                    print '<td>';
+                    if ($equip->contract_ref) {
+                        print '<a href="'.DOL_URL_ROOT.'/contrat/card.php?id='.$equip->fk_contract.'">';
+                        print dol_escape_htmltag($equip->contract_ref);
+                        print '</a>';
+                    } else {
+                        print '<span class="opacitymedium">-</span>';
                     }
                     print '</td>';
 
@@ -498,21 +646,30 @@ if ($search_company > 0 || $search_address > 0) {
                 }
             }
 
-            function applyBulkAction() {
+            function applyBulkAction(actionType) {
                 var selected = document.querySelectorAll(".equipment-checkbox:checked");
                 if (selected.length == 0) {
                     alert("'.html_entity_decode($langs->trans('PleaseSelectAtLeastOne')).'");
                     return;
                 }
 
-                var month = document.getElementById("new_maintenance_month").value;
-                var monthText = document.getElementById("new_maintenance_month").options[document.getElementById("new_maintenance_month").selectedIndex].text;
+                var confirmMsg = "";
+                if (actionType == "update_maintenance_month") {
+                    var monthText = document.getElementById("new_maintenance_month").options[document.getElementById("new_maintenance_month").selectedIndex].text;
+                    confirmMsg = "'.html_entity_decode($langs->trans('MaintenanceMonth')).': " + monthText;
+                } else if (actionType == "update_planned_duration") {
+                    var duration = document.getElementById("new_planned_duration").value || "0";
+                    confirmMsg = "'.html_entity_decode($langs->trans('PlannedDuration')).': " + duration + " min";
+                } else if (actionType == "update_contract") {
+                    var contractText = document.getElementById("new_fk_contract").options[document.getElementById("new_fk_contract").selectedIndex].text;
+                    confirmMsg = "'.html_entity_decode($langs->trans('Contract')).': " + contractText;
+                }
 
-                if (!confirm("'.html_entity_decode($langs->trans('ConfirmBulkUpdateMaintenanceMonth')).'\n\n" + selected.length + " '.html_entity_decode($langs->trans('Equipment')).' → " + monthText)) {
+                if (!confirm(selected.length + " '.html_entity_decode($langs->trans('Equipment')).' → " + confirmMsg + "\n\n'.html_entity_decode($langs->trans('ConfirmBulkLink')).'")) {
                     return;
                 }
 
-                document.querySelector("input[name=massaction]").value = "update_maintenance_month";
+                document.querySelector("input[name=massaction]").value = actionType;
                 document.forms["bulkform"].submit();
             }
 

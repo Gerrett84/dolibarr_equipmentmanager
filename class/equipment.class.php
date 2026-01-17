@@ -40,8 +40,10 @@ class Equipment extends CommonObject
         'installation_date' => array('type' => 'date', 'label' => 'InstallationDate', 'enabled' => 1, 'visible' => 1, 'position' => 80),
         'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => 1, 'visible' => 1, 'position' => 90, 'default' => '1', 'arrayofkeyval' => array('0' => 'Inactive', '1' => 'Active')),
         'maintenance_month' => array('type' => 'integer', 'label' => 'MaintenanceMonth', 'enabled' => 1, 'visible' => 1, 'position' => 91),
-        'last_maintenance_date' => array('type' => 'date', 'label' => 'LastMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 92),
-        'next_maintenance_date' => array('type' => 'date', 'label' => 'NextMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 93),
+        'planned_duration' => array('type' => 'integer', 'label' => 'PlannedDuration', 'enabled' => 1, 'visible' => 1, 'position' => 92),
+        'fk_contract' => array('type' => 'integer:Contrat:contrat/class/contrat.class.php', 'label' => 'Contract', 'enabled' => 1, 'visible' => 1, 'position' => 93),
+        'last_maintenance_date' => array('type' => 'date', 'label' => 'LastMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 94),
+        'next_maintenance_date' => array('type' => 'date', 'label' => 'NextMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 95),
         'note_public' => array('type' => 'html', 'label' => 'NotePublic', 'enabled' => 1, 'visible' => 0, 'position' => 100),
         'note_private' => array('type' => 'html', 'label' => 'NotePrivate', 'enabled' => 1, 'visible' => 0, 'position' => 110),
         'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => 1, 'visible' => -2, 'position' => 500),
@@ -67,6 +69,8 @@ class Equipment extends CommonObject
     public $installation_date;
     public $status;
     public $maintenance_month;
+    public $planned_duration;
+    public $fk_contract;
     public $last_maintenance_date;
     public $next_maintenance_date;
     public $note_public;

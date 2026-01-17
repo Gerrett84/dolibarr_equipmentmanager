@@ -83,13 +83,19 @@ $sql .= " t.fk_soc,";
 $sql .= " t.fk_address,";
 $sql .= " t.location_note,";
 $sql .= " t.status,";
+$sql .= " t.planned_duration,";
+$sql .= " t.fk_contract,";
+$sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
 $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
 $sql .= " sp.town as address_town,";
-$sql .= " sp.zip as address_zip";
+$sql .= " sp.zip as address_zip,";
+$sql .= " c.ref as contract_ref";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 
 // Search filters
@@ -168,19 +174,20 @@ if ($resql) {
     print '<tr class="liste_titre">';
     print_liste_field_titre("EquipmentNumber", $_SERVER["PHP_SELF"], "t.equipment_number", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Type", $_SERVER["PHP_SELF"], "t.equipment_type", "", $param, '', $sortfield, $sortorder);
-    print_liste_field_titre("Manufacturer", $_SERVER["PHP_SELF"], "t.manufacturer", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Label", $_SERVER["PHP_SELF"], "t.label", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("ObjectAddress", $_SERVER["PHP_SELF"], "sp.town", "", $param, '', $sortfield, $sortorder);
+    print_liste_field_titre("PlannedDuration", $_SERVER["PHP_SELF"], "effective_duration", "", $param, '', $sortfield, $sortorder, 'center ');
+    print_liste_field_titre("Contract", $_SERVER["PHP_SELF"], "c.ref", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("MaintenanceContract", $_SERVER["PHP_SELF"], "t.status", "", $param, '', $sortfield, $sortorder, 'center ');
     print_liste_field_titre('', $_SERVER["PHP_SELF"], "", '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
     print "</tr>\n";
     
     // Fields title search
     print '<tr class="liste_titre">';
-    
+
     // Equipment Number
     print '<td class="liste_titre"><input type="text" class="flat maxwidth75" name="search_equipment_number" value="'.dol_escape_htmltag($search_equipment_number).'"></td>';
-    
+
     // Type
     print '<td class="liste_titre">';
     print '<select class="flat maxwidth100" name="search_type">';
@@ -192,16 +199,19 @@ if ($resql) {
     }
     print '</select>';
     print '</td>';
-    
-    // Manufacturer
-    print '<td class="liste_titre"><input type="text" class="flat maxwidth75" name="search_manufacturer" value="'.dol_escape_htmltag($search_manufacturer).'"></td>';
-    
+
     // Label
     print '<td class="liste_titre"><input type="text" class="flat maxwidth100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
-    
-    // Object Address - NEU: Suchfeld hinzugefügt
+
+    // Object Address
     print '<td class="liste_titre"><input type="text" class="flat maxwidth100" name="search_address" value="'.dol_escape_htmltag($search_address).'" placeholder="'.$langs->trans('Name, Town, ZIP').'"></td>';
-    
+
+    // Planzeit
+    print '<td class="liste_titre"></td>';
+
+    // Vertrag
+    print '<td class="liste_titre"></td>';
+
     // Status
     print '<td class="liste_titre center">';
     print '<select class="flat maxwidth75" name="search_status">';
@@ -210,7 +220,7 @@ if ($resql) {
     print '<option value="0"'.($search_status === '0' ? ' selected' : '').'>'.$langs->trans('NoContract').'</option>';
     print '</select>';
     print '</td>';
-    
+
     print '<td class="liste_titre center">';
     $searchpicto = $form->showFilterButtons();
     print $searchpicto;
@@ -233,7 +243,7 @@ if ($resql) {
         print '<strong>'.$obj->equipment_number.'</strong>';
         print '</a>';
         print '</td>';
-        
+
         // Type
         print '<td>';
         if (isset($type_labels[$obj->equipment_type])) {
@@ -242,13 +252,10 @@ if ($resql) {
             print dol_escape_htmltag($obj->equipment_type);
         }
         print '</td>';
-        
-        // Manufacturer
-        print '<td>'.dol_escape_htmltag($obj->manufacturer).'</td>';
-        
+
         // Label
         print '<td>'.dol_escape_htmltag($obj->label).'</td>';
-        
+
         // Object Address
         print '<td>';
         if ($obj->address_label) {
@@ -263,7 +270,37 @@ if ($resql) {
             print '<span class="opacitymedium">-</span>';
         }
         print '</td>';
-        
+
+        // Planzeit
+        print '<td class="center">';
+        if ($obj->effective_duration > 0) {
+            if ($obj->effective_duration >= 60) {
+                $hours = floor($obj->effective_duration / 60);
+                $mins = $obj->effective_duration % 60;
+                print $hours.'h'.($mins > 0 ? ' '.$mins.'min' : '');
+            } else {
+                print $obj->effective_duration.' min';
+            }
+            // Show if individual or type default
+            if (empty($obj->planned_duration)) {
+                print ' <span class="opacitymedium" title="'.$langs->trans('UseTypeDefault').'">(Std)</span>';
+            }
+        } else {
+            print '<span class="opacitymedium">-</span>';
+        }
+        print '</td>';
+
+        // Vertrag
+        print '<td>';
+        if ($obj->contract_ref) {
+            print '<a href="'.DOL_URL_ROOT.'/contrat/card.php?id='.$obj->fk_contract.'">';
+            print dol_escape_htmltag($obj->contract_ref);
+            print '</a>';
+        } else {
+            print '<span class="opacitymedium">-</span>';
+        }
+        print '</td>';
+
         // Maintenance Contract Status
         print '<td class="center">';
         if ($obj->status == 1) {
@@ -272,20 +309,20 @@ if ($resql) {
             print '<span class="badge badge-status8 badge-status">'.$langs->trans('NoContract').'</span>';
         }
         print '</td>';
-        
+
         // Actions
         print '<td class="center">';
         print '<a class="editfielda" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_edit.php?id='.$obj->rowid.'">';
         print img_edit();
         print '</a>';
         print '</td>';
-        
+
         print '</tr>';
         $i++;
     }
     
     if ($num == 0) {
-        $colspan = 7;
+        $colspan = 8;
         print '<tr><td colspan="'.$colspan.'"><span class="opacitymedium">'.$langs->trans("NoRecordFound").'</span></td></tr>';
     }
     

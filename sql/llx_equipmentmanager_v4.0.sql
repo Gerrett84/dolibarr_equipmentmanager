@@ -65,3 +65,13 @@ WHERE code = 'fire_door';
 UPDATE llx_equipmentmanager_equipment_types
 SET default_duration = 0, default_interval = 'yearly'
 WHERE code = 'other';
+
+-- ============================================
+-- EQUIPMENT - Add contract link (v4.0.1)
+-- ============================================
+
+ALTER TABLE llx_equipmentmanager_equipment
+    ADD COLUMN IF NOT EXISTS fk_contract INT DEFAULT NULL COMMENT 'Link to maintenance contract (llx_contrat)';
+
+ALTER TABLE llx_equipmentmanager_equipment
+    ADD INDEX IF NOT EXISTS idx_equipment_fk_contract (fk_contract);

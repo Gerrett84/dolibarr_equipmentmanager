@@ -51,16 +51,18 @@ if ($action == 'create_orders' && $confirm == 'yes') {
     // Get equipment needing service orders
     $sql = "SELECT";
     $sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type,";
-    $sql .= " t.fk_soc, t.fk_address, t.maintenance_month,";
+    $sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month,";
     $sql .= " s.nom as company_name,";
     $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-    $sql .= " sp.address, sp.zip, sp.town";
+    $sql .= " sp.address, sp.zip, sp.town,";
+    $sql .= " c.ref as contract_ref";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
     $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
     $sql .= " AND t.status = 1";
-    $sql .= " AND t.maintenance_contract = 1"; // Only with active contract
+    $sql .= " AND t.fk_contract IS NOT NULL AND t.fk_contract > 0"; // Only with linked contract
     $sql .= " AND t.maintenance_month = ".(int)$month;
     // No open maintenance
     $sql .= " AND NOT EXISTS (";
@@ -216,21 +218,23 @@ print '</form>';
 
 print '<br>';
 
-// Preview equipment that will get service orders
+// Preview equipment that will get service orders (requires linked contract)
 $sql = "SELECT";
 $sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type,";
-$sql .= " t.fk_soc, t.fk_address, t.maintenance_month,";
+$sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month,";
 $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
 $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-$sql .= " sp.town";
+$sql .= " sp.town,";
+$sql .= " c.ref as contract_ref";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
-$sql .= " AND t.maintenance_contract = 1";
+$sql .= " AND t.fk_contract IS NOT NULL AND t.fk_contract > 0"; // Only with linked contract
 $sql .= " AND t.maintenance_month = ".(int)$month;
 $sql .= " AND NOT EXISTS (";
 $sql .= "   SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il";
