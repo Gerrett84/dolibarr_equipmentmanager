@@ -176,8 +176,6 @@ $sql .= " COALESCE(sp.address, s.address) as address,";
 $sql .= " COALESCE(sp.zip, s.zip) as zip,";
 $sql .= " COALESCE(sp.town, s.town) as town,";
 $sql .= " COALESCE(sp.fk_pays, s.fk_pays) as fk_pays,";
-$sql .= " COALESCE(sp.latitude, 0) as latitude,";
-$sql .= " COALESCE(sp.longitude, 0) as longitude,";
 $sql .= " s.nom as company_name,";
 $sql .= " s.rowid as company_id,";
 $sql .= " CASE WHEN sp.rowid IS NOT NULL THEN 'socpeople' ELSE 'societe' END as address_source";
@@ -282,8 +280,6 @@ if ($resql) {
                 'company_name' => $obj->company_name,
                 'company_id' => $obj->company_id,
                 'address_source' => $obj->address_source,
-                'lat' => $obj->latitude,
-                'lng' => $obj->longitude,
                 'equipment' => $equipment,
                 'total_duration' => $total_duration,
                 'pending' => $pending_count,
@@ -291,13 +287,8 @@ if ($resql) {
                 'completed' => $completed_count
             );
 
-            // Check if we have coordinates (not 0/NULL)
-            if (!empty($obj->latitude) && !empty($obj->longitude) && $obj->latitude != 0 && $obj->longitude != 0) {
-                $locations[] = $location;
-            } else {
-                // Add to geocoding queue - will be geocoded via JavaScript
-                $locations_to_geocode[] = $location;
-            }
+            // All locations will be geocoded via JavaScript (Nominatim)
+            $locations_to_geocode[] = $location;
         }
     }
     $db->free($resql);
