@@ -630,3 +630,6 @@ AddCoordinatesHint=Koordinaten können in Dolibarr unter Kontakte/Adressen bearb
 HasPendingMaintenance=Hat ausstehende Wartungen
 HasInProgressMaintenance=Hat Wartungen in Bearbeitung
 AllMaintenanceCompleted=Alle Wartungen erledigt
+NoLocationsFound=Keine Standorte gefunden
+GeocodingAddresses=Adressen werden geocodiert
+GeocodingInfo=%s Adressen werden automatisch von OpenStreetMap geocodiert.

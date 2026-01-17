@@ -111,7 +111,7 @@ $sql .= " ORDER BY sp.town, sp.lastname";
 $resql = $db->query($sql);
 
 $locations = array();
-$addresses_without_coords = array();
+$locations_to_geocode = array();
 
 if ($resql) {
     while ($obj = $db->fetch_object($resql)) {
@@ -183,7 +183,8 @@ if ($resql) {
             if (!empty($obj->latitude) && !empty($obj->longitude)) {
                 $locations[] = $location;
             } else {
-                $addresses_without_coords[] = $location;
+                // Add to geocoding queue - will be geocoded via JavaScript
+                $locations_to_geocode[] = $location;
             }
         }
     }
@@ -191,13 +192,13 @@ if ($resql) {
 }
 
 // Statistics
-$total_locations = count($locations) + count($addresses_without_coords);
+$total_locations = count($locations) + count($locations_to_geocode);
 $total_equipment = 0;
 $total_pending = 0;
 $total_in_progress = 0;
 $total_completed = 0;
 
-foreach (array_merge($locations, $addresses_without_coords) as $loc) {
+foreach (array_merge($locations, $locations_to_geocode) as $loc) {
     $total_equipment += count($loc['equipment']);
     $total_pending += $loc['pending'];
     $total_in_progress += $loc['in_progress'];
@@ -234,9 +235,10 @@ print '</div>';
 
 print '</div>';
 
-// Map container
-if (count($locations) > 0) {
+// Map container - show if we have any locations (with or without coords)
+if (count($locations) > 0 || count($locations_to_geocode) > 0) {
     print '<div id="maintenance-map" style="height: 500px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px;"></div>';
+    print '<div id="geocoding-status" style="text-align: center; padding: 10px; display: none;"><span class="fa fa-spinner fa-spin"></span> '.$langs->trans('GeocodingAddresses').'...</div>';
 
     // Leaflet CSS & JS
     print '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />';
@@ -244,9 +246,12 @@ if (count($locations) > 0) {
 
     // Prepare locations data for JavaScript
     $js_locations = array();
+    $js_locations_to_geocode = array();
     $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
 
-    foreach ($locations as $loc) {
+    // Helper function to build popup HTML
+    function buildPopupHtml($loc, $type_labels, $langs) {
+        global $db;
         $popup_html = '<div style="min-width: 250px;">';
         $popup_html .= '<strong>'.dol_escape_htmltag($loc['address_label']).'</strong><br>';
         $popup_html .= '<span style="color: #666;">'.dol_escape_htmltag($loc['address']).', '.dol_escape_htmltag($loc['zip']).' '.dol_escape_htmltag($loc['town']).'</span><br>';
@@ -257,7 +262,6 @@ if (count($locations) > 0) {
         $popup_html .= '<strong>'.count($loc['equipment']).' '.$langs->trans('Equipment').'</strong>';
         $popup_html .= ' <span style="color: #607d8b;">('.formatDuration($loc['total_duration']).')</span><br>';
 
-        // Status badges
         if ($loc['pending'] > 0) {
             $popup_html .= '<span style="background: #f44336; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 3px;">'.$loc['pending'].' '.$langs->trans('Pending').'</span>';
         }
@@ -280,21 +284,33 @@ if (count($locations) > 0) {
         }
         $popup_html .= '</ul>';
         $popup_html .= '</div>';
+        return $popup_html;
+    }
 
-        // Determine marker color based on status
-        if ($loc['pending'] > 0) {
-            $color = 'red';
-        } elseif ($loc['in_progress'] > 0) {
-            $color = 'orange';
-        } else {
-            $color = 'green';
-        }
+    // Helper function to get marker color
+    function getMarkerColor($loc) {
+        if ($loc['pending'] > 0) return 'red';
+        if ($loc['in_progress'] > 0) return 'orange';
+        return 'green';
+    }
 
+    // Locations with coordinates
+    foreach ($locations as $loc) {
         $js_locations[] = array(
             'lat' => (float)$loc['lat'],
             'lng' => (float)$loc['lng'],
-            'popup' => $popup_html,
-            'color' => $color,
+            'popup' => buildPopupHtml($loc, $type_labels, $langs),
+            'color' => getMarkerColor($loc),
+            'count' => count($loc['equipment'])
+        );
+    }
+
+    // Locations that need geocoding
+    foreach ($locations_to_geocode as $loc) {
+        $js_locations_to_geocode[] = array(
+            'address' => $loc['address'].', '.$loc['zip'].' '.$loc['town'].', Germany',
+            'popup' => buildPopupHtml($loc, $type_labels, $langs),
+            'color' => getMarkerColor($loc),
             'count' => count($loc['equipment'])
         );
     }
@@ -302,25 +318,12 @@ if (count($locations) > 0) {
     print '<script>
     document.addEventListener("DOMContentLoaded", function() {
         var locations = '.json_encode($js_locations).';
-
-        if (locations.length === 0) return;
-
-        // Calculate center
-        var sumLat = 0, sumLng = 0;
-        locations.forEach(function(loc) {
-            sumLat += loc.lat;
-            sumLng += loc.lng;
-        });
-        var centerLat = sumLat / locations.length;
-        var centerLng = sumLng / locations.length;
-
-        // Initialize map
-        var map = L.map("maintenance-map").setView([centerLat, centerLng], 10);
-
-        // Add OpenStreetMap tiles
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
-        }).addTo(map);
+        var locationsToGeocode = '.json_encode($js_locations_to_geocode).';
+        var bounds = [];
+        var map;
+        var geocodeIndex = 0;
+        var geocodedCount = 0;
+        var geocodeFailedCount = 0;
 
         // Custom marker icons
         function getMarkerIcon(color, count) {
@@ -340,18 +343,74 @@ if (count($locations) > 0) {
             });
         }
 
-        // Add markers
-        var bounds = [];
-        locations.forEach(function(loc) {
-            var marker = L.marker([loc.lat, loc.lng], {
-                icon: getMarkerIcon(loc.color, loc.count)
+        // Add marker to map
+        function addMarker(lat, lng, popup, color, count) {
+            var marker = L.marker([lat, lng], {
+                icon: getMarkerIcon(color, count)
             }).addTo(map);
-            marker.bindPopup(loc.popup, { maxWidth: 350 });
-            bounds.push([loc.lat, loc.lng]);
+            marker.bindPopup(popup, { maxWidth: 350 });
+            bounds.push([lat, lng]);
+        }
+
+        // Initialize map
+        var defaultCenter = [51.1657, 10.4515]; // Germany center
+        map = L.map("maintenance-map").setView(defaultCenter, 6);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "&copy; <a href=\\"https://www.openstreetmap.org/copyright\\">OpenStreetMap</a> contributors"
+        }).addTo(map);
+
+        // Add pre-geocoded locations
+        locations.forEach(function(loc) {
+            addMarker(loc.lat, loc.lng, loc.popup, loc.color, loc.count);
         });
 
-        // Fit bounds
-        if (bounds.length > 1) {
+        // Geocode function using Nominatim
+        function geocodeNext() {
+            if (geocodeIndex >= locationsToGeocode.length) {
+                // Done geocoding
+                document.getElementById("geocoding-status").style.display = "none";
+                if (bounds.length > 0) {
+                    map.fitBounds(bounds, { padding: [30, 30] });
+                }
+                return;
+            }
+
+            var loc = locationsToGeocode[geocodeIndex];
+            var url = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(loc.address);
+
+            fetch(url, {
+                headers: { "Accept-Language": "de" }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data && data.length > 0) {
+                    var lat = parseFloat(data[0].lat);
+                    var lng = parseFloat(data[0].lon);
+                    addMarker(lat, lng, loc.popup, loc.color, loc.count);
+                    geocodedCount++;
+                } else {
+                    geocodeFailedCount++;
+                    console.log("Geocoding failed for: " + loc.address);
+                }
+                geocodeIndex++;
+                // Delay to respect Nominatim rate limit (1 request per second)
+                setTimeout(geocodeNext, 1100);
+            })
+            .catch(function(err) {
+                console.error("Geocoding error:", err);
+                geocodeFailedCount++;
+                geocodeIndex++;
+                setTimeout(geocodeNext, 1100);
+            });
+        }
+
+        // Start geocoding if needed
+        if (locationsToGeocode.length > 0) {
+            document.getElementById("geocoding-status").style.display = "block";
+            geocodeNext();
+        } else if (bounds.length > 0) {
             map.fitBounds(bounds, { padding: [30, 30] });
         }
     });
@@ -359,46 +418,16 @@ if (count($locations) > 0) {
 } else {
     print '<div class="info" style="padding: 30px; text-align: center;">';
     print '<span class="fa fa-map-marker" style="font-size: 48px; color: #ccc;"></span>';
-    print '<h3>'.$langs->trans('NoLocationsWithCoordinates').'</h3>';
-    print '<p class="opacitymedium">'.$langs->trans('NoLocationsWithCoordinatesDesc').'</p>';
+    print '<h3>'.$langs->trans('NoLocationsFound').'</h3>';
     print '</div>';
 }
 
-// Addresses without coordinates
-if (count($addresses_without_coords) > 0) {
+// Info about geocoding
+if (count($locations_to_geocode) > 0) {
     print '<br>';
-    print '<div class="div-table-responsive-no-min">';
-    print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre">';
-    print '<th colspan="5">';
-    print '<span class="fa fa-exclamation-triangle" style="color: #ff9800;"></span> ';
-    print $langs->trans('AddressesWithoutCoordinates');
-    print ' <span class="badge" style="background: #ff9800; color: white;">'.count($addresses_without_coords).'</span>';
-    print '</th>';
-    print '</tr>';
-    print '<tr class="liste_titre">';
-    print '<th>'.$langs->trans('Address').'</th>';
-    print '<th>'.$langs->trans('Town').'</th>';
-    print '<th>'.$langs->trans('Customer').'</th>';
-    print '<th class="center">'.$langs->trans('Equipment').'</th>';
-    print '<th class="center">'.$langs->trans('PlannedDuration').'</th>';
-    print '</tr>';
-
-    foreach ($addresses_without_coords as $loc) {
-        print '<tr class="oddeven">';
-        print '<td>'.dol_escape_htmltag($loc['address_label']).'<br><span class="opacitymedium">'.dol_escape_htmltag($loc['address']).'</span></td>';
-        print '<td>'.dol_escape_htmltag($loc['zip']).' '.dol_escape_htmltag($loc['town']).'</td>';
-        print '<td>'.dol_escape_htmltag($loc['company_name']).'</td>';
-        print '<td class="center">'.count($loc['equipment']).'</td>';
-        print '<td class="center">'.formatDuration($loc['total_duration']).'</td>';
-        print '</tr>';
-    }
-
-    print '</table>';
-    print '</div>';
-
-    print '<div class="info" style="margin-top: 10px;">';
+    print '<div class="info">';
     print '<span class="fa fa-info-circle"></span> ';
+    print $langs->trans('GeocodingInfo', count($locations_to_geocode));
     print $langs->trans('AddCoordinatesHint');
     print '</div>';
 }
