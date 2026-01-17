@@ -683,10 +683,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 0);
 
-        $type_label = $equipment->equipment_type;
-        if (isset($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type])) {
-            $type_label = $outputlangs->trans($equipment->fields['equipment_type']['arrayofkeyval'][$equipment->equipment_type]);
-        }
+        // Get translated type label from database
+        $type_labels = Equipment::getEquipmentTypesTranslated($this->db, $outputlangs);
+        $type_label = isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
 
         $pdf->SetXY($leftMargin + $textPadding, $curY);
         $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$type_label, 0, 'L');

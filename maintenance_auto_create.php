@@ -152,14 +152,25 @@ if ($action == 'create_orders' && $confirm == 'yes') {
                 $fichinter->fk_address = $data['fk_address'];
             }
 
-            // Link to contract
-            if ($first_contract_id > 0) {
-                $fichinter->fk_contrat = $first_contract_id;
-            }
-
             $result = $fichinter->create($user);
 
             if ($result > 0) {
+                // Link to contract
+                if ($first_contract_id > 0) {
+                    $fichinter->set_contrat($user, $first_contract_id);
+                }
+
+                // Add object address as contact (type INTERSITE = site intervention)
+                if ($data['fk_address'] > 0) {
+                    // Get contact type code for intervention site
+                    $sql_ctype = "SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact WHERE element = 'fichinter' AND source = 'external' AND code = 'INTERSITE'";
+                    $res_ctype = $db->query($sql_ctype);
+                    if ($res_ctype && $db->num_rows($res_ctype) > 0) {
+                        $obj_ctype = $db->fetch_object($res_ctype);
+                        $fichinter->add_contact($data['fk_address'], $obj_ctype->rowid, 'external');
+                    }
+                }
+
                 // Link equipment to intervention
                 foreach ($data['equipment'] as $eq) {
                     $sql_link = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
