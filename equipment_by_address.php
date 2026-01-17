@@ -301,11 +301,23 @@ if ($search_company > 0 || $search_address > 0) {
             print '<input type="hidden" name="search_address" value="'.$search_address.'">';
             print '<input type="hidden" name="massaction" value="">';
 
-            // Get contracts for bulk assignment (for selected company)
+            // Get contracts for bulk assignment (for selected company or from address)
             $bulk_contracts = array();
-            if ($search_company > 0) {
+            $bulk_socid = $search_company;
+
+            // If searching by address and no company selected, get company from address
+            if (empty($bulk_socid) && $search_address > 0) {
+                $sql_soc = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."socpeople WHERE rowid = ".(int)$search_address;
+                $res_soc = $db->query($sql_soc);
+                if ($res_soc && $db->num_rows($res_soc) > 0) {
+                    $obj_soc = $db->fetch_object($res_soc);
+                    $bulk_socid = $obj_soc->fk_soc;
+                }
+            }
+
+            if ($bulk_socid > 0) {
                 $sql_c = "SELECT c.rowid, c.ref, c.ref_customer FROM ".MAIN_DB_PREFIX."contrat as c";
-                $sql_c .= " WHERE c.fk_soc = ".(int)$search_company;
+                $sql_c .= " WHERE c.fk_soc = ".(int)$bulk_socid;
                 $sql_c .= " AND c.statut > 0";
                 $sql_c .= " ORDER BY c.ref DESC";
                 $res_c = $db->query($sql_c);

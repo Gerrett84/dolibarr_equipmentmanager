@@ -120,9 +120,17 @@ if ($action == 'create_orders' && $confirm == 'yes') {
             $fichinter->date = dol_now();
             $fichinter->duree = 0;
 
+            // Get contract from first equipment (all equipment in this group should have same contract)
+            $first_contract_id = null;
+            foreach ($data['equipment'] as $eq) {
+                if ($eq->fk_contract > 0) {
+                    $first_contract_id = $eq->fk_contract;
+                    break;
+                }
+            }
+
             // Build description
-            $month_name = dol_print_date(dol_mktime(0, 0, 0, $month, 1, $year), '%B %Y');
-            $description = $langs->trans('MaintenanceServiceOrder').' - '.$month_name."\n";
+            $description = "Jährliche Wartung durchführen\n\n";
             if ($data['address_label']) {
                 $description .= $langs->trans('ObjectAddress').': '.$data['address_label'];
                 if ($data['town']) {
@@ -142,6 +150,11 @@ if ($action == 'create_orders' && $confirm == 'yes') {
             // Set address if available
             if ($data['fk_address'] > 0) {
                 $fichinter->fk_address = $data['fk_address'];
+            }
+
+            // Link to contract
+            if ($first_contract_id > 0) {
+                $fichinter->fk_contrat = $first_contract_id;
             }
 
             $result = $fichinter->create($user);

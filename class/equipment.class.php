@@ -122,6 +122,8 @@ class Equipment extends CommonObject
         $sql .= "installation_date,";
         $sql .= "status,";
         $sql .= "maintenance_month,";
+        $sql .= "planned_duration,";
+        $sql .= "fk_contract,";
         $sql .= "note_public,";
         $sql .= "note_private,";
         $sql .= "date_creation,";
@@ -142,6 +144,8 @@ class Equipment extends CommonObject
         $sql .= ($this->installation_date ? "'".$this->db->idate($this->installation_date)."'" : 'NULL').",";
         $sql .= (isset($this->status) ? $this->status : 1).",";
         $sql .= ($this->maintenance_month > 0 ? (int)$this->maintenance_month : 'NULL').",";
+        $sql .= ($this->planned_duration > 0 ? (int)$this->planned_duration : 'NULL').",";
+        $sql .= ($this->fk_contract > 0 ? (int)$this->fk_contract : 'NULL').",";
         $sql .= ($this->note_public ? "'".$this->db->escape($this->note_public)."'" : 'NULL').",";
         $sql .= ($this->note_private ? "'".$this->db->escape($this->note_private)."'" : 'NULL').",";
         $sql .= "'".$this->db->idate($now)."',";
@@ -201,6 +205,8 @@ class Equipment extends CommonObject
                 $this->installation_date = $this->db->jdate($obj->installation_date);
                 $this->status = $obj->status;
                 $this->maintenance_month = $obj->maintenance_month;
+                $this->planned_duration = $obj->planned_duration;
+                $this->fk_contract = $obj->fk_contract;
                 $this->last_maintenance_date = $this->db->jdate($obj->last_maintenance_date);
                 $this->next_maintenance_date = $this->db->jdate($obj->next_maintenance_date);
                 $this->note_public = $obj->note_public;
@@ -241,6 +247,8 @@ class Equipment extends CommonObject
         $sql .= " installation_date = ".($this->installation_date ? "'".$this->db->idate($this->installation_date)."'" : 'NULL').",";
         $sql .= " status = ".(isset($this->status) ? $this->status : 1).",";
         $sql .= " maintenance_month = ".($this->maintenance_month > 0 ? (int)$this->maintenance_month : 'NULL').",";
+        $sql .= " planned_duration = ".($this->planned_duration > 0 ? (int)$this->planned_duration : 'NULL').",";
+        $sql .= " fk_contract = ".($this->fk_contract > 0 ? (int)$this->fk_contract : 'NULL').",";
         $sql .= " note_public = ".($this->note_public ? "'".$this->db->escape($this->note_public)."'" : 'NULL').",";
         $sql .= " note_private = ".($this->note_private ? "'".$this->db->escape($this->note_private)."'" : 'NULL').",";
         $sql .= " fk_user_modif = ".$user->id;

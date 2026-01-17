@@ -250,6 +250,7 @@ OrEnterManually=Oder manuell eingeben
 
 # Messages
 
+ModifyEquipment=Anlage bearbeiten
 EquipmentCreated=Anlage erstellt
 EquipmentUpdated=Anlage aktualisiert
 EquipmentDeleted=Anlage gelöscht

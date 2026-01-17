@@ -211,7 +211,61 @@ if ($object->id > 0) {
         print ' <span class="opacitymedium">('.$langs->trans('AnnualMaintenance').')</span>';
         print '</td></tr>';
     }
-    
+
+    // Planzeit (v4.0)
+    if ($object->status == 1) {
+        print '<tr><td>'.$langs->trans("PlannedDuration").'</td><td>';
+        // Get effective duration (individual or type default)
+        $effective_duration = $object->planned_duration;
+        $is_type_default = false;
+        if (empty($effective_duration)) {
+            // Get default from equipment type
+            $sql_dur = "SELECT default_duration FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment_types WHERE code = '".$db->escape($object->equipment_type)."'";
+            $res_dur = $db->query($sql_dur);
+            if ($res_dur && $db->num_rows($res_dur) > 0) {
+                $obj_dur = $db->fetch_object($res_dur);
+                $effective_duration = $obj_dur->default_duration;
+                $is_type_default = true;
+            }
+        }
+        if ($effective_duration > 0) {
+            if ($effective_duration >= 60) {
+                $hours = floor($effective_duration / 60);
+                $mins = $effective_duration % 60;
+                print '<strong>'.$hours.'h'.($mins > 0 ? ' '.$mins.'min' : '').'</strong>';
+            } else {
+                print '<strong>'.$effective_duration.' min</strong>';
+            }
+            if ($is_type_default) {
+                print ' <span class="opacitymedium">('.$langs->trans('UseTypeDefault').')</span>';
+            }
+        } else {
+            print '<span class="opacitymedium">-</span>';
+        }
+        print '</td></tr>';
+    }
+
+    // Vertrag (v4.0)
+    if ($object->status == 1) {
+        print '<tr><td>'.$langs->trans("Contract").'</td><td>';
+        if ($object->fk_contract > 0) {
+            $sql_c = "SELECT rowid, ref, ref_customer FROM ".MAIN_DB_PREFIX."contrat WHERE rowid = ".(int)$object->fk_contract;
+            $res_c = $db->query($sql_c);
+            if ($res_c && $db->num_rows($res_c) > 0) {
+                $obj_c = $db->fetch_object($res_c);
+                print '<a href="'.DOL_URL_ROOT.'/contrat/card.php?id='.$obj_c->rowid.'">';
+                print '<strong>'.dol_escape_htmltag($obj_c->ref).'</strong>';
+                if ($obj_c->ref_customer) {
+                    print ' ('.dol_escape_htmltag($obj_c->ref_customer).')';
+                }
+                print '</a>';
+            }
+        } else {
+            print '<span class="opacitymedium">'.$langs->trans('NoContractLinked').'</span>';
+        }
+        print '</td></tr>';
+    }
+
     // Letzte Wartung - NEU in v1.5.1
     if ($object->status == 1) {
         print '<tr><td>'.$langs->trans("LastMaintenanceDate").'</td><td>';
