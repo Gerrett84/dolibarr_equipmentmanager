@@ -103,7 +103,7 @@ class modEquipmentManager extends DolibarrModules
         $this->menu = array();
         $r = 0;
 
-        // Top Menu - Wartungs-Dashboard mit Icon
+        // Top Menu - Equipment Manager mit Icon
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => '',
@@ -121,7 +121,9 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Wartungs-Dashboard
+        // ============================================
+        // Überschrift 1: Wartungs-Übersicht (Parent)
+        // ============================================
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager',
@@ -138,14 +140,14 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Maintenance Calendar
+        // Unterpunkt: Wartungskalender
         $r++;
         $this->menu[$r] = array(
-            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_maintenance',
             'type' => 'left',
             'titre' => 'MaintenanceCalendar',
             'mainmenu' => 'equipmentmanager',
-            'leftmenu' => 'equipmentmanager_calendar',
+            'leftmenu' => '',
             'url' => '/equipmentmanager/maintenance_calendar.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
@@ -155,31 +157,14 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Auto Create Service Orders
+        // Unterpunkt: Wartungskarte
         $r++;
         $this->menu[$r] = array(
-            'fk_menu' => 'fk_mainmenu=equipmentmanager',
-            'type' => 'left',
-            'titre' => 'AutoCreateServiceOrders',
-            'mainmenu' => 'equipmentmanager',
-            'leftmenu' => 'equipmentmanager_autocreate',
-            'url' => '/equipmentmanager/maintenance_auto_create.php',
-            'langs' => 'equipmentmanager@equipmentmanager',
-            'position' => 1000 + $r,
-            'enabled' => '1',
-            'perms' => '1',
-            'target' => '',
-            'user' => 2,
-        );
-
-        // Left Menu - Maintenance Map
-        $r++;
-        $this->menu[$r] = array(
-            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_maintenance',
             'type' => 'left',
             'titre' => 'MaintenanceMap',
             'mainmenu' => 'equipmentmanager',
-            'leftmenu' => 'equipmentmanager_map',
+            'leftmenu' => '',
             'url' => '/equipmentmanager/maintenance_map.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
@@ -189,7 +174,26 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Equipment List
+        // Unterpunkt: Serviceaufträge auto. erstellen
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_maintenance',
+            'type' => 'left',
+            'titre' => 'AutoCreateServiceOrders',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/maintenance_auto_create.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 2: Anlagenliste (Parent)
+        // ============================================
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager',
@@ -206,7 +210,7 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - New Equipment
+        // Unterpunkt: Neue Anlage
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_equipment',
@@ -223,7 +227,7 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
-        // Left Menu - Equipment by Address
+        // Unterpunkt: Anlagen nach Objektadresse
         $r++;
         $this->menu[$r] = array(
             'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_equipment',

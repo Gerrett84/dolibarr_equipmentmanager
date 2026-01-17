@@ -86,7 +86,7 @@ print '</form>';
 
 print '<br>';
 
-// Get addresses with equipment
+// Get addresses with equipment (using object address from socpeople)
 $sql = "SELECT DISTINCT";
 $sql .= " sp.rowid as address_id,";
 $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
@@ -101,7 +101,8 @@ $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
 $sql .= " AND t.fk_address IS NOT NULL AND t.fk_address > 0";
 if (!$show_all) {
-    $sql .= " AND t.maintenance_contract = 1";
+    // Same logic as dashboard: show equipment with maintenance_month set
+    $sql .= " AND t.maintenance_month IS NOT NULL";
     if ($month > 0) {
         $sql .= " AND t.maintenance_month = ".(int)$month;
     }
@@ -132,7 +133,7 @@ if ($resql) {
         $sql2 .= " WHERE t.fk_address = ".(int)$obj->address_id;
         $sql2 .= " AND t.status = 1";
         if (!$show_all) {
-            $sql2 .= " AND t.maintenance_contract = 1";
+            $sql2 .= " AND t.maintenance_month IS NOT NULL";
             if ($month > 0) {
                 $sql2 .= " AND t.maintenance_month = ".(int)$month;
             }
