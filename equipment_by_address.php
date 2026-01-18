@@ -38,6 +38,7 @@ $toselect = GETPOST('toselect', 'array');
 $new_maintenance_month = GETPOST('new_maintenance_month', 'int');
 $new_planned_duration = GETPOST('new_planned_duration', 'int');
 $new_fk_contract = GETPOST('new_fk_contract', 'int');
+$new_interval = GETPOST('new_interval', 'alpha');
 
 $form = new Form($db);
 $formcompany = new FormCompany($db);
@@ -156,6 +157,38 @@ if ($massaction == 'update_contract' && !empty($toselect)) {
     }
 }
 
+// Bulk update interval
+if ($massaction == 'update_interval' && !empty($toselect)) {
+    if (!$user->rights->equipmentmanager->equipment->write) {
+        accessforbidden();
+    }
+
+    $error = 0;
+    $db->begin();
+
+    foreach ($toselect as $equipment_id) {
+        $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_equipment SET";
+        $sql .= " maintenance_interval = ".($new_interval ? "'".$db->escape($new_interval)."'" : 'NULL').",";
+        $sql .= " fk_user_modif = ".$user->id;
+        $sql .= " WHERE rowid = ".(int)$equipment_id;
+        $sql .= " AND entity IN (".getEntity('equipmentmanager').")";
+
+        $resql = $db->query($sql);
+        if (!$resql) {
+            $error++;
+            break;
+        }
+    }
+
+    if (!$error) {
+        $db->commit();
+        setEventMessages($langs->trans('Processed').': '.count($toselect).' '.$langs->trans('Equipment'), null, 'mesgs');
+    } else {
+        $db->rollback();
+        setEventMessages($langs->trans('Error'), null, 'errors');
+    }
+}
+
 $title = $langs->trans("EquipmentByAddress");
 $help_url = '';
 
@@ -238,6 +271,7 @@ if ($search_company > 0 || $search_address > 0) {
     $sql .= " t.manufacturer,";
     $sql .= " t.status,";
     $sql .= " t.maintenance_month,";
+    $sql .= " t.maintenance_interval,";
     $sql .= " t.planned_duration,";
     $sql .= " t.fk_contract,";
     $sql .= " t.fk_soc,";
@@ -382,6 +416,19 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<button type="button" onclick="applyBulkAction(\'update_contract\');" class="button smallpaddingimp">'.$langs->trans('Apply').'</button>';
                 print '</span>';
 
+                print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
+
+                // Interval
+                print '<span style="display: flex; align-items: center; gap: 5px;">';
+                print '<label><strong>'.$langs->trans('Interval').':</strong></label>';
+                print '<select name="new_interval" id="new_interval" class="flat">';
+                print '<option value="">-- '.$langs->trans('UseTypeDefault').' --</option>';
+                print '<option value="yearly">'.$langs->trans('IntervalYearly').'</option>';
+                print '<option value="semi_annual">'.$langs->trans('IntervalSemiAnnual').'</option>';
+                print '</select>';
+                print '<button type="button" onclick="applyBulkAction(\'update_interval\');" class="button smallpaddingimp">'.$langs->trans('Apply').'</button>';
+                print '</span>';
+
                 print '</div>';
                 print '</div>';
                 print '</div>';
@@ -394,7 +441,7 @@ if ($search_company > 0 || $search_address > 0) {
 
                 // Address header
                 print '<tr class="liste_titre">';
-                print '<th colspan="7">';
+                print '<th colspan="8">';
                 print '<span class="fa fa-map-marker paddingright"></span>';
                 print '<strong>'.dol_escape_htmltag($address_data['label']).'</strong>';
                 if ($address_data['street'] || $address_data['town']) {
@@ -422,6 +469,7 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<th>'.$langs->trans('Type').'</th>';
                 print '<th>'.$langs->trans('Label').'</th>';
                 print '<th class="center">'.$langs->trans('MaintenanceMonth').'</th>';
+                print '<th class="center">'.$langs->trans('Interval').'</th>';
                 print '<th class="center">'.$langs->trans('PlannedDuration').'</th>';
                 print '<th>'.$langs->trans('Contract').'</th>';
                 print '</tr>';
@@ -463,6 +511,15 @@ if ($search_company > 0 || $search_address > 0) {
                         print '<span class="badge badge-status1">'.$month_labels[$equip->maintenance_month].'</span>';
                     } else {
                         print '<span class="opacitymedium">-</span>';
+                    }
+                    print '</td>';
+
+                    // Interval
+                    print '<td class="center">';
+                    if ($equip->maintenance_interval == 'semi_annual') {
+                        print '<span class="badge badge-status4">'.$langs->trans('IntervalSemiAnnual').'</span>';
+                    } else {
+                        print '<span class="opacitymedium">'.$langs->trans('IntervalYearly').'</span>';
                     }
                     print '</td>';
 
@@ -508,7 +565,7 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<table class="noborder centpercent">';
 
                 print '<tr class="liste_titre">';
-                print '<th colspan="7">';
+                print '<th colspan="8">';
                 print '<span class="fa fa-exclamation-triangle paddingright warning"></span>';
                 print '<strong>'.$langs->trans('EquipmentWithoutAddress').'</strong>';
                 print ' <span class="badge badge-status1" style="margin-left: 10px;">'.count($no_address).' '.$langs->trans('Equipment').'</span>';
@@ -526,6 +583,7 @@ if ($search_company > 0 || $search_address > 0) {
                 print '<th>'.$langs->trans('Type').'</th>';
                 print '<th>'.$langs->trans('Label').'</th>';
                 print '<th class="center">'.$langs->trans('MaintenanceMonth').'</th>';
+                print '<th class="center">'.$langs->trans('Interval').'</th>';
                 print '<th class="center">'.$langs->trans('PlannedDuration').'</th>';
                 print '<th>'.$langs->trans('Contract').'</th>';
                 print '</tr>';
@@ -563,6 +621,15 @@ if ($search_company > 0 || $search_address > 0) {
                         print '<span class="badge badge-status1">'.$month_labels[$equip->maintenance_month].'</span>';
                     } else {
                         print '<span class="opacitymedium">-</span>';
+                    }
+                    print '</td>';
+
+                    // Interval
+                    print '<td class="center">';
+                    if ($equip->maintenance_interval == 'semi_annual') {
+                        print '<span class="badge badge-status4">'.$langs->trans('IntervalSemiAnnual').'</span>';
+                    } else {
+                        print '<span class="opacitymedium">'.$langs->trans('IntervalYearly').'</span>';
                     }
                     print '</td>';
 
