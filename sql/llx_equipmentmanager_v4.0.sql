@@ -75,3 +75,10 @@ ALTER TABLE llx_equipmentmanager_equipment
 
 ALTER TABLE llx_equipmentmanager_equipment
     ADD INDEX IF NOT EXISTS idx_equipment_fk_contract (fk_contract);
+
+-- ============================================
+-- CONTACT TYPE - Add Objektadresse for Fichinter
+-- ============================================
+
+INSERT IGNORE INTO llx_c_type_contact (element, source, code, libelle, active, position)
+VALUES ('fichinter', 'external', 'SERVICEADDRESS', 'Objektadresse', 1, 10);
