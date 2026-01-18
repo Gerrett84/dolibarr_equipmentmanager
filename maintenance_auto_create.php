@@ -129,21 +129,8 @@ if ($action == 'create_orders' && $confirm == 'yes') {
                 }
             }
 
-            // Build description
-            $description = "Jährliche Wartung durchführen\n\n";
-            if ($data['address_label']) {
-                $description .= $langs->trans('ObjectAddress').': '.$data['address_label'];
-                if ($data['town']) {
-                    $description .= ', '.$data['town'];
-                }
-                $description .= "\n";
-            }
-            $description .= "\n".$langs->trans('Equipment').":\n";
-            foreach ($data['equipment'] as $eq) {
-                $description .= "- ".$eq->equipment_number." (".$eq->label.")\n";
-            }
-
-            $fichinter->description = $description;
+            // Simple description
+            $fichinter->description = "Jährliche Wartung durchführen";
             $fichinter->note_private = $langs->trans('AutoCreatedServiceOrder');
             $fichinter->entity = $conf->entity;
 
@@ -155,15 +142,17 @@ if ($action == 'create_orders' && $confirm == 'yes') {
             $result = $fichinter->create($user);
 
             if ($result > 0) {
-                // Link to contract
+                // Link to contract and add as linked object
                 if ($first_contract_id > 0) {
                     $fichinter->set_contrat($user, $first_contract_id);
+                    // Also add as linked object in element_element table
+                    $fichinter->add_object_linked('contrat', $first_contract_id);
                 }
 
-                // Add object address as contact (type INTERSITE = site intervention)
+                // Add object address as contact (type CUSTOMER)
                 if ($data['fk_address'] > 0) {
-                    // Get contact type code for intervention site
-                    $sql_ctype = "SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact WHERE element = 'fichinter' AND source = 'external' AND code = 'INTERSITE'";
+                    // Get contact type code for customer contact
+                    $sql_ctype = "SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact WHERE element = 'fichinter' AND source = 'external' AND code = 'CUSTOMER'";
                     $res_ctype = $db->query($sql_ctype);
                     if ($res_ctype && $db->num_rows($res_ctype) > 0) {
                         $obj_ctype = $db->fetch_object($res_ctype);
