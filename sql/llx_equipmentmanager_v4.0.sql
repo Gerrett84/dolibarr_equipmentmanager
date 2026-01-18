@@ -77,8 +77,7 @@ ALTER TABLE llx_equipmentmanager_equipment
     ADD INDEX IF NOT EXISTS idx_equipment_fk_contract (fk_contract);
 
 -- ============================================
--- CONTACT TYPE - Add Objektadresse for Fichinter
+-- CLEANUP - Remove duplicate Objektadresse contact type if exists
 -- ============================================
 
-INSERT IGNORE INTO llx_c_type_contact (element, source, code, libelle, active, position)
-VALUES ('fichinter', 'external', 'SERVICEADDRESS', 'Objektadresse', 1, 10);
+DELETE FROM llx_c_type_contact WHERE element = 'fichinter' AND code = 'SERVICEADDRESS';

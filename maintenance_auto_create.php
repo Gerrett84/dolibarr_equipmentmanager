@@ -149,10 +149,10 @@ if ($action == 'create_orders' && $confirm == 'yes') {
                     $fichinter->add_object_linked('contrat', $first_contract_id);
                 }
 
-                // Add object address as contact (type SERVICEADDRESS = Objektadresse)
+                // Add object address as contact (Objektadresse)
                 if ($data['fk_address'] > 0) {
-                    // Get contact type code for Objektadresse
-                    $sql_ctype = "SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact WHERE element = 'fichinter' AND source = 'external' AND code = 'SERVICEADDRESS'";
+                    // Get contact type for Objektadresse (search by label since code may vary)
+                    $sql_ctype = "SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact WHERE element = 'fichinter' AND source = 'external' AND libelle LIKE '%Objektadresse%'";
                     $res_ctype = $db->query($sql_ctype);
                     if ($res_ctype && $db->num_rows($res_ctype) > 0) {
                         $obj_ctype = $db->fetch_object($res_ctype);
