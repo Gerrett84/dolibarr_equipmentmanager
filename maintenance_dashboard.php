@@ -111,9 +111,9 @@ body[class*="dark"] .maintenance-legend,
 }
 </style>';
 
-$linkback = '<a class="button" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_calendar.php"><span class="fa fa-calendar"></span> '.$langs->trans("MaintenanceCalendar").'</a>';
-$linkback .= ' <a class="button" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_map.php"><span class="fa fa-map-marker"></span> '.$langs->trans("MaintenanceMap").'</a>';
-$linkback .= ' <a class="button" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_auto_create.php"><span class="fa fa-magic"></span> '.$langs->trans("AutoCreateServiceOrders").'</a>';
+$linkback = '<a class="button smallpaddingimp" title="'.$langs->trans("MaintenanceCalendar").'" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_calendar.php"><span class="fa fa-calendar"></span></a>';
+$linkback .= ' <a class="button smallpaddingimp" title="'.$langs->trans("MaintenanceMap").'" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_map.php"><span class="fa fa-map-marker"></span></a>';
+$linkback .= ' <a class="button smallpaddingimp" title="'.$langs->trans("AutoCreate").'" href="'.DOL_URL_ROOT.'/custom/equipmentmanager/maintenance_auto_create.php"><span class="fa fa-magic"></span></a>';
 print load_fiche_titre($title, $linkback, 'fa-wrench');
 
 // Aktueller Monat und nächster Monat

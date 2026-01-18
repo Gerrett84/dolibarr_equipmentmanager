@@ -606,6 +606,7 @@ Next=Weiter
 Today=Heute
 Completed=Erledigt
 AutoCreateServiceOrders=Serviceaufträge automatisch erstellen
+AutoCreate=Auto-Erstellen
 SelectMonth=Monat auswählen
 EquipmentNeedingServiceOrder=Anlagen ohne Serviceauftrag
 CreateServiceOrders=Serviceaufträge erstellen
