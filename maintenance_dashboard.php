@@ -166,13 +166,24 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON 
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
 $sql .= " AND t.maintenance_month IS NOT NULL";
-// Zeige: aktueller Monat, nächster Monat, UND alle überfälligen (Monat < aktueller Monat)
-$sql .= " AND (t.maintenance_month = ".$current_month;
-$sql .= " OR t.maintenance_month = ".$next_month;
-$sql .= " OR t.maintenance_month < ".$current_month;
+
+// Calculate semi-annual offset months
+$semi_current = $current_month > 6 ? $current_month - 6 : $current_month + 6;
+$semi_next = $next_month > 6 ? $next_month - 6 : $next_month + 6;
+
+// Zeige: aktueller Monat, nächster Monat, UND alle überfälligen
+$sql .= " AND (";
+// Jährlich oder Hauptmonat bei halbjährlich
+$sql .= "   t.maintenance_month = ".$current_month;
+$sql .= "   OR t.maintenance_month = ".$next_month;
+$sql .= "   OR t.maintenance_month < ".$current_month;
+// Halbjährlich: auch den versetzten Monat prüfen
+$sql .= "   OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".$semi_current.")";
+$sql .= "   OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".$semi_next.")";
 // Im Januar auch Dezember des Vorjahres (maintenance_month = 12)
 if ($current_month == 1) {
     $sql .= " OR t.maintenance_month = 12";
+    $sql .= " OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = 6)"; // Juni -> Dezember
 }
 $sql .= ")";
 // Blende bereits erledigte aus

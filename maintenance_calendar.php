@@ -91,8 +91,11 @@ for ($m = 1; $m <= 12; $m++) {
 print '</div>';
 
 // Get maintenance data for this month
+// Calculate the "opposite" month for semi-annual check (6 months offset)
+$semi_annual_month = $month > 6 ? $month - 6 : $month + 6;
+
 $sql = "SELECT";
-$sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type, t.maintenance_month,";
+$sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type, t.maintenance_month, t.maintenance_interval,";
 $sql .= " t.fk_soc, t.fk_address,";
 $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
@@ -106,14 +109,16 @@ $sql .= " (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_
 $sql .= "  INNER JOIN ".MAIN_DB_PREFIX."fichinter f2 ON il2.fk_intervention = f2.rowid";
 $sql .= "  WHERE il2.fk_equipment = t.rowid AND il2.link_type = 'maintenance'";
 $sql .= "  AND f2.fk_statut = 3 AND YEAR(f2.date_valid) = ".(int)$year;
-$sql .= "  AND MONTH(f2.date_valid) = t.maintenance_month) as is_completed";
+$sql .= "  AND MONTH(f2.date_valid) = ".(int)$month.") as is_completed";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
-$sql .= " AND t.maintenance_month = ".(int)$month;
+// Match maintenance month: direct match OR semi-annual with offset month
+$sql .= " AND (t.maintenance_month = ".(int)$month;
+$sql .= "      OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".(int)$semi_annual_month."))";
 $sql .= " ORDER BY sp.town, sp.lastname, t.equipment_number";
 
 $resql = $db->query($sql);

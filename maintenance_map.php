@@ -109,7 +109,10 @@ if (!$show_all) {
     // Same logic as dashboard: show equipment with maintenance_month set
     $sql .= " AND t.maintenance_month IS NOT NULL";
     if ($month > 0) {
-        $sql .= " AND t.maintenance_month = ".(int)$month;
+        // Calculate semi-annual offset month
+        $semi_month = $month > 6 ? $month - 6 : $month + 6;
+        $sql .= " AND (t.maintenance_month = ".(int)$month;
+        $sql .= "      OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".(int)$semi_month."))";
     }
 }
 $sql .= " ORDER BY COALESCE(sp.town, s.town), address_label";
@@ -147,7 +150,10 @@ if ($resql) {
         if (!$show_all) {
             $sql2 .= " AND t.maintenance_month IS NOT NULL";
             if ($month > 0) {
-                $sql2 .= " AND t.maintenance_month = ".(int)$month;
+                // Calculate semi-annual offset month
+                $semi_month = $month > 6 ? $month - 6 : $month + 6;
+                $sql2 .= " AND (t.maintenance_month = ".(int)$month;
+                $sql2 .= "      OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".(int)$semi_month."))";
             }
         }
         $sql2 .= " ORDER BY t.equipment_number";
