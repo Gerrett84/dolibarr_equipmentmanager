@@ -48,10 +48,13 @@ $errors = array();
 if ($action == 'create_orders' && $confirm == 'yes') {
     $db->begin();
 
+    // Calculate the "opposite" month for semi-annual check (6 months offset)
+    $semi_annual_month = $month > 6 ? $month - 6 : $month + 6;
+
     // Get equipment needing service orders
     $sql = "SELECT";
     $sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type,";
-    $sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month,";
+    $sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month, t.maintenance_interval,";
     $sql .= " s.nom as company_name,";
     $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
     $sql .= " sp.address, sp.zip, sp.town,";
@@ -63,7 +66,10 @@ if ($action == 'create_orders' && $confirm == 'yes') {
     $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
     $sql .= " AND t.status = 1";
     $sql .= " AND t.fk_contract IS NOT NULL AND t.fk_contract > 0"; // Only with linked contract
-    $sql .= " AND t.maintenance_month = ".(int)$month;
+    // Match maintenance month: direct match OR semi-annual with offset month
+    $sql .= " AND (t.maintenance_month = ".(int)$month;
+    $sql .= "      OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".(int)$semi_annual_month."))";
+
     // No open maintenance
     $sql .= " AND NOT EXISTS (";
     $sql .= "   SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il";
@@ -232,9 +238,12 @@ print '</form>';
 print '<br>';
 
 // Preview equipment that will get service orders (requires linked contract)
+// Calculate the "opposite" month for semi-annual check (6 months offset)
+$semi_annual_month = $month > 6 ? $month - 6 : $month + 6;
+
 $sql = "SELECT";
 $sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type,";
-$sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month,";
+$sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month, t.maintenance_interval,";
 $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
 $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
@@ -248,7 +257,9 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
 $sql .= " AND t.fk_contract IS NOT NULL AND t.fk_contract > 0"; // Only with linked contract
-$sql .= " AND t.maintenance_month = ".(int)$month;
+// Match maintenance month: direct match OR semi-annual with offset month
+$sql .= " AND (t.maintenance_month = ".(int)$month;
+$sql .= "      OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".(int)$semi_annual_month."))";
 $sql .= " AND NOT EXISTS (";
 $sql .= "   SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il";
 $sql .= "   INNER JOIN ".MAIN_DB_PREFIX."fichinter f ON il.fk_intervention = f.rowid";

@@ -72,6 +72,7 @@ if ($action == 'add' && !$cancel) {
     $object->maintenance_month = GETPOST('maintenance_month', 'int');
     $object->planned_duration = GETPOST('planned_duration', 'int') ?: null;
     $object->fk_contract = GETPOST('fk_contract', 'int') ?: null;
+    $object->maintenance_interval = GETPOST('maintenance_interval', 'alpha') ?: null;
 
     if (empty($object->label)) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Label")), null, 'errors');
@@ -116,6 +117,7 @@ if ($action == 'update' && !$cancel) {
     $object->maintenance_month = GETPOST('maintenance_month', 'int');
     $object->planned_duration = GETPOST('planned_duration', 'int') ?: null;
     $object->fk_contract = GETPOST('fk_contract', 'int') ?: null;
+    $object->maintenance_interval = GETPOST('maintenance_interval', 'alpha') ?: null;
 
     if (!$error) {
         $result = $object->update($user);
@@ -166,15 +168,18 @@ function toggleEquipmentNumberMode() {
 function toggleMaintenanceMonth() {
     var status = document.getElementById("status_select").value;
     var maintenanceRow = document.getElementById("maintenance_month_row");
+    var intervalRow = document.getElementById("maintenance_interval_row");
     var durationRow = document.getElementById("planned_duration_row");
     var contractRow = document.getElementById("fk_contract_row");
 
     if (status == "1") {
         maintenanceRow.style.display = "table-row";
+        intervalRow.style.display = "table-row";
         durationRow.style.display = "table-row";
         contractRow.style.display = "table-row";
     } else {
         maintenanceRow.style.display = "none";
+        intervalRow.style.display = "none";
         durationRow.style.display = "none";
         contractRow.style.display = "none";
     }
@@ -397,6 +402,17 @@ foreach ($months as $num => $name) {
 }
 print '</select>';
 print ' <span class="opacitymedium">'.$langs->trans('MaintenanceMonthHelp').'</span>';
+print '</td></tr>';
+
+// Wartungsintervall (v4.0) - nur wenn Vertrag aktiv
+print '<tr id="maintenance_interval_row" style="display:'.$display_maintenance.';">';
+print '<td>'.$langs->trans("MaintenanceInterval").'</td><td>';
+$current_interval = isset($object->maintenance_interval) ? $object->maintenance_interval : '';
+print '<select name="maintenance_interval" id="maintenance_interval_select" class="flat">';
+print '<option value="">'.$langs->trans('UseTypeDefault').' ('.$langs->trans('IntervalYearly').')</option>';
+print '<option value="yearly"'.($current_interval == 'yearly' ? ' selected' : '').'>'.$langs->trans('IntervalYearly').'</option>';
+print '<option value="semi_annual"'.($current_interval == 'semi_annual' ? ' selected' : '').'>'.$langs->trans('IntervalSemiAnnual').'</option>';
+print '</select>';
 print '</td></tr>';
 
 // Planzeit (v4.0) - nur wenn Vertrag aktiv

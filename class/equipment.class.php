@@ -42,7 +42,8 @@ class Equipment extends CommonObject
         'maintenance_month' => array('type' => 'integer', 'label' => 'MaintenanceMonth', 'enabled' => 1, 'visible' => 1, 'position' => 91),
         'planned_duration' => array('type' => 'integer', 'label' => 'PlannedDuration', 'enabled' => 1, 'visible' => 1, 'position' => 92),
         'fk_contract' => array('type' => 'integer:Contrat:contrat/class/contrat.class.php', 'label' => 'Contract', 'enabled' => 1, 'visible' => 1, 'position' => 93),
-        'last_maintenance_date' => array('type' => 'date', 'label' => 'LastMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 94),
+        'maintenance_interval' => array('type' => 'varchar(20)', 'label' => 'MaintenanceInterval', 'enabled' => 1, 'visible' => 1, 'position' => 94, 'arrayofkeyval' => array('yearly' => 'IntervalYearly', 'semi_annual' => 'IntervalSemiAnnual')),
+        'last_maintenance_date' => array('type' => 'date', 'label' => 'LastMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 95),
         'next_maintenance_date' => array('type' => 'date', 'label' => 'NextMaintenanceDate', 'enabled' => 1, 'visible' => -2, 'position' => 95),
         'note_public' => array('type' => 'html', 'label' => 'NotePublic', 'enabled' => 1, 'visible' => 0, 'position' => 100),
         'note_private' => array('type' => 'html', 'label' => 'NotePrivate', 'enabled' => 1, 'visible' => 0, 'position' => 110),
@@ -71,6 +72,7 @@ class Equipment extends CommonObject
     public $maintenance_month;
     public $planned_duration;
     public $fk_contract;
+    public $maintenance_interval;
     public $last_maintenance_date;
     public $next_maintenance_date;
     public $note_public;
@@ -124,6 +126,7 @@ class Equipment extends CommonObject
         $sql .= "maintenance_month,";
         $sql .= "planned_duration,";
         $sql .= "fk_contract,";
+        $sql .= "maintenance_interval,";
         $sql .= "note_public,";
         $sql .= "note_private,";
         $sql .= "date_creation,";
@@ -146,6 +149,7 @@ class Equipment extends CommonObject
         $sql .= ($this->maintenance_month > 0 ? (int)$this->maintenance_month : 'NULL').",";
         $sql .= ($this->planned_duration > 0 ? (int)$this->planned_duration : 'NULL').",";
         $sql .= ($this->fk_contract > 0 ? (int)$this->fk_contract : 'NULL').",";
+        $sql .= ($this->maintenance_interval ? "'".$this->db->escape($this->maintenance_interval)."'" : 'NULL').",";
         $sql .= ($this->note_public ? "'".$this->db->escape($this->note_public)."'" : 'NULL').",";
         $sql .= ($this->note_private ? "'".$this->db->escape($this->note_private)."'" : 'NULL').",";
         $sql .= "'".$this->db->idate($now)."',";
@@ -207,6 +211,7 @@ class Equipment extends CommonObject
                 $this->maintenance_month = $obj->maintenance_month;
                 $this->planned_duration = $obj->planned_duration;
                 $this->fk_contract = $obj->fk_contract;
+                $this->maintenance_interval = $obj->maintenance_interval;
                 $this->last_maintenance_date = $this->db->jdate($obj->last_maintenance_date);
                 $this->next_maintenance_date = $this->db->jdate($obj->next_maintenance_date);
                 $this->note_public = $obj->note_public;
@@ -249,6 +254,7 @@ class Equipment extends CommonObject
         $sql .= " maintenance_month = ".($this->maintenance_month > 0 ? (int)$this->maintenance_month : 'NULL').",";
         $sql .= " planned_duration = ".($this->planned_duration > 0 ? (int)$this->planned_duration : 'NULL').",";
         $sql .= " fk_contract = ".($this->fk_contract > 0 ? (int)$this->fk_contract : 'NULL').",";
+        $sql .= " maintenance_interval = ".($this->maintenance_interval ? "'".$this->db->escape($this->maintenance_interval)."'" : 'NULL').",";
         $sql .= " note_public = ".($this->note_public ? "'".$this->db->escape($this->note_public)."'" : 'NULL').",";
         $sql .= " note_private = ".($this->note_private ? "'".$this->db->escape($this->note_private)."'" : 'NULL').",";
         $sql .= " fk_user_modif = ".$user->id;

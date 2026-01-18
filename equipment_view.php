@@ -190,7 +190,7 @@ if ($object->id > 0) {
     }
     print '</td></tr>';
     
-    // Wartungsmonat
+    // Wartungsmonat und Intervall
     if ($object->status == 1 && $object->maintenance_month > 0) {
         print '<tr><td>'.$langs->trans("MaintenanceMonth").'</td><td>';
         $months = array(
@@ -208,7 +208,14 @@ if ($object->id > 0) {
             12 => $langs->trans('December')
         );
         print '<strong>'.$months[$object->maintenance_month].'</strong>';
-        print ' <span class="opacitymedium">('.$langs->trans('AnnualMaintenance').')</span>';
+        // Show interval
+        if ($object->maintenance_interval == 'semi_annual') {
+            $second_month = ($object->maintenance_month + 6) > 12 ? $object->maintenance_month - 6 : $object->maintenance_month + 6;
+            print ' + <strong>'.$months[$second_month].'</strong>';
+            print ' <span class="opacitymedium">('.$langs->trans('IntervalSemiAnnual').')</span>';
+        } else {
+            print ' <span class="opacitymedium">('.$langs->trans('IntervalYearly').')</span>';
+        }
         print '</td></tr>';
     }
 
