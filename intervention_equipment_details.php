@@ -869,8 +869,9 @@ if ($object->id > 0) {
             print '</td></tr>';
         }
 
-        // Only show form if not completed
-        if ($checklistResult->status == 0) {
+        // Only show form if not completed OR if completed but intervention still draft
+        $canEditChecklist = ($checklistResult->status == 0) || ($checklistResult->status == 1 && $object->status == Fichinter::STATUS_DRAFT);
+        if ($canEditChecklist) {
             print '<tr><td colspan="4">';
             print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" id="checklist_form">';
             print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -891,7 +892,7 @@ if ($object->id > 0) {
             print '<div style="display: flex; justify-content: space-between; align-items: center;">';
             print '<span>'.$langs->trans($section->label).'</span>';
             // "Alle OK" button (not for Ergebnis section and only if editable)
-            if (!$isErgebnisSection && $checklistResult->status == 0 && $permissiontoadd) {
+            if (!$isErgebnisSection && $canEditChecklist && $permissiontoadd) {
                 print '<button type="button" class="button small" onclick="setAllOK(\''.$section->code.'\')" style="padding: 2px 8px; font-size: 11px;">'.$langs->trans('SetAllOK').'</button>';
             }
             print '</div>';
@@ -917,7 +918,7 @@ if ($object->id > 0) {
 
                 // Answer input
                 print '<td class="center">';
-                if ($checklistResult->status == 0 && $permissiontoadd) {
+                if ($canEditChecklist && $permissiontoadd) {
                     // Editable - all ok_mangel types now include N.V. option (except Ergebnis section)
                     if ($item->answer_type == 'ok_mangel' || $item->answer_type == 'ok_mangel_nv') {
                         print '<select name="answer_'.$item->id.'" class="flat checklist-answer" data-section="'.$section->code.'">';
@@ -962,7 +963,7 @@ if ($object->id > 0) {
 
                 // Note
                 print '<td>';
-                if ($checklistResult->status == 0 && $permissiontoadd) {
+                if ($canEditChecklist && $permissiontoadd) {
                     print '<input type="text" name="note_'.$item->id.'" value="'.dol_escape_htmltag($current_note).'" class="flat" style="width: 100%;">';
                 } else {
                     print dol_escape_htmltag($current_note);
@@ -974,18 +975,24 @@ if ($object->id > 0) {
         }
 
         // Buttons
-        if ($checklistResult->status == 0 && $permissiontoadd) {
+        if ($canEditChecklist && $permissiontoadd) {
             print '<tr><td colspan="4" class="center" style="padding: 15px;">';
             print '<input type="submit" class="button" value="'.$langs->trans('Save').'">';
             print ' <a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=pdf_checklist&checklist_id='.$checklistResult->id.'&preview=1&token='.newToken().'" target="_blank">';
             print '<span class="fa fa-eye"></span> '.$langs->trans('PDFPreview');
             print '</a>';
-            print ' <button type="submit" class="button button-save" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\');">'.$langs->trans('CompleteChecklist').'</button>';
-            print ' <a class="button button-cancel" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDeleteChecklist').'\');">'.$langs->trans('Delete').'</a>';
+            if ($checklistResult->status == 0) {
+                // Not yet completed - show complete button and delete button
+                print ' <button type="submit" class="button button-save" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\');">'.$langs->trans('CompleteChecklist').'</button>';
+                print ' <a class="button button-cancel" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDeleteChecklist').'\');">'.$langs->trans('Delete').'</a>';
+            } else {
+                // Already completed but editable (intervention still draft) - show update button
+                print ' <button type="submit" class="button button-save" onclick="jQuery(\'#checklist_form input[name=action]\').val(\'complete_checklist\');">'.$langs->trans('UpdateChecklist').'</button>';
+            }
             print '</td></tr>';
             print '</form>';
         } elseif ($checklistResult->status > 0) {
-            // Completed checklist - show PDF button (opens saved PDF)
+            // Completed checklist and intervention validated - show PDF button only
             print '<tr><td colspan="4" class="center" style="padding: 15px;">';
             print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=pdf_checklist&checklist_id='.$checklistResult->id.'&token='.newToken().'" target="_blank">';
             print '<span class="fa fa-file-pdf-o"></span> '.$langs->trans('ViewPDF');

@@ -422,6 +422,7 @@ ChecklistCompleted=Checkliste abgeschlossen
 ChecklistPDFGenerated=Checklisten-PDF wurde erstellt
 StartChecklist=Checkliste starten
 CompleteChecklist=Checkliste abschließen
+UpdateChecklist=Checkliste aktualisieren
 SetAllOK=Alle OK
 ErgebnisMustBeFilled=Bitte füllen Sie alle Felder im Abschnitt "Ergebnis" aus, bevor Sie die Checkliste abschließen.
 ChecklistInProgress=Checkliste in Bearbeitung

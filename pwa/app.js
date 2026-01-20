@@ -844,8 +844,8 @@ class ServiceReportApp {
             const card = document.createElement('div');
             card.className = 'card';
 
-            // Equipment type labels
-            const typeLabels = {
+            // Equipment type labels - store as class property for reuse
+            this.equipmentTypeLabels = {
                 'door_swing': 'Drehtür',
                 'door_sliding': 'Schiebetür',
                 'fire_door': 'Brandschutztür',
@@ -857,6 +857,7 @@ class ServiceReportApp {
                 'rwa': 'RWA',
                 'other': 'Sonstige'
             };
+            const typeLabels = this.equipmentTypeLabels;
 
             equipment.forEach(eq => {
                 const item = document.createElement('div');
@@ -908,6 +909,9 @@ class ServiceReportApp {
                 ? '<span class="link-type-badge maintenance">Wartung</span>'
                 : '<span class="link-type-badge service">Service</span>';
             document.getElementById('entriesLinkType').innerHTML = linkTypeBadge;
+
+            // Show equipment details
+            this.renderEquipmentDetails(equipment);
 
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -2382,6 +2386,68 @@ class ServiceReportApp {
         return div.innerHTML;
     }
 
+    // Render equipment details in entries view
+    renderEquipmentDetails(equipment) {
+        // Get type label from typeLabels map
+        const typeLabels = this.equipmentTypeLabels || {};
+        const typeLabel = typeLabels[equipment.type] || equipment.type || '-';
+
+        document.getElementById('eqDetailLocation').textContent = equipment.location || '-';
+        document.getElementById('eqDetailType').textContent = typeLabel;
+        document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
+        document.getElementById('eqDetailWingCount').textContent = equipment.wing_count || '-';
+
+        // Add click handlers for editable fields
+        const locationEl = document.getElementById('eqDetailLocation');
+        const manufacturerEl = document.getElementById('eqDetailManufacturer');
+        const wingCountEl = document.getElementById('eqDetailWingCount');
+
+        // Style editable fields
+        [locationEl, manufacturerEl, wingCountEl].forEach(el => {
+            el.style.background = 'var(--input-bg)';
+            el.style.border = '1px dashed var(--border-color)';
+        });
+
+        // Click handlers
+        locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
+        manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
+        wingCountEl.onclick = () => this.editEquipmentField('wing_count', 'Flügelanzahl', equipment.wing_count || '');
+    }
+
+    // Edit equipment field via prompt
+    async editEquipmentField(field, label, currentValue) {
+        const newValue = prompt(`${label}:`, currentValue);
+
+        if (newValue === null) return; // Cancelled
+
+        try {
+            const result = await this.apiCall(`equipment/${this.currentEquipment.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ [field]: newValue })
+            });
+
+            if (result.status === 'ok') {
+                // Update local data
+                if (field === 'location_note') {
+                    this.currentEquipment.location = newValue;
+                } else if (field === 'manufacturer') {
+                    this.currentEquipment.manufacturer = newValue;
+                } else if (field === 'wing_count') {
+                    this.currentEquipment.wing_count = newValue ? parseInt(newValue) : null;
+                }
+
+                // Re-render details
+                this.renderEquipmentDetails(this.currentEquipment);
+                this.showToast(`${label} aktualisiert`);
+            } else {
+                this.showToast('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Failed to update equipment:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
+    }
+
     async deleteDocument(encodedFilename) {
         const filename = decodeURIComponent(encodedFilename);
 
@@ -2605,6 +2671,9 @@ class ServiceReportApp {
         const results = data.results || {};
         const checklist = data.checklist || {};
         const isCompleted = checklist.status === 1;
+        // Check if intervention is still draft (status 0) - then checklist is editable even if completed
+        const interventionStatus = this.currentIntervention?.status ?? 1;
+        const canEditChecklist = !isCompleted || (isCompleted && interventionStatus === 0);
 
         let html = '';
 
@@ -2614,6 +2683,7 @@ class ServiceReportApp {
                 <div class="checklist-status completed">
                     <span>✅</span>
                     <span>Checkliste abgeschlossen${checklist.date_completion ? ' am ' + this.formatDate(checklist.date_completion) : ''}</span>
+                    ${canEditChecklist ? '<span style="margin-left:8px;font-size:12px;color:#666;">(bearbeitbar)</span>' : ''}
                 </div>
             `;
         }
@@ -2628,7 +2698,7 @@ class ServiceReportApp {
             // Section header with "Alle OK" button (except for Ergebnis section)
             html += `<div class="checklist-section-header">`;
             html += `<span>${this.escapeHtml(section.label)}</span>`;
-            if (!isErgebnisSection && !isCompleted) {
+            if (!isErgebnisSection && canEditChecklist) {
                 html += `<button type="button" class="btn-all-ok" onclick="app.setAllOK('${sectionCode}')">Alle OK</button>`;
             }
             html += `</div>`;
@@ -2652,7 +2722,7 @@ class ServiceReportApp {
                 html += `<select class="checklist-item-select ${selectClass}"
                             data-item="${itemId}"
                             data-section="${sectionCode}"
-                            ${isCompleted ? 'disabled' : ''}
+                            ${!canEditChecklist ? 'disabled' : ''}
                             onchange="app.onChecklistAnswerChange(this)">`;
 
                 // Options based on answer type
@@ -2686,7 +2756,7 @@ class ServiceReportApp {
                             placeholder="Anmerkung..."
                             data-item="${itemId}"
                             value="${this.escapeHtml(currentNote)}"
-                            ${isCompleted ? 'disabled' : ''}
+                            ${!canEditChecklist ? 'disabled' : ''}
                             onchange="app.onChecklistNoteChange(this)">`;
 
                 html += `</div>`;
@@ -2705,11 +2775,12 @@ class ServiceReportApp {
             </button>
         `;
 
-        // Complete button (if not already completed)
-        if (!isCompleted) {
+        // Complete/Update button (if editable)
+        if (canEditChecklist) {
+            const buttonLabel = isCompleted ? 'Checkliste aktualisieren' : 'Checkliste abschließen';
             html += `
                 <button type="button" class="btn btn-success btn-block" onclick="app.completeChecklist()">
-                    Checkliste abschließen
+                    ${buttonLabel}
                 </button>
             `;
         }

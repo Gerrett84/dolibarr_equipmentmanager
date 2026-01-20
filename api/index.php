@@ -168,6 +168,10 @@ try {
             handleChecklist($method, $parts, $input);
             break;
 
+        case 'equipment':
+            handleEquipment($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -624,7 +628,7 @@ function getInterventionEquipment($intervention_id) {
     global $db;
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
-    $sql .= " e.location_note, e.manufacturer,";
+    $sql .= " e.location_note, e.manufacturer, e.wing_count,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration";
@@ -648,6 +652,7 @@ function getInterventionEquipment($intervention_id) {
                 'manufacturer' => $obj->manufacturer ?: '',
                 'serial_number' => $obj->serial_number,
                 'location' => $obj->location_note ?: '',
+                'wing_count' => $obj->wing_count ? (int)$obj->wing_count : null,
                 'link_type' => $obj->link_type,
                 'detail' => null
             ];
@@ -2075,4 +2080,86 @@ function formatTemplateForApi($template, $langs) {
         'norm_reference' => $template->norm_reference,
         'sections' => $sections
     ];
+}
+
+/**
+ * GET /equipment/{id} - Get equipment details
+ * PUT /equipment/{id} - Update equipment
+ */
+function handleEquipment($method, $parts, $input) {
+    global $db, $user, $langs;
+
+    $equipment_id = (int)($parts[1] ?? 0);
+
+    if (!$equipment_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Equipment ID required']);
+        return;
+    }
+
+    $equipment = new Equipment($db);
+    if ($equipment->fetch($equipment_id) <= 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Equipment not found']);
+        return;
+    }
+
+    if ($method === 'GET') {
+        // Return equipment details
+        // Get equipment type labels
+        $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
+
+        echo json_encode([
+            'status' => 'ok',
+            'equipment' => [
+                'id' => (int)$equipment->id,
+                'ref' => $equipment->equipment_number,
+                'label' => $equipment->label,
+                'type' => $equipment->equipment_type,
+                'type_label' => $type_labels[$equipment->equipment_type] ?? $equipment->equipment_type,
+                'manufacturer' => $equipment->manufacturer ?: '',
+                'serial_number' => $equipment->serial_number,
+                'location' => $equipment->location_note ?: '',
+                'wing_count' => $equipment->wing_count ? (int)$equipment->wing_count : null,
+                'fk_soc' => (int)$equipment->fk_soc,
+                'fk_address' => (int)$equipment->fk_address
+            ]
+        ]);
+
+    } elseif ($method === 'PUT' || $method === 'POST') {
+        // Update equipment - only specific fields allowed from PWA
+        $allowed_fields = ['location_note', 'equipment_type', 'wing_count', 'manufacturer'];
+
+        foreach ($allowed_fields as $field) {
+            if (isset($input[$field])) {
+                // Map API field names to class properties
+                if ($field === 'location_note') {
+                    $equipment->location_note = $input[$field];
+                } elseif ($field === 'equipment_type') {
+                    $equipment->equipment_type = $input[$field];
+                } elseif ($field === 'wing_count') {
+                    $equipment->wing_count = $input[$field] !== '' ? (int)$input[$field] : null;
+                } elseif ($field === 'manufacturer') {
+                    $equipment->manufacturer = $input[$field];
+                }
+            }
+        }
+
+        $result = $equipment->update($user);
+
+        if ($result > 0) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Equipment updated',
+                'equipment_id' => (int)$equipment->id
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to update equipment', 'details' => $equipment->error]);
+        }
+
+    } else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+    }
 }

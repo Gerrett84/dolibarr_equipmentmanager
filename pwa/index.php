@@ -1251,6 +1251,27 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                     <h3 class="card-title" id="entriesEquipmentRef" style="margin:0;">Equipment</h3>
                     <span id="entriesLinkType"></span>
                 </div>
+                <!-- Equipment Details Section -->
+                <div id="equipmentDetailsSection" class="card-body" style="padding:12px;border-bottom:1px solid var(--border-color);background:var(--bg-secondary);">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+                        <div>
+                            <span style="color:var(--text-muted);">Standort:</span>
+                            <div id="eqDetailLocation" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);">Typ:</span>
+                            <div id="eqDetailType" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);">Hersteller:</span>
+                            <div id="eqDetailManufacturer" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);">Flügel:</span>
+                            <div id="eqDetailWingCount" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body" style="padding:0;">
                     <!-- Add Entry Button -->
                     <div class="add-equipment-btn" id="btnAddEntry" style="margin:12px;border-radius:6px;">

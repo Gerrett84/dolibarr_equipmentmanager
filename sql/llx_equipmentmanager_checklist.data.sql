@@ -405,14 +405,10 @@ FROM llx_equipmentmanager_checklist_sections s
 JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
 WHERE t.equipment_type_code = 'fire_door_fsa' AND s.code = 'fsa';
 
-INSERT INTO llx_equipmentmanager_checklist_items (fk_section, code, label, answer_type, position, active, date_creation)
-SELECT s.rowid, 'F5', 'ItemRauchmelderSichtpruefung', 'ok_mangel', 50, 1, NOW()
-FROM llx_equipmentmanager_checklist_sections s
-JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
-WHERE t.equipment_type_code = 'fire_door_fsa' AND s.code = 'fsa';
+-- F5 ItemRauchmelderSichtpruefung removed - merged with ItemAusloesungRauchmelder
 
 INSERT INTO llx_equipmentmanager_checklist_items (fk_section, code, label, answer_type, position, active, date_creation)
-SELECT s.rowid, 'F6', 'ItemZulassungsschild', 'ok_mangel', 60, 1, NOW()
+SELECT s.rowid, 'F5', 'ItemZulassungsschild', 'ok_mangel', 50, 1, NOW()
 FROM llx_equipmentmanager_checklist_sections s
 JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
 WHERE t.equipment_type_code = 'fire_door_fsa' AND s.code = 'fsa';
@@ -490,14 +486,10 @@ FROM llx_equipmentmanager_checklist_sections s
 JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
 WHERE t.equipment_type_code = 'fire_gate' AND s.code = 'fsa';
 
-INSERT INTO llx_equipmentmanager_checklist_items (fk_section, code, label, answer_type, position, active, date_creation)
-SELECT s.rowid, 'F5', 'ItemRauchmelderSichtpruefung', 'ok_mangel', 50, 1, NOW()
-FROM llx_equipmentmanager_checklist_sections s
-JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
-WHERE t.equipment_type_code = 'fire_gate' AND s.code = 'fsa';
+-- F5 ItemRauchmelderSichtpruefung removed - merged with ItemAusloesungRauchmelder
 
 INSERT INTO llx_equipmentmanager_checklist_items (fk_section, code, label, answer_type, position, active, date_creation)
-SELECT s.rowid, 'F6', 'ItemZulassungsschild', 'ok_mangel', 60, 1, NOW()
+SELECT s.rowid, 'F5', 'ItemZulassungsschild', 'ok_mangel', 50, 1, NOW()
 FROM llx_equipmentmanager_checklist_sections s
 JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
 WHERE t.equipment_type_code = 'fire_gate' AND s.code = 'fsa';
