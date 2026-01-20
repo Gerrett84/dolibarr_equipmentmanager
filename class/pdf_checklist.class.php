@@ -259,7 +259,8 @@ class pdf_checklist
         $pdf->SetFont('', 'B', $default_font_size + 4);
         $pdf->SetXY($this->marge_gauche, $posy);
         $pdf->SetFillColor(240, 240, 240);
-        $title = $this->pdfStr($outputlangs->trans($template->label));
+        $template_label = !empty($template->label) ? $template->label : 'Checkliste';
+        $title = $this->pdfStr($outputlangs->trans($template_label));
         $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $title, 1, 1, 'C', true);
         $posy += 12;
 
@@ -555,7 +556,9 @@ class pdf_checklist
             $checklist->fetchItemResults();
 
             $template = new ChecklistTemplate($db);
-            $template->fetchByEquipmentType($equipment->equipment_type);
+            if ($template->fetchByEquipmentType($equipment->equipment_type) > 0) {
+                $template->fetchSectionsWithItems();
+            }
 
             $checklists_data[] = array(
                 'equipment' => $equipment,
@@ -604,8 +607,12 @@ class pdf_checklist
         $pdf->SetAutoPageBreak(0);
 
         // Generate each checklist
-        $first = true;
         foreach ($checklists_data as $data) {
+            // Skip if template has no sections
+            if (empty($data['template']->sections)) {
+                continue;
+            }
+
             // Add new page for each checklist
             $pdf->AddPage();
 

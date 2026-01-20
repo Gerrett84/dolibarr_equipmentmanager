@@ -134,19 +134,35 @@ if ($action == 'unlink' && $permissiontoadd && $equipment_id > 0) {
 if ($action == 'pdf_all_checklists' && $permissiontoread) {
     dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
 
-    $pdf = new pdf_checklist($db);
+    $pdf_gen = new pdf_checklist($db);
     $preview = GETPOST('preview', 'int') ? true : false;
-    $result = $pdf->write_combined_file($object, $user, $langs, $preview);
+    $result = $pdf_gen->write_combined_file($object, $user, $langs, $preview);
 
     if ($result && $result !== 'preview') {
         setEventMessages($langs->trans('PDFCreated'), null, 'mesgs');
+
+        // Add as linked document to the intervention
+        require_once DOL_DOCUMENT_ROOT.'/ecm/class/ecmfiles.class.php';
+        $ecmfile = new EcmFiles($db);
+        $ecmfile->filepath = 'ficheinter/'.dol_sanitizeFileName($object->ref);
+        $ecmfile->filename = basename($result);
+        $ecmfile->label = basename($result);
+        $ecmfile->fullpath_orig = $result;
+        $ecmfile->gen_or_uploaded = 'generated';
+        $ecmfile->description = '';
+        $ecmfile->keywords = '';
+        $ecmfile->src_object_type = 'fichinter';
+        $ecmfile->src_object_id = $object->id;
+        $ecmfile->entity = $conf->entity;
+        $ecmfile->create($user);
+
         // Download the file
         header('Location: '.DOL_URL_ROOT.'/document.php?modulepart=ficheinter&file='.urlencode(basename(dirname($result)).'/'.basename($result)));
         exit;
     } elseif ($result === 'preview') {
         exit; // Preview mode - PDF already output
     } else {
-        setEventMessages($pdf->error, null, 'errors');
+        setEventMessages($pdf_gen->error, null, 'errors');
     }
 }
 
