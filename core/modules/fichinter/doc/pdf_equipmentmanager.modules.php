@@ -758,7 +758,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
-                $issues_text = $outputlangs->convToOutputCharset($entry->issues_found);
+                $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
                 $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
             }
