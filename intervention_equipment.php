@@ -116,18 +116,38 @@ if ($action == 'unlink' && $permissiontoadd && $equipment_id > 0) {
     $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= " WHERE fk_intervention = ".(int)$object->id;
     $sql .= " AND fk_equipment = ".(int)$equipment_id;
-    
+
     dol_syslog("Unlinking equipment ".$equipment_id." from intervention ".$object->id, LOG_DEBUG);
-    
+
     if ($db->query($sql)) {
         setEventMessages($langs->trans('EquipmentUnlinked'), null, 'mesgs');
     } else {
         dol_syslog("Error unlinking equipment: ".$db->lasterror(), LOG_ERR);
         setEventMessages($db->lasterror(), null, 'errors');
     }
-    
+
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
     exit;
+}
+
+// Generate combined checklists PDF
+if ($action == 'pdf_all_checklists' && $permissiontoread) {
+    dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+
+    $pdf = new pdf_checklist($db);
+    $preview = GETPOST('preview', 'int') ? true : false;
+    $result = $pdf->write_combined_file($object, $user, $langs, $preview);
+
+    if ($result && $result !== 'preview') {
+        setEventMessages($langs->trans('PDFCreated'), null, 'mesgs');
+        // Download the file
+        header('Location: '.DOL_URL_ROOT.'/document.php?modulepart=ficheinter&file='.urlencode(basename(dirname($result)).'/'.basename($result)));
+        exit;
+    } elseif ($result === 'preview') {
+        exit; // Preview mode - PDF already output
+    } else {
+        setEventMessages($pdf->error, null, 'errors');
+    }
 }
 
 /*
@@ -194,10 +214,15 @@ if ($object->id > 0) {
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
     print '<tr class="liste_titre" style="background-color: rgba(76, 175, 80, 0.15);">';
-    print '<th colspan="5">';
+    print '<th colspan="5" style="display:flex;justify-content:space-between;align-items:center;">';
+    print '<span>';
     print '<span class="fa fa-wrench paddingright"></span>';
     print '<strong>'.$langs->trans('MaintenanceWork').'</strong>';
     print ' <span class="opacitymedium">('.$langs->trans('MaintenanceWorkDescription').')</span>';
+    print '</span>';
+    print '<a class="button smallpaddingimp" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&preview=1&token='.newToken().'" target="_blank" title="'.$langs->trans('AllChecklistsPDF').'">';
+    print '<span class="fa fa-file-pdf-o"></span> '.$langs->trans('AllChecklistsPDF');
+    print '</a>';
     print '</th>';
     print '</tr>';
     

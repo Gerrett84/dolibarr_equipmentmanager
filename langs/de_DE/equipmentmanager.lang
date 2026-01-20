@@ -560,6 +560,7 @@ ChecklistTemplatesReinitialized=Checklisten-Vorlagen wurden erfolgreich neu init
 
 # Checklist PDF
 ChecklistProtocol=Prüfprotokoll
+AllChecklistsPDF=Alle Checklisten (PDF)
 GeneratePDF=PDF erstellen
 PDFPreview=PDF Vorschau
 ViewPDF=PDF anzeigen
