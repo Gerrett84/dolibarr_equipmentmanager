@@ -868,8 +868,13 @@ class ServiceReportApp {
                     ? '<span class="link-type-badge maintenance">Wartung</span>'
                     : '<span class="link-type-badge service">Service</span>';
 
+                // Check if equipment has been processed (has detail with work_done)
+                const isProcessed = eq.detail && eq.detail.work_done;
+                const statusIcon = isProcessed ? '✅' : '🚪';
+                const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
+
                 item.innerHTML = `
-                    <div class="equipment-icon">🚪</div>
+                    <div class="equipment-icon">${statusIcon}</div>
                     <div class="equipment-info">
                         <div class="equipment-ref">${eq.ref} - ${typeName}</div>
                         <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
@@ -877,6 +882,9 @@ class ServiceReportApp {
                     </div>
                     ${linkTypeBadge}
                 `;
+                if (isProcessed) {
+                    item.style.borderLeft = '3px solid #4caf50';
+                }
 
                 item.addEventListener('click', () => {
                     this.currentEquipment = eq;
@@ -2392,23 +2400,84 @@ class ServiceReportApp {
         const typeLabels = this.equipmentTypeLabels || {};
         const typeLabel = typeLabels[equipment.type] || equipment.type || '-';
 
+        // Door wings label
+        const doorWingsLabel = equipment.door_wings === '1' ? '1-flüglig' :
+                               equipment.door_wings === '2' ? '2-flüglig' : '-';
+
+        document.getElementById('eqDetailLabel').textContent = equipment.label || '-';
         document.getElementById('eqDetailLocation').textContent = equipment.location || '-';
         document.getElementById('eqDetailType').textContent = typeLabel;
         document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
+        document.getElementById('eqDetailDoorWings').textContent = doorWingsLabel;
 
         // Add click handlers for editable fields
+        const labelEl = document.getElementById('eqDetailLabel');
         const locationEl = document.getElementById('eqDetailLocation');
         const manufacturerEl = document.getElementById('eqDetailManufacturer');
+        const doorWingsEl = document.getElementById('eqDetailDoorWings');
 
         // Style editable fields
-        [locationEl, manufacturerEl].forEach(el => {
+        [labelEl, locationEl, manufacturerEl, doorWingsEl].forEach(el => {
             el.style.background = 'var(--input-bg)';
             el.style.border = '1px dashed var(--border-color)';
         });
 
         // Click handlers
+        labelEl.onclick = () => this.editEquipmentField('label', 'Bezeichnung', equipment.label || '');
         locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
         manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
+        doorWingsEl.onclick = () => this.editEquipmentDoorWings(equipment.door_wings || '');
+    }
+
+    // Edit door wings with select options
+    editEquipmentDoorWings(currentValue) {
+        const options = ['', '1', '2'];
+        const labels = ['- Auswählen -', '1-flüglig', '2-flüglig'];
+
+        let html = '<div style="padding:15px;"><p style="margin:0 0 10px;">Flügelanzahl:</p>';
+        options.forEach((val, idx) => {
+            const checked = val === currentValue ? 'checked' : '';
+            html += `<label style="display:block;padding:8px;cursor:pointer;">
+                <input type="radio" name="door_wings" value="${val}" ${checked}> ${labels[idx]}
+            </label>`;
+        });
+        html += '</div>';
+
+        // Use a simple approach with confirm
+        const newValue = prompt('Flügelanzahl (1 oder 2):', currentValue);
+        if (newValue === null) return;
+
+        if (newValue === '' || newValue === '1' || newValue === '2') {
+            this.saveEquipmentField('door_wings', newValue);
+        } else {
+            this.showToast('Ungültiger Wert');
+        }
+    }
+
+    // Save equipment field
+    async saveEquipmentField(field, value) {
+        try {
+            const result = await this.apiCall(`equipment/${this.currentEquipment.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ [field]: value })
+            });
+
+            if (result.status === 'ok') {
+                // Update local data
+                if (field === 'label') {
+                    this.currentEquipment.label = value;
+                } else if (field === 'door_wings') {
+                    this.currentEquipment.door_wings = value;
+                }
+                this.renderEquipmentDetails(this.currentEquipment);
+                this.showToast('Gespeichert');
+            } else {
+                this.showToast('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Failed to update equipment:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
     }
 
     // Edit equipment field via prompt
@@ -2425,7 +2494,9 @@ class ServiceReportApp {
 
             if (result.status === 'ok') {
                 // Update local data
-                if (field === 'location_note') {
+                if (field === 'label') {
+                    this.currentEquipment.label = newValue;
+                } else if (field === 'location_note') {
                     this.currentEquipment.location = newValue;
                 } else if (field === 'manufacturer') {
                     this.currentEquipment.manufacturer = newValue;

@@ -1255,6 +1255,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <div id="equipmentDetailsSection" class="card-body" style="padding:12px;border-bottom:1px solid var(--border-color);background:var(--bg-secondary);">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
                         <div style="grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Bezeichnung:</span>
+                            <div id="eqDetailLabel" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div style="grid-column:span 2;">
                             <span style="color:var(--text-muted);">Standort:</span>
                             <div id="eqDetailLocation" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
@@ -1265,6 +1269,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                         <div>
                             <span style="color:var(--text-muted);">Hersteller:</span>
                             <div id="eqDetailManufacturer" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);">Flügel:</span>
+                            <div id="eqDetailDoorWings" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
                     </div>
                 </div>

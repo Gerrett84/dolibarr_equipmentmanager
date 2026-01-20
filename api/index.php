@@ -628,7 +628,7 @@ function getInterventionEquipment($intervention_id) {
     global $db;
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
-    $sql .= " e.location_note, e.manufacturer,";
+    $sql .= " e.location_note, e.manufacturer, e.door_wings,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration";
@@ -652,6 +652,7 @@ function getInterventionEquipment($intervention_id) {
                 'manufacturer' => $obj->manufacturer ?: '',
                 'serial_number' => $obj->serial_number,
                 'location' => $obj->location_note ?: '',
+                'door_wings' => $obj->door_wings ?: '',
                 'link_type' => $obj->link_type,
                 'detail' => null
             ];
@@ -2119,6 +2120,7 @@ function handleEquipment($method, $parts, $input) {
                 'manufacturer' => $equipment->manufacturer ?: '',
                 'serial_number' => $equipment->serial_number,
                 'location' => $equipment->location_note ?: '',
+                'door_wings' => $equipment->door_wings ?: '',
                 'fk_soc' => (int)$equipment->fk_soc,
                 'fk_address' => (int)$equipment->fk_address
             ]
@@ -2126,17 +2128,21 @@ function handleEquipment($method, $parts, $input) {
 
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Update equipment - only specific fields allowed from PWA
-        $allowed_fields = ['location_note', 'equipment_type', 'manufacturer'];
+        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings'];
 
         foreach ($allowed_fields as $field) {
             if (isset($input[$field])) {
                 // Map API field names to class properties
-                if ($field === 'location_note') {
+                if ($field === 'label') {
+                    $equipment->label = $input[$field];
+                } elseif ($field === 'location_note') {
                     $equipment->location_note = $input[$field];
                 } elseif ($field === 'equipment_type') {
                     $equipment->equipment_type = $input[$field];
                 } elseif ($field === 'manufacturer') {
                     $equipment->manufacturer = $input[$field];
+                } elseif ($field === 'door_wings') {
+                    $equipment->door_wings = $input[$field];
                 }
             }
         }
