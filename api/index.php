@@ -628,7 +628,7 @@ function getInterventionEquipment($intervention_id) {
     global $db;
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
-    $sql .= " e.location_note, e.manufacturer, e.wing_count,";
+    $sql .= " e.location_note, e.manufacturer,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration";
@@ -652,7 +652,6 @@ function getInterventionEquipment($intervention_id) {
                 'manufacturer' => $obj->manufacturer ?: '',
                 'serial_number' => $obj->serial_number,
                 'location' => $obj->location_note ?: '',
-                'wing_count' => $obj->wing_count ? (int)$obj->wing_count : null,
                 'link_type' => $obj->link_type,
                 'detail' => null
             ];
@@ -2120,7 +2119,6 @@ function handleEquipment($method, $parts, $input) {
                 'manufacturer' => $equipment->manufacturer ?: '',
                 'serial_number' => $equipment->serial_number,
                 'location' => $equipment->location_note ?: '',
-                'wing_count' => $equipment->wing_count ? (int)$equipment->wing_count : null,
                 'fk_soc' => (int)$equipment->fk_soc,
                 'fk_address' => (int)$equipment->fk_address
             ]
@@ -2128,7 +2126,7 @@ function handleEquipment($method, $parts, $input) {
 
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Update equipment - only specific fields allowed from PWA
-        $allowed_fields = ['location_note', 'equipment_type', 'wing_count', 'manufacturer'];
+        $allowed_fields = ['location_note', 'equipment_type', 'manufacturer'];
 
         foreach ($allowed_fields as $field) {
             if (isset($input[$field])) {
@@ -2137,8 +2135,6 @@ function handleEquipment($method, $parts, $input) {
                     $equipment->location_note = $input[$field];
                 } elseif ($field === 'equipment_type') {
                     $equipment->equipment_type = $input[$field];
-                } elseif ($field === 'wing_count') {
-                    $equipment->wing_count = $input[$field] !== '' ? (int)$input[$field] : null;
                 } elseif ($field === 'manufacturer') {
                     $equipment->manufacturer = $input[$field];
                 }

@@ -2395,15 +2395,13 @@ class ServiceReportApp {
         document.getElementById('eqDetailLocation').textContent = equipment.location || '-';
         document.getElementById('eqDetailType').textContent = typeLabel;
         document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
-        document.getElementById('eqDetailWingCount').textContent = equipment.wing_count || '-';
 
         // Add click handlers for editable fields
         const locationEl = document.getElementById('eqDetailLocation');
         const manufacturerEl = document.getElementById('eqDetailManufacturer');
-        const wingCountEl = document.getElementById('eqDetailWingCount');
 
         // Style editable fields
-        [locationEl, manufacturerEl, wingCountEl].forEach(el => {
+        [locationEl, manufacturerEl].forEach(el => {
             el.style.background = 'var(--input-bg)';
             el.style.border = '1px dashed var(--border-color)';
         });
@@ -2411,7 +2409,6 @@ class ServiceReportApp {
         // Click handlers
         locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
         manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
-        wingCountEl.onclick = () => this.editEquipmentField('wing_count', 'Flügelanzahl', equipment.wing_count || '');
     }
 
     // Edit equipment field via prompt
@@ -2432,8 +2429,6 @@ class ServiceReportApp {
                     this.currentEquipment.location = newValue;
                 } else if (field === 'manufacturer') {
                     this.currentEquipment.manufacturer = newValue;
-                } else if (field === 'wing_count') {
-                    this.currentEquipment.wing_count = newValue ? parseInt(newValue) : null;
                 }
 
                 // Re-render details
