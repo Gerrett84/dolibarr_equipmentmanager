@@ -248,8 +248,8 @@ if ($object->id > 0) {
     print '<strong>'.$langs->trans('MaintenanceWork').'</strong>';
     print ' <span class="opacitymedium">('.$langs->trans('MaintenanceWorkDescription').')</span>';
     print '</span>';
-    print '<a class="butActionNew" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&token='.newToken().'" title="'.$langs->trans('AllChecklistsPDF').'">';
-    print '<span class="fa fa-file-pdf-o"></span>';
+    print '<a class="button reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&token='.newToken().'" title="'.$langs->trans('AllChecklistsPDF').'">';
+    print '<span class="fa fa-file-pdf-o paddingright"></span>'.$langs->trans('GeneratePDF');
     print '</a>';
     print '</th>';
     print '</tr>';
