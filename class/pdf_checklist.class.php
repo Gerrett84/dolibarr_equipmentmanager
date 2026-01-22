@@ -560,8 +560,17 @@ class pdf_checklist
             $checklist->fetch($obj->checklist_id);
             $checklist->fetchItemResults();
 
+            // Equipment type mapping - some types share the same checklist template
+            $type_mapping = array(
+                'hold_open' => 'fire_door_fsa',  // Feststellanlage = FSA Template
+            );
+            $template_type = $equipment->equipment_type;
+            if (isset($type_mapping[$template_type])) {
+                $template_type = $type_mapping[$template_type];
+            }
+
             $template = new ChecklistTemplate($db);
-            if ($template->fetchByEquipmentType($equipment->equipment_type) > 0) {
+            if ($template->fetchByEquipmentType($template_type) > 0) {
                 $template->fetchSectionsWithItems();
             }
 
