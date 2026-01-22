@@ -359,23 +359,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
             }
 
-            // Signature section - dynamic positioning based on content
-            // Minimum gap of 15mm after content, but signature boxes need ~45mm height
-            $minSignatureHeight = 45; // Height needed for signature boxes
-            $minGapAfterContent = 15; // Minimum gap after content
+            // Signature section - FIXED position from bottom of page
+            // This ensures online signature overlay matches the box position
+            // Position: page_height - 67mm (= 230mm on A4 = 297-67)
+            $signatureHeight = 45; // Height needed for signature boxes + text
+            $signatureY = $this->page_hauteur - $this->marge_basse - $signatureHeight;
+
+            // Check if content overlaps with signature area
             $contentY = $pdf->GetY();
-
-            // Calculate signature Y position
-            $signatureY = $contentY + $minGapAfterContent;
-
-            // Check if signatures would fit on current page (need ~45mm for boxes)
-            $availableSpace = $this->page_hauteur - $this->marge_basse - $contentY;
-
-            if ($availableSpace < $minSignatureHeight + $minGapAfterContent) {
-                // Not enough space - add new page
+            if ($contentY > $signatureY - 10) {
+                // Content would overlap - add new page
                 $pdf->AddPage();
                 $pagenb++;
-                $signatureY = $tab_top_newpage + 10; // Position near top of new page
+                // On new page, still place signatures at bottom
+                $signatureY = $this->page_hauteur - $this->marge_basse - $signatureHeight;
             }
 
             $this->_renderSignatures($pdf, $object, $signatureY, $outputlangs, $default_font_size);

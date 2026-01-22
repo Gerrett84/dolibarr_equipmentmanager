@@ -1553,21 +1553,22 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             }
 
             // Add customer signature on last page - RIGHT signature box
-            // EquipmentManager PDF has signature boxes at FIXED position:
-            // Y = page_height - 67mm (230mm on A4)
-            // Left box (technician): X=10, Right box (customer): X=page_width - 10 - 80
+            // EquipmentManager PDF has signature boxes at FIXED position from bottom:
+            // signatureY = page_height - margin_bottom - signatureHeight
             // Box dimensions: 80mm wide, 25mm tall, with 5mm label above
             $default_font_size = pdf_getPDFFontSize($langs);
             $default_font = pdf_getPDFFont($langs);
 
             // Page dimensions - must match EquipmentManager template
+            $marge_basse = 10;
             $marge_droite = 10;
+            $signatureHeight = 45;
             $boxWidth = 80;
             $boxHeight = 25;
             $rightX = $s['w'] - $marge_droite - $boxWidth;
 
-            // Fixed Y position matching template: page_height - 67mm
-            $signatureBoxY = $s['h'] - 67;
+            // Fixed Y position matching template: page_height - margin_bottom - signatureHeight
+            $signatureBoxY = $s['h'] - $marge_basse - $signatureHeight;
             // The box starts 5mm below the label
             $boxStartY = $signatureBoxY + 5;
 
@@ -1640,8 +1641,9 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     }
 
     if ($result >= 0) {
-        // Close the intervention after signature
-        $fichinter->setClose($user);
+        // NOTE: Do NOT close the intervention after signature
+        // The intervention should stay at "validated/released" status (fk_statut = 1)
+        // Closing (fk_statut = 3) should happen separately when creating an invoice
 
         return [
             'success' => true,
