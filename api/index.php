@@ -332,13 +332,17 @@ function handleIntervention($method, $parts, $input) {
             // Generate PDF with new reference
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
 
+            // Regenerate all completed checklist PDFs with new intervention reference
+            $checklistsRegenerated = regenerateChecklistPDFs($fichinter, $user, $langs);
+
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention released for signature',
                 'ref' => $fichinter->ref,
                 'signed_status' => 1,
                 'intervention_status' => (int)$fichinter->statut,
-                'pdf_generated' => $pdfGenerated
+                'pdf_generated' => $pdfGenerated,
+                'checklists_regenerated' => $checklistsRegenerated
             ]);
         } else {
             http_response_code(500);
@@ -1364,6 +1368,57 @@ function generateInterventionPDF($fichinter, $user) {
     $result = $fichinter->generateDocument($modele, $outputlangs);
 
     return $result > 0;
+}
+
+/**
+ * Regenerate all completed checklist PDFs for an intervention
+ * Called after intervention validation to update filenames with new reference
+ */
+function regenerateChecklistPDFs($fichinter, $user, $langs) {
+    global $db, $conf;
+
+    dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+    dol_include_once('/equipmentmanager/class/checklistresult.class.php');
+    dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+
+    $regenerated = 0;
+
+    // Find all completed checklists for this intervention
+    $sql = "SELECT cr.rowid as checklist_id, cr.fk_equipment, cr.fk_template";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr";
+    $sql .= " WHERE cr.fk_intervention = ".(int)$fichinter->id;
+    $sql .= " AND cr.status = 1"; // Only completed checklists
+
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            // Load checklist
+            $checklist = new ChecklistResult($db);
+            $checklist->fetch($obj->checklist_id);
+            $checklist->fetchItemResults();
+
+            // Load equipment
+            $equipment = new Equipment($db);
+            $equipment->fetch($obj->fk_equipment);
+
+            // Load template
+            $template = new ChecklistTemplate($db);
+            $template->fetch($obj->fk_template);
+            $template->fetchSectionsWithItems();
+
+            // Regenerate PDF
+            $pdf_gen = new pdf_checklist($db);
+            $result = $pdf_gen->write_file($checklist, $equipment, $template, $fichinter, $user, $langs, false);
+
+            if ($result) {
+                $regenerated++;
+            }
+        }
+        $db->free($resql);
+    }
+
+    return $regenerated;
 }
 
 /**
