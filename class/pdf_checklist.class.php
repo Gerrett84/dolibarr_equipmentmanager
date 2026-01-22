@@ -547,10 +547,6 @@ class pdf_checklist
         }
 
         $checklists_data = array();
-        $num_rows = $db->num_rows($resql);
-
-        // DEBUG: Store info for error message
-        $debug_info = "SQL found $num_rows rows for intervention ".$intervention->id;
 
         while ($obj = $db->fetch_object($resql)) {
             $equipment = new Equipment($db);
@@ -574,9 +570,6 @@ class pdf_checklist
                 $template->fetchSectionsWithItems();
             }
 
-            $section_count = isset($template->sections) ? count($template->sections) : 0;
-            $debug_info .= " | Eq:".$equipment->id."(".$equipment->equipment_type.") CL:".$checklist->id." Sect:".$section_count;
-
             $checklists_data[] = array(
                 'equipment' => $equipment,
                 'checklist' => $checklist,
@@ -584,9 +577,6 @@ class pdf_checklist
             );
         }
         $db->free($resql);
-
-        // Store debug info for display
-        $this->debug_info = $debug_info;
 
         if (empty($checklists_data)) {
             $this->error = 'Keine abgeschlossenen Checklisten gefunden';
@@ -602,7 +592,7 @@ class pdf_checklist
                 dol_mkdir($dir);
             }
             $date_str = dol_print_date(dol_now(), '%Y%m%d');
-            $filename = $dir.'/Checkliste_'.$date_str.'.pdf';
+            $filename = $dir.'/Checklisten_'.$date_str.'.pdf';
         }
 
         // Create PDF instance
@@ -658,7 +648,7 @@ class pdf_checklist
         // Output PDF
         if ($preview) {
             header('Content-Type: application/pdf');
-            header('Content-Disposition: inline; filename="Checkliste.pdf"');
+            header('Content-Disposition: inline; filename="Checklisten.pdf"');
             $pdf->Output('', 'I');
             return 'preview';
         } else {
