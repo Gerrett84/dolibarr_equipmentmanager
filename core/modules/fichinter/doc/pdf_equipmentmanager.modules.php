@@ -993,7 +993,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->MultiCell($boxWidth, $boxHeight, '', 1); // Border box for customer
 
         // Check if customer has signed online - look for signature file in intervention's document folder
-        $customer_sig_dir = $conf->ficheinter->dir_output.'/'.dol_sanitizeFileName($object->ref).'/signatures/';
+        // Use same path logic as processSignature() in API
+        $base_dir = !empty($conf->ficheinter->multidir_output[$object->entity])
+            ? $conf->ficheinter->multidir_output[$object->entity]
+            : $conf->ficheinter->dir_output;
+        $customer_sig_dir = $base_dir.'/'.dol_sanitizeFileName($object->ref).'/signatures/';
         $customer_signature_file = null;
         $customer_signature_date = null;
         $customer_signature_name = '';
