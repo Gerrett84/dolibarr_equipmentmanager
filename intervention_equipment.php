@@ -144,23 +144,33 @@ if ($action == 'pdf_all_checklists' && $permissiontoread) {
     }
 
     if ($result && $result !== 'preview') {
-        setEventMessages($langs->trans('PDFCreated').' - File: '.$result, null, 'mesgs');
+        setEventMessages('PDF erstellt: '.$result, null, 'mesgs');
 
-        // Add as linked document to the intervention using Dolibarr's standard function
-        require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
-        $dir = dirname($result);
-        $filename = basename($result);
-        $index_result = addFileIntoDatabaseIndex($dir, $filename, $result, 'generated', 0, $object);
-
-        if ($index_result > 0) {
-            setEventMessages('Document indexed with ID: '.$index_result, null, 'mesgs');
+        // Check if file exists
+        if (!file_exists($result)) {
+            setEventMessages('ERROR: File does not exist: '.$result, null, 'errors');
         } else {
-            setEventMessages('Document index failed', null, 'warnings');
+            setEventMessages('File exists, size: '.filesize($result).' bytes', null, 'mesgs');
+
+            // Add as linked document to the intervention using Dolibarr's standard function
+            require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+            $dir = dirname($result);
+            $filename = basename($result);
+
+            setEventMessages('Indexing: dir='.$dir.', file='.$filename.', object='.$object->element.'/'.$object->id, null, 'warnings');
+
+            $index_result = addFileIntoDatabaseIndex($dir, $filename, $result, 'generated', 0, $object);
+
+            if ($index_result > 0) {
+                setEventMessages('Document indexed with ID: '.$index_result, null, 'mesgs');
+            } else {
+                setEventMessages('Document index failed, result: '.$index_result, null, 'errors');
+            }
         }
 
-        // Redirect back to same page instead of downloading
-        header('Location: '.$_SERVER['PHP_SELF'].'?id='.$object->id.'&token='.newToken());
-        exit;
+        // NO redirect - stay on page to see messages
+        // header('Location: '.$_SERVER['PHP_SELF'].'?id='.$object->id.'&token='.newToken());
+        // exit;
     } elseif ($result === 'preview') {
         exit; // Preview mode - PDF already output
     } else {
