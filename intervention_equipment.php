@@ -141,20 +141,11 @@ if ($action == 'pdf_all_checklists' && $permissiontoread) {
     if ($result && $result !== 'preview') {
         setEventMessages($langs->trans('PDFCreated'), null, 'mesgs');
 
-        // Add as linked document to the intervention
-        require_once DOL_DOCUMENT_ROOT.'/ecm/class/ecmfiles.class.php';
-        $ecmfile = new EcmFiles($db);
-        $ecmfile->filepath = 'ficheinter/'.dol_sanitizeFileName($object->ref);
-        $ecmfile->filename = basename($result);
-        $ecmfile->label = basename($result);
-        $ecmfile->fullpath_orig = $result;
-        $ecmfile->gen_or_uploaded = 'generated';
-        $ecmfile->description = '';
-        $ecmfile->keywords = '';
-        $ecmfile->src_object_type = 'fichinter';
-        $ecmfile->src_object_id = $object->id;
-        $ecmfile->entity = $conf->entity;
-        $ecmfile->create($user);
+        // Add as linked document to the intervention using Dolibarr's standard function
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+        $dir = dirname($result);
+        $filename = basename($result);
+        addFileIntoDatabaseIndex($dir, $filename, $result, 'generated', 0, $object);
 
         // Download the file
         header('Location: '.DOL_URL_ROOT.'/document.php?modulepart=ficheinter&file='.urlencode(basename(dirname($result)).'/'.basename($result)));

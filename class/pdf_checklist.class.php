@@ -547,6 +547,9 @@ class pdf_checklist
         }
 
         $checklists_data = array();
+        $num_rows = $db->num_rows($resql);
+        dol_syslog("write_combined_file: Found ".$num_rows." completed checklists for intervention ".$intervention->id, LOG_DEBUG);
+
         while ($obj = $db->fetch_object($resql)) {
             $equipment = new Equipment($db);
             $equipment->fetch($obj->equipment_id);
@@ -559,6 +562,8 @@ class pdf_checklist
             if ($template->fetchByEquipmentType($equipment->equipment_type) > 0) {
                 $template->fetchSectionsWithItems();
             }
+
+            dol_syslog("write_combined_file: Adding equipment ".$equipment->id." (".$equipment->equipment_type."), checklist ".$checklist->id.", template sections: ".(isset($template->sections) ? count($template->sections) : 0), LOG_DEBUG);
 
             $checklists_data[] = array(
                 'equipment' => $equipment,
@@ -606,12 +611,16 @@ class pdf_checklist
         $pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
         $pdf->SetAutoPageBreak(0);
 
+        dol_syslog("write_combined_file: Generating PDF for ".count($checklists_data)." checklists", LOG_DEBUG);
+
         // Generate each checklist
-        foreach ($checklists_data as $data) {
+        foreach ($checklists_data as $index => $data) {
             // Skip if template has no sections
             if (empty($data['template']->sections)) {
+                dol_syslog("write_combined_file: Skipping index $index - no template sections", LOG_WARNING);
                 continue;
             }
+            dol_syslog("write_combined_file: Generating PDF page for index $index, equipment ".$data['equipment']->id, LOG_DEBUG);
 
             // Add new page for each checklist
             $pdf->AddPage();
