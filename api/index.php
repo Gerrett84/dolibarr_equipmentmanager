@@ -1514,17 +1514,9 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     }
 
     $signerIp = getUserRemoteIP();
+    $signedPdfFile = null;
 
-    // Update intervention signed status FIRST (so PDF generation can read signer name)
-    $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
-    $sql .= "signed_status = 3,"; // STATUS_SIGNED_RECEIVER_ONLINE
-    $sql .= "online_sign_ip = '".$db->escape($signerIp)."',";
-    $sql .= "online_sign_name = '".$db->escape($signerName)."'";
-    $sql .= " WHERE rowid = ".(int)$intervention_id;
-    $db->query($sql);
-
-    // Now regenerate the PDF - it will include the customer signature automatically
-    // The _renderSignatures() method checks for signature files in the intervention's folder
+    // Always regenerate the PDF using EquipmentManager template (includes technician signature)
     $modele = 'equipmentmanager';
     $fichinter->fetch_thirdparty();
     $fichinter->fetch_lines();
@@ -1532,17 +1524,138 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
     $fichinter->generateDocument($modele, $outputlangs);
 
-    $signedPdfFile = dol_sanitizeFileName($fichinter->ref) . ".pdf";
+    // Now create signed version with customer signature
+    $sourcefile = $upload_dir . dol_sanitizeFileName($fichinter->ref) . ".pdf";
+    $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed-" . $date . ".pdf";
 
-    // NOTE: Do NOT close the intervention after signature
-    // The intervention stays at "validated/released" status (fk_statut = 1)
-    // Closing (fk_statut = 3) should happen separately when creating an invoice
+    if (dol_is_file($sourcefile)) {
+        try {
+            // Build the new PDF with customer signature
+            $pdf = pdf_getInstance();
+            if (class_exists('TCPDF')) {
+                $pdf->setPrintHeader(false);
+                $pdf->setPrintFooter(false);
+            }
+            $pdf->SetFont(pdf_getPDFFont($langs));
 
-    return [
-        'success' => true,
-        'signed_pdf' => $signedPdfFile,
-        'signature_file' => $filename
-    ];
+            if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
+                $pdf->SetCompression(false);
+            }
+
+            $pagecount = $pdf->setSourceFile($sourcefile);
+
+            $s = array();
+            for ($i = 1; $i < ($pagecount + 1); $i++) {
+                $tppl = $pdf->importPage($i);
+                $s = $pdf->getTemplatesize($tppl);
+                $pdf->AddPage($s['h'] > $s['w'] ? 'P' : 'L');
+                $pdf->useTemplate($tppl);
+            }
+
+            // Add customer signature on last page - RIGHT signature box
+            // EquipmentManager PDF has signature boxes at FIXED position:
+            // Y = page_height - 67mm (230mm on A4)
+            // Left box (technician): X=10, Right box (customer): X=page_width - 10 - 80
+            // Box dimensions: 80mm wide, 25mm tall, with 5mm label above
+            $default_font_size = pdf_getPDFFontSize($langs);
+            $default_font = pdf_getPDFFont($langs);
+
+            // Page dimensions - must match EquipmentManager template
+            $marge_droite = 10;
+            $boxWidth = 80;
+            $boxHeight = 25;
+            $rightX = $s['w'] - $marge_droite - $boxWidth;
+
+            // Fixed Y position matching template: page_height - 67mm
+            $signatureBoxY = $s['h'] - 67;
+            // The box starts 5mm below the label
+            $boxStartY = $signatureBoxY + 5;
+
+            // Customer signature image - fit within right box with padding
+            $padding = 2;
+            $sigMaxWidth = $boxWidth - (2 * $padding);
+            $sigMaxHeight = $boxHeight - (2 * $padding);
+
+            // Get image dimensions to maintain aspect ratio
+            $imageInfo = getimagesize($filepath);
+            if ($imageInfo !== false) {
+                $imgWidth = $imageInfo[0];
+                $imgHeight = $imageInfo[1];
+                $aspectRatio = $imgWidth / $imgHeight;
+
+                // Calculate dimensions to fit within the box
+                if ($sigMaxWidth / $sigMaxHeight > $aspectRatio) {
+                    $finalHeight = $sigMaxHeight;
+                    $finalWidth = $sigMaxHeight * $aspectRatio;
+                } else {
+                    $finalWidth = $sigMaxWidth;
+                    $finalHeight = $sigMaxWidth / $aspectRatio;
+                }
+
+                // Center the image within the right box
+                $sigX = $rightX + ($boxWidth - $finalWidth) / 2;
+                $sigY = $boxStartY + ($boxHeight - $finalHeight) / 2;
+
+                // Insert the customer signature image
+                $pdf->Image($filepath, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');
+            }
+
+            // Add signature text below the customer box
+            $pdf->SetXY($rightX, $boxStartY + $boxHeight + 2);
+            $pdf->SetFont($default_font, '', $default_font_size - 2);
+            $pdf->SetTextColor(80, 80, 80);
+            $signatureText = dol_print_date(dol_now(), "day", false, $langs, true);
+            if ($signerName) {
+                $signatureText .= ' - ' . $signerName;
+            }
+            $pdf->MultiCell($boxWidth, 4, $signatureText, 0, 'C');
+
+            // Save the signed PDF
+            $pdf->Output($newpdffilename, "F");
+
+            // Index the new file
+            $fichinter->indexFile($newpdffilename, 1);
+
+            $signedPdfFile = basename($newpdffilename);
+        } catch (Exception $e) {
+            // Continue without signed PDF - signature PNG is still saved
+        }
+    }
+
+    // Update intervention signed status
+    $tmpUser = new User($db);
+    $tmpUser->id = $user->id;
+
+    // Use Fichinter's setSignedStatus if available
+    if (method_exists($fichinter, 'setSignedStatus')) {
+        $result = $fichinter->setSignedStatus($tmpUser, Fichinter::$SIGNED_STATUSES['STATUS_SIGNED_RECEIVER_ONLINE'], 0, 'FICHINTER_MODIFY');
+    } else {
+        // Fallback to direct SQL update
+        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
+        $sql .= "signed_status = 3,"; // STATUS_SIGNED_RECEIVER_ONLINE
+        $sql .= "online_sign_ip = '".$db->escape($signerIp)."',";
+        $sql .= "online_sign_name = '".$db->escape($signerName)."'";
+        $sql .= " WHERE rowid = ".(int)$intervention_id;
+        $result = $db->query($sql) ? 1 : -1;
+    }
+
+    if ($result >= 0) {
+        // NOTE: Do NOT close the intervention after signature
+        // The intervention stays at "validated/released" status (fk_statut = 1)
+        // Closing (fk_statut = 3) should happen separately
+
+        return [
+            'success' => true,
+            'signed_pdf' => $signedPdfFile,
+            'signature_file' => $filename
+        ];
+    } else {
+        return [
+            'success' => false,
+            'error' => 'Failed to update intervention status',
+            'signed_pdf' => $signedPdfFile
+        ];
+    }
 }
 
 /**

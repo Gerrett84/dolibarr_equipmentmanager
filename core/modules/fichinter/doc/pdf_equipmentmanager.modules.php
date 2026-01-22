@@ -359,22 +359,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
             }
 
-            // Signature section - dynamic positioning based on content
-            $minSignatureHeight = 45; // Height needed for signature boxes
-            $minGapAfterContent = 15; // Minimum gap after content
+            // Signature section - FIXED position at bottom of page
+            // This ensures PWA signature overlay lands in the correct box
+            // Position: 67mm from bottom of page (= page_height - 67)
+            $signatureHeight = 45; // Height needed for signature boxes + text
+            $signatureY = $this->page_hauteur - 67; // Fixed: 67mm from bottom
+
+            // Check if content overlaps with signature area
             $contentY = $pdf->GetY();
-
-            // Calculate signature Y position
-            $signatureY = $contentY + $minGapAfterContent;
-
-            // Check if signatures would fit on current page
-            $availableSpace = $this->page_hauteur - $this->marge_basse - $contentY;
-
-            if ($availableSpace < $minSignatureHeight + $minGapAfterContent) {
-                // Not enough space - add new page
+            if ($contentY > $signatureY - 10) {
+                // Content would overlap - add new page
                 $pdf->AddPage();
                 $pagenb++;
-                $signatureY = $tab_top_newpage + 10;
+                // On new page, signature still at fixed position from bottom
+                $signatureY = $this->page_hauteur - 67;
             }
 
             $this->_renderSignatures($pdf, $object, $signatureY, $outputlangs, $default_font_size);
@@ -992,73 +990,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetXY($rightX, $curY);
         $pdf->MultiCell($boxWidth, $boxHeight, '', 1); // Border box for customer
 
-        // Check if customer has signed online - look for signature file in intervention's document folder
-        // Use same path logic as processSignature() in API
-        $base_dir = !empty($conf->ficheinter->multidir_output[$object->entity])
-            ? $conf->ficheinter->multidir_output[$object->entity]
-            : $conf->ficheinter->dir_output;
-        $customer_sig_dir = $base_dir.'/'.dol_sanitizeFileName($object->ref).'/signatures/';
-        $customer_signature_file = null;
-        $customer_signature_date = null;
-        $customer_signature_name = '';
-
-        if (is_dir($customer_sig_dir)) {
-            // Find the most recent signature file
-            $sig_files = glob($customer_sig_dir.'*_signature.png');
-            if (!empty($sig_files)) {
-                // Sort by modification time, newest first
-                usort($sig_files, function($a, $b) {
-                    return filemtime($b) - filemtime($a);
-                });
-                $customer_signature_file = $sig_files[0];
-                $customer_signature_date = filemtime($customer_signature_file);
-
-                // Try to get signer name from database
-                $sql = "SELECT online_sign_name FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$object->id;
-                $resql = $this->db->query($sql);
-                if ($resql && $obj = $this->db->fetch_object($resql)) {
-                    $customer_signature_name = $obj->online_sign_name;
-                }
-            }
-        }
-
-        if ($customer_signature_file && file_exists($customer_signature_file)) {
-            // Insert customer signature image into customer box
-            $sigX = $rightX + 2;
-            $sigY = $curY + 2;
-            $sigMaxWidth = $boxWidth - 4;
-            $sigMaxHeight = $boxHeight - 4;
-
-            $imageInfo = getimagesize($customer_signature_file);
-            if ($imageInfo !== false) {
-                $imgWidth = $imageInfo[0];
-                $imgHeight = $imageInfo[1];
-                $aspectRatio = $imgWidth / $imgHeight;
-
-                if ($sigMaxWidth / $sigMaxHeight > $aspectRatio) {
-                    $finalHeight = $sigMaxHeight;
-                    $finalWidth = $sigMaxHeight * $aspectRatio;
-                } else {
-                    $finalWidth = $sigMaxWidth;
-                    $finalHeight = $sigMaxWidth / $aspectRatio;
-                }
-
-                $sigX = $rightX + ($boxWidth - $finalWidth) / 2;
-                $sigY = $curY + ($boxHeight - $finalHeight) / 2;
-
-                $pdf->Image($customer_signature_file, $sigX, $sigY, $finalWidth, $finalHeight, 'PNG');
-            }
-
-            // Add customer signature text below the box
-            $pdf->SetXY($rightX, $boxStartY + $boxHeight + 2);
-            $pdf->SetFont('', '', $default_font_size - 2);
-            $pdf->SetTextColor(80, 80, 80);
-            $custSignText = dol_print_date($customer_signature_date, "day", false, $outputlangs, true);
-            if ($customer_signature_name) {
-                $custSignText .= ' - ' . $customer_signature_name;
-            }
-            $pdf->MultiCell($boxWidth, 4, $custSignText, 0, 'C');
-        }
+        // Note: Online signature will be added by Dolibarr's signature module below these boxes
+        // as "Unterschrift: DD.MM.YYYY - Name"
     }
 
     /**
