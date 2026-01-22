@@ -138,17 +138,28 @@ if ($action == 'pdf_all_checklists' && $permissiontoread) {
     $preview = GETPOST('preview', 'int') ? true : false;
     $result = $pdf_gen->write_combined_file($object, $user, $langs, $preview);
 
+    // DEBUG: Show debug info
+    if (!empty($pdf_gen->debug_info)) {
+        setEventMessages('DEBUG: '.$pdf_gen->debug_info, null, 'warnings');
+    }
+
     if ($result && $result !== 'preview') {
-        setEventMessages($langs->trans('PDFCreated'), null, 'mesgs');
+        setEventMessages($langs->trans('PDFCreated').' - File: '.$result, null, 'mesgs');
 
         // Add as linked document to the intervention using Dolibarr's standard function
         require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
         $dir = dirname($result);
         $filename = basename($result);
-        addFileIntoDatabaseIndex($dir, $filename, $result, 'generated', 0, $object);
+        $index_result = addFileIntoDatabaseIndex($dir, $filename, $result, 'generated', 0, $object);
 
-        // Download the file
-        header('Location: '.DOL_URL_ROOT.'/document.php?modulepart=ficheinter&file='.urlencode(basename(dirname($result)).'/'.basename($result)));
+        if ($index_result > 0) {
+            setEventMessages('Document indexed with ID: '.$index_result, null, 'mesgs');
+        } else {
+            setEventMessages('Document index failed', null, 'warnings');
+        }
+
+        // Redirect back to same page instead of downloading
+        header('Location: '.$_SERVER['PHP_SELF'].'?id='.$object->id.'&token='.newToken());
         exit;
     } elseif ($result === 'preview') {
         exit; // Preview mode - PDF already output

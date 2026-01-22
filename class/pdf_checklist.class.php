@@ -548,7 +548,9 @@ class pdf_checklist
 
         $checklists_data = array();
         $num_rows = $db->num_rows($resql);
-        dol_syslog("write_combined_file: Found ".$num_rows." completed checklists for intervention ".$intervention->id, LOG_DEBUG);
+
+        // DEBUG: Store info for error message
+        $debug_info = "SQL found $num_rows rows for intervention ".$intervention->id;
 
         while ($obj = $db->fetch_object($resql)) {
             $equipment = new Equipment($db);
@@ -563,7 +565,8 @@ class pdf_checklist
                 $template->fetchSectionsWithItems();
             }
 
-            dol_syslog("write_combined_file: Adding equipment ".$equipment->id." (".$equipment->equipment_type."), checklist ".$checklist->id.", template sections: ".(isset($template->sections) ? count($template->sections) : 0), LOG_DEBUG);
+            $section_count = isset($template->sections) ? count($template->sections) : 0;
+            $debug_info .= " | Eq:".$equipment->id."(".$equipment->equipment_type.") CL:".$checklist->id." Sect:".$section_count;
 
             $checklists_data[] = array(
                 'equipment' => $equipment,
@@ -572,6 +575,9 @@ class pdf_checklist
             );
         }
         $db->free($resql);
+
+        // Store debug info for display
+        $this->debug_info = $debug_info;
 
         if (empty($checklists_data)) {
             $this->error = 'Keine abgeschlossenen Checklisten gefunden';
