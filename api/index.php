@@ -316,50 +316,35 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set signed_status = 1 (released for signature) AND set fk_statut = 1 (validated)
-        // This marks the intervention as validated and ready for signature
-        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1, fk_statut = 1 WHERE rowid = ".(int)$id;
-        $resql = $db->query($sql);
-        $affectedRows = $db->affected_rows($resql);
+        // Use Dolibarr's setValid() method to properly validate the intervention
+        // This generates the proper reference (FI...) and renames directories
+        $fichinter->fetch_thirdparty();
+        $result = $fichinter->setValid($user);
 
-        // Verify the update by reading directly from database
-        $sqlVerify = "SELECT signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id;
-        $resVerify = $db->query($sqlVerify);
-        $actualSignedStatus = 0;
-        if ($resVerify && $objVerify = $db->fetch_object($resVerify)) {
-            $actualSignedStatus = (int)$objVerify->signed_status;
-        }
+        if ($result > 0) {
+            // Also set signed_status = 1 (released for signature)
+            $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1 WHERE rowid = ".(int)$id;
+            $db->query($sql);
 
-        // Success if query worked AND (rows affected OR value is now correct)
-        if ($resql && ($affectedRows > 0 || $actualSignedStatus == 1)) {
-            // Generate PDF
+            // Refetch to get new reference
+            $fichinter->fetch($id);
+
+            // Generate PDF with new reference
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
-
-            // Get document path for debug
-            $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
 
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention released for signature',
-                'signed_status' => $actualSignedStatus,
+                'ref' => $fichinter->ref,
+                'signed_status' => 1,
                 'intervention_status' => (int)$fichinter->statut,
-                'pdf_generated' => $pdfGenerated,
-                'doc_path' => $docPath,
-                'doc_exists' => is_dir($docPath),
-                'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined',
-                'affected_rows' => $affectedRows
+                'pdf_generated' => $pdfGenerated
             ]);
         } else {
             http_response_code(500);
             echo json_encode([
-                'error' => 'Failed to release intervention',
-                'details' => $db->lasterror(),
-                'sql' => $sql,
-                'sql_verify' => $sqlVerify,
-                'affected_rows' => $affectedRows,
-                'actual_signed_status' => $actualSignedStatus,
-                'table_prefix' => MAIN_DB_PREFIX,
-                'intervention_id' => $id
+                'error' => 'Failed to validate intervention',
+                'details' => $fichinter->error
             ]);
         }
         return;
@@ -1526,7 +1511,7 @@ function processSignature($intervention_id, $signatureData, $signerName) {
 
     // Now create signed version with customer signature
     $sourcefile = $upload_dir . dol_sanitizeFileName($fichinter->ref) . ".pdf";
-    $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed-" . $date . ".pdf";
+    $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed.pdf";
 
     if (dol_is_file($sourcefile)) {
         try {

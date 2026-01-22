@@ -153,10 +153,10 @@ class pdf_checklist
                 dol_mkdir($dir);
             }
 
-            // Filename: Checklist_EquipmentNumber_Date.pdf
+            // Filename: Checkliste_EquipmentNumber_InterventionRef.pdf
             $safe_equipment_number = dol_sanitizeFileName($equipment->equipment_number);
-            $date_str = dol_print_date($checklist->date_completion ?: dol_now(), '%Y%m%d');
-            $filename = $dir.'/Checklist_'.$safe_equipment_number.'_'.$date_str.'.pdf';
+            $safe_intervention_ref = dol_sanitizeFileName($intervention->ref);
+            $filename = $dir.'/Checkliste_'.$safe_equipment_number.'_'.$safe_intervention_ref.'.pdf';
         }
 
         // Create PDF instance
@@ -591,8 +591,7 @@ class pdf_checklist
             if (!file_exists($dir)) {
                 dol_mkdir($dir);
             }
-            $date_str = dol_print_date(dol_now(), '%Y%m%d');
-            $filename = $dir.'/Checklisten_'.$date_str.'.pdf';
+            $filename = $dir.'/Checklisten_'.$objectref.'.pdf';
         }
 
         // Create PDF instance
