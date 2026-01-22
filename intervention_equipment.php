@@ -248,14 +248,13 @@ if ($object->id > 0) {
     print '<strong>'.$langs->trans('MaintenanceWork').'</strong>';
     print ' <span class="opacitymedium">('.$langs->trans('MaintenanceWorkDescription').')</span>';
     print '</span>';
-    print '<span style="white-space:nowrap;">';
-    print '<a class="paddingright" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&preview=1&token='.newToken().'" target="_blank" title="'.$langs->trans('Preview').'">';
+    print '<span class="opacitymedium paddingleft">'.$langs->trans('AllChecklistsPDF').':</span> ';
+    print '<a class="paddingright paddingleft" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&preview=1&token='.newToken().'" target="_blank" title="'.$langs->trans('Preview').'">';
     print '<span class="fa fa-eye"></span>';
     print '</a>';
     print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&token='.newToken().'" title="'.$langs->trans('Generate').'">';
-    print '<span class="fa fa-file-pdf-o"></span>';
+    print '<span class="fa fa-save"></span>';
     print '</a>';
-    print '</span>';
     print '</th>';
     print '</tr>';
     
