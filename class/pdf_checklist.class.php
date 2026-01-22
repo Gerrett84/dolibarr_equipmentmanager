@@ -602,7 +602,7 @@ class pdf_checklist
                 dol_mkdir($dir);
             }
             $date_str = dol_print_date(dol_now(), '%Y%m%d');
-            $filename = $dir.'/Checklisten_Gesamt_'.$date_str.'.pdf';
+            $filename = $dir.'/Checkliste_'.$date_str.'.pdf';
         }
 
         // Create PDF instance
@@ -658,7 +658,7 @@ class pdf_checklist
         // Output PDF
         if ($preview) {
             header('Content-Type: application/pdf');
-            header('Content-Disposition: inline; filename="Checklisten_Gesamt.pdf"');
+            header('Content-Disposition: inline; filename="Checkliste.pdf"');
             $pdf->Output('', 'I');
             return 'preview';
         } else {
