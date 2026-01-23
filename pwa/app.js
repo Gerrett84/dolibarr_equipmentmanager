@@ -2483,6 +2483,79 @@ class ServiceReportApp {
         }
     }
 
+    /**
+     * Compress an image file to reduce upload size
+     * @param {File} file - The image file to compress
+     * @param {number} maxWidth - Maximum width (default 1920)
+     * @param {number} quality - JPEG quality 0-1 (default 0.8)
+     * @returns {Promise<File>} - Compressed file
+     */
+    async compressImage(file, maxWidth = 1920, quality = 0.8) {
+        // Only compress images
+        if (!file.type.startsWith('image/')) {
+            return file;
+        }
+
+        // Don't compress small files (< 500KB)
+        if (file.size < 500 * 1024) {
+            return file;
+        }
+
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                // Calculate new dimensions
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw and compress
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            // Create new file with same name
+                            const compressedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            console.log(`Compressed ${file.name}: ${(file.size/1024).toFixed(0)}KB -> ${(compressedFile.size/1024).toFixed(0)}KB`);
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file); // Fallback to original
+                        }
+                    },
+                    'image/jpeg',
+                    quality
+                );
+            };
+
+            img.onerror = () => {
+                console.warn('Failed to load image for compression, using original');
+                resolve(file);
+            };
+
+            // Load image from file
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(file);
+            reader.readAsDataURL(file);
+        });
+    }
+
     async uploadFiles(files) {
         if (!files || files.length === 0) return;
 
@@ -2492,8 +2565,14 @@ class ServiceReportApp {
         if (this.isOnline) {
             this.showToast('Lade hoch...');
 
-            for (const file of files) {
+            for (let file of files) {
                 try {
+                    // Compress images before upload
+                    if (file.type.startsWith('image/')) {
+                        this.showToast('Komprimiere Bild...');
+                        file = await this.compressImage(file);
+                    }
+
                     const formData = new FormData();
                     formData.append('file', file);
 
@@ -2516,6 +2595,10 @@ class ServiceReportApp {
                     if (!response.ok) {
                         const text = await response.text();
                         console.error('Upload response:', response.status, text);
+                        // Show more detailed error
+                        if (response.status === 413) {
+                            this.showToast('Datei zu groß für Server');
+                        }
                         errorCount++;
                         continue;
                     }
@@ -2527,6 +2610,7 @@ class ServiceReportApp {
                     } else {
                         errorCount++;
                         console.error('Upload failed:', result.error);
+                        this.showToast('Fehler: ' + (result.error || 'Unbekannt'));
                     }
                 } catch (err) {
                     errorCount++;

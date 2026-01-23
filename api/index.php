@@ -469,6 +469,19 @@ function handleIntervention($method, $parts, $input) {
             dol_mkdir($docDir);
         }
 
+        // Check if POST data was truncated (happens when post_max_size is exceeded)
+        if (empty($_FILES) && empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+            http_response_code(413);
+            echo json_encode([
+                'error' => 'Datei zu groß für Server (post_max_size: ' . ini_get('post_max_size') . ')',
+                'php_limits' => [
+                    'upload_max_filesize' => ini_get('upload_max_filesize'),
+                    'post_max_size' => ini_get('post_max_size')
+                ]
+            ]);
+            return;
+        }
+
         // Check for file upload
         if (!empty($_FILES['file'])) {
             $uploadedFile = $_FILES['file'];
@@ -478,14 +491,34 @@ function handleIntervention($method, $parts, $input) {
             $maxSize = 10 * 1024 * 1024; // 10MB
 
             if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+                // Provide specific error messages for PHP upload errors
+                $uploadErrors = [
+                    UPLOAD_ERR_INI_SIZE => 'Datei zu groß (PHP upload_max_filesize: ' . ini_get('upload_max_filesize') . ')',
+                    UPLOAD_ERR_FORM_SIZE => 'Datei zu groß (Formular-Limit)',
+                    UPLOAD_ERR_PARTIAL => 'Datei nur teilweise hochgeladen',
+                    UPLOAD_ERR_NO_FILE => 'Keine Datei empfangen',
+                    UPLOAD_ERR_NO_TMP_DIR => 'Temporärer Ordner fehlt',
+                    UPLOAD_ERR_CANT_WRITE => 'Fehler beim Schreiben auf Festplatte',
+                    UPLOAD_ERR_EXTENSION => 'Upload durch PHP-Erweiterung gestoppt'
+                ];
+                $errorMsg = isset($uploadErrors[$uploadedFile['error']])
+                    ? $uploadErrors[$uploadedFile['error']]
+                    : 'Upload-Fehler Code: ' . $uploadedFile['error'];
+
                 http_response_code(400);
-                echo json_encode(['error' => 'Upload error: ' . $uploadedFile['error']]);
+                echo json_encode([
+                    'error' => $errorMsg,
+                    'php_limits' => [
+                        'upload_max_filesize' => ini_get('upload_max_filesize'),
+                        'post_max_size' => ini_get('post_max_size')
+                    ]
+                ]);
                 return;
             }
 
             if ($uploadedFile['size'] > $maxSize) {
                 http_response_code(400);
-                echo json_encode(['error' => 'File too large (max 10MB)']);
+                echo json_encode(['error' => 'Datei zu groß (max 10MB, Datei: ' . round($uploadedFile['size']/1024/1024, 2) . 'MB)']);
                 return;
             }
 
