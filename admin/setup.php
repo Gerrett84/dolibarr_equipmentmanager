@@ -166,6 +166,62 @@ if ($action == 'delete_signature') {
     exit;
 }
 
+// Cleanup duplicate checklist entries
+if ($action == 'cleanup_duplicates') {
+    $errors = array();
+    $deleted_sections = 0;
+    $deleted_items = 0;
+    $deleted_orphans = 0;
+
+    // Step 1: Remove duplicate sections
+    $sql = "DELETE s1 FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections s1 ";
+    $sql .= "INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections s2 ";
+    $sql .= "ON s1.fk_template = s2.fk_template AND s1.code = s2.code AND s1.rowid > s2.rowid";
+    if ($db->query($sql)) {
+        $deleted_sections = $db->affected_rows;
+    } else {
+        $errors[] = 'Sections: '.$db->lasterror();
+    }
+
+    // Step 2: Remove duplicate items (same section, same code)
+    $sql = "DELETE i1 FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items i1 ";
+    $sql .= "INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_items i2 ";
+    $sql .= "ON i1.fk_section = i2.fk_section AND i1.code = i2.code AND i1.rowid > i2.rowid";
+    if ($db->query($sql)) {
+        $deleted_items = $db->affected_rows;
+    } else {
+        $errors[] = 'Items: '.$db->lasterror();
+    }
+
+    // Step 3: Remove orphaned items (items without valid section)
+    $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items ";
+    $sql .= "WHERE fk_section NOT IN (SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections)";
+    if ($db->query($sql)) {
+        $deleted_orphans += $db->affected_rows;
+    } else {
+        $errors[] = 'Orphan items: '.$db->lasterror();
+    }
+
+    // Step 4: Remove orphaned item results
+    $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results ";
+    $sql .= "WHERE fk_item NOT IN (SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items)";
+    if ($db->query($sql)) {
+        $deleted_orphans += $db->affected_rows;
+    } else {
+        $errors[] = 'Orphan results: '.$db->lasterror();
+    }
+
+    if (empty($errors)) {
+        $msg = "Bereinigung abgeschlossen: $deleted_sections Sections, $deleted_items Items, $deleted_orphans verwaiste Einträge entfernt.";
+        setEventMessages($msg, null, 'mesgs');
+    } else {
+        setEventMessages(implode('<br>', $errors), null, 'errors');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 /*
  * View
  */
@@ -207,6 +263,27 @@ print '</tr>';
 print '<tr class="oddeven">';
 print '<td>'.$langs->trans("Description").'</td>';
 print '<td>'.$langs->trans("ManageEquipmentAndServiceReports").'</td>';
+print '</tr>';
+
+print '</table>';
+print '</div>';
+print '<br>';
+
+// Database Cleanup Section
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td colspan="2"><span class="fa fa-database paddingright"></span>'.$langs->trans("DatabaseMaintenance").'</td>';
+print "</tr>\n";
+
+print '<tr class="oddeven">';
+print '<td>';
+print '<strong>'.$langs->trans("CleanupDuplicates").'</strong><br>';
+print '<span class="opacitymedium">'.$langs->trans("CleanupDuplicatesDesc").'</span>';
+print '</td>';
+print '<td class="right">';
+print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=cleanup_duplicates&token='.newToken().'" onclick="return confirm(\'Duplikate wirklich bereinigen?\');">'.$langs->trans("RunCleanup").'</a>';
+print '</td>';
 print '</tr>';
 
 print '</table>';
