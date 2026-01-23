@@ -30,7 +30,7 @@ WHERE fk_section NOT IN (SELECT rowid FROM llx_equipmentmanager_checklist_sectio
 
 -- Remove item results that reference non-existent items
 DELETE FROM llx_equipmentmanager_checklist_item_results
-WHERE fk_item NOT IN (SELECT rowid FROM llx_equipmentmanager_checklist_items);
+WHERE fk_checklist_item NOT IN (SELECT rowid FROM llx_equipmentmanager_checklist_items);
 
 -- =====================================================
 -- VERIFICATION: Check for remaining duplicates

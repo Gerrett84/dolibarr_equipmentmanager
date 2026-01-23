@@ -204,7 +204,7 @@ if ($action == 'cleanup_duplicates') {
 
     // Step 4: Remove orphaned item results
     $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results ";
-    $sql .= "WHERE fk_item NOT IN (SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items)";
+    $sql .= "WHERE fk_checklist_item NOT IN (SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items)";
     if ($db->query($sql)) {
         $deleted_orphans += $db->affected_rows;
     } else {
