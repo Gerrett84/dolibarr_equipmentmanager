@@ -1373,6 +1373,7 @@ function generateInterventionPDF($fichinter, $user) {
 /**
  * Regenerate all completed checklist PDFs for an intervention
  * Called after intervention validation to update filenames with new reference
+ * Also cleans up old checklist PDFs
  */
 function regenerateChecklistPDFs($fichinter, $user, $langs) {
     global $db, $conf;
@@ -1383,6 +1384,19 @@ function regenerateChecklistPDFs($fichinter, $user, $langs) {
     dol_include_once('/equipmentmanager/class/equipment.class.php');
 
     $regenerated = 0;
+
+    // Get document directory for this intervention
+    $doc_dir = $conf->ficheinter->dir_output.'/'.dol_sanitizeFileName($fichinter->ref);
+
+    // Delete old checklist PDFs (Checkliste_*.pdf and Checklist_*.pdf patterns)
+    if (is_dir($doc_dir)) {
+        $old_files = glob($doc_dir.'/Checkliste_*.pdf');
+        $old_files = array_merge($old_files, glob($doc_dir.'/Checklist_*.pdf'));
+        $old_files = array_merge($old_files, glob($doc_dir.'/Checklisten_*.pdf'));
+        foreach ($old_files as $old_file) {
+            @unlink($old_file);
+        }
+    }
 
     // Find all completed checklists for this intervention
     $sql = "SELECT cr.rowid as checklist_id, cr.fk_equipment, cr.fk_template";
