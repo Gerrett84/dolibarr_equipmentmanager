@@ -358,6 +358,74 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .badge-done { background: #c8e6c9; color: #2e7d32; }
         .badge-signed { background: #a5d6a7; color: #1b5e20; }
 
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 6px;
+            padding: 12px 16px;
+            overflow-x: auto;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            margin: -16px -16px 16px -16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .filter-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            background: var(--bg-primary);
+            border-color: #263c5c;
+        }
+
+        .filter-tab.active {
+            background: #263c5c;
+            color: white;
+            border-color: #263c5c;
+        }
+
+        .filter-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.1);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .filter-tab.active .filter-count {
+            background: rgba(255,255,255,0.2);
+        }
+
+        [data-theme="dark"] .filter-tab {
+            background: var(--bg-secondary);
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .filter-tab.active {
+            background: #4a6fa5;
+            border-color: #4a6fa5;
+        }
+
         /* Form Elements */
         .form-group {
             margin-bottom: 16px;

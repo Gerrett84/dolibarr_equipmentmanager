@@ -14,6 +14,8 @@ class ServiceReportApp {
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
+        this.interventionFilter = 'active'; // v4.1 - current filter: 'all', 'active', 'open', 'released', 'signed'
+        this.allInterventions = []; // v4.1 - cache all interventions for filtering
 
         this.init();
     }
@@ -593,6 +595,126 @@ class ServiceReportApp {
         }
     }
 
+    // Get intervention status category
+    getInterventionStatus(intervention) {
+        const signedStatus = intervention.signed_status || 0;
+        if (signedStatus >= 3) return 'signed';
+        if (signedStatus >= 1) return 'released';
+        return 'open';
+    }
+
+    // Count interventions by status
+    countByStatus(interventions) {
+        const counts = { open: 0, released: 0, signed: 0 };
+        interventions.forEach(i => {
+            const status = this.getInterventionStatus(i);
+            counts[status]++;
+        });
+        return counts;
+    }
+
+    // Filter interventions based on current filter
+    filterInterventions(interventions) {
+        if (this.interventionFilter === 'all') return interventions;
+        if (this.interventionFilter === 'active') {
+            // Active = open + released (not signed)
+            return interventions.filter(i => this.getInterventionStatus(i) !== 'signed');
+        }
+        return interventions.filter(i => this.getInterventionStatus(i) === this.interventionFilter);
+    }
+
+    // Render filter tabs
+    renderFilterTabs(counts) {
+        const activeCount = counts.open + counts.released;
+        return `
+            <div class="filter-tabs">
+                <button class="filter-tab ${this.interventionFilter === 'active' ? 'active' : ''}" data-filter="active">
+                    Aktiv <span class="filter-count">${activeCount}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
+                    Offen <span class="filter-count">${counts.open}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'released' ? 'active' : ''}" data-filter="released">
+                    Freigegeben <span class="filter-count">${counts.released}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
+                    Unterschrieben <span class="filter-count">${counts.signed}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'all' ? 'active' : ''}" data-filter="all">
+                    Alle <span class="filter-count">${counts.open + counts.released + counts.signed}</span>
+                </button>
+            </div>
+        `;
+    }
+
+    // Set filter and re-render
+    setFilter(filter) {
+        this.interventionFilter = filter;
+        this.renderInterventionsList();
+    }
+
+    // Render interventions list (uses cached data)
+    renderInterventionsList() {
+        const listEl = document.getElementById('interventionsList');
+        const interventions = this.allInterventions;
+
+        if (interventions.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <p>Keine Aufträge gefunden</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Count by status
+        const counts = this.countByStatus(interventions);
+
+        // Filter interventions
+        const filtered = this.filterInterventions(interventions);
+
+        // Sort: open first, then released, then signed (by date desc within each group)
+        filtered.sort((a, b) => {
+            const statusA = this.getInterventionStatus(a);
+            const statusB = this.getInterventionStatus(b);
+            const order = { open: 0, released: 1, signed: 2 };
+            if (order[statusA] !== order[statusB]) {
+                return order[statusA] - order[statusB];
+            }
+            // Same status - sort by date desc
+            const dateA = a.date_intervention || a.datec || '';
+            const dateB = b.date_intervention || b.datec || '';
+            return dateB.localeCompare(dateA);
+        });
+
+        // Build HTML
+        let html = this.renderFilterTabs(counts);
+
+        if (filtered.length === 0) {
+            html += `
+                <div class="empty-state" style="padding: 40px 20px;">
+                    <div class="empty-icon">📭</div>
+                    <p>Keine Aufträge in dieser Kategorie</p>
+                </div>
+            `;
+        }
+
+        listEl.innerHTML = html;
+
+        // Add filter tab event listeners
+        listEl.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this.setFilter(tab.dataset.filter);
+            });
+        });
+
+        // Render intervention cards
+        filtered.forEach(intervention => {
+            listEl.appendChild(this.createInterventionCard(intervention));
+        });
+    }
+
     // Load interventions
     async loadInterventions() {
         const loadingEl = document.getElementById('interventionsLoading');
@@ -620,20 +742,11 @@ class ServiceReportApp {
 
             loadingEl.style.display = 'none';
 
-            if (interventions.length === 0) {
-                listEl.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">📋</div>
-                        <p>Keine Interventionen gefunden</p>
-                    </div>
-                `;
-                return;
-            }
+            // Cache interventions for filtering
+            this.allInterventions = interventions;
 
-            // Render interventions
-            interventions.forEach(intervention => {
-                listEl.appendChild(this.createInterventionCard(intervention));
-            });
+            // Render with current filter
+            this.renderInterventionsList();
 
         } catch (err) {
             console.error('Failed to load interventions:', err);
@@ -642,9 +755,8 @@ class ServiceReportApp {
             // Try loading from IndexedDB
             const cached = await offlineDB.getAll('interventions');
             if (cached.length > 0) {
-                cached.forEach(intervention => {
-                    listEl.appendChild(this.createInterventionCard(intervention));
-                });
+                this.allInterventions = cached;
+                this.renderInterventionsList();
                 this.showToast('Offline-Daten geladen');
             } else {
                 listEl.innerHTML = `
