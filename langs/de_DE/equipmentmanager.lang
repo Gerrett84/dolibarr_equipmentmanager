@@ -655,3 +655,4 @@ DatabaseMaintenance=Datenbank-Wartung
 CleanupDuplicates=Duplikate bereinigen
 CleanupDuplicatesDesc=Entfernt doppelte Einträge in Checklisten-Sections und Items, die durch mehrfaches Ausführen der SQL-Migration entstanden sind.
 RunCleanup=Bereinigung starten
+ShowDuplicates=Duplikate anzeigen

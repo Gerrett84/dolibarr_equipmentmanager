@@ -172,6 +172,7 @@ if ($action == 'cleanup_duplicates') {
     $deleted_sections = 0;
     $deleted_items = 0;
     $deleted_orphans = 0;
+    $deleted_label_dupes = 0;
 
     // Step 1: Remove duplicate sections
     $sql = "DELETE s1 FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections s1 ";
@@ -193,6 +194,16 @@ if ($action == 'cleanup_duplicates') {
         $errors[] = 'Items: '.$db->lasterror();
     }
 
+    // Step 2b: Remove duplicate items with same LABEL but different code (keep lowest rowid)
+    $sql = "DELETE i1 FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items i1 ";
+    $sql .= "INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_items i2 ";
+    $sql .= "ON i1.fk_section = i2.fk_section AND i1.label = i2.label AND i1.rowid > i2.rowid";
+    if ($db->query($sql)) {
+        $deleted_label_dupes = $db->affected_rows;
+    } else {
+        $errors[] = 'Label dupes: '.$db->lasterror();
+    }
+
     // Step 3: Remove orphaned items (items without valid section)
     $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items ";
     $sql .= "WHERE fk_section NOT IN (SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections)";
@@ -212,7 +223,7 @@ if ($action == 'cleanup_duplicates') {
     }
 
     if (empty($errors)) {
-        $msg = "Bereinigung abgeschlossen: $deleted_sections Sections, $deleted_items Items, $deleted_orphans verwaiste Einträge entfernt.";
+        $msg = "Bereinigung abgeschlossen: $deleted_sections Sections, $deleted_items Items (Code-Duplikate), $deleted_label_dupes Items (Label-Duplikate), $deleted_orphans verwaiste Einträge entfernt.";
         setEventMessages($msg, null, 'mesgs');
     } else {
         setEventMessages(implode('<br>', $errors), null, 'errors');
@@ -220,6 +231,31 @@ if ($action == 'cleanup_duplicates') {
 
     header("Location: ".$_SERVER["PHP_SELF"]);
     exit;
+}
+
+// Show duplicate diagnosis
+if ($action == 'show_duplicates') {
+    $duplicates = array();
+
+    // Find items with same label in same section
+    $sql = "SELECT s.code as section_code, t.equipment_type_code, i.rowid, i.code, i.label, i.position ";
+    $sql .= "FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items i ";
+    $sql .= "JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_sections s ON i.fk_section = s.rowid ";
+    $sql .= "JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_templates t ON s.fk_template = t.rowid ";
+    $sql .= "WHERE i.label IN (";
+    $sql .= "  SELECT label FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items ";
+    $sql .= "  GROUP BY fk_section, label HAVING COUNT(*) > 1";
+    $sql .= ") ";
+    $sql .= "ORDER BY t.equipment_type_code, s.code, i.label, i.rowid";
+
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $duplicates[] = $obj;
+        }
+    }
+
+    $_SESSION['checklist_duplicates'] = $duplicates;
 }
 
 /*
@@ -282,9 +318,41 @@ print '<strong>'.$langs->trans("CleanupDuplicates").'</strong><br>';
 print '<span class="opacitymedium">'.$langs->trans("CleanupDuplicatesDesc").'</span>';
 print '</td>';
 print '<td class="right">';
+print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=show_duplicates&token='.newToken().'">'.$langs->trans("ShowDuplicates").'</a> ';
 print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=cleanup_duplicates&token='.newToken().'" onclick="return confirm(\'Duplikate wirklich bereinigen?\');">'.$langs->trans("RunCleanup").'</a>';
 print '</td>';
 print '</tr>';
+
+// Show duplicate diagnosis if available
+if (!empty($_SESSION['checklist_duplicates'])) {
+    $duplicates = $_SESSION['checklist_duplicates'];
+    unset($_SESSION['checklist_duplicates']);
+
+    print '<tr class="oddeven">';
+    print '<td colspan="2">';
+    if (empty($duplicates)) {
+        print '<div class="info">Keine Duplikate gefunden.</div>';
+    } else {
+        print '<div class="warning">';
+        print '<strong>Gefundene Duplikate ('.count($duplicates).' Einträge):</strong><br><br>';
+        print '<table class="noborder" style="width: auto;">';
+        print '<tr class="liste_titre"><th>Template</th><th>Section</th><th>ID</th><th>Code</th><th>Label</th><th>Position</th></tr>';
+        foreach ($duplicates as $dup) {
+            print '<tr class="oddeven">';
+            print '<td>'.$dup->equipment_type_code.'</td>';
+            print '<td>'.$dup->section_code.'</td>';
+            print '<td>'.$dup->rowid.'</td>';
+            print '<td>'.$dup->code.'</td>';
+            print '<td><strong>'.$dup->label.'</strong></td>';
+            print '<td>'.$dup->position.'</td>';
+            print '</tr>';
+        }
+        print '</table>';
+        print '</div>';
+    }
+    print '</td>';
+    print '</tr>';
+}
 
 print '</table>';
 print '</div>';
