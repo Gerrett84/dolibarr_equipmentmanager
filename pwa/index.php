@@ -358,6 +358,104 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .badge-done { background: #c8e6c9; color: #2e7d32; }
         .badge-signed { background: #a5d6a7; color: #1b5e20; }
 
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 6px;
+            padding: 12px 16px;
+            overflow-x: auto;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            margin: -16px -16px 16px -16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .filter-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            background: var(--bg-primary);
+            border-color: #263c5c;
+        }
+
+        .filter-tab.active {
+            background: #263c5c;
+            color: white;
+            border-color: #263c5c;
+        }
+
+        .filter-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.1);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .filter-tab.active .filter-count {
+            background: rgba(255,255,255,0.2);
+        }
+
+        [data-theme="dark"] .filter-tab {
+            background: var(--bg-secondary);
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .filter-tab.active {
+            background: #4a6fa5;
+            border-color: #4a6fa5;
+        }
+
+        .time-range-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            margin: -16px -16px 16px -16px;
+        }
+
+        .time-range-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .time-range-select {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .time-range-select:focus {
+            outline: none;
+            border-color: #263c5c;
+        }
+
         /* Form Elements */
         .form-group {
             margin-bottom: 16px;
@@ -1250,6 +1348,27 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <h3 class="card-title" id="entriesEquipmentRef" style="margin:0;">Equipment</h3>
                     <span id="entriesLinkType"></span>
+                </div>
+                <!-- Equipment Details Section -->
+                <div id="equipmentDetailsSection" class="card-body" style="padding:12px;border-bottom:1px solid var(--border-color);background:var(--bg-secondary);">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+                        <div style="grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Bezeichnung:</span>
+                            <div id="eqDetailLabel" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div style="grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Standort:</span>
+                            <div id="eqDetailLocation" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);">Typ:</span>
+                            <div id="eqDetailType" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
+                        <div>
+                            <span style="color:var(--text-muted);">Hersteller:</span>
+                            <div id="eqDetailManufacturer" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body" style="padding:0;">
                     <!-- Add Entry Button -->

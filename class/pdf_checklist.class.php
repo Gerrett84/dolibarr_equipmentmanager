@@ -153,10 +153,10 @@ class pdf_checklist
                 dol_mkdir($dir);
             }
 
-            // Filename: Checklist_EquipmentNumber_Date.pdf
+            // Filename: Checkliste_EquipmentNumber_InterventionRef.pdf
             $safe_equipment_number = dol_sanitizeFileName($equipment->equipment_number);
-            $date_str = dol_print_date($checklist->date_completion ?: dol_now(), '%Y%m%d');
-            $filename = $dir.'/Checklist_'.$safe_equipment_number.'_'.$date_str.'.pdf';
+            $safe_intervention_ref = dol_sanitizeFileName($intervention->ref);
+            $filename = $dir.'/Checkliste_'.$safe_equipment_number.'_'.$safe_intervention_ref.'.pdf';
         }
 
         // Create PDF instance
@@ -259,7 +259,8 @@ class pdf_checklist
         $pdf->SetFont('', 'B', $default_font_size + 4);
         $pdf->SetXY($this->marge_gauche, $posy);
         $pdf->SetFillColor(240, 240, 240);
-        $title = $this->pdfStr($outputlangs->trans($template->label));
+        $template_label = !empty($template->label) ? $template->label : 'Checkliste';
+        $title = $this->pdfStr($outputlangs->trans($template_label));
         $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $title, 1, 1, 'C', true);
         $posy += 12;
 
@@ -502,5 +503,162 @@ class pdf_checklist
 
         $pdf->Cell($width, 5, $completion_text, 0, 1, 'L');
         // Nothing more after this - no footer, no page number
+    }
+
+    /**
+     * Write combined PDF with all checklists for an intervention
+     *
+     * @param Fichinter $intervention Intervention object
+     * @param User $user User object
+     * @param Translate $outputlangs Language object
+     * @param bool $preview If true, output to browser; if false, save to disk
+     * @return string|bool File path on success (or 'preview' in preview mode), false on failure
+     */
+    public function write_combined_file($intervention, $user, $outputlangs, $preview = false)
+    {
+        global $conf, $mysoc, $db;
+
+        if (!is_object($outputlangs)) {
+            global $langs;
+            $outputlangs = $langs;
+        }
+
+        $this->outputlangs = $outputlangs;
+        $outputlangs->loadLangs(array("main", "dict", "companies", "equipmentmanager@equipmentmanager"));
+
+        // Get all equipment linked to this intervention with completed checklists
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+        dol_include_once('/equipmentmanager/class/checklistresult.class.php');
+        dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
+
+        $sql = "SELECT DISTINCT e.rowid as equipment_id, cr.rowid as checklist_id";
+        $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+        $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr ON cr.fk_equipment = e.rowid AND cr.fk_intervention = l.fk_intervention";
+        $sql .= " WHERE l.fk_intervention = ".(int)$intervention->id;
+        $sql .= " AND l.link_type = 'maintenance'";
+        $sql .= " AND cr.status = 1"; // Only completed checklists
+        $sql .= " ORDER BY e.equipment_number ASC";
+
+        $resql = $db->query($sql);
+        if (!$resql) {
+            $this->error = $db->lasterror();
+            return false;
+        }
+
+        $checklists_data = array();
+
+        while ($obj = $db->fetch_object($resql)) {
+            $equipment = new Equipment($db);
+            $equipment->fetch($obj->equipment_id);
+
+            $checklist = new ChecklistResult($db);
+            $checklist->fetch($obj->checklist_id);
+            $checklist->fetchItemResults();
+
+            // Equipment type mapping - some types share the same checklist template
+            $type_mapping = array(
+                'hold_open' => 'fire_door_fsa',  // Feststellanlage = FSA Template
+            );
+            $template_type = $equipment->equipment_type;
+            if (isset($type_mapping[$template_type])) {
+                $template_type = $type_mapping[$template_type];
+            }
+
+            $template = new ChecklistTemplate($db);
+            if ($template->fetchByEquipmentType($template_type) > 0) {
+                $template->fetchSectionsWithItems();
+            }
+
+            $checklists_data[] = array(
+                'equipment' => $equipment,
+                'checklist' => $checklist,
+                'template' => $template
+            );
+        }
+        $db->free($resql);
+
+        if (empty($checklists_data)) {
+            $this->error = 'Keine abgeschlossenen Checklisten gefunden';
+            return false;
+        }
+
+        // Define output directory and filename
+        $filename = '';
+        if (!$preview) {
+            $objectref = dol_sanitizeFileName($intervention->ref);
+            $dir = $conf->ficheinter->dir_output.'/'.$objectref;
+            if (!file_exists($dir)) {
+                dol_mkdir($dir);
+            }
+            $filename = $dir.'/Checklisten_'.$objectref.'.pdf';
+        }
+
+        // Create PDF instance
+        $pdf = pdf_getInstance($this->format);
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+
+        if (class_exists('TCPDF')) {
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+        }
+
+        $pdf->SetFont(pdf_getPDFFont($outputlangs));
+        $pdf->Open();
+        $pdf->SetDrawColor(128, 128, 128);
+
+        $pdf->SetTitle($outputlangs->convToOutputCharset($intervention->ref.' - Checklisten'));
+        $pdf->SetSubject($this->pdfStr($outputlangs->transnoentities('ChecklistProtocol')));
+        $pdf->SetCreator("Dolibarr ".DOL_VERSION);
+        $pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
+
+        $pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
+        $pdf->SetAutoPageBreak(0);
+
+        dol_syslog("write_combined_file: Generating PDF for ".count($checklists_data)." checklists", LOG_DEBUG);
+
+        // Generate each checklist
+        foreach ($checklists_data as $index => $data) {
+            // Skip if template has no sections
+            if (empty($data['template']->sections)) {
+                dol_syslog("write_combined_file: Skipping index $index - no template sections", LOG_WARNING);
+                continue;
+            }
+            dol_syslog("write_combined_file: Generating PDF page for index $index, equipment ".$data['equipment']->id, LOG_DEBUG);
+
+            // Add new page for each checklist
+            $pdf->AddPage();
+
+            // Draw header
+            $posy = $this->_pagehead($pdf, $data['checklist'], $data['equipment'], $data['template'], $intervention, $outputlangs);
+            $posy += 5;
+
+            // Draw equipment info box
+            $posy = $this->_drawEquipmentInfo($pdf, $data['equipment'], $intervention, $outputlangs, $posy);
+            $posy += 5;
+
+            // Draw checklist sections and items
+            $posy = $this->_drawChecklistContent($pdf, $data['checklist'], $data['template'], $outputlangs, $posy);
+
+            // Draw completion info
+            $this->_drawResult($pdf, $data['checklist'], $user, $outputlangs, $posy);
+        }
+
+        // Output PDF
+        if ($preview) {
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="Checklisten.pdf"');
+            $pdf->Output('', 'I');
+            return 'preview';
+        } else {
+            $pdf->Output($filename, 'F');
+
+            if (file_exists($filename)) {
+                return $filename;
+            }
+
+            $this->error = 'Error creating PDF file';
+            return false;
+        }
     }
 }

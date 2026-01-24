@@ -359,23 +359,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
             }
 
-            // Signature section - dynamic positioning based on content
-            // Minimum gap of 15mm after content, but signature boxes need ~45mm height
-            $minSignatureHeight = 45; // Height needed for signature boxes
-            $minGapAfterContent = 15; // Minimum gap after content
+            // Signature section - FIXED position at bottom of page
+            // This ensures PWA signature overlay lands in the correct box
+            // Position: 67mm from bottom of page (= page_height - 67)
+            $signatureHeight = 45; // Height needed for signature boxes + text
+            $signatureY = $this->page_hauteur - 67; // Fixed: 67mm from bottom
+
+            // Check if content overlaps with signature area
             $contentY = $pdf->GetY();
-
-            // Calculate signature Y position
-            $signatureY = $contentY + $minGapAfterContent;
-
-            // Check if signatures would fit on current page (need ~45mm for boxes)
-            $availableSpace = $this->page_hauteur - $this->marge_basse - $contentY;
-
-            if ($availableSpace < $minSignatureHeight + $minGapAfterContent) {
-                // Not enough space - add new page
+            if ($contentY > $signatureY - 10) {
+                // Content would overlap - add new page
                 $pdf->AddPage();
                 $pagenb++;
-                $signatureY = $tab_top_newpage + 10; // Position near top of new page
+                // On new page, signature still at fixed position from bottom
+                $signatureY = $this->page_hauteur - 67;
             }
 
             $this->_renderSignatures($pdf, $object, $signatureY, $outputlangs, $default_font_size);
@@ -744,7 +741,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
-                $work_done_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->work_done));
+                $work_done_text = $outputlangs->convToOutputCharset($entry->work_done);
                 $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $work_done_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
             }

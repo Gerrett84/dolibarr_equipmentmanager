@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.0.0** | Professionelle Anlagenverwaltung mit Wartungsplanung, PWA & Checklisten
+**Version 4.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -12,23 +12,37 @@
 
 ## Features
 
-### NEU in v4.0: Wartungsplaner
-
-- **Wartungskalender** - Monatsansicht aller fälligen Wartungen
-- **Wartungskarte** - Geografische Übersicht mit OpenStreetMap
-- **Auto-Erstellung** - Serviceaufträge automatisch generieren
-- **Vertragsverknüpfung** - Wartungsverträge pro Anlage zuweisen
-- **Planzeit** - Individuelle oder typ-basierte Wartungsdauer
-- **Wartungsintervall** - Jährlich (Standard) oder Halbjährlich
-- **Mehrfachbearbeitung** - Bulk-Edit für Monat, Planzeit, Vertrag, Intervall
-
-### Checklisten-System (v3.0)
+### NEU in v3.0: Checklisten-System
 
 - **Wartungs-Checklisten** - Vordefinierte Checklisten pro Anlagentyp
 - **Abschnitte & Prüfpunkte** - Strukturierte Prüflisten mit OK/Mangel/N/A Bewertung
 - **Kommentare** - Anmerkungen pro Prüfpunkt
 - **PDF-Export** - Checklisten-Ergebnisse im Servicebericht-PDF
 - **PWA-Integration** - Checklisten mobil ausfüllen (offline-fähig)
+- **Wartung/Service Unterscheidung** - Checklisten nur bei Wartung, nicht bei Service
+
+### NEU in v4.0: Gesamt-PDF & Checklisten-Editor
+
+- **Gesamt-PDF** - Alle Serviceberichte in einem PDF exportieren
+- **Checklisten-Editor** - Vorlagen direkt im Admin-Bereich bearbeiten
+- **E-Mail-Anhänge** - Signierte PDFs & Checklisten automatisch an E-Mails anhängen
+- **Verbesserte PDF-Ausgabe** - Besseres Layout für Checklisten und Signaturen
+
+### NEU in v4.1: PWA-Statusfilter & Offline-Verbesserungen
+
+- **Status-Tabs** - Auftragsübersicht mit Offen/Freigegeben/Erledigt Filtern
+- **Zeitraum-Auswahl** - Erledigte Aufträge nach Zeitraum filtern (30 Tage, 3/6/12 Monate)
+- **Besseres Offline-Caching** - Alle Anlagen für alle Aufträge offline verfügbar
+- **Auto Re-Login** - Verbesserte Session-Wiederherstellung bei Ablauf
+- **Foto-Komprimierung** - Automatische Bildkomprimierung vor Upload
+- **Duplikat-Bereinigung** - Admin-Funktion zur Bereinigung doppelter Checklisten-Einträge
+
+### v3.1: PWA-Verbesserungen & Dark Mode
+
+- **Multi-Select Equipment** - Mehrere Anlagen gleichzeitig verknüpfen
+- **Wartung/Service Badge** - Klare visuelle Unterscheidung
+- **Dark Mode Fixes** - Vollständige Dark Mode Kompatibilität im Backend
+- **Admin Cleanup** - Debug-Code entfernt, optimierte Setup-Seite
 
 ### Progressive Web App (PWA)
 
@@ -50,7 +64,7 @@
 
 ### Equipment-Typen
 
-Drehtürantrieb | Schiebetürantrieb | Brandschutztür | Brandschutztor | Türschließer | Feststellanlage | RWS | RWA | Sonstige
+Drehtürantrieb | Schiebetürantrieb | Brandschutztür | Türschließer | Feststellanlage | RWS | RWA | Sonstige
 
 -----
 
@@ -70,44 +84,6 @@ chmod -R 755 equipmentmanager
 ```
 
 **Voraussetzungen:** Dolibarr 16.0+, PHP 7.4+, MySQL/MariaDB
-
------
-
-## Wartungsplaner (v4.0)
-
-### Wartungskalender
-
-- Monatsbasierte Übersicht aller fälligen Wartungen
-- Gruppierung nach Objektadresse
-- Status-Anzeige: Ausstehend / In Bearbeitung / Erledigt
-- Navigation zwischen Monaten
-
-### Wartungskarte
-
-- Geografische Darstellung aller Wartungsstandorte
-- Automatische Geocodierung via OpenStreetMap/Nominatim
-- Farbcodierung nach Wartungsstatus
-- Popup mit Equipment-Details
-
-### Auto-Erstellung von Serviceaufträgen
-
-1. **Wartungs-Übersicht** -> Auto-Erstellung Icon
-2. Monat auswählen
-3. Vorschau der zu erstellenden Aufträge
-4. "Serviceaufträge erstellen" klicken
-5. Aufträge werden gruppiert nach Objektadresse erstellt
-
-**Voraussetzungen für Auto-Erstellung:**
-- Anlage hat Wartungsmonat gesetzt
-- Anlage hat Vertrag verknüpft
-- Kein offener Wartungsauftrag vorhanden
-
-### Wartungsintervall
-
-- **Jährlich** (Standard) - Wartung einmal pro Jahr im Wartungsmonat
-- **Halbjährlich** - Wartung zweimal pro Jahr (Wartungsmonat + 6 Monate)
-
-Beispiel: Wartungsmonat Januar + Halbjährlich = Wartung in Januar UND Juli
 
 -----
 
@@ -141,46 +117,83 @@ Beispiel: Wartungsmonat Januar + Halbjährlich = Wartung in Januar UND Juli
 ### Equipment anlegen
 
 1. **Equipment Manager -> Neue Anlage**
-2. Ausfüllen: Nummer (auto), Typ, Kunde, Objektadresse
-3. Wartungsmonat, Intervall, Planzeit, Vertrag zuweisen
-4. Erstellen
+2. Ausfüllen: Nummer (auto), Typ, Kunde, Objektadresse, Wartungsmonat
+3. Erstellen
 
 ### Wartung planen
 
-1. **Wartungs-Übersicht** zeigt fällige Wartungen (inkl. nächster Monat)
-2. **Wartungskalender** für Monatsübersicht
-3. **Wartungskarte** für geografische Planung
-4. **Auto-Erstellung** für automatische Serviceaufträge
+1. **Wartungs-Übersicht** zeigt fällige Wartungen (1 Monat Vorlauf)
+2. **Serviceauftrag** erstellen -> Tab "Equipment" -> Als "Wartung" verknüpfen
+3. Nach Erledigung: Equipment verschwindet automatisch
 
-### Mehrfachbearbeitung
+### Checkliste ausfüllen
 
-1. **Anlagen nach Objektadresse** öffnen
-2. Anlagen per Checkbox auswählen
-3. Wartungsmonat, Intervall, Planzeit oder Vertrag wählen
-4. "Anwenden" klicken
+1. Serviceauftrag -> Tab "Servicebericht"
+2. Equipment auswählen (nur bei Wartung wird Checkliste angezeigt)
+3. Prüfpunkte bewerten: OK / Mangel / N/A
+4. Bei Mängeln: Kommentar hinzufügen
+5. Speichern
+
+### Servicebericht mit PWA
+
+1. Serviceauftrag in PWA öffnen
+2. Equipment auswählen
+3. Checkliste ausfüllen (bei Wartung)
+4. Arbeitseinträge hinzufügen
+5. Material erfassen
+6. Kundenunterschrift holen
+7. Speichern & Freigeben
 
 -----
 
 ## Changelog
 
-### v4.0.0 (2025-01-18)
+### v4.1.0 (2025-01-24)
 
-- **Wartungskalender** - Neue Monatsansicht aller Wartungen
-- **Wartungskarte** - OpenStreetMap-Integration mit Geocodierung
-- **Auto-Erstellung** - Serviceaufträge automatisch generieren
-- **Vertragsverknüpfung** - Wartungsverträge pro Anlage
-- **Planzeit** - Individuelle Wartungsdauer pro Anlage
-- **Wartungsintervall** - Jährlich oder Halbjährlich
-- **Bulk-Edit** - Mehrfachbearbeitung für alle Wartungsfelder
-- **Objektadresse** - Automatische Verknüpfung bei Serviceaufträgen
-- **Menü-Reorganisation** - Bessere Strukturierung der Navigation
+- **PWA Status-Filter** - Aufträge nach Offen/Freigegeben/Erledigt filtern
+- **Zeitraum-Auswahl** - Erledigte Aufträge nach 30 Tage, 3/6/12 Monate oder alle filtern
+- **Offline-Caching Fix** - Equipment-Store mit Composite Key für korrekte Offline-Speicherung
+- **Status-Logik Fix** - Signierte Entwürfe werden korrekt als "Offen" angezeigt
+- **Auto Re-Login** - Verbesserte Session-Wiederherstellung bei Ablauf
+- **Foto-Upload** - Automatische Bildkomprimierung (max 1920px, JPEG 80%)
+- **Upload-Fehlermeldungen** - Bessere Fehlerhinweise mit PHP-Limits
+- **Duplikat-Bereinigung** - Admin-Funktion für doppelte Checklisten-Einträge
 
-### v3.1.x (2025-01)
+### v4.0.0 (2025-01-23)
+
+- **Gesamt-PDF Export** - Alle Serviceberichte eines Auftrags in einem PDF
+- **Checklisten-Editor** - Vorlagen direkt im Admin-Bereich bearbeiten
+- **E-Mail-Anhänge** - Signierte PDFs und Checklisten automatisch an E-Mails anhängen
+- **Verbesserte Checklisten-PDF** - Besseres Layout mit Kommentaren
+- **formmail Hook** - Integration für automatische E-Mail-Anhänge
+
+### v3.1.10 (2025-01-16)
+
+- **Admin Cleanup** - Debug-Code aus PDF-Template-Bereich entfernt
+- **Dark Mode Fix** - Signatur-Vorschau und Pad mit CSS-Variablen
+- **Version Update** - Modulversion auf 3.1.10 aktualisiert
+
+### v3.1.9 (2025-01-16)
+
+- **Dark Mode** - Fixes für equipment_by_address.php
+- **Badge-Styles** - Dolibarr Standard-Badge-Klassen verwendet
+
+### v3.1.8 (2025-01-16)
+
+- **Dark Mode Fixes** - Backend-weite Korrekturen für Dark Mode
+- **Debug Cleanup** - Debug-Einträge aus API und PWA entfernt
+
+### v3.1.7 (2025-01-15)
+
+- **Wartung/Service Badge** - Anzeige im PWA nach rechts verschoben
+- **Backend Badge** - Verknüpfungsart im Backend-Servicebericht angezeigt
+
+### v3.1.0-3.1.6 (2025-01)
 
 - **PWA Checklisten** - Vollständige Offline-Unterstützung
 - **Multi-Select** - Mehrfachauswahl für Equipment-Verknüpfung
-- **Dark Mode** - Backend-weite Korrekturen
 - **PDF-Verbesserungen** - Checklisten im PDF-Export
+- **Workflow-Optimierungen** - Bessere Benutzerführung
 
 ### v3.0.0 (2025-01)
 
@@ -194,17 +207,49 @@ Beispiel: Wartungsmonat Januar + Halbjährlich = Wartung in Januar UND Juli
 
 - **v2.4** - Adressbasierte Anlagenfilterung
 - **v2.3** - Mehrfachauswahl & Workflow-Verbesserungen
+- **v2.2** - Wartungs-Dashboard Verbesserungen
+- **v2.1** - Dark Mode & Auto-Login
 - **v2.0** - Progressive Web App (PWA)
 
 ### v1.x (2024)
 
 - **v1.6** - PDF-Export, Techniker-Unterschrift
 - **v1.5** - Wartungs-Dashboard, Serviceauftrag-Integration
-- **v1.0** - Grundfunktionen, Equipment-Verwaltung
+- **v1.0-1.4** - Grundfunktionen, Equipment-Verwaltung
 
 -----
 
-## Update auf v4.0
+## Konfiguration
+
+### Wartungsmonat-Logik
+
+```
+Equipment: Wartungsmonat Oktober (10)
+Dashboard-Anzeige:
+  - September (9): Vorlauf beginnt
+  - Oktober (10): Hauptmonat
+  - Nach Erledigung: Verschwindet
+
+Jahreswechsel: Januar-Wartung zeigt ab Dezember
+```
+
+### Status-Bedeutung
+
+- **Ausstehend** - Noch nicht begonnen
+- **In Bearbeitung** - Serviceauftrag zugeordnet (Status 1-2)
+- **Erledigt** - Serviceauftrag abgeschlossen (Status 3)
+
+### Checklisten-Admin
+
+Setup -> Equipment Manager -> Checklisten
+
+- Vorlagen anzeigen und bearbeiten
+- Abschnitte und Prüfpunkte verwalten
+- Anlagentyp-Zuordnung
+
+-----
+
+## Update
 
 ### Backup vor dem Update
 
@@ -212,8 +257,8 @@ Beispiel: Wartungsmonat Januar + Halbjährlich = Wartung in Januar UND Juli
 # Datenbank sichern
 mysqldump -u root -p dolibarr \
   llx_equipmentmanager_equipment \
-  llx_equipmentmanager_intervention_link \
-  llx_equipmentmanager_equipment_types \
+  llx_equipmentmanager_intervention_equipment \
+  llx_equipmentmanager_equipment_socpeople \
   llx_equipmentmanager_checklist_templates \
   llx_equipmentmanager_checklist_sections \
   llx_equipmentmanager_checklist_items \
@@ -228,36 +273,29 @@ mysqldump -u root -p dolibarr \
 cd /var/www/dolibarr/htdocs/custom/equipmentmanager
 git pull
 
-# SQL-Migration für v4.0 ausführen:
-mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_v4.0.sql
+# In Dolibarr:
+# 1. Modul deaktivieren
+# 2. Modul aktivieren (führt SQL-Updates aus)
+# 3. Browser-Cache leeren
 ```
 
-### In Dolibarr
+### Update auf v3.0
 
-1. Modul deaktivieren
-2. Modul aktivieren (aktualisiert Menüs)
-3. Browser-Cache leeren
+```bash
+# SQL-Migration für Checklisten ausführen:
+mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_v3.0.sql
+mysql -u dolibarr -p dolibarr < sql/llx_equipmentmanager_checklist.data.sql
+```
 
 -----
 
 ## Troubleshooting
 
-**Equipment erscheint nicht im Dashboard/Kalender?**
+**Equipment erscheint nicht im Dashboard?**
 
-- Status = Aktiv?
+- Wartungsvertrag = Aktiv?
 - Wartungsmonat gesetzt?
-- Bei halbjährlich: beide Monate werden angezeigt
-
-**Auto-Erstellung zeigt keine Anlagen?**
-
-- Vertrag verknüpft? (Pflichtfeld für Auto-Erstellung)
-- Wartungsmonat = aktueller Monat?
-- Kein offener Wartungsauftrag vorhanden?
-
-**Wartungskarte zeigt keine Standorte?**
-
-- Objektadressen mit vollständiger Adresse (Straße, PLZ, Ort)?
-- Geocodierung erfolgt automatisch beim Laden
+- Aktueller oder nächster Monat?
 
 **Checkliste wird nicht angezeigt?**
 
@@ -301,6 +339,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.0.0
+**Current Version:** 4.1.0
 **Released:** January 2025
 **Compatibility:** Dolibarr 16.0+

@@ -14,6 +14,9 @@ class ServiceReportApp {
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
+        this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
+        this.signedTimeRange = 30; // v4.1 - time range in days for signed orders (0 = all)
+        this.allInterventions = []; // v4.1 - cache all interventions for filtering
 
         this.init();
     }
@@ -66,89 +69,96 @@ class ServiceReportApp {
         }
 
         // Not authenticated on server - try auto-login with saved credentials
-        if (this.isOnline) {
-            const savedCredentials = await offlineDB.getMeta('credentials');
-            if (savedCredentials) {
-                const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
-                if (loginResult) {
-                    this.showToast('Automatisch angemeldet');
-                    return true;
-                }
+        const savedCredentials = await offlineDB.getMeta('credentials');
+
+        if (this.isOnline && savedCredentials) {
+            // Try auto-login
+            const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
+            if (loginResult) {
+                this.showToast('Automatisch angemeldet');
+                return true;
             }
+            // Auto-login failed - credentials might be wrong
+            console.warn('Auto-login failed with saved credentials');
         }
 
-        // Fallback to cached auth (for offline mode)
+        // Fallback to cached auth (for offline mode or when auto-login failed)
         const cachedAuth = await offlineDB.getMeta('auth');
-        if (cachedAuth && cachedAuth.valid_until > Date.now() / 1000) {
-            this.user = cachedAuth;
 
-            if (this.isOnline) {
-                // Online but no valid session - show login form
-                this.showLoginForm();
+        // Offline mode - use cached auth if available (even if expired, allow offline access)
+        if (!this.isOnline) {
+            if (cachedAuth) {
+                this.user = cachedAuth;
+                this.showToast('Offline-Modus: ' + cachedAuth.name);
+                return true;
+            } else if (savedCredentials) {
+                // Have credentials but no cached auth - allow limited offline access
+                this.user = { name: savedCredentials.username, offline: true };
+                this.showToast('Offline-Modus (begrenzt)');
+                return true;
+            } else {
+                this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
                 return false;
             }
-
-            // Offline with valid cached auth - allow access
-            this.showToast('Offline-Modus: ' + cachedAuth.name);
-            return true;
         }
 
-        // No valid auth - show login form
-        if (this.isOnline) {
-            this.showLoginForm();
-        } else {
-            this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
-        }
+        // Online but not authenticated and auto-login failed
+        // Show login form with pre-filled credentials if available
+        this.showLoginForm(savedCredentials);
         return false;
     }
 
-    // Show login form - redirects to settings page for credential storage
-    showLoginForm() {
+    // Show login form - with optional pre-filled credentials
+    showLoginForm(savedCredentials = null) {
         document.getElementById('interventionsLoading').style.display = 'none';
+
+        const hasCredentials = savedCredentials && savedCredentials.username && savedCredentials.password;
+        const usernameValue = hasCredentials ? savedCredentials.username : '';
+        const passwordValue = hasCredentials ? savedCredentials.password : '';
+
         document.getElementById('interventionsList').innerHTML = `
             <div class="login-form" style="padding: 20px;">
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="font-size:48px;">🔐</div>
-                    <h3 style="margin:10px 0;">Anmeldung erforderlich</h3>
+                    <h3 style="margin:10px 0;">${hasCredentials ? 'Sitzung abgelaufen' : 'Anmeldung erforderlich'}</h3>
                     <p style="color:#666;font-size:14px;">
-                        Bitte speichern Sie Ihre Login-Daten in den Einstellungen.
+                        ${hasCredentials ? 'Bitte erneut anmelden oder Passwort prüfen.' : 'Bitte speichern Sie Ihre Login-Daten in den Einstellungen.'}
                     </p>
                 </div>
 
-                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;">
+                ${!hasCredentials ? `
+                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;margin-bottom:20px;">
                     ⚙️ Einstellungen öffnen
                 </a>
+                ` : ''}
 
-                <div style="margin-top:20px;padding-top:20px;border-top:1px solid #eee;">
-                    <p style="color:#666;font-size:13px;text-align:center;margin:0 0 12px 0;">
-                        Oder melden Sie sich direkt an:
-                    </p>
-                    <form id="pwaLoginForm">
-                        <div style="margin-bottom:12px;">
-                            <input type="text" id="loginUsername" placeholder="Benutzername" required
-                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <input type="password" id="loginPassword" placeholder="Passwort" required
-                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <input type="text" id="login2faCode" placeholder="2FA-Code (falls aktiviert)"
-                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
-                                maxlength="10" inputmode="numeric">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
-                                <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
-                                <span>Daten speichern (90 Tage)</span>
-                            </label>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-block" style="padding:12px;font-size:15px;background:#4caf50;border:none;border-radius:8px;color:white;width:100%;cursor:pointer;">
-                            Anmelden
-                        </button>
-                        <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
-                    </form>
-                </div>
+                <form id="pwaLoginForm">
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="loginUsername" placeholder="Benutzername" required
+                            value="${usernameValue}"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <input type="password" id="loginPassword" placeholder="Passwort" required
+                            value="${passwordValue}"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="login2faCode" placeholder="2FA-Code (falls aktiviert)"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
+                            maxlength="10" inputmode="numeric">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                            <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
+                            <span>Daten speichern (90 Tage)</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" style="padding:12px;font-size:15px;background:#4caf50;border:none;border-radius:8px;color:white;width:100%;cursor:pointer;">
+                        ${hasCredentials ? 'Erneut anmelden' : 'Anmelden'}
+                    </button>
+                    <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
+                </form>
             </div>
         `;
 
@@ -593,6 +603,194 @@ class ServiceReportApp {
         }
     }
 
+    // Get intervention status category
+    // status: 0=Entwurf/Draft, 1=Validiert, 3=Closed
+    // signed_status: 0=not released, 1=released for signature, 3=signed
+    getInterventionStatus(intervention) {
+        const signedStatus = intervention.signed_status || 0;
+        const baseStatus = intervention.status || 0;
+
+        // Erledigt: signed (3) AND validated/closed (status >= 1)
+        if (signedStatus >= 3 && baseStatus >= 1) return 'signed';
+
+        // Freigegeben: released for signature (1 or 2) but NOT yet signed
+        // If signed (3) but still draft (0), it goes to 'open' below
+        if (signedStatus >= 1 && signedStatus < 3) return 'released';
+
+        // Offen: everything else including:
+        // - Drafts (status=0, signed_status=0)
+        // - Signed but still draft (status=0, signed_status=3) - needs validation
+        return 'open';
+    }
+
+    // Check if intervention is within last N days (0 = no limit)
+    isWithinDays(intervention, days) {
+        if (days === 0) return true; // No limit
+
+        // Use date_intervention or datec (creation date) as fallback
+        const dateStr = intervention.date_intervention || intervention.datec || '';
+        if (!dateStr) return true; // If no date, include it
+
+        const interventionDate = new Date(dateStr);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+
+        return interventionDate >= cutoffDate;
+    }
+
+    // Count interventions by status (apply time range to signed)
+    countByStatus(interventions) {
+        const counts = { open: 0, released: 0, signed: 0 };
+        interventions.forEach(i => {
+            const status = this.getInterventionStatus(i);
+            // Only count signed if within selected time range
+            if (status === 'signed' && !this.isWithinDays(i, this.signedTimeRange)) {
+                return;
+            }
+            counts[status]++;
+        });
+        return counts;
+    }
+
+    // Filter interventions based on current filter
+    filterInterventions(interventions) {
+        return interventions.filter(i => {
+            const status = this.getInterventionStatus(i);
+            if (status !== this.interventionFilter) return false;
+
+            // For signed: apply time range filter
+            if (status === 'signed' && !this.isWithinDays(i, this.signedTimeRange)) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
+    // Get time range label
+    getTimeRangeLabel(days) {
+        if (days === 0) return 'Alle';
+        if (days === 30) return '30 Tage';
+        if (days === 90) return '3 Monate';
+        if (days === 180) return '6 Monate';
+        if (days === 365) return '12 Monate';
+        return `${days} Tage`;
+    }
+
+    // Render filter tabs - simplified: Offen, Freigegeben, Erledigt
+    renderFilterTabs(counts) {
+        // Time range options for signed orders
+        const timeRangeOptions = this.interventionFilter === 'signed' ? `
+            <div class="time-range-selector">
+                <span class="time-range-label">Zeitraum:</span>
+                <select id="timeRangeSelect" class="time-range-select">
+                    <option value="30" ${this.signedTimeRange === 30 ? 'selected' : ''}>30 Tage</option>
+                    <option value="90" ${this.signedTimeRange === 90 ? 'selected' : ''}>3 Monate</option>
+                    <option value="180" ${this.signedTimeRange === 180 ? 'selected' : ''}>6 Monate</option>
+                    <option value="365" ${this.signedTimeRange === 365 ? 'selected' : ''}>12 Monate</option>
+                    <option value="0" ${this.signedTimeRange === 0 ? 'selected' : ''}>Alle</option>
+                </select>
+            </div>
+        ` : '';
+
+        return `
+            <div class="filter-tabs">
+                <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
+                    Offen <span class="filter-count">${counts.open}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'released' ? 'active' : ''}" data-filter="released">
+                    Freigegeben <span class="filter-count">${counts.released}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
+                    Erledigt <span class="filter-count">${counts.signed}</span>
+                </button>
+            </div>
+            ${timeRangeOptions}
+        `;
+    }
+
+    // Set filter and re-render
+    setFilter(filter) {
+        this.interventionFilter = filter;
+        this.renderInterventionsList();
+    }
+
+    // Set time range for signed orders
+    setTimeRange(days) {
+        this.signedTimeRange = parseInt(days, 10);
+        this.renderInterventionsList();
+    }
+
+    // Render interventions list (uses cached data)
+    renderInterventionsList() {
+        const listEl = document.getElementById('interventionsList');
+        const interventions = this.allInterventions;
+
+        if (interventions.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <p>Keine Aufträge gefunden</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Count by status
+        const counts = this.countByStatus(interventions);
+
+        // Filter interventions
+        const filtered = this.filterInterventions(interventions);
+
+        // Sort: open first, then released, then signed (by date desc within each group)
+        filtered.sort((a, b) => {
+            const statusA = this.getInterventionStatus(a);
+            const statusB = this.getInterventionStatus(b);
+            const order = { open: 0, released: 1, signed: 2 };
+            if (order[statusA] !== order[statusB]) {
+                return order[statusA] - order[statusB];
+            }
+            // Same status - sort by date desc
+            const dateA = a.date_intervention || a.datec || '';
+            const dateB = b.date_intervention || b.datec || '';
+            return dateB.localeCompare(dateA);
+        });
+
+        // Build HTML
+        let html = this.renderFilterTabs(counts);
+
+        if (filtered.length === 0) {
+            html += `
+                <div class="empty-state" style="padding: 40px 20px;">
+                    <div class="empty-icon">📭</div>
+                    <p>Keine Aufträge in dieser Kategorie</p>
+                </div>
+            `;
+        }
+
+        listEl.innerHTML = html;
+
+        // Add filter tab event listeners
+        listEl.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this.setFilter(tab.dataset.filter);
+            });
+        });
+
+        // Add time range select listener
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        if (timeRangeSelect) {
+            timeRangeSelect.addEventListener('change', (e) => {
+                this.setTimeRange(e.target.value);
+            });
+        }
+
+        // Render intervention cards
+        filtered.forEach(intervention => {
+            listEl.appendChild(this.createInterventionCard(intervention));
+        });
+    }
+
     // Load interventions
     async loadInterventions() {
         const loadingEl = document.getElementById('interventionsLoading');
@@ -601,60 +799,74 @@ class ServiceReportApp {
         loadingEl.style.display = 'block';
         listEl.innerHTML = '';
 
+        // Helper to load from cache
+        const loadFromCache = async () => {
+            const cached = await offlineDB.getAll('interventions');
+            if (cached.length > 0) {
+                this.allInterventions = cached;
+                this.renderInterventionsList();
+                return true;
+            }
+            return false;
+        };
+
         try {
             let interventions = [];
 
             if (this.isOnline) {
-                // Fetch from API
-                // Fetch all interventions (including closed ones for now)
-                const data = await this.apiCall('interventions?status=all');
-                interventions = data.interventions || [];
-                // console.log('API returned', interventions.length, 'interventions');
+                try {
+                    // Fetch from API
+                    const data = await this.apiCall('interventions?status=all');
+                    interventions = data.interventions || [];
 
-                // Save to IndexedDB
-                await offlineDB.saveInterventions(interventions);
+                    // Save to IndexedDB
+                    await offlineDB.saveInterventions(interventions);
+
+                    loadingEl.style.display = 'none';
+                    this.allInterventions = interventions;
+                    this.renderInterventionsList();
+                } catch (apiErr) {
+                    // API failed - might be offline now
+                    console.warn('API call failed, falling back to cache:', apiErr);
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+
+                    loadingEl.style.display = 'none';
+                    if (await loadFromCache()) {
+                        this.showToast('Offline-Daten geladen');
+                    } else {
+                        throw apiErr; // Re-throw if no cache
+                    }
+                }
             } else {
-                // Load from IndexedDB
-                interventions = await offlineDB.getAll('interventions');
+                // Offline - load from IndexedDB
+                loadingEl.style.display = 'none';
+                if (await loadFromCache()) {
+                    this.showToast('Offline-Modus');
+                } else {
+                    listEl.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📴</div>
+                            <p>Offline - Keine gespeicherten Daten</p>
+                            <p style="font-size:12px;">Bitte verbinden Sie sich mit dem Internet</p>
+                        </div>
+                    `;
+                }
             }
-
-            loadingEl.style.display = 'none';
-
-            if (interventions.length === 0) {
-                listEl.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">📋</div>
-                        <p>Keine Interventionen gefunden</p>
-                    </div>
-                `;
-                return;
-            }
-
-            // Render interventions
-            interventions.forEach(intervention => {
-                listEl.appendChild(this.createInterventionCard(intervention));
-            });
-
         } catch (err) {
             console.error('Failed to load interventions:', err);
             loadingEl.style.display = 'none';
 
-            // Try loading from IndexedDB
-            const cached = await offlineDB.getAll('interventions');
-            if (cached.length > 0) {
-                cached.forEach(intervention => {
-                    listEl.appendChild(this.createInterventionCard(intervention));
-                });
-                this.showToast('Offline-Daten geladen');
-            } else {
-                listEl.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">⚠️</div>
-                        <p>Fehler beim Laden</p>
-                        <p style="font-size:12px;">${err.message}</p>
-                    </div>
-                `;
-            }
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <p>Fehler beim Laden</p>
+                    <p style="font-size:12px;">${err.message}</p>
+                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#263c5c;color:white;cursor:pointer;">
+                        Erneut versuchen
+                    </button>
+                </div>
+            `;
         }
     }
 
@@ -746,6 +958,20 @@ class ServiceReportApp {
             let signedStatus = intervention.signed_status || 0;
             let loadedFromCache = false;
 
+            // Try loading from API first, fall back to cache
+            const loadFromCache = async () => {
+                equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
+                loadedFromCache = true;
+                // Also get cached intervention data
+                const cachedInterventions = await offlineDB.getAll('interventions');
+                const cached = cachedInterventions.find(i => i.id === intervention.id);
+                if (cached) {
+                    signedStatus = cached.signed_status || 0;
+                    this.currentIntervention.signed_status = signedStatus;
+                    this.currentIntervention.status = cached.status || 0;
+                }
+            };
+
             if (this.isOnline) {
                 try {
                     // Fetch full intervention data to get updated signed_status
@@ -765,6 +991,7 @@ class ServiceReportApp {
                         const idx = interventions.findIndex(i => i.id === intervention.id);
                         if (idx >= 0) {
                             interventions[idx].signed_status = signedStatus;
+                            interventions[idx].status = this.currentIntervention.status;
                             await offlineDB.saveInterventions(interventions);
                         }
                     } catch (e) {
@@ -772,12 +999,13 @@ class ServiceReportApp {
                     }
                 } catch (apiErr) {
                     console.warn('API call failed, falling back to cache:', apiErr);
-                    equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
-                    loadedFromCache = true;
+                    // Network error - update online status and load from cache
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+                    await loadFromCache();
                 }
             } else {
-                equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
-                loadedFromCache = true;
+                await loadFromCache();
             }
 
             if (loadedFromCache && equipment.length > 0) {
@@ -844,8 +1072,8 @@ class ServiceReportApp {
             const card = document.createElement('div');
             card.className = 'card';
 
-            // Equipment type labels
-            const typeLabels = {
+            // Equipment type labels - store as class property for reuse
+            this.equipmentTypeLabels = {
                 'door_swing': 'Drehtür',
                 'door_sliding': 'Schiebetür',
                 'fire_door': 'Brandschutztür',
@@ -857,6 +1085,7 @@ class ServiceReportApp {
                 'rwa': 'RWA',
                 'other': 'Sonstige'
             };
+            const typeLabels = this.equipmentTypeLabels;
 
             equipment.forEach(eq => {
                 const item = document.createElement('div');
@@ -867,8 +1096,13 @@ class ServiceReportApp {
                     ? '<span class="link-type-badge maintenance">Wartung</span>'
                     : '<span class="link-type-badge service">Service</span>';
 
+                // Check if equipment has been processed (has detail with work_done)
+                const isProcessed = eq.detail && eq.detail.work_done;
+                const statusIcon = isProcessed ? '✅' : '🚪';
+                const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
+
                 item.innerHTML = `
-                    <div class="equipment-icon">🚪</div>
+                    <div class="equipment-icon">${statusIcon}</div>
                     <div class="equipment-info">
                         <div class="equipment-ref">${eq.ref} - ${typeName}</div>
                         <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
@@ -876,6 +1110,9 @@ class ServiceReportApp {
                     </div>
                     ${linkTypeBadge}
                 `;
+                if (isProcessed) {
+                    item.style.borderLeft = '3px solid #4caf50';
+                }
 
                 item.addEventListener('click', () => {
                     this.currentEquipment = eq;
@@ -908,6 +1145,9 @@ class ServiceReportApp {
                 ? '<span class="link-type-badge maintenance">Wartung</span>'
                 : '<span class="link-type-badge service">Service</span>';
             document.getElementById('entriesLinkType').innerHTML = linkTypeBadge;
+
+            // Show equipment details
+            this.renderEquipmentDetails(equipment);
 
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -1418,7 +1658,13 @@ class ServiceReportApp {
             await offlineDB.saveInterventions(interventions);
 
             // 2. For each intervention, fetch equipment, entries, available equipment, and documents
+            const total = interventions.length;
+            let current = 0;
+
             for (const intervention of interventions) {
+                current++;
+                statusEl.textContent = `Sync ${current}/${total}`;
+
                 try {
                     // Fetch full intervention data with equipment
                     const fullData = await this.apiCall(`intervention/${intervention.id}`);
@@ -1718,18 +1964,32 @@ class ServiceReportApp {
 
         try {
             let equipment = [];
+            let loadedFromCache = false;
 
             if (this.isOnline) {
-                const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
-                equipment = data.equipment || [];
-                // Cache for offline use
-                await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
+                try {
+                    const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
+                    equipment = data.equipment || [];
+                    // Cache for offline use
+                    await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
+                } catch (apiErr) {
+                    console.warn('API call failed, falling back to cache:', apiErr);
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+                    equipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+                    loadedFromCache = true;
+                }
             } else {
                 // Load from cache when offline
                 equipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+                loadedFromCache = true;
             }
 
             this.availableEquipmentData = equipment; // Store for multi-select
+
+            if (loadedFromCache && equipment.length > 0) {
+                this.showToast('Offline-Daten geladen');
+            }
 
             if (equipment.length === 0) {
                 listEl.innerHTML = `
@@ -1984,13 +2244,10 @@ class ServiceReportApp {
             // Offline: Queue the link operation and update local cache
             try {
                 // Add to sync queue
-                await offlineDB.addToSyncQueue({
-                    type: 'link-equipment',
-                    data: {
-                        intervention_id: this.currentIntervention.id,
-                        equipment_id: equipmentId,
-                        link_type: linkType
-                    }
+                await offlineDB.addToSyncQueue('link-equipment', {
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: equipmentId,
+                    link_type: linkType
                 });
 
                 // Update local cache: add equipment to intervention's equipment list
@@ -2382,6 +2639,68 @@ class ServiceReportApp {
         return div.innerHTML;
     }
 
+    // Render equipment details in entries view
+    renderEquipmentDetails(equipment) {
+        // Get type label from typeLabels map
+        const typeLabels = this.equipmentTypeLabels || {};
+        const typeLabel = typeLabels[equipment.type] || equipment.type || '-';
+
+        document.getElementById('eqDetailLabel').textContent = equipment.label || '-';
+        document.getElementById('eqDetailLocation').textContent = equipment.location || '-';
+        document.getElementById('eqDetailType').textContent = typeLabel;
+        document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
+
+        // Add click handlers for editable fields
+        const labelEl = document.getElementById('eqDetailLabel');
+        const locationEl = document.getElementById('eqDetailLocation');
+        const manufacturerEl = document.getElementById('eqDetailManufacturer');
+
+        // Style editable fields
+        [labelEl, locationEl, manufacturerEl].forEach(el => {
+            el.style.background = 'var(--input-bg)';
+            el.style.border = '1px dashed var(--border-color)';
+        });
+
+        // Click handlers
+        labelEl.onclick = () => this.editEquipmentField('label', 'Bezeichnung', equipment.label || '');
+        locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
+        manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
+    }
+
+    // Edit equipment field via prompt
+    async editEquipmentField(field, label, currentValue) {
+        const newValue = prompt(`${label}:`, currentValue);
+
+        if (newValue === null) return; // Cancelled
+
+        try {
+            const result = await this.apiCall(`equipment/${this.currentEquipment.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ [field]: newValue })
+            });
+
+            if (result.status === 'ok') {
+                // Update local data
+                if (field === 'label') {
+                    this.currentEquipment.label = newValue;
+                } else if (field === 'location_note') {
+                    this.currentEquipment.location = newValue;
+                } else if (field === 'manufacturer') {
+                    this.currentEquipment.manufacturer = newValue;
+                }
+
+                // Re-render details
+                this.renderEquipmentDetails(this.currentEquipment);
+                this.showToast(`${label} aktualisiert`);
+            } else {
+                this.showToast('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Failed to update equipment:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
+    }
+
     async deleteDocument(encodedFilename) {
         const filename = decodeURIComponent(encodedFilename);
 
@@ -2409,6 +2728,79 @@ class ServiceReportApp {
         }
     }
 
+    /**
+     * Compress an image file to reduce upload size
+     * @param {File} file - The image file to compress
+     * @param {number} maxWidth - Maximum width (default 1920)
+     * @param {number} quality - JPEG quality 0-1 (default 0.8)
+     * @returns {Promise<File>} - Compressed file
+     */
+    async compressImage(file, maxWidth = 1920, quality = 0.8) {
+        // Only compress images
+        if (!file.type.startsWith('image/')) {
+            return file;
+        }
+
+        // Don't compress small files (< 500KB)
+        if (file.size < 500 * 1024) {
+            return file;
+        }
+
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                // Calculate new dimensions
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw and compress
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            // Create new file with same name
+                            const compressedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            console.log(`Compressed ${file.name}: ${(file.size/1024).toFixed(0)}KB -> ${(compressedFile.size/1024).toFixed(0)}KB`);
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file); // Fallback to original
+                        }
+                    },
+                    'image/jpeg',
+                    quality
+                );
+            };
+
+            img.onerror = () => {
+                console.warn('Failed to load image for compression, using original');
+                resolve(file);
+            };
+
+            // Load image from file
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(file);
+            reader.readAsDataURL(file);
+        });
+    }
+
     async uploadFiles(files) {
         if (!files || files.length === 0) return;
 
@@ -2418,8 +2810,14 @@ class ServiceReportApp {
         if (this.isOnline) {
             this.showToast('Lade hoch...');
 
-            for (const file of files) {
+            for (let file of files) {
                 try {
+                    // Compress images before upload
+                    if (file.type.startsWith('image/')) {
+                        this.showToast('Komprimiere Bild...');
+                        file = await this.compressImage(file);
+                    }
+
                     const formData = new FormData();
                     formData.append('file', file);
 
@@ -2442,6 +2840,10 @@ class ServiceReportApp {
                     if (!response.ok) {
                         const text = await response.text();
                         console.error('Upload response:', response.status, text);
+                        // Show more detailed error
+                        if (response.status === 413) {
+                            this.showToast('Datei zu groß für Server');
+                        }
                         errorCount++;
                         continue;
                     }
@@ -2453,6 +2855,7 @@ class ServiceReportApp {
                     } else {
                         errorCount++;
                         console.error('Upload failed:', result.error);
+                        this.showToast('Fehler: ' + (result.error || 'Unbekannt'));
                     }
                 } catch (err) {
                     errorCount++;
@@ -2605,6 +3008,9 @@ class ServiceReportApp {
         const results = data.results || {};
         const checklist = data.checklist || {};
         const isCompleted = checklist.status === 1;
+        // Check if intervention is still draft (status 0) - then checklist is editable even if completed
+        const interventionStatus = this.currentIntervention?.status ?? 1;
+        const canEditChecklist = !isCompleted || (isCompleted && interventionStatus === 0);
 
         let html = '';
 
@@ -2614,6 +3020,7 @@ class ServiceReportApp {
                 <div class="checklist-status completed">
                     <span>✅</span>
                     <span>Checkliste abgeschlossen${checklist.date_completion ? ' am ' + this.formatDate(checklist.date_completion) : ''}</span>
+                    ${canEditChecklist ? '<span style="margin-left:8px;font-size:12px;color:#666;">(bearbeitbar)</span>' : ''}
                 </div>
             `;
         }
@@ -2628,7 +3035,7 @@ class ServiceReportApp {
             // Section header with "Alle OK" button (except for Ergebnis section)
             html += `<div class="checklist-section-header">`;
             html += `<span>${this.escapeHtml(section.label)}</span>`;
-            if (!isErgebnisSection && !isCompleted) {
+            if (!isErgebnisSection && canEditChecklist) {
                 html += `<button type="button" class="btn-all-ok" onclick="app.setAllOK('${sectionCode}')">Alle OK</button>`;
             }
             html += `</div>`;
@@ -2652,7 +3059,7 @@ class ServiceReportApp {
                 html += `<select class="checklist-item-select ${selectClass}"
                             data-item="${itemId}"
                             data-section="${sectionCode}"
-                            ${isCompleted ? 'disabled' : ''}
+                            ${!canEditChecklist ? 'disabled' : ''}
                             onchange="app.onChecklistAnswerChange(this)">`;
 
                 // Options based on answer type
@@ -2686,7 +3093,7 @@ class ServiceReportApp {
                             placeholder="Anmerkung..."
                             data-item="${itemId}"
                             value="${this.escapeHtml(currentNote)}"
-                            ${isCompleted ? 'disabled' : ''}
+                            ${!canEditChecklist ? 'disabled' : ''}
                             onchange="app.onChecklistNoteChange(this)">`;
 
                 html += `</div>`;
@@ -2705,11 +3112,12 @@ class ServiceReportApp {
             </button>
         `;
 
-        // Complete button (if not already completed)
-        if (!isCompleted) {
+        // Complete/Update button (if editable)
+        if (canEditChecklist) {
+            const buttonLabel = isCompleted ? 'Checkliste aktualisieren' : 'Checkliste abschließen';
             html += `
                 <button type="button" class="btn btn-success btn-block" onclick="app.completeChecklist()">
-                    Checkliste abschließen
+                    ${buttonLabel}
                 </button>
             `;
         }

@@ -168,6 +168,10 @@ try {
             handleChecklist($method, $parts, $input);
             break;
 
+        case 'equipment':
+            handleEquipment($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -312,50 +316,39 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set signed_status = 1 (released for signature) AND set fk_statut = 1 (validated)
-        // This marks the intervention as validated and ready for signature
-        $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1, fk_statut = 1 WHERE rowid = ".(int)$id;
-        $resql = $db->query($sql);
-        $affectedRows = $db->affected_rows($resql);
+        // Use Dolibarr's setValid() method to properly validate the intervention
+        // This generates the proper reference (FI...) and renames directories
+        $fichinter->fetch_thirdparty();
+        $result = $fichinter->setValid($user);
 
-        // Verify the update by reading directly from database
-        $sqlVerify = "SELECT signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id;
-        $resVerify = $db->query($sqlVerify);
-        $actualSignedStatus = 0;
-        if ($resVerify && $objVerify = $db->fetch_object($resVerify)) {
-            $actualSignedStatus = (int)$objVerify->signed_status;
-        }
+        if ($result > 0) {
+            // Also set signed_status = 1 (released for signature)
+            $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 1 WHERE rowid = ".(int)$id;
+            $db->query($sql);
 
-        // Success if query worked AND (rows affected OR value is now correct)
-        if ($resql && ($affectedRows > 0 || $actualSignedStatus == 1)) {
-            // Generate PDF
+            // Refetch to get new reference
+            $fichinter->fetch($id);
+
+            // Generate PDF with new reference
             $pdfGenerated = generateInterventionPDF($fichinter, $user);
 
-            // Get document path for debug
-            $docPath = getFichinterDocDir() . '/' . $fichinter->ref;
+            // Regenerate all completed checklist PDFs with new intervention reference
+            $checklistsRegenerated = regenerateChecklistPDFs($fichinter, $user, $langs);
 
             echo json_encode([
                 'status' => 'ok',
                 'message' => 'Intervention released for signature',
-                'signed_status' => $actualSignedStatus,
+                'ref' => $fichinter->ref,
+                'signed_status' => 1,
                 'intervention_status' => (int)$fichinter->statut,
                 'pdf_generated' => $pdfGenerated,
-                'doc_path' => $docPath,
-                'doc_exists' => is_dir($docPath),
-                'dol_data_root' => defined('DOL_DATA_ROOT') ? DOL_DATA_ROOT : 'not defined',
-                'affected_rows' => $affectedRows
+                'checklists_regenerated' => $checklistsRegenerated
             ]);
         } else {
             http_response_code(500);
             echo json_encode([
-                'error' => 'Failed to release intervention',
-                'details' => $db->lasterror(),
-                'sql' => $sql,
-                'sql_verify' => $sqlVerify,
-                'affected_rows' => $affectedRows,
-                'actual_signed_status' => $actualSignedStatus,
-                'table_prefix' => MAIN_DB_PREFIX,
-                'intervention_id' => $id
+                'error' => 'Failed to validate intervention',
+                'details' => $fichinter->error
             ]);
         }
         return;
@@ -476,6 +469,19 @@ function handleIntervention($method, $parts, $input) {
             dol_mkdir($docDir);
         }
 
+        // Check if POST data was truncated (happens when post_max_size is exceeded)
+        if (empty($_FILES) && empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+            http_response_code(413);
+            echo json_encode([
+                'error' => 'Datei zu groß für Server (post_max_size: ' . ini_get('post_max_size') . ')',
+                'php_limits' => [
+                    'upload_max_filesize' => ini_get('upload_max_filesize'),
+                    'post_max_size' => ini_get('post_max_size')
+                ]
+            ]);
+            return;
+        }
+
         // Check for file upload
         if (!empty($_FILES['file'])) {
             $uploadedFile = $_FILES['file'];
@@ -485,14 +491,34 @@ function handleIntervention($method, $parts, $input) {
             $maxSize = 10 * 1024 * 1024; // 10MB
 
             if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+                // Provide specific error messages for PHP upload errors
+                $uploadErrors = [
+                    UPLOAD_ERR_INI_SIZE => 'Datei zu groß (PHP upload_max_filesize: ' . ini_get('upload_max_filesize') . ')',
+                    UPLOAD_ERR_FORM_SIZE => 'Datei zu groß (Formular-Limit)',
+                    UPLOAD_ERR_PARTIAL => 'Datei nur teilweise hochgeladen',
+                    UPLOAD_ERR_NO_FILE => 'Keine Datei empfangen',
+                    UPLOAD_ERR_NO_TMP_DIR => 'Temporärer Ordner fehlt',
+                    UPLOAD_ERR_CANT_WRITE => 'Fehler beim Schreiben auf Festplatte',
+                    UPLOAD_ERR_EXTENSION => 'Upload durch PHP-Erweiterung gestoppt'
+                ];
+                $errorMsg = isset($uploadErrors[$uploadedFile['error']])
+                    ? $uploadErrors[$uploadedFile['error']]
+                    : 'Upload-Fehler Code: ' . $uploadedFile['error'];
+
                 http_response_code(400);
-                echo json_encode(['error' => 'Upload error: ' . $uploadedFile['error']]);
+                echo json_encode([
+                    'error' => $errorMsg,
+                    'php_limits' => [
+                        'upload_max_filesize' => ini_get('upload_max_filesize'),
+                        'post_max_size' => ini_get('post_max_size')
+                    ]
+                ]);
                 return;
             }
 
             if ($uploadedFile['size'] > $maxSize) {
                 http_response_code(400);
-                echo json_encode(['error' => 'File too large (max 10MB)']);
+                echo json_encode(['error' => 'Datei zu groß (max 10MB, Datei: ' . round($uploadedFile['size']/1024/1024, 2) . 'MB)']);
                 return;
             }
 
@@ -624,7 +650,7 @@ function getInterventionEquipment($intervention_id) {
     global $db;
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
-    $sql .= " e.location_note, e.manufacturer,";
+    $sql .= " e.location_note, e.manufacturer, e.door_wings,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration";
@@ -648,6 +674,7 @@ function getInterventionEquipment($intervention_id) {
                 'manufacturer' => $obj->manufacturer ?: '',
                 'serial_number' => $obj->serial_number,
                 'location' => $obj->location_note ?: '',
+                'door_wings' => $obj->door_wings ?: '',
                 'link_type' => $obj->link_type,
                 'detail' => null
             ];
@@ -1377,6 +1404,71 @@ function generateInterventionPDF($fichinter, $user) {
 }
 
 /**
+ * Regenerate all completed checklist PDFs for an intervention
+ * Called after intervention validation to update filenames with new reference
+ * Also cleans up old checklist PDFs
+ */
+function regenerateChecklistPDFs($fichinter, $user, $langs) {
+    global $db, $conf;
+
+    dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+    dol_include_once('/equipmentmanager/class/checklistresult.class.php');
+    dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+
+    $regenerated = 0;
+
+    // Get document directory for this intervention
+    $doc_dir = $conf->ficheinter->dir_output.'/'.dol_sanitizeFileName($fichinter->ref);
+
+    // Delete old checklist PDFs (Checkliste_*.pdf and Checklist_*.pdf patterns)
+    if (is_dir($doc_dir)) {
+        $old_files = glob($doc_dir.'/Checkliste_*.pdf');
+        $old_files = array_merge($old_files, glob($doc_dir.'/Checklist_*.pdf'));
+        $old_files = array_merge($old_files, glob($doc_dir.'/Checklisten_*.pdf'));
+        foreach ($old_files as $old_file) {
+            @unlink($old_file);
+        }
+    }
+
+    // Find all completed checklists for this intervention
+    $sql = "SELECT cr.rowid as checklist_id, cr.fk_equipment, cr.fk_template";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr";
+    $sql .= " WHERE cr.fk_intervention = ".(int)$fichinter->id;
+    $sql .= " AND cr.status = 1"; // Only completed checklists
+
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            // Load checklist
+            $checklist = new ChecklistResult($db);
+            $checklist->fetch($obj->checklist_id);
+            $checklist->fetchItemResults();
+
+            // Load equipment
+            $equipment = new Equipment($db);
+            $equipment->fetch($obj->fk_equipment);
+
+            // Load template
+            $template = new ChecklistTemplate($db);
+            $template->fetch($obj->fk_template);
+            $template->fetchSectionsWithItems();
+
+            // Regenerate PDF
+            $pdf_gen = new pdf_checklist($db);
+            $result = $pdf_gen->write_file($checklist, $equipment, $template, $fichinter, $user, $langs, false);
+
+            if ($result) {
+                $regenerated++;
+            }
+        }
+        $db->free($resql);
+    }
+
+    return $regenerated;
+}
+
+/**
  * Get list of documents/PDFs/images for intervention
  */
 function getInterventionDocuments($fichinter) {
@@ -1521,7 +1613,7 @@ function processSignature($intervention_id, $signatureData, $signerName) {
 
     // Now create signed version with customer signature
     $sourcefile = $upload_dir . dol_sanitizeFileName($fichinter->ref) . ".pdf";
-    $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed-" . $date . ".pdf";
+    $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed.pdf";
 
     if (dol_is_file($sourcefile)) {
         try {
@@ -1635,8 +1727,9 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     }
 
     if ($result >= 0) {
-        // Close the intervention after signature
-        $fichinter->setClose($user);
+        // NOTE: Do NOT close the intervention after signature
+        // The intervention stays at "validated/released" status (fk_statut = 1)
+        // Closing (fk_statut = 3) should happen separately
 
         return [
             'success' => true,
@@ -2075,4 +2168,88 @@ function formatTemplateForApi($template, $langs) {
         'norm_reference' => $template->norm_reference,
         'sections' => $sections
     ];
+}
+
+/**
+ * GET /equipment/{id} - Get equipment details
+ * PUT /equipment/{id} - Update equipment
+ */
+function handleEquipment($method, $parts, $input) {
+    global $db, $user, $langs;
+
+    $equipment_id = (int)($parts[1] ?? 0);
+
+    if (!$equipment_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Equipment ID required']);
+        return;
+    }
+
+    $equipment = new Equipment($db);
+    if ($equipment->fetch($equipment_id) <= 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Equipment not found']);
+        return;
+    }
+
+    if ($method === 'GET') {
+        // Return equipment details
+        // Get equipment type labels
+        $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
+
+        echo json_encode([
+            'status' => 'ok',
+            'equipment' => [
+                'id' => (int)$equipment->id,
+                'ref' => $equipment->equipment_number,
+                'label' => $equipment->label,
+                'type' => $equipment->equipment_type,
+                'type_label' => $type_labels[$equipment->equipment_type] ?? $equipment->equipment_type,
+                'manufacturer' => $equipment->manufacturer ?: '',
+                'serial_number' => $equipment->serial_number,
+                'location' => $equipment->location_note ?: '',
+                'door_wings' => $equipment->door_wings ?: '',
+                'fk_soc' => (int)$equipment->fk_soc,
+                'fk_address' => (int)$equipment->fk_address
+            ]
+        ]);
+
+    } elseif ($method === 'PUT' || $method === 'POST') {
+        // Update equipment - only specific fields allowed from PWA
+        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings'];
+
+        foreach ($allowed_fields as $field) {
+            if (isset($input[$field])) {
+                // Map API field names to class properties
+                if ($field === 'label') {
+                    $equipment->label = $input[$field];
+                } elseif ($field === 'location_note') {
+                    $equipment->location_note = $input[$field];
+                } elseif ($field === 'equipment_type') {
+                    $equipment->equipment_type = $input[$field];
+                } elseif ($field === 'manufacturer') {
+                    $equipment->manufacturer = $input[$field];
+                } elseif ($field === 'door_wings') {
+                    $equipment->door_wings = $input[$field];
+                }
+            }
+        }
+
+        $result = $equipment->update($user);
+
+        if ($result > 0) {
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Equipment updated',
+                'equipment_id' => (int)$equipment->id
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to update equipment', 'details' => $equipment->error]);
+        }
+
+    } else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+    }
 }

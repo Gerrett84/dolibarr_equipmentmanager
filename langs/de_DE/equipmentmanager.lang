@@ -422,6 +422,7 @@ ChecklistCompleted=Checkliste abgeschlossen
 ChecklistPDFGenerated=Checklisten-PDF wurde erstellt
 StartChecklist=Checkliste starten
 CompleteChecklist=Checkliste abschließen
+UpdateChecklist=Checkliste aktualisieren
 SetAllOK=Alle OK
 ErgebnisMustBeFilled=Bitte füllen Sie alle Felder im Abschnitt "Ergebnis" aus, bevor Sie die Checkliste abschließen.
 ChecklistInProgress=Checkliste in Bearbeitung
@@ -559,6 +560,7 @@ ChecklistTemplatesReinitialized=Checklisten-Vorlagen wurden erfolgreich neu init
 
 # Checklist PDF
 ChecklistProtocol=Prüfprotokoll
+AllChecklistsPDF=Alle Checklisten (PDF)
 GeneratePDF=PDF erstellen
 PDFPreview=PDF Vorschau
 ViewPDF=PDF anzeigen
@@ -647,3 +649,10 @@ BulkEditDuration=Planzeit ändern
 BulkEditContract=Vertrag zuweisen
 ApplyDuration=Planzeit anwenden
 ApplyContract=Vertrag anwenden
+
+# Database Maintenance v4.0.2
+DatabaseMaintenance=Datenbank-Wartung
+CleanupDuplicates=Duplikate bereinigen
+CleanupDuplicatesDesc=Entfernt doppelte Einträge in Checklisten-Sections und Items, die durch mehrfaches Ausführen der SQL-Migration entstanden sind.
+RunCleanup=Bereinigung starten
+ShowDuplicates=Duplikate anzeigen
