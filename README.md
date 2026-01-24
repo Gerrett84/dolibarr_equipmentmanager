@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 3.1.10** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -20,6 +20,22 @@
 - **PDF-Export** - Checklisten-Ergebnisse im Servicebericht-PDF
 - **PWA-Integration** - Checklisten mobil ausfüllen (offline-fähig)
 - **Wartung/Service Unterscheidung** - Checklisten nur bei Wartung, nicht bei Service
+
+### NEU in v4.0: Gesamt-PDF & Checklisten-Editor
+
+- **Gesamt-PDF** - Alle Serviceberichte in einem PDF exportieren
+- **Checklisten-Editor** - Vorlagen direkt im Admin-Bereich bearbeiten
+- **E-Mail-Anhänge** - Signierte PDFs & Checklisten automatisch an E-Mails anhängen
+- **Verbesserte PDF-Ausgabe** - Besseres Layout für Checklisten und Signaturen
+
+### NEU in v4.1: PWA-Statusfilter & Offline-Verbesserungen
+
+- **Status-Tabs** - Auftragsübersicht mit Offen/Freigegeben/Erledigt Filtern
+- **Zeitraum-Auswahl** - Erledigte Aufträge nach Zeitraum filtern (30 Tage, 3/6/12 Monate)
+- **Besseres Offline-Caching** - Alle Anlagen für alle Aufträge offline verfügbar
+- **Auto Re-Login** - Verbesserte Session-Wiederherstellung bei Ablauf
+- **Foto-Komprimierung** - Automatische Bildkomprimierung vor Upload
+- **Duplikat-Bereinigung** - Admin-Funktion zur Bereinigung doppelter Checklisten-Einträge
 
 ### v3.1: PWA-Verbesserungen & Dark Mode
 
@@ -131,6 +147,25 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.1.0 (2025-01-24)
+
+- **PWA Status-Filter** - Aufträge nach Offen/Freigegeben/Erledigt filtern
+- **Zeitraum-Auswahl** - Erledigte Aufträge nach 30 Tage, 3/6/12 Monate oder alle filtern
+- **Offline-Caching Fix** - Equipment-Store mit Composite Key für korrekte Offline-Speicherung
+- **Status-Logik Fix** - Signierte Entwürfe werden korrekt als "Offen" angezeigt
+- **Auto Re-Login** - Verbesserte Session-Wiederherstellung bei Ablauf
+- **Foto-Upload** - Automatische Bildkomprimierung (max 1920px, JPEG 80%)
+- **Upload-Fehlermeldungen** - Bessere Fehlerhinweise mit PHP-Limits
+- **Duplikat-Bereinigung** - Admin-Funktion für doppelte Checklisten-Einträge
+
+### v4.0.0 (2025-01-23)
+
+- **Gesamt-PDF Export** - Alle Serviceberichte eines Auftrags in einem PDF
+- **Checklisten-Editor** - Vorlagen direkt im Admin-Bereich bearbeiten
+- **E-Mail-Anhänge** - Signierte PDFs und Checklisten automatisch an E-Mails anhängen
+- **Verbesserte Checklisten-PDF** - Besseres Layout mit Kommentaren
+- **formmail Hook** - Integration für automatische E-Mail-Anhänge
 
 ### v3.1.10 (2025-01-16)
 
@@ -304,6 +339,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 3.1.10
+**Current Version:** 4.1.0
 **Released:** January 2025
 **Compatibility:** Dolibarr 16.0+
