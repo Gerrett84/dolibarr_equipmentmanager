@@ -69,89 +69,96 @@ class ServiceReportApp {
         }
 
         // Not authenticated on server - try auto-login with saved credentials
-        if (this.isOnline) {
-            const savedCredentials = await offlineDB.getMeta('credentials');
-            if (savedCredentials) {
-                const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
-                if (loginResult) {
-                    this.showToast('Automatisch angemeldet');
-                    return true;
-                }
+        const savedCredentials = await offlineDB.getMeta('credentials');
+
+        if (this.isOnline && savedCredentials) {
+            // Try auto-login
+            const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
+            if (loginResult) {
+                this.showToast('Automatisch angemeldet');
+                return true;
             }
+            // Auto-login failed - credentials might be wrong
+            console.warn('Auto-login failed with saved credentials');
         }
 
-        // Fallback to cached auth (for offline mode)
+        // Fallback to cached auth (for offline mode or when auto-login failed)
         const cachedAuth = await offlineDB.getMeta('auth');
-        if (cachedAuth && cachedAuth.valid_until > Date.now() / 1000) {
-            this.user = cachedAuth;
 
-            if (this.isOnline) {
-                // Online but no valid session - show login form
-                this.showLoginForm();
+        // Offline mode - use cached auth if available (even if expired, allow offline access)
+        if (!this.isOnline) {
+            if (cachedAuth) {
+                this.user = cachedAuth;
+                this.showToast('Offline-Modus: ' + cachedAuth.name);
+                return true;
+            } else if (savedCredentials) {
+                // Have credentials but no cached auth - allow limited offline access
+                this.user = { name: savedCredentials.username, offline: true };
+                this.showToast('Offline-Modus (begrenzt)');
+                return true;
+            } else {
+                this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
                 return false;
             }
-
-            // Offline with valid cached auth - allow access
-            this.showToast('Offline-Modus: ' + cachedAuth.name);
-            return true;
         }
 
-        // No valid auth - show login form
-        if (this.isOnline) {
-            this.showLoginForm();
-        } else {
-            this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
-        }
+        // Online but not authenticated and auto-login failed
+        // Show login form with pre-filled credentials if available
+        this.showLoginForm(savedCredentials);
         return false;
     }
 
-    // Show login form - redirects to settings page for credential storage
-    showLoginForm() {
+    // Show login form - with optional pre-filled credentials
+    showLoginForm(savedCredentials = null) {
         document.getElementById('interventionsLoading').style.display = 'none';
+
+        const hasCredentials = savedCredentials && savedCredentials.username && savedCredentials.password;
+        const usernameValue = hasCredentials ? savedCredentials.username : '';
+        const passwordValue = hasCredentials ? savedCredentials.password : '';
+
         document.getElementById('interventionsList').innerHTML = `
             <div class="login-form" style="padding: 20px;">
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="font-size:48px;">🔐</div>
-                    <h3 style="margin:10px 0;">Anmeldung erforderlich</h3>
+                    <h3 style="margin:10px 0;">${hasCredentials ? 'Sitzung abgelaufen' : 'Anmeldung erforderlich'}</h3>
                     <p style="color:#666;font-size:14px;">
-                        Bitte speichern Sie Ihre Login-Daten in den Einstellungen.
+                        ${hasCredentials ? 'Bitte erneut anmelden oder Passwort prüfen.' : 'Bitte speichern Sie Ihre Login-Daten in den Einstellungen.'}
                     </p>
                 </div>
 
-                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;">
+                ${!hasCredentials ? `
+                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;margin-bottom:20px;">
                     ⚙️ Einstellungen öffnen
                 </a>
+                ` : ''}
 
-                <div style="margin-top:20px;padding-top:20px;border-top:1px solid #eee;">
-                    <p style="color:#666;font-size:13px;text-align:center;margin:0 0 12px 0;">
-                        Oder melden Sie sich direkt an:
-                    </p>
-                    <form id="pwaLoginForm">
-                        <div style="margin-bottom:12px;">
-                            <input type="text" id="loginUsername" placeholder="Benutzername" required
-                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <input type="password" id="loginPassword" placeholder="Passwort" required
-                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <input type="text" id="login2faCode" placeholder="2FA-Code (falls aktiviert)"
-                                style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
-                                maxlength="10" inputmode="numeric">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
-                                <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
-                                <span>Daten speichern (90 Tage)</span>
-                            </label>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-block" style="padding:12px;font-size:15px;background:#4caf50;border:none;border-radius:8px;color:white;width:100%;cursor:pointer;">
-                            Anmelden
-                        </button>
-                        <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
-                    </form>
-                </div>
+                <form id="pwaLoginForm">
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="loginUsername" placeholder="Benutzername" required
+                            value="${usernameValue}"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <input type="password" id="loginPassword" placeholder="Passwort" required
+                            value="${passwordValue}"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="login2faCode" placeholder="2FA-Code (falls aktiviert)"
+                            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;"
+                            maxlength="10" inputmode="numeric">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                            <input type="checkbox" id="loginRemember" checked style="width:18px;height:18px;">
+                            <span>Daten speichern (90 Tage)</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" style="padding:12px;font-size:15px;background:#4caf50;border:none;border-radius:8px;color:white;width:100%;cursor:pointer;">
+                        ${hasCredentials ? 'Erneut anmelden' : 'Anmelden'}
+                    </button>
+                    <div id="loginError" style="color:#d32f2f;text-align:center;margin-top:12px;display:none;"></div>
+                </form>
             </div>
         `;
 
@@ -792,50 +799,74 @@ class ServiceReportApp {
         loadingEl.style.display = 'block';
         listEl.innerHTML = '';
 
-        try {
-            let interventions = [];
-
-            if (this.isOnline) {
-                // Fetch from API
-                // Fetch all interventions (including closed ones for now)
-                const data = await this.apiCall('interventions?status=all');
-                interventions = data.interventions || [];
-                // console.log('API returned', interventions.length, 'interventions');
-
-                // Save to IndexedDB
-                await offlineDB.saveInterventions(interventions);
-            } else {
-                // Load from IndexedDB
-                interventions = await offlineDB.getAll('interventions');
-            }
-
-            loadingEl.style.display = 'none';
-
-            // Cache interventions for filtering
-            this.allInterventions = interventions;
-
-            // Render with current filter
-            this.renderInterventionsList();
-
-        } catch (err) {
-            console.error('Failed to load interventions:', err);
-            loadingEl.style.display = 'none';
-
-            // Try loading from IndexedDB
+        // Helper to load from cache
+        const loadFromCache = async () => {
             const cached = await offlineDB.getAll('interventions');
             if (cached.length > 0) {
                 this.allInterventions = cached;
                 this.renderInterventionsList();
-                this.showToast('Offline-Daten geladen');
-            } else {
-                listEl.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">⚠️</div>
-                        <p>Fehler beim Laden</p>
-                        <p style="font-size:12px;">${err.message}</p>
-                    </div>
-                `;
+                return true;
             }
+            return false;
+        };
+
+        try {
+            let interventions = [];
+
+            if (this.isOnline) {
+                try {
+                    // Fetch from API
+                    const data = await this.apiCall('interventions?status=all');
+                    interventions = data.interventions || [];
+
+                    // Save to IndexedDB
+                    await offlineDB.saveInterventions(interventions);
+
+                    loadingEl.style.display = 'none';
+                    this.allInterventions = interventions;
+                    this.renderInterventionsList();
+                } catch (apiErr) {
+                    // API failed - might be offline now
+                    console.warn('API call failed, falling back to cache:', apiErr);
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+
+                    loadingEl.style.display = 'none';
+                    if (await loadFromCache()) {
+                        this.showToast('Offline-Daten geladen');
+                    } else {
+                        throw apiErr; // Re-throw if no cache
+                    }
+                }
+            } else {
+                // Offline - load from IndexedDB
+                loadingEl.style.display = 'none';
+                if (await loadFromCache()) {
+                    this.showToast('Offline-Modus');
+                } else {
+                    listEl.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📴</div>
+                            <p>Offline - Keine gespeicherten Daten</p>
+                            <p style="font-size:12px;">Bitte verbinden Sie sich mit dem Internet</p>
+                        </div>
+                    `;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load interventions:', err);
+            loadingEl.style.display = 'none';
+
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <p>Fehler beim Laden</p>
+                    <p style="font-size:12px;">${err.message}</p>
+                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#263c5c;color:white;cursor:pointer;">
+                        Erneut versuchen
+                    </button>
+                </div>
+            `;
         }
     }
 
@@ -927,6 +958,20 @@ class ServiceReportApp {
             let signedStatus = intervention.signed_status || 0;
             let loadedFromCache = false;
 
+            // Try loading from API first, fall back to cache
+            const loadFromCache = async () => {
+                equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
+                loadedFromCache = true;
+                // Also get cached intervention data
+                const cachedInterventions = await offlineDB.getAll('interventions');
+                const cached = cachedInterventions.find(i => i.id === intervention.id);
+                if (cached) {
+                    signedStatus = cached.signed_status || 0;
+                    this.currentIntervention.signed_status = signedStatus;
+                    this.currentIntervention.status = cached.status || 0;
+                }
+            };
+
             if (this.isOnline) {
                 try {
                     // Fetch full intervention data to get updated signed_status
@@ -946,6 +991,7 @@ class ServiceReportApp {
                         const idx = interventions.findIndex(i => i.id === intervention.id);
                         if (idx >= 0) {
                             interventions[idx].signed_status = signedStatus;
+                            interventions[idx].status = this.currentIntervention.status;
                             await offlineDB.saveInterventions(interventions);
                         }
                     } catch (e) {
@@ -953,12 +999,13 @@ class ServiceReportApp {
                     }
                 } catch (apiErr) {
                     console.warn('API call failed, falling back to cache:', apiErr);
-                    equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
-                    loadedFromCache = true;
+                    // Network error - update online status and load from cache
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+                    await loadFromCache();
                 }
             } else {
-                equipment = await offlineDB.getEquipmentForIntervention(intervention.id);
-                loadedFromCache = true;
+                await loadFromCache();
             }
 
             if (loadedFromCache && equipment.length > 0) {
