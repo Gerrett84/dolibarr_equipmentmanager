@@ -14,7 +14,7 @@ class ServiceReportApp {
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
-        this.interventionFilter = 'active'; // v4.1 - current filter: 'all', 'active', 'open', 'released', 'signed'
+        this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
 
         this.init();
@@ -596,10 +596,16 @@ class ServiceReportApp {
     }
 
     // Get intervention status category
+    // status: 0=Entwurf/Draft, 1=Validiert, 3=Closed
+    // signed_status: 0=not released, 1=released for signature, 3=signed
     getInterventionStatus(intervention) {
         const signedStatus = intervention.signed_status || 0;
+
+        // Signed = completely done
         if (signedStatus >= 3) return 'signed';
+        // Released for signature (regardless of base status)
         if (signedStatus >= 1) return 'released';
+        // Everything else is open (including drafts)
         return 'open';
     }
 
@@ -615,22 +621,13 @@ class ServiceReportApp {
 
     // Filter interventions based on current filter
     filterInterventions(interventions) {
-        if (this.interventionFilter === 'all') return interventions;
-        if (this.interventionFilter === 'active') {
-            // Active = open + released (not signed)
-            return interventions.filter(i => this.getInterventionStatus(i) !== 'signed');
-        }
         return interventions.filter(i => this.getInterventionStatus(i) === this.interventionFilter);
     }
 
-    // Render filter tabs
+    // Render filter tabs - simplified: Offen, Freigegeben, Erledigt
     renderFilterTabs(counts) {
-        const activeCount = counts.open + counts.released;
         return `
             <div class="filter-tabs">
-                <button class="filter-tab ${this.interventionFilter === 'active' ? 'active' : ''}" data-filter="active">
-                    Aktiv <span class="filter-count">${activeCount}</span>
-                </button>
                 <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
                     Offen <span class="filter-count">${counts.open}</span>
                 </button>
@@ -638,10 +635,7 @@ class ServiceReportApp {
                     Freigegeben <span class="filter-count">${counts.released}</span>
                 </button>
                 <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
-                    Unterschrieben <span class="filter-count">${counts.signed}</span>
-                </button>
-                <button class="filter-tab ${this.interventionFilter === 'all' ? 'active' : ''}" data-filter="all">
-                    Alle <span class="filter-count">${counts.open + counts.released + counts.signed}</span>
+                    Erledigt <span class="filter-count">${counts.signed}</span>
                 </button>
             </div>
         `;
