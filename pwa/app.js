@@ -603,14 +603,16 @@ class ServiceReportApp {
         const signedStatus = intervention.signed_status || 0;
         const baseStatus = intervention.status || 0;
 
-        // Erledigt: signed AND (validated or closed)
-        // If still draft (status=0) but signed, treat as open (needs validation)
+        // Erledigt: signed (3) AND validated/closed (status >= 1)
         if (signedStatus >= 3 && baseStatus >= 1) return 'signed';
 
-        // Freigegeben: released for signature (signed_status >= 1)
-        if (signedStatus >= 1) return 'released';
+        // Freigegeben: released for signature (1 or 2) but NOT yet signed
+        // If signed (3) but still draft (0), it goes to 'open' below
+        if (signedStatus >= 1 && signedStatus < 3) return 'released';
 
-        // Offen: everything else (drafts, validated but not released, signed but still draft)
+        // Offen: everything else including:
+        // - Drafts (status=0, signed_status=0)
+        // - Signed but still draft (status=0, signed_status=3) - needs validation
         return 'open';
     }
 
