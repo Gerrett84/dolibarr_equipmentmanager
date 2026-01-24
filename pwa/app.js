@@ -1658,7 +1658,13 @@ class ServiceReportApp {
             await offlineDB.saveInterventions(interventions);
 
             // 2. For each intervention, fetch equipment, entries, available equipment, and documents
+            const total = interventions.length;
+            let current = 0;
+
             for (const intervention of interventions) {
+                current++;
+                statusEl.textContent = `Sync ${current}/${total}`;
+
                 try {
                     // Fetch full intervention data with equipment
                     const fullData = await this.apiCall(`intervention/${intervention.id}`);
@@ -1958,18 +1964,32 @@ class ServiceReportApp {
 
         try {
             let equipment = [];
+            let loadedFromCache = false;
 
             if (this.isOnline) {
-                const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
-                equipment = data.equipment || [];
-                // Cache for offline use
-                await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
+                try {
+                    const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
+                    equipment = data.equipment || [];
+                    // Cache for offline use
+                    await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
+                } catch (apiErr) {
+                    console.warn('API call failed, falling back to cache:', apiErr);
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+                    equipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+                    loadedFromCache = true;
+                }
             } else {
                 // Load from cache when offline
                 equipment = await offlineDB.getAvailableEquipment(this.currentIntervention.id);
+                loadedFromCache = true;
             }
 
             this.availableEquipmentData = equipment; // Store for multi-select
+
+            if (loadedFromCache && equipment.length > 0) {
+                this.showToast('Offline-Daten geladen');
+            }
 
             if (equipment.length === 0) {
                 listEl.innerHTML = `
@@ -2224,13 +2244,10 @@ class ServiceReportApp {
             // Offline: Queue the link operation and update local cache
             try {
                 // Add to sync queue
-                await offlineDB.addToSyncQueue({
-                    type: 'link-equipment',
-                    data: {
-                        intervention_id: this.currentIntervention.id,
-                        equipment_id: equipmentId,
-                        link_type: linkType
-                    }
+                await offlineDB.addToSyncQueue('link-equipment', {
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: equipmentId,
+                    link_type: linkType
                 });
 
                 // Update local cache: add equipment to intervention's equipment list

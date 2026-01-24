@@ -3,7 +3,7 @@
  */
 
 const DB_NAME = 'equipmentmanager_pwa';
-const DB_VERSION = 3; // v3: Added checklists store
+const DB_VERSION = 4; // v4: Fix equipment store to support same equipment in multiple interventions
 
 class OfflineDB {
     constructor() {
@@ -30,10 +30,17 @@ class OfflineDB {
                     interventions.createIndex('date_start', 'date_start', { unique: false });
                 }
 
-                // Equipment store
+                // Equipment store - v4: composite key to support same equipment in multiple interventions
                 if (!db.objectStoreNames.contains('equipment')) {
-                    const equipment = db.createObjectStore('equipment', { keyPath: 'id' });
+                    const equipment = db.createObjectStore('equipment', { keyPath: ['intervention_id', 'id'] });
                     equipment.createIndex('intervention_id', 'intervention_id', { unique: false });
+                    equipment.createIndex('equipment_id', 'id', { unique: false });
+                } else if (event.oldVersion < 4) {
+                    // Migrate existing equipment store to composite key
+                    db.deleteObjectStore('equipment');
+                    const equipment = db.createObjectStore('equipment', { keyPath: ['intervention_id', 'id'] });
+                    equipment.createIndex('intervention_id', 'intervention_id', { unique: false });
+                    equipment.createIndex('equipment_id', 'id', { unique: false });
                 }
 
                 // Details store (service reports per equipment)
@@ -162,11 +169,22 @@ class OfflineDB {
         }
     }
 
-    // Save equipment for an intervention
+    // Save equipment for an intervention (v4: uses composite key [intervention_id, id])
     async saveEquipment(interventionId, equipmentList) {
         for (const eq of equipmentList) {
-            eq.intervention_id = interventionId;
-            await this.put('equipment', eq);
+            // Clone to avoid modifying original object
+            const eqCopy = { ...eq };
+            eqCopy.intervention_id = parseInt(interventionId);
+            eqCopy.id = parseInt(eqCopy.id);
+            await this.put('equipment', eqCopy);
+        }
+    }
+
+    // Delete all equipment for an intervention (for refresh)
+    async clearEquipmentForIntervention(interventionId) {
+        const equipment = await this.getEquipmentForIntervention(interventionId);
+        for (const eq of equipment) {
+            await this.delete('equipment', [eq.intervention_id, eq.id]);
         }
     }
 
