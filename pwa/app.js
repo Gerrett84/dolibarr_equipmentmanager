@@ -609,11 +609,28 @@ class ServiceReportApp {
         return 'open';
     }
 
-    // Count interventions by status
+    // Check if intervention is within last N days
+    isWithinDays(intervention, days) {
+        // Use date_intervention or datec (creation date) as fallback
+        const dateStr = intervention.date_intervention || intervention.datec || '';
+        if (!dateStr) return true; // If no date, include it
+
+        const interventionDate = new Date(dateStr);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+
+        return interventionDate >= cutoffDate;
+    }
+
+    // Count interventions by status (only count signed from last 30 days)
     countByStatus(interventions) {
         const counts = { open: 0, released: 0, signed: 0 };
         interventions.forEach(i => {
             const status = this.getInterventionStatus(i);
+            // Only count signed if within last 30 days
+            if (status === 'signed' && !this.isWithinDays(i, 30)) {
+                return;
+            }
             counts[status]++;
         });
         return counts;
@@ -621,7 +638,17 @@ class ServiceReportApp {
 
     // Filter interventions based on current filter
     filterInterventions(interventions) {
-        return interventions.filter(i => this.getInterventionStatus(i) === this.interventionFilter);
+        return interventions.filter(i => {
+            const status = this.getInterventionStatus(i);
+            if (status !== this.interventionFilter) return false;
+
+            // For signed: only show last 30 days
+            if (status === 'signed' && !this.isWithinDays(i, 30)) {
+                return false;
+            }
+
+            return true;
+        });
     }
 
     // Render filter tabs - simplified: Offen, Freigegeben, Erledigt
@@ -638,6 +665,7 @@ class ServiceReportApp {
                     Erledigt <span class="filter-count">${counts.signed}</span>
                 </button>
             </div>
+            ${this.interventionFilter === 'signed' ? '<div class="filter-hint">Zeigt Aufträge der letzten 30 Tage</div>' : ''}
         `;
     }
 

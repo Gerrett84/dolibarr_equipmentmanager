@@ -426,6 +426,15 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             border-color: #4a6fa5;
         }
 
+        .filter-hint {
+            padding: 8px 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            margin: -16px -16px 16px -16px;
+        }
+
         /* Form Elements */
         .form-group {
             margin-bottom: 16px;
