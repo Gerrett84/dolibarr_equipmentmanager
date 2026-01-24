@@ -426,13 +426,34 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             border-color: #4a6fa5;
         }
 
-        .filter-hint {
-            padding: 8px 16px;
-            font-size: 12px;
-            color: var(--text-secondary);
+        .time-range-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
             margin: -16px -16px 16px -16px;
+        }
+
+        .time-range-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .time-range-select {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .time-range-select:focus {
+            outline: none;
+            border-color: #263c5c;
         }
 
         /* Form Elements */

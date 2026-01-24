@@ -15,6 +15,7 @@ class ServiceReportApp {
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
         this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
+        this.signedTimeRange = 30; // v4.1 - time range in days for signed orders (0 = all)
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
 
         this.init();
@@ -609,8 +610,10 @@ class ServiceReportApp {
         return 'open';
     }
 
-    // Check if intervention is within last N days
+    // Check if intervention is within last N days (0 = no limit)
     isWithinDays(intervention, days) {
+        if (days === 0) return true; // No limit
+
         // Use date_intervention or datec (creation date) as fallback
         const dateStr = intervention.date_intervention || intervention.datec || '';
         if (!dateStr) return true; // If no date, include it
@@ -622,13 +625,13 @@ class ServiceReportApp {
         return interventionDate >= cutoffDate;
     }
 
-    // Count interventions by status (only count signed from last 30 days)
+    // Count interventions by status (apply time range to signed)
     countByStatus(interventions) {
         const counts = { open: 0, released: 0, signed: 0 };
         interventions.forEach(i => {
             const status = this.getInterventionStatus(i);
-            // Only count signed if within last 30 days
-            if (status === 'signed' && !this.isWithinDays(i, 30)) {
+            // Only count signed if within selected time range
+            if (status === 'signed' && !this.isWithinDays(i, this.signedTimeRange)) {
                 return;
             }
             counts[status]++;
@@ -642,8 +645,8 @@ class ServiceReportApp {
             const status = this.getInterventionStatus(i);
             if (status !== this.interventionFilter) return false;
 
-            // For signed: only show last 30 days
-            if (status === 'signed' && !this.isWithinDays(i, 30)) {
+            // For signed: apply time range filter
+            if (status === 'signed' && !this.isWithinDays(i, this.signedTimeRange)) {
                 return false;
             }
 
@@ -651,8 +654,32 @@ class ServiceReportApp {
         });
     }
 
+    // Get time range label
+    getTimeRangeLabel(days) {
+        if (days === 0) return 'Alle';
+        if (days === 30) return '30 Tage';
+        if (days === 90) return '3 Monate';
+        if (days === 180) return '6 Monate';
+        if (days === 365) return '12 Monate';
+        return `${days} Tage`;
+    }
+
     // Render filter tabs - simplified: Offen, Freigegeben, Erledigt
     renderFilterTabs(counts) {
+        // Time range options for signed orders
+        const timeRangeOptions = this.interventionFilter === 'signed' ? `
+            <div class="time-range-selector">
+                <span class="time-range-label">Zeitraum:</span>
+                <select id="timeRangeSelect" class="time-range-select">
+                    <option value="30" ${this.signedTimeRange === 30 ? 'selected' : ''}>30 Tage</option>
+                    <option value="90" ${this.signedTimeRange === 90 ? 'selected' : ''}>3 Monate</option>
+                    <option value="180" ${this.signedTimeRange === 180 ? 'selected' : ''}>6 Monate</option>
+                    <option value="365" ${this.signedTimeRange === 365 ? 'selected' : ''}>12 Monate</option>
+                    <option value="0" ${this.signedTimeRange === 0 ? 'selected' : ''}>Alle</option>
+                </select>
+            </div>
+        ` : '';
+
         return `
             <div class="filter-tabs">
                 <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
@@ -665,13 +692,19 @@ class ServiceReportApp {
                     Erledigt <span class="filter-count">${counts.signed}</span>
                 </button>
             </div>
-            ${this.interventionFilter === 'signed' ? '<div class="filter-hint">Zeigt Aufträge der letzten 30 Tage</div>' : ''}
+            ${timeRangeOptions}
         `;
     }
 
     // Set filter and re-render
     setFilter(filter) {
         this.interventionFilter = filter;
+        this.renderInterventionsList();
+    }
+
+    // Set time range for signed orders
+    setTimeRange(days) {
+        this.signedTimeRange = parseInt(days, 10);
         this.renderInterventionsList();
     }
 
@@ -730,6 +763,14 @@ class ServiceReportApp {
                 this.setFilter(tab.dataset.filter);
             });
         });
+
+        // Add time range select listener
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        if (timeRangeSelect) {
+            timeRangeSelect.addEventListener('change', (e) => {
+                this.setTimeRange(e.target.value);
+            });
+        }
 
         // Render intervention cards
         filtered.forEach(intervention => {
