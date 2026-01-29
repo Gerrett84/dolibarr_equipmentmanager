@@ -1820,8 +1820,12 @@ class pdf_azur_objektadresse extends ModelePDFPropales
 			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
 			$pdf->MultiCell($widthrecbox, 4, $carac_client, 0, $ltrdirection);
 
-			// Show Objektadresse (shipping/delivery address) if linked
-			$idaddressshipping = $object->getIdContact('external', 'SHIPPING');
+			// Show Objektadresse if linked (try OBJECTADDRESS first, then SHIPPING as fallback)
+			$idaddressshipping = $object->getIdContact('external', 'OBJECTADDRESS');
+			if (empty($idaddressshipping) || !is_array($idaddressshipping) || count($idaddressshipping) == 0) {
+				// Fallback to SHIPPING if no OBJECTADDRESS linked
+				$idaddressshipping = $object->getIdContact('external', 'SHIPPING');
+			}
 			if (!empty($idaddressshipping) && is_array($idaddressshipping) && count($idaddressshipping) > 0) {
 				require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
 				$contactshipping = new Contact($this->db);

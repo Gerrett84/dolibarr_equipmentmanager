@@ -191,8 +191,11 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Get linked SHIPPING contact (Objektadresse)
-        $shippingContactIds = $object->getIdContact('external', 'SHIPPING');
+        // Get linked OBJECTADDRESS contact (try OBJECTADDRESS first, then SHIPPING as fallback)
+        $shippingContactIds = $object->getIdContact('external', 'OBJECTADDRESS');
+        if (empty($shippingContactIds) || !is_array($shippingContactIds) || count($shippingContactIds) == 0) {
+            $shippingContactIds = $object->getIdContact('external', 'SHIPPING');
+        }
 
         if (empty($shippingContactIds) || !is_array($shippingContactIds) || count($shippingContactIds) == 0) {
             return 0;
