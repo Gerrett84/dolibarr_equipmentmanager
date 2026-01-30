@@ -167,7 +167,121 @@ class ActionsEquipmentManager
         return 0;
     }
 
-    // Note: Objektadresse for Propal PDFs is handled by the custom PDF template
-    // pdf_azur_objektadresse.modules.php - not via hook, because the hook prepends
-    // content instead of appending it.
+    /**
+     * Hook for pdf_build_address - replaces entire address to include Objektadresse
+     * Returns 1 to completely replace the address (not just prepend)
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object (Propal, Commande, etc.)
+     * @param string $action Action triggered
+     * @param HookManager $hookmanager Hook manager
+     * @return int 0 = nothing done, 1 = replace address completely
+     */
+    public function pdf_build_address($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs, $conf;
+
+        // Only process for 'target' mode (customer/recipient address)
+        if (empty($parameters['mode']) || $parameters['mode'] != 'target') {
+            return 0;
+        }
+
+        // Check if object is a Propal (proposal)
+        if (!is_object($object) || get_class($object) != 'Propal') {
+            return 0;
+        }
+
+        // Get linked OBJ contact (Objektadresse)
+        $objContactIds = $object->getIdContact('external', 'OBJ');
+
+        // If no Objektadresse linked, let normal address building happen
+        if (empty($objContactIds) || !is_array($objContactIds) || count($objContactIds) == 0) {
+            return 0;
+        }
+
+        // Load the OBJ contact
+        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+        $contactObj = new Contact($this->db);
+
+        if ($contactObj->fetch($objContactIds[0]) <= 0) {
+            return 0;
+        }
+
+        // Now we need to build the complete address ourselves
+        // Get parameters from hook
+        $outputlangs = $parameters['outputlangs'];
+        $targetcompany = $parameters['targetcompany'];
+        $targetcontact = $parameters['targetcontact'];
+        $usecontact = $parameters['usecontact'];
+        $sourcecompany = $parameters['sourcecompany'];
+
+        $stringaddress = '';
+
+        // Build target address (same logic as core pdf_build_address for mode='target')
+        if ($usecontact && is_object($targetcontact)) {
+            // Contact name
+            $stringaddress .= $outputlangs->convToOutputCharset($targetcontact->getFullName($outputlangs, 1));
+
+            // Contact or company address
+            if (!empty($targetcontact->address)) {
+                $stringaddress .= ($stringaddress ? "\n" : '').$outputlangs->convToOutputCharset(dol_format_address($targetcontact))."\n";
+            } elseif (is_object($targetcompany)) {
+                $companytouseforaddress = $targetcompany;
+                if ($targetcontact->socid > 0 && $targetcontact->socid != $targetcompany->id) {
+                    $targetcontact->fetch_thirdparty();
+                    $companytouseforaddress = $targetcontact->thirdparty;
+                }
+                $stringaddress .= ($stringaddress ? "\n" : '').$outputlangs->convToOutputCharset(dol_format_address($companytouseforaddress))."\n";
+            }
+
+            // Country
+            if (!empty($targetcontact->country_code) && $targetcontact->country_code != $sourcecompany->country_code) {
+                $stringaddress .= ($stringaddress ? "\n" : '').$outputlangs->convToOutputCharset($outputlangs->transnoentitiesnoconv("Country".$targetcontact->country_code));
+            } elseif (empty($targetcontact->country_code) && !empty($targetcompany->country_code) && ($targetcompany->country_code != $sourcecompany->country_code)) {
+                $stringaddress .= ($stringaddress ? "\n" : '').$outputlangs->convToOutputCharset($outputlangs->transnoentitiesnoconv("Country".$targetcompany->country_code));
+            }
+        } else {
+            // No contact, use company address
+            if (is_object($targetcompany)) {
+                $stringaddress .= $outputlangs->convToOutputCharset(dol_format_address($targetcompany))."\n";
+                // Country
+                if (!empty($targetcompany->country_code) && $targetcompany->country_code != $sourcecompany->country_code) {
+                    $stringaddress .= ($stringaddress ? "\n" : '').$outputlangs->convToOutputCharset($outputlangs->transnoentitiesnoconv("Country".$targetcompany->country_code));
+                }
+            }
+        }
+
+        // Now append Objektadresse
+        $langs->load("equipmentmanager@equipmentmanager");
+
+        $stringaddress .= "\n\n".$outputlangs->transnoentities("ObjectAddress").":\n";
+
+        // Name
+        if ($contactObj->lastname || $contactObj->firstname) {
+            $stringaddress .= trim($contactObj->firstname.' '.$contactObj->lastname)."\n";
+        }
+
+        // Address
+        if ($contactObj->address) {
+            $stringaddress .= $contactObj->address."\n";
+        }
+
+        // ZIP + City
+        $cityLine = '';
+        if ($contactObj->zip) {
+            $cityLine .= $contactObj->zip;
+        }
+        if ($contactObj->town) {
+            $cityLine .= ($cityLine ? ' ' : '').$contactObj->town;
+        }
+        if ($cityLine) {
+            $stringaddress .= $cityLine;
+        }
+
+        // Set the complete address as hook output
+        $this->resprints = $stringaddress;
+
+        // Return 1 to completely replace the address (skip normal building)
+        return 1;
+    }
 }
