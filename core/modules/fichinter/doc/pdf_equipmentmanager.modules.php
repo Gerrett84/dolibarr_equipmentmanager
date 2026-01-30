@@ -1146,6 +1146,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $contact = new Contact($this->db);
             if ($contact->fetch($obj_addr->fk_address) > 0) {
                 $addrParts = array();
+                // Add name
+                $contactName = trim($contact->firstname.' '.$contact->lastname);
+                if (!empty($contactName)) {
+                    $addrParts[] = $contactName;
+                }
                 if ($contact->address) {
                     $addrParts[] = str_replace("\n", ", ", $contact->address);
                 }
