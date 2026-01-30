@@ -1797,7 +1797,7 @@ class pdf_azur_objektadresse extends ModelePDFPropales
 				$posx = $this->marge_gauche;
 			}
 
-			// Check for Objektadresse and append to carac_client
+			// Check for Objektadresse (OBJ contact type)
 			$carac_objektadresse = '';
 			$idaddressshipping = $object->getIdContact('external', 'OBJ');
 			if (!empty($idaddressshipping) && is_array($idaddressshipping) && count($idaddressshipping) > 0) {
@@ -1824,16 +1824,11 @@ class pdf_azur_objektadresse extends ModelePDFPropales
 				}
 			}
 
-			// Append Objektadresse to carac_client if exists
-			if (!empty($carac_objektadresse)) {
-				$carac_client .= "\n\n".$outputlangs->transnoentities("ObjectAddress").":\n".$carac_objektadresse;
-			}
-
 			// Calculate frame height - increase if Objektadresse exists
 			$hautcadre_recipient = $hautcadre;
 			if (!empty($carac_objektadresse)) {
-				// Add extra height for Objektadresse label + content (approx 20-25mm)
-				$hautcadre_recipient = $hautcadre + 22;
+				// Add extra height for Objektadresse label + content (approx 25mm)
+				$hautcadre_recipient = $hautcadre + 25;
 			}
 
 			// Show recipient frame
@@ -1849,15 +1844,35 @@ class pdf_azur_objektadresse extends ModelePDFPropales
 			$pdf->SetXY($posx + 2, $posy + 3);
 			$pdf->SetFont('', 'B', $default_font_size);
 			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
-			$pdf->MultiCell($widthrecbox, 4, $carac_client_name, 0, $ltrdirection);
+			$pdf->MultiCell($widthrecbox - 4, 4, $carac_client_name, 0, $ltrdirection);
 
 			$posy = $pdf->getY();
 
-			// Show recipient information (includes Objektadresse if appended above)
+			// Show recipient information (address from pdf_build_address)
 			$pdf->SetFont('', '', $default_font_size - 1);
 			$pdf->SetXY($posx + 2, $posy);
 			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
-			$pdf->MultiCell($widthrecbox, 4, $carac_client, 0, $ltrdirection);
+			$pdf->MultiCell($widthrecbox - 4, 4, $carac_client, 0, $ltrdirection);
+
+			// Show Objektadresse AFTER customer address if exists
+			if (!empty($carac_objektadresse)) {
+				// Get Y position after customer address was fully printed
+				$posy_after_client = $pdf->getY();
+
+				// Add spacing
+				$posy_after_client += 2;
+
+				// Print Objektadresse label (bold)
+				$pdf->SetXY($posx + 2, $posy_after_client);
+				$pdf->SetFont('', 'B', $default_font_size - 1);
+				$pdf->MultiCell($widthrecbox - 4, 4, $outputlangs->transnoentities("ObjectAddress").':', 0, $ltrdirection);
+
+				// Print Objektadresse content
+				$posy_after_label = $pdf->getY();
+				$pdf->SetXY($posx + 2, $posy_after_label);
+				$pdf->SetFont('', '', $default_font_size - 1);
+				$pdf->MultiCell($widthrecbox - 4, 4, $carac_objektadresse, 0, $ltrdirection);
+			}
 		}
 
 		$pdf->SetTextColor(0, 0, 0);
