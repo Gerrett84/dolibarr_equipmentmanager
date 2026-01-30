@@ -540,6 +540,7 @@ NotApplicable=Nicht vorhanden
 # Checklist UI
 CheckPoint=Prüfpunkt
 Result=Ergebnis
+DefectPhoto=Mangel-Foto
 Norm=Norm
 Sections=Abschnitte
 Items=Prüfpunkte

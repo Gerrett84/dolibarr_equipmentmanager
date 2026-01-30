@@ -193,8 +193,8 @@ class pdf_checklist
         $posy = $this->_drawEquipmentInfo($pdf, $equipment, $intervention, $outputlangs, $posy);
         $posy += 5;
 
-        // Draw checklist sections and items
-        $posy = $this->_drawChecklistContent($pdf, $checklist, $template, $outputlangs, $posy);
+        // Draw checklist sections and items (with intervention for defect photos)
+        $posy = $this->_drawChecklistContent($pdf, $checklist, $template, $outputlangs, $posy, $intervention);
 
         // Draw completion info (ensure it fits on current page)
         $this->_drawResult($pdf, $checklist, $user, $outputlangs, $posy);
@@ -367,16 +367,25 @@ class pdf_checklist
      * @param ChecklistTemplate $template Template
      * @param Translate $outputlangs Language object
      * @param int $posy Current Y position
+     * @param Fichinter|null $intervention Intervention object (for photo path)
      * @return int New Y position
      */
-    protected function _drawChecklistContent(&$pdf, $checklist, $template, $outputlangs, $posy)
+    protected function _drawChecklistContent(&$pdf, $checklist, $template, $outputlangs, $posy, $intervention = null)
     {
+        global $conf;
+
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
         // Column widths: Checkpoint narrower, Notes wider for customer remarks
         $col1_width = $width * 0.45;  // Prüfpunkt
         $col2_width = $width * 0.15;  // Ergebnis (OK/Mangel/N.V.)
         $col3_width = $width * 0.40;  // Anmerkungen (wichtig für Kunden)
+
+        // Get intervention ref for defect photo path
+        $intervention_ref = '';
+        if ($intervention) {
+            $intervention_ref = $intervention->ref;
+        }
 
         foreach ($template->sections as $section) {
             // Check page break (leave space for at least header + a few items)
@@ -408,6 +417,7 @@ class pdf_checklist
                 $answer = isset($item_result['answer']) ? $item_result['answer'] : '';
                 $answer_text = isset($item_result['answer_text']) ? $item_result['answer_text'] : '';
                 $note = isset($item_result['note']) ? $item_result['note'] : '';
+                $photo = isset($item_result['photo']) ? $item_result['photo'] : '';
                 $note_converted = $outputlangs->convToOutputCharset($note);
 
                 // Calculate row height based on note text (allow multi-line)
@@ -422,8 +432,12 @@ class pdf_checklist
                     }
                 }
 
-                // Check page break (with calculated row height)
-                if ($posy + $row_height > $this->page_hauteur - 25) {
+                // Check page break (with calculated row height + potential photo)
+                $needed_space = $row_height;
+                if (!empty($photo) && $answer == 'mangel') {
+                    $needed_space += 35; // Extra space for photo
+                }
+                if ($posy + $needed_space > $this->page_hauteur - 25) {
                     $pdf->AddPage();
                     $posy = $this->marge_haute + 10;
                 }
@@ -460,6 +474,32 @@ class pdf_checklist
                 $note_y = $pdf->GetY();
                 $pdf->MultiCell($col3_width, $row_height, $note_converted, 1, 'L', false, 1, $note_x, $note_y, true, 0, false, true, $row_height, 'T');
                 $posy += $row_height + 1;
+
+                // Add defect photo if exists (only for 'mangel' answers)
+                if (!empty($photo) && $answer == 'mangel' && !empty($intervention_ref)) {
+                    $photo_path = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($intervention_ref) . '/defect_photos/' . $photo;
+
+                    if (file_exists($photo_path)) {
+                        // Check page break for photo
+                        if ($posy + 35 > $this->page_hauteur - 25) {
+                            $pdf->AddPage();
+                            $posy = $this->marge_haute + 10;
+                        }
+
+                        // Draw photo with label
+                        $pdf->SetFont('', 'I', $default_font_size - 2);
+                        $pdf->SetXY($this->marge_gauche + 5, $posy);
+                        $pdf->Cell(30, 4, $this->pdfStr($outputlangs->transnoentities('DefectPhoto')).':', 0, 0, 'L');
+
+                        // Draw photo (max 30mm height, maintain aspect ratio)
+                        $photo_x = $this->marge_gauche + 35;
+                        $photo_max_height = 30;
+                        $photo_max_width = 50;
+
+                        $pdf->Image($photo_path, $photo_x, $posy, $photo_max_width, $photo_max_height, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
+                        $posy += $photo_max_height + 3;
+                    }
+                }
             }
 
             $posy += 3;
@@ -637,8 +677,8 @@ class pdf_checklist
             $posy = $this->_drawEquipmentInfo($pdf, $data['equipment'], $intervention, $outputlangs, $posy);
             $posy += 5;
 
-            // Draw checklist sections and items
-            $posy = $this->_drawChecklistContent($pdf, $data['checklist'], $data['template'], $outputlangs, $posy);
+            // Draw checklist sections and items (with intervention for defect photos)
+            $posy = $this->_drawChecklistContent($pdf, $data['checklist'], $data['template'], $outputlangs, $posy, $intervention);
 
             // Draw completion info
             $this->_drawResult($pdf, $data['checklist'], $user, $outputlangs, $posy);
