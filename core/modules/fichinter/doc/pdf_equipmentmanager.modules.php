@@ -400,6 +400,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 @chmod($file, octdec($conf->global->MAIN_UMASK));
             }
 
+            // Generate internal defect report PDF (v4.2)
+            if (!$object->specimen) {
+                $this->_generateDefectReport($object, $outputlangs, $dir, $objectref);
+            }
+
             $this->result = array('fullpath' => $file);
 
             return 1;
@@ -769,9 +774,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
                 $photoPath = $photoDir . '/' . $entry->photo;
 
-                // Log for debugging
-                dol_syslog("PDF: Photo path check - entry->photo=".$entry->photo." path=".$photoPath." exists=".file_exists($photoPath), LOG_DEBUG);
-
                 if (file_exists($photoPath)) {
                     // Check page break for photo (30mm height + margin)
                     if ($curY + 35 > $this->page_hauteur - 20) {
@@ -779,25 +781,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                         $curY = $this->marge_haute + 5;
                     }
 
-                    $pdf->SetFont('', 'I', $default_font_size - 2);
-                    $pdf->SetXY($leftMargin + $textPadding, $curY);
-                    $pdf->Cell(25, 4, $outputlangs->transnoentities("DefectPhoto").":", 0, 0, 'L');
-
-                    // Draw photo (max 30mm height)
-                    $photoX = $leftMargin + $textPadding + 25;
+                    // Draw photo directly without label (max 30mm height)
+                    $photoX = $leftMargin + $textPadding;
                     $photoMaxHeight = 30;
                     $photoMaxWidth = 50;
 
                     $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
                     $curY += $photoMaxHeight + 3;
-                } else {
-                    // Debug: show that photo exists in DB but file not found
-                    $pdf->SetFont('', 'I', $default_font_size - 2);
-                    $pdf->SetXY($leftMargin + $textPadding, $curY);
-                    $pdf->SetTextColor(255, 0, 0);
-                    $pdf->MultiCell(0, 4, "DEBUG: Pfad=".$photoPath, 0, 'L');
-                    $pdf->SetTextColor(0, 0, 0);
-                    $curY = $pdf->GetY() + 1;
                 }
             }
 
@@ -1050,5 +1040,175 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $default_font_size = pdf_getPDFFontSize($outputlangs);
 
         return pdf_pagefoot($pdf, $outputlangs, 'FICHINTER_FREE_TEXT', $conf->mycompany, $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object);
+    }
+
+    /**
+     * Generate internal defect report PDF (v4.2)
+     * Lists all equipment with defects including equipment data and photos
+     *
+     * @param Fichinter $object Fichinter object
+     * @param Translate $outputlangs Output language object
+     * @param string $dir Output directory
+     * @param string $objectref Object reference
+     * @return int 1 if OK, 0 if no defects found
+     */
+    protected function _generateDefectReport($object, $outputlangs, $dir, $objectref)
+    {
+        global $conf, $mysoc;
+
+        // Collect all entries with defects
+        $defects = array();
+        $equipmentList = Equipment::getEquipmentForIntervention($this->db, $object->id);
+
+        foreach ($equipmentList as $equipment) {
+            $detailHelper = new InterventionDetail($this->db);
+            $entries = $detailHelper->fetchAllByInterventionEquipment($object->id, $equipment->id);
+
+            foreach ($entries as $entry) {
+                if (!empty($entry->issues_found)) {
+                    $defects[] = array(
+                        'equipment' => $equipment,
+                        'entry' => $entry
+                    );
+                }
+            }
+        }
+
+        // No defects found - skip PDF generation
+        if (empty($defects)) {
+            return 0;
+        }
+
+        // Create PDF
+        $pdf = pdf_getInstance($this->format);
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+        $pdf->SetAutoPageBreak(1, 0);
+
+        if (class_exists('TCPDF')) {
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+        }
+        $pdf->SetFont(pdf_getPDFFont($outputlangs));
+
+        $pdf->Open();
+        $pdf->AddPage();
+
+        $curY = $this->marge_haute;
+
+        // Header
+        $pdf->SetFont('', 'B', $default_font_size + 4);
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->Cell(0, 8, "INTERNE MÄNGELLISTE", 0, 1, 'C');
+        $curY += 10;
+
+        // Intervention info
+        $pdf->SetFont('', '', $default_font_size);
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->Cell(0, 5, "Servicebericht: ".$object->ref, 0, 1, 'L');
+        $curY += 5;
+
+        if ($object->thirdparty) {
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->Cell(0, 5, "Kunde: ".$object->thirdparty->name, 0, 1, 'L');
+            $curY += 5;
+        }
+
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->Cell(0, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 1, 'L');
+        $curY += 8;
+
+        // Separator line
+        $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+        $curY += 5;
+
+        // List defects
+        $defectNum = 0;
+        foreach ($defects as $defect) {
+            $defectNum++;
+            $equipment = $defect['equipment'];
+            $entry = $defect['entry'];
+
+            // Check page break
+            if ($curY + 50 > $this->page_hauteur - 20) {
+                $pdf->AddPage();
+                $curY = $this->marge_haute;
+            }
+
+            // Defect number and equipment name
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->Cell(0, 5, $defectNum.". ".$equipment->name, 0, 1, 'L');
+            $curY += 5;
+
+            // Equipment details
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $details = array();
+            if (!empty($equipment->equipment_type)) {
+                $details[] = "Typ: ".$equipment->equipment_type;
+            }
+            if (!empty($equipment->serial_number)) {
+                $details[] = "S/N: ".$equipment->serial_number;
+            }
+            if (!empty($equipment->location)) {
+                $details[] = "Standort: ".$equipment->location;
+            }
+
+            if (!empty($details)) {
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, implode(" | ", $details), 0, 1, 'L');
+                $curY += 5;
+            }
+
+            // Defect date
+            if (!empty($entry->work_date)) {
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, "Festgestellt am: ".dol_print_date($entry->work_date, 'day'), 0, 1, 'L');
+                $curY += 5;
+            }
+
+            // Defect description
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche + 5, $curY);
+            $pdf->Cell(0, 4, "Mangel:", 0, 1, 'L');
+            $curY += 4;
+
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche + 5, $curY);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, 4, $entry->issues_found, 0, 'L');
+            $curY = $pdf->GetY() + 2;
+
+            // Defect photo
+            if (!empty($entry->photo)) {
+                $photoPath = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/entry_photos/' . $entry->photo;
+
+                if (file_exists($photoPath)) {
+                    if ($curY + 35 > $this->page_hauteur - 20) {
+                        $pdf->AddPage();
+                        $curY = $this->marge_haute;
+                    }
+
+                    $pdf->Image($photoPath, $this->marge_gauche + 5, $curY, 50, 35, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
+                    $curY += 38;
+                }
+            }
+
+            // Separator
+            $curY += 3;
+            $pdf->SetDrawColor(200, 200, 200);
+            $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+            $pdf->SetDrawColor(0, 0, 0);
+            $curY += 5;
+        }
+
+        // Save PDF
+        $defectFile = $dir."/".$objectref."_maengel.pdf";
+        $pdf->Close();
+        $pdf->Output($defectFile, 'F');
+
+        if (!empty($conf->global->MAIN_UMASK)) {
+            @chmod($defectFile, octdec($conf->global->MAIN_UMASK));
+        }
+
+        return 1;
     }
 }
