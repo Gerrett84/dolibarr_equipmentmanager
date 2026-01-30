@@ -1304,6 +1304,124 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: var(--text-muted);
         }
 
+        /* Defect photo styles */
+        .defect-photo-section {
+            margin-top: 8px;
+        }
+
+        .btn-defect-photo {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-light);
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-defect-photo:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .defect-photo-preview {
+            position: relative;
+            display: inline-block;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .defect-photo-preview img {
+            display: block;
+            max-width: 120px;
+            max-height: 90px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .defect-photo-delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .defect-photo-delete:hover {
+            background: var(--danger-color);
+        }
+
+        .defect-photo-loading {
+            padding: 8px 12px;
+            background: var(--bg-light);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .defect-photo-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .defect-photo-fullscreen {
+            position: relative;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .defect-photo-fullscreen img {
+            max-width: 100%;
+            max-height: calc(100vh - 40px);
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .defect-photo-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .defect-photo-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
         .checklist-complete-btn {
             margin-top: 12px;
         }

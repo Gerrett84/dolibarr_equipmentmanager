@@ -3151,6 +3151,26 @@ class ServiceReportApp {
                             ${!canEditChecklist ? 'disabled' : ''}
                             onchange="app.onChecklistNoteChange(this)">`;
 
+                // Defect photo section (shown when answer is 'mangel')
+                const currentPhoto = result.photo || '';
+                const showPhotoSection = currentAnswer === 'mangel';
+                html += `<div class="defect-photo-section" data-item="${itemId}" style="display:${showPhotoSection ? 'block' : 'none'}">`;
+
+                if (currentPhoto) {
+                    // Show photo thumbnail
+                    html += `<div class="defect-photo-preview" data-item="${itemId}">
+                        <img src="${this.getDefectPhotoUrl(currentPhoto)}" alt="Mangel-Foto" onclick="app.viewDefectPhoto('${currentPhoto}')">
+                        ${canEditChecklist ? `<button type="button" class="defect-photo-delete" onclick="app.deleteDefectPhoto(${itemId})" title="Foto löschen">✕</button>` : ''}
+                    </div>`;
+                } else if (canEditChecklist) {
+                    // Show add photo button
+                    html += `<button type="button" class="btn-defect-photo" onclick="app.captureDefectPhoto(${itemId})">
+                        📷 Foto hinzufügen
+                    </button>`;
+                }
+
+                html += `</div>`;
+
                 html += `</div>`;
             });
 
@@ -3308,6 +3328,12 @@ class ServiceReportApp {
         const noteEl = selectEl.closest('.checklist-item').querySelector('.checklist-item-note');
         const note = noteEl ? noteEl.value : '';
 
+        // Show/hide defect photo section based on answer
+        const photoSection = selectEl.closest('.checklist-item').querySelector('.defect-photo-section');
+        if (photoSection) {
+            photoSection.style.display = answer === 'mangel' ? 'block' : 'none';
+        }
+
         await this.saveChecklistItem(itemCode, answer, note, skipToast);
     }
 
@@ -3321,6 +3347,157 @@ class ServiceReportApp {
         const answer = selectEl ? selectEl.value : '';
 
         await this.saveChecklistItem(itemCode, answer, note);
+    }
+
+    // Get URL for defect photo
+    getDefectPhotoUrl(filename) {
+        if (!filename) return '';
+        const checklistId = this.currentChecklist?.checklist?.id;
+        if (!checklistId) return '';
+        // Photos are served via API endpoint with filename
+        return `${CONFIG.apiBase}/defect-photo/${checklistId}/file/${filename}`;
+    }
+
+    // Capture defect photo for an item
+    async captureDefectPhoto(itemId) {
+        if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist?.checklist?.id) {
+            this.showToast('Fehler: Checkliste nicht geladen');
+            return;
+        }
+
+        // Create file input for camera capture
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.capture = 'environment'; // Use back camera on mobile
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Show loading indicator
+            const photoSection = document.querySelector(`.defect-photo-section[data-item="${itemId}"]`);
+            if (photoSection) {
+                photoSection.innerHTML = '<div class="defect-photo-loading">📷 Wird hochgeladen...</div>';
+            }
+
+            try {
+                // Read file as base64
+                const base64Data = await this.readFileAsBase64(file);
+
+                // Upload via API: defect-photo/{checklist_id}/{item_id}
+                const response = await this.apiCall(`defect-photo/${this.currentChecklist.checklist.id}/${itemId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        image: base64Data,
+                        filename: file.name
+                    })
+                });
+
+                if (response.status === 'ok' && response.filename) {
+                    // Update UI with new photo
+                    if (photoSection) {
+                        photoSection.innerHTML = `
+                            <div class="defect-photo-preview" data-item="${itemId}">
+                                <img src="${this.getDefectPhotoUrl(response.filename)}" alt="Mangel-Foto" onclick="app.viewDefectPhoto('${response.filename}')">
+                                <button type="button" class="defect-photo-delete" onclick="app.deleteDefectPhoto(${itemId})" title="Foto löschen">✕</button>
+                            </div>`;
+                    }
+
+                    // Update local checklist data
+                    if (this.currentChecklist?.results?.[itemId]) {
+                        this.currentChecklist.results[itemId].photo = response.filename;
+                    }
+
+                    this.showToast('Foto gespeichert');
+                } else {
+                    throw new Error(response.error || 'Upload fehlgeschlagen');
+                }
+            } catch (err) {
+                console.error('Failed to upload defect photo:', err);
+                this.showToast('Fehler beim Hochladen');
+
+                // Restore add button
+                if (photoSection) {
+                    photoSection.innerHTML = `
+                        <button type="button" class="btn-defect-photo" onclick="app.captureDefectPhoto(${itemId})">
+                            📷 Foto hinzufügen
+                        </button>`;
+                }
+            }
+        };
+
+        fileInput.click();
+    }
+
+    // Read file as base64
+    readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Delete defect photo
+    async deleteDefectPhoto(itemId) {
+        if (!this.currentIntervention || !this.currentChecklist?.checklist?.id) {
+            this.showToast('Fehler: Checkliste nicht geladen');
+            return;
+        }
+
+        if (!confirm('Foto wirklich löschen?')) {
+            return;
+        }
+
+        const photoSection = document.querySelector(`.defect-photo-section[data-item="${itemId}"]`);
+
+        try {
+            await this.apiCall(`defect-photo/${this.currentChecklist.checklist.id}/${itemId}`, {
+                method: 'DELETE'
+            });
+
+            // Update UI - show add button again
+            if (photoSection) {
+                photoSection.innerHTML = `
+                    <button type="button" class="btn-defect-photo" onclick="app.captureDefectPhoto(${itemId})">
+                        📷 Foto hinzufügen
+                    </button>`;
+            }
+
+            // Update local checklist data
+            if (this.currentChecklist?.results?.[itemId]) {
+                this.currentChecklist.results[itemId].photo = '';
+            }
+
+            this.showToast('Foto gelöscht');
+        } catch (err) {
+            console.error('Failed to delete defect photo:', err);
+            this.showToast('Fehler beim Löschen');
+        }
+    }
+
+    // View defect photo in fullscreen
+    viewDefectPhoto(filename) {
+        const url = this.getDefectPhotoUrl(filename);
+        if (!url) return;
+
+        // Create fullscreen overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'defect-photo-overlay';
+        overlay.innerHTML = `
+            <div class="defect-photo-fullscreen">
+                <button class="defect-photo-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                <img src="${url}" alt="Mangel-Foto">
+            </div>
+        `;
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        };
+        document.body.appendChild(overlay);
     }
 
     // Save a single checklist item

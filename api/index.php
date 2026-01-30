@@ -168,6 +168,10 @@ try {
             handleChecklist($method, $parts, $input);
             break;
 
+        case 'defect-photo':
+            handleDefectPhoto($method, $parts, $input);
+            break;
+
         case 'equipment':
             handleEquipment($method, $parts, $input);
             break;
@@ -2012,7 +2016,8 @@ function handleChecklist($method, $parts, $input) {
                     $answer = $item_data['answer'] ?? '';
                     $answer_text = $item_data['answer_text'] ?? '';
                     $note = $item_data['note'] ?? '';
-                    $checklist->saveItemResult($item_id, $answer, $answer_text, $note);
+                    $photo = $item_data['photo'] ?? '';
+                    $checklist->saveItemResult($item_id, $answer, $answer_text, $note, $photo);
                 }
             }
 
@@ -2120,7 +2125,8 @@ function handleChecklist($method, $parts, $input) {
                 $answer = $item_data['answer'] ?? '';
                 $answer_text = $item_data['answer_text'] ?? '';
                 $note = $item_data['note'] ?? '';
-                $checklist->saveItemResult($item_id, $answer, $answer_text, $note);
+                $photo = $item_data['photo'] ?? '';
+                $checklist->saveItemResult($item_id, $answer, $answer_text, $note, $photo);
             }
         }
 
@@ -2247,6 +2253,235 @@ function handleEquipment($method, $parts, $input) {
             http_response_code(500);
             echo json_encode(['error' => 'Failed to update equipment', 'details' => $equipment->error]);
         }
+
+    } else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+    }
+}
+
+/**
+ * Handle defect photo upload for checklist items
+ * POST /defect-photo/{checklist_id}/{item_id} - Upload photo
+ * GET /defect-photo/{checklist_id}/{item_id} - Get photo info
+ * GET /defect-photo/{checklist_id}/file/{filename} - Serve photo file directly
+ * DELETE /defect-photo/{checklist_id}/{item_id} - Delete photo
+ */
+function handleDefectPhoto($method, $parts, $input) {
+    global $db, $user, $conf;
+
+    $checklist_id = (int)($parts[1] ?? 0);
+
+    // Check for file serving mode: /defect-photo/{checklist_id}/file/{filename}
+    if (($parts[2] ?? '') === 'file' && $method === 'GET') {
+        $filename = $parts[3] ?? '';
+        if (!$checklist_id || !$filename) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Checklist ID and filename required']);
+            return;
+        }
+
+        // Sanitize filename
+        $filename = basename($filename);
+
+        // Get checklist to find intervention
+        $checklist = new ChecklistResult($db);
+        if ($checklist->fetch($checklist_id) <= 0) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Checklist not found']);
+            return;
+        }
+
+        // Get intervention ref for folder path
+        dol_include_once('/fichinter/class/fichinter.class.php');
+        $fichinter = new Fichinter($db);
+
+        $sql = "SELECT fk_intervention FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link WHERE rowid = ".(int)$checklist->fk_equipment_intervention;
+        $resql = $db->query($sql);
+        $intervention_id = 0;
+        if ($resql && $db->num_rows($resql)) {
+            $obj = $db->fetch_object($resql);
+            $intervention_id = $obj->fk_intervention;
+        }
+
+        if ($intervention_id > 0) {
+            $fichinter->fetch($intervention_id);
+        }
+
+        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/defect_photos';
+        $filepath = $docDir . '/' . $filename;
+
+        if (file_exists($filepath)) {
+            // Serve file directly
+            $mimeType = mime_content_type($filepath);
+            header('Content-Type: ' . $mimeType);
+            header('Content-Length: ' . filesize($filepath));
+            header('Cache-Control: public, max-age=3600');
+            readfile($filepath);
+            exit;
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'File not found']);
+        }
+        return;
+    }
+
+    $item_id = (int)($parts[2] ?? 0);
+
+    if (!$checklist_id || !$item_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Checklist ID and Item ID required']);
+        return;
+    }
+
+    // Get checklist to verify it exists and get intervention info
+    $checklist = new ChecklistResult($db);
+    if ($checklist->fetch($checklist_id) <= 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Checklist not found']);
+        return;
+    }
+
+    // Get intervention ref for folder path
+    dol_include_once('/fichinter/class/fichinter.class.php');
+    $fichinter = new Fichinter($db);
+
+    // Get intervention ID from equipment link
+    $sql = "SELECT fk_intervention FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link WHERE rowid = ".(int)$checklist->fk_equipment_intervention;
+    $resql = $db->query($sql);
+    $intervention_id = 0;
+    if ($resql && $db->num_rows($resql)) {
+        $obj = $db->fetch_object($resql);
+        $intervention_id = $obj->fk_intervention;
+    }
+
+    if ($intervention_id > 0) {
+        $fichinter->fetch($intervention_id);
+    }
+
+    // Photo directory: ficheinter/{ref}/defect_photos/
+    $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/defect_photos';
+
+    if ($method === 'POST') {
+        // Ensure directory exists
+        if (!is_dir($docDir)) {
+            dol_mkdir($docDir);
+        }
+
+        // Check for base64 image data
+        if (!empty($input['image'])) {
+            $imageData = $input['image'];
+
+            // Remove data URL prefix if present
+            if (strpos($imageData, 'base64,') !== false) {
+                $imageData = explode('base64,', $imageData)[1];
+            }
+
+            $decoded = base64_decode($imageData);
+            if (!$decoded) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid image data']);
+                return;
+            }
+
+            // Detect image type
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->buffer($decoded);
+            $extension = 'jpg';
+            if ($mimeType === 'image/png') $extension = 'png';
+            elseif ($mimeType === 'image/gif') $extension = 'gif';
+
+            // Generate unique filename: defect_{checklist_id}_{item_id}_{timestamp}.jpg
+            $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
+            $filename = "defect_{$checklist_id}_{$item_id}_{$timestamp}.{$extension}";
+            $filepath = $docDir . '/' . $filename;
+
+            // Delete old photo if exists
+            $pattern = $docDir . "/defect_{$checklist_id}_{$item_id}_*";
+            foreach (glob($pattern) as $oldFile) {
+                @unlink($oldFile);
+            }
+
+            // Save new photo
+            if (file_put_contents($filepath, $decoded)) {
+                // Update database with photo filename
+                $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results";
+                $sql .= " SET photo = '".$db->escape($filename)."'";
+                $sql .= " WHERE fk_checklist_result = ".(int)$checklist_id;
+                $sql .= " AND fk_checklist_item = ".(int)$item_id;
+                $db->query($sql);
+
+                echo json_encode([
+                    'status' => 'ok',
+                    'filename' => $filename,
+                    'message' => 'Photo uploaded'
+                ]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to save photo']);
+            }
+            return;
+        }
+
+        http_response_code(400);
+        echo json_encode(['error' => 'No image data received']);
+
+    } elseif ($method === 'GET') {
+        // Get photo info
+        $sql = "SELECT photo FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results";
+        $sql .= " WHERE fk_checklist_result = ".(int)$checklist_id;
+        $sql .= " AND fk_checklist_item = ".(int)$item_id;
+        $resql = $db->query($sql);
+
+        if ($resql && $db->num_rows($resql)) {
+            $obj = $db->fetch_object($resql);
+            if (!empty($obj->photo)) {
+                $filepath = $docDir . '/' . $obj->photo;
+                if (file_exists($filepath)) {
+                    echo json_encode([
+                        'status' => 'ok',
+                        'filename' => $obj->photo,
+                        'url' => DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($fichinter->ref) . '/defect_photos/' . $obj->photo)
+                    ]);
+                    return;
+                }
+            }
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'filename' => null,
+            'url' => null
+        ]);
+
+    } elseif ($method === 'DELETE') {
+        // Delete photo
+        $sql = "SELECT photo FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results";
+        $sql .= " WHERE fk_checklist_result = ".(int)$checklist_id;
+        $sql .= " AND fk_checklist_item = ".(int)$item_id;
+        $resql = $db->query($sql);
+
+        if ($resql && $db->num_rows($resql)) {
+            $obj = $db->fetch_object($resql);
+            if (!empty($obj->photo)) {
+                $filepath = $docDir . '/' . $obj->photo;
+                if (file_exists($filepath)) {
+                    @unlink($filepath);
+                }
+            }
+        }
+
+        // Clear from database
+        $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results";
+        $sql .= " SET photo = NULL";
+        $sql .= " WHERE fk_checklist_result = ".(int)$checklist_id;
+        $sql .= " AND fk_checklist_item = ".(int)$item_id;
+        $db->query($sql);
+
+        echo json_encode([
+            'status' => 'ok',
+            'message' => 'Photo deleted'
+        ]);
 
     } else {
         http_response_code(405);
