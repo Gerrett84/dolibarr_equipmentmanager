@@ -1058,7 +1058,26 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         // Collect all entries with defects
         $defects = array();
-        $equipmentList = Equipment::getEquipmentForIntervention($this->db, $object->id);
+
+        // Get linked equipments (same query as main PDF)
+        $sql = "SELECT DISTINCT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+        $sql .= " WHERE fk_intervention = ".(int)$object->id;
+        $sql .= " ORDER BY rowid ASC";
+
+        $resql = $this->db->query($sql);
+        $equipmentList = array();
+
+        if ($resql) {
+            $num = $this->db->num_rows($resql);
+            for ($i = 0; $i < $num; $i++) {
+                $obj = $this->db->fetch_object($resql);
+                $equipment = new Equipment($this->db);
+                if ($equipment->fetch($obj->fk_equipment) > 0) {
+                    $equipmentList[] = $equipment;
+                }
+            }
+            $this->db->free($resql);
+        }
 
         foreach ($equipmentList as $equipment) {
             $detailHelper = new InterventionDetail($this->db);
