@@ -61,3 +61,7 @@ INSERT IGNORE INTO llx_equipmentmanager_equipment_types (code, label, position, 
 ('rws', 'RWS', 60, 1, NOW(), 1),
 ('rwa', 'RWA', 70, 1, NOW(), 1),
 ('other', 'Other', 999, 1, NOW(), 1);
+
+-- v4.2: Add Objektadresse (OBJ) contact type for proposals (same as for orders)
+INSERT IGNORE INTO llx_c_type_contact (element, source, code, libelle, active, module, position)
+VALUES ('propal', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50);

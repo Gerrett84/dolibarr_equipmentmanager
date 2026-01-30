@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.1.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -28,7 +28,14 @@
 - **E-Mail-Anhänge** - Signierte PDFs & Checklisten automatisch an E-Mails anhängen
 - **Verbesserte PDF-Ausgabe** - Besseres Layout für Checklisten und Signaturen
 
-### NEU in v4.1: PWA-Statusfilter & Offline-Verbesserungen
+### NEU in v4.1.1: Objektadresse in Angeboten
+
+- **Objektadresse im PDF** - Angebote zeigen die Objektadresse unterhalb der Kundenadresse
+- **Kontakttyp OBJ** - Nutzt den bestehenden "Objektadresse" Kontakttyp
+- **Automatische Integration** - Funktioniert mit allen Standard-PDF-Templates (Cyan, Azur, etc.)
+- **Keine Template-Änderung nötig** - Hook-basierte Lösung für maximale Kompatibilität
+
+### v4.1: PWA-Statusfilter & Offline-Verbesserungen
 
 - **Status-Tabs** - Auftragsübersicht mit Offen/Freigegeben/Erledigt Filtern
 - **Zeitraum-Auswahl** - Erledigte Aufträge nach Zeitraum filtern (30 Tage, 3/6/12 Monate)
@@ -147,6 +154,13 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.1.1 (2025-01-30)
+
+- **Objektadresse in Angeboten** - Objektadresse wird im PDF unter der Kundenadresse angezeigt
+- **Hook-basierte Integration** - Funktioniert mit allen Standard-PDF-Templates (Cyan, Azur, etc.)
+- **OBJ Kontakttyp für Propal** - Kontakttyp "Objektadresse" jetzt auch für Angebote verfügbar
+- **Custom PDF Templates** - Optionale spezielle Templates (cyan_objektadresse, azur_objektadresse)
 
 ### v4.1.0 (2025-01-24)
 
@@ -339,6 +353,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.1.0
+**Current Version:** 4.1.1
 **Released:** January 2025
 **Compatibility:** Dolibarr 16.0+

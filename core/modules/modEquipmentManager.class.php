@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '4.1.0';
+        $this->version = '4.1.1';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -36,6 +36,7 @@ class modEquipmentManager extends DolibarrModules
             'hooks' => array(
                 'toprightmenu',  // Hook for adding to top right menu
                 'formmail',      // Hook for auto-attaching PDFs to emails
+                'pdfgeneration', // Hook for adding Objektadresse to proposal PDF
             ),
         );
         $this->dirs = array();
