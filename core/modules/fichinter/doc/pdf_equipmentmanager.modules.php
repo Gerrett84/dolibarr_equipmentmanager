@@ -1199,8 +1199,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY += 5;
             }
 
-            // Equipment details - line 2: Label, Location, S/N
+            // Equipment details - line 2: Equipment number, Label, Location, S/N
             $line2 = array();
+            if (!empty($equipment->equipment_number)) {
+                $line2[] = "Anl.Nr: ".$equipment->equipment_number;
+            }
             if (!empty($equipment->label)) {
                 $line2[] = "Bezeichnung: ".$equipment->label;
             }
