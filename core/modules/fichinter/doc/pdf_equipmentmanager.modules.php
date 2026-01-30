@@ -795,7 +795,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $pdf->SetFont('', 'I', $default_font_size - 2);
                     $pdf->SetXY($leftMargin + $textPadding, $curY);
                     $pdf->SetTextColor(255, 0, 0);
-                    $pdf->Cell(0, 4, "DEBUG: Foto nicht gefunden: ".$entry->photo, 0, 1, 'L');
+                    $pdf->MultiCell(0, 4, "DEBUG: Pfad=".$photoPath, 0, 'L');
                     $pdf->SetTextColor(0, 0, 0);
                     $curY = $pdf->GetY() + 1;
                 }
