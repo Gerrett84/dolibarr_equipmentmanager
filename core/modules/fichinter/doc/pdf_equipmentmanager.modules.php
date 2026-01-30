@@ -1132,6 +1132,34 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $curY += 5;
         }
 
+        // Object address in header (from first equipment's fk_address)
+        $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
+        $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
+        $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+        $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
+
+        $resql_addr = $this->db->query($sql_addr);
+        if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
+            $obj_addr = $this->db->fetch_object($resql_addr);
+            require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+            $contact = new Contact($this->db);
+            if ($contact->fetch($obj_addr->fk_address) > 0) {
+                $addrParts = array();
+                if ($contact->address) {
+                    $addrParts[] = str_replace("\n", ", ", $contact->address);
+                }
+                if ($contact->zip || $contact->town) {
+                    $addrParts[] = trim($contact->zip.' '.$contact->town);
+                }
+                if (!empty($addrParts)) {
+                    $pdf->SetXY($this->marge_gauche, $curY);
+                    $pdf->Cell(0, 5, "Objekt: ".implode(", ", $addrParts), 0, 1, 'L');
+                    $curY += 5;
+                }
+            }
+        }
+
         $pdf->SetXY($this->marge_gauche, $curY);
         $pdf->Cell(0, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 1, 'L');
         $curY += 8;
@@ -1139,9 +1167,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Separator line
         $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
         $curY += 5;
-
-        // Get type translations
-        $type_labels = Equipment::getEquipmentTypesTranslated($this->db, $outputlangs);
 
         // List defects
         $defectNum = 0;
@@ -1162,60 +1187,24 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->Cell(0, 5, $defectNum.". ".$equipment->name, 0, 1, 'L');
             $curY += 6;
 
-            // Object address (from fk_address)
-            if (!empty($equipment->fk_address)) {
-                require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-                $contact = new Contact($this->db);
-                if ($contact->fetch($equipment->fk_address) > 0) {
-                    $addrParts = array();
-                    if ($contact->address) {
-                        $addrParts[] = str_replace("\n", ", ", $contact->address);
-                    }
-                    if ($contact->zip || $contact->town) {
-                        $addrParts[] = trim($contact->zip.' '.$contact->town);
-                    }
-                    if (!empty($addrParts)) {
-                        $pdf->SetFont('', '', $default_font_size - 1);
-                        $pdf->SetXY($this->marge_gauche + 5, $curY);
-                        $pdf->Cell(0, 4, "Adresse: ".implode(", ", $addrParts), 0, 1, 'L');
-                        $curY += 5;
-                    }
-                }
-            }
-
-            // Equipment details - line 1: Type, Manufacturer
+            // Equipment details: Anlagennummer, Hersteller, Bezeichnung, Standort
             $pdf->SetFont('', '', $default_font_size - 1);
-            $line1 = array();
-            if (!empty($equipment->equipment_type)) {
-                $type_label = isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
-                $line1[] = "Typ: ".$type_label;
+            $details = array();
+            if (!empty($equipment->equipment_number)) {
+                $details[] = "Anl.Nr: ".$equipment->equipment_number;
             }
             if (!empty($equipment->manufacturer)) {
-                $line1[] = "Hersteller: ".$equipment->manufacturer;
-            }
-            if (!empty($line1)) {
-                $pdf->SetXY($this->marge_gauche + 5, $curY);
-                $pdf->Cell(0, 4, implode(" | ", $line1), 0, 1, 'L');
-                $curY += 5;
-            }
-
-            // Equipment details - line 2: Equipment number, Label, Location, S/N
-            $line2 = array();
-            if (!empty($equipment->equipment_number)) {
-                $line2[] = "Anl.Nr: ".$equipment->equipment_number;
+                $details[] = "Hersteller: ".$equipment->manufacturer;
             }
             if (!empty($equipment->label)) {
-                $line2[] = "Bezeichnung: ".$equipment->label;
+                $details[] = "Bezeichnung: ".$equipment->label;
             }
             if (!empty($equipment->location_note)) {
-                $line2[] = "Standort: ".$equipment->location_note;
+                $details[] = "Standort: ".$equipment->location_note;
             }
-            if (!empty($equipment->serial_number)) {
-                $line2[] = "S/N: ".$equipment->serial_number;
-            }
-            if (!empty($line2)) {
+            if (!empty($details)) {
                 $pdf->SetXY($this->marge_gauche + 5, $curY);
-                $pdf->Cell(0, 4, implode(" | ", $line2), 0, 1, 'L');
+                $pdf->Cell(0, 4, implode(" | ", $details), 0, 1, 'L');
                 $curY += 5;
             }
 
