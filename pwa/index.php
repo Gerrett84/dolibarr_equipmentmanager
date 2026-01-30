@@ -1123,6 +1123,33 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: var(--text-secondary);
         }
 
+        /* Clickable address links */
+        .address-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .address-link:hover,
+        .address-link:active {
+            text-decoration: underline;
+        }
+
+        .customer-address .address-link,
+        .object-address-details .address-link {
+            color: inherit;
+        }
+
+        .customer-address .address-link:hover,
+        .object-address-details .address-link:hover {
+            color: var(--primary-color);
+        }
+
+        .address-header .address-link {
+            color: inherit;
+            font-weight: inherit;
+        }
+
         .object-address-divider {
             margin-top: 12px;
             padding-top: 12px;

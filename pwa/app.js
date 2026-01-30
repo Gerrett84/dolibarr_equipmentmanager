@@ -896,7 +896,7 @@ class ServiceReportApp {
             statusText = 'Abgeschlossen';
         }
 
-        // Format object addresses
+        // Format object addresses with clickable maps link
         let objectAddressHtml = '';
         if (intervention.object_addresses && intervention.object_addresses.length > 0) {
             const addr = intervention.object_addresses[0]; // Show first address
@@ -907,13 +907,17 @@ class ServiceReportApp {
                         ${addr.name || ''}
                     </p>
                     <p class="object-address-details">
-                        ${addr.address || ''}<br>
-                        ${addr.zip || ''} ${addr.town || ''}
+                        ${this.renderAddressLink(addr.address, addr.zip, addr.town)}
                     </p>
                     ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:4px 0 0; font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
                 </div>
             `;
         }
+
+        // Customer address with clickable maps link
+        const customerAddressHtml = intervention.customer?.address || intervention.customer?.zip || intervention.customer?.town
+            ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
+            : '';
 
         card.innerHTML = `
             <div class="card-header">
@@ -927,8 +931,7 @@ class ServiceReportApp {
                     ${intervention.customer?.name || 'Kunde'}
                 </p>
                 <p class="customer-address">
-                    ${intervention.customer?.address || ''}<br>
-                    ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
+                    ${customerAddressHtml}
                 </p>
                 ${objectAddressHtml}
                 ${intervention.date_start ? `<p class="date-text">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
@@ -1743,6 +1746,35 @@ class ServiceReportApp {
         return date.toISOString().split('T')[0];
     }
 
+    /**
+     * Generate a maps URL from address components
+     * Opens in Apple Maps on iOS, Google Maps on Android/Desktop
+     */
+    getMapsUrl(address, zip, town) {
+        const parts = [];
+        if (address) parts.push(address);
+        if (zip) parts.push(zip);
+        if (town) parts.push(town);
+
+        if (parts.length === 0) return null;
+
+        const query = encodeURIComponent(parts.join(', '));
+        // Universal link that works on iOS (Apple Maps) and Android/Desktop (Google Maps)
+        return `https://maps.apple.com/?q=${query}`;
+    }
+
+    /**
+     * Create a clickable address link
+     */
+    renderAddressLink(address, zip, town, additionalClasses = '') {
+        const mapsUrl = this.getMapsUrl(address, zip, town);
+        const addressText = `${address || ''}<br>${zip || ''} ${town || ''}`.trim();
+
+        if (!mapsUrl || !addressText) return addressText;
+
+        return `<a href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" class="address-link ${additionalClasses}" title="In Karten öffnen">${addressText}</a>`;
+    }
+
     showToast(message) {
         const toast = document.getElementById('toast');
         toast.textContent = message;
@@ -2033,9 +2065,14 @@ class ServiceReportApp {
                 header.style.alignItems = 'center';
                 header.style.gap = '8px';
                 const addressIds = group.equipment.map(eq => eq.id);
+                const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
+                const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
                 header.innerHTML = `
                     <input type="checkbox" class="address-select-all" data-address="${addrKey}" style="width:18px;height:18px;">
-                    <span>📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}</span>
+                    ${mapsUrl
+                        ? `<a href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" class="address-link" title="In Karten öffnen">📍 ${addressText}</a>`
+                        : `<span>📍 ${addressText}</span>`
+                    }
                 `;
                 header.querySelector('.address-select-all').addEventListener('change', (e) => {
                     const checked = e.target.checked;
@@ -2141,7 +2178,11 @@ class ServiceReportApp {
 
             const header = document.createElement('div');
             header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
-            header.innerHTML = `📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
+            const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            header.innerHTML = mapsUrl
+                ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">📍 ${addressText}</a>`
+                : `📍 ${addressText}`;
             listEl.appendChild(header);
 
             group.equipment.forEach(eq => {
@@ -2565,11 +2606,18 @@ class ServiceReportApp {
             html += '<h4 class="info-heading">Kunde</h4>';
             html += `<div class="info-text">`;
             html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
+            const customerMapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
+            if (customerMapsUrl) {
+                html += `<a href="${customerMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
+            }
             if (intervention.customer.address) {
                 html += `${this.escapeHtml(intervention.customer.address)}<br>`;
             }
             if (intervention.customer.zip || intervention.customer.town) {
                 html += `${this.escapeHtml(intervention.customer.zip || '')} ${this.escapeHtml(intervention.customer.town || '')}`;
+            }
+            if (customerMapsUrl) {
+                html += `</a>`;
             }
             html += `</div>`;
             html += '</div>';
@@ -2586,11 +2634,18 @@ class ServiceReportApp {
                 if (addr.name) {
                     html += `<strong>${this.escapeHtml(addr.name)}</strong><br>`;
                 }
+                const addrMapsUrl = this.getMapsUrl(addr.address, addr.zip, addr.town);
+                if (addrMapsUrl) {
+                    html += `<a href="${addrMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
+                }
                 if (addr.address) {
                     html += `${this.escapeHtml(addr.address)}<br>`;
                 }
                 if (addr.zip || addr.town) {
                     html += `${this.escapeHtml(addr.zip || '')} ${this.escapeHtml(addr.town || '')}`;
+                }
+                if (addrMapsUrl) {
+                    html += `</a>`;
                 }
                 html += `</div>`;
             });
