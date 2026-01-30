@@ -1140,6 +1140,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
         $curY += 5;
 
+        // Get type translations
+        $type_labels = Equipment::getEquipmentTypesTranslated($this->db, $outputlangs);
+
         // List defects
         $defectNum = 0;
         foreach ($defects as $defect) {
@@ -1148,7 +1151,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $entry = $defect['entry'];
 
             // Check page break
-            if ($curY + 50 > $this->page_hauteur - 20) {
+            if ($curY + 70 > $this->page_hauteur - 20) {
                 $pdf->AddPage();
                 $curY = $this->marge_haute;
             }
@@ -1157,24 +1160,59 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->SetFont('', 'B', $default_font_size);
             $pdf->SetXY($this->marge_gauche, $curY);
             $pdf->Cell(0, 5, $defectNum.". ".$equipment->name, 0, 1, 'L');
-            $curY += 5;
+            $curY += 6;
 
-            // Equipment details
+            // Object address (from fk_address)
+            if (!empty($equipment->fk_address)) {
+                require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+                $contact = new Contact($this->db);
+                if ($contact->fetch($equipment->fk_address) > 0) {
+                    $addrParts = array();
+                    if ($contact->address) {
+                        $addrParts[] = str_replace("\n", ", ", $contact->address);
+                    }
+                    if ($contact->zip || $contact->town) {
+                        $addrParts[] = trim($contact->zip.' '.$contact->town);
+                    }
+                    if (!empty($addrParts)) {
+                        $pdf->SetFont('', '', $default_font_size - 1);
+                        $pdf->SetXY($this->marge_gauche + 5, $curY);
+                        $pdf->Cell(0, 4, "Adresse: ".implode(", ", $addrParts), 0, 1, 'L');
+                        $curY += 5;
+                    }
+                }
+            }
+
+            // Equipment details - line 1: Type, Manufacturer
             $pdf->SetFont('', '', $default_font_size - 1);
-            $details = array();
+            $line1 = array();
             if (!empty($equipment->equipment_type)) {
-                $details[] = "Typ: ".$equipment->equipment_type;
+                $type_label = isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
+                $line1[] = "Typ: ".$type_label;
+            }
+            if (!empty($equipment->manufacturer)) {
+                $line1[] = "Hersteller: ".$equipment->manufacturer;
+            }
+            if (!empty($line1)) {
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, implode(" | ", $line1), 0, 1, 'L');
+                $curY += 5;
+            }
+
+            // Equipment details - line 2: Label, Location, S/N
+            $line2 = array();
+            if (!empty($equipment->label)) {
+                $line2[] = "Bezeichnung: ".$equipment->label;
+            }
+            if (!empty($equipment->location_note)) {
+                $line2[] = "Standort: ".$equipment->location_note;
             }
             if (!empty($equipment->serial_number)) {
-                $details[] = "S/N: ".$equipment->serial_number;
+                $line2[] = "S/N: ".$equipment->serial_number;
             }
-            if (!empty($equipment->location)) {
-                $details[] = "Standort: ".$equipment->location;
-            }
-
-            if (!empty($details)) {
+            if (!empty($line2)) {
                 $pdf->SetXY($this->marge_gauche + 5, $curY);
-                $pdf->Cell(0, 4, implode(" | ", $details), 0, 1, 'L');
+                $pdf->Cell(0, 4, implode(" | ", $line2), 0, 1, 'L');
                 $curY += 5;
             }
 
