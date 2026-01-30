@@ -172,6 +172,10 @@ try {
             handleDefectPhoto($method, $parts, $input);
             break;
 
+        case 'entry-photo':
+            handleEntryPhoto($method, $parts, $input);
+            break;
+
         case 'equipment':
             handleEquipment($method, $parts, $input);
             break;
@@ -805,7 +809,8 @@ function handleDetail($method, $parts, $input) {
                 'work_done' => $entry->work_done,
                 'issues_found' => $entry->issues_found,
                 'work_date' => $entry->work_date ? dol_print_date($entry->work_date, 'dayrfc') : null,
-                'work_duration' => (int)$entry->work_duration
+                'work_duration' => (int)$entry->work_duration,
+                'photo' => $entry->photo
             ];
             // Get recommendations/notes from any entry that has them
             if (!empty($entry->recommendations)) $recommendations = $entry->recommendations;
@@ -870,6 +875,58 @@ function handleDetail($method, $parts, $input) {
         $detail->work_date = !empty($input['work_date']) ? strtotime($input['work_date']) : null;
         $detail->work_duration = (int)($input['work_duration'] ?? 0);
 
+        // Get intervention ref for photo directory
+        dol_include_once('/fichinter/class/fichinter.class.php');
+        $fichinter = new Fichinter($db);
+        $fichinter->fetch($intervention_id);
+        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/entry_photos';
+
+        // Handle photo upload
+        if (!empty($input['photo']) && strpos($input['photo'], 'data:image') === 0) {
+            // Ensure directory exists
+            if (!is_dir($docDir)) {
+                dol_mkdir($docDir);
+            }
+
+            // Delete old photo if exists
+            if (!empty($detail->photo)) {
+                $oldPath = $docDir . '/' . $detail->photo;
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+
+            // Save new photo
+            $imageData = $input['photo'];
+            if (strpos($imageData, 'base64,') !== false) {
+                $imageData = explode('base64,', $imageData)[1];
+            }
+            $decoded = base64_decode($imageData);
+
+            if ($decoded) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo->buffer($decoded);
+                $extension = 'jpg';
+                if ($mimeType === 'image/png') $extension = 'png';
+                elseif ($mimeType === 'image/gif') $extension = 'gif';
+
+                $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
+                $filename = "entry_{$equipment_id}_{$timestamp}.{$extension}";
+                $filepath = $docDir . '/' . $filename;
+
+                if (file_put_contents($filepath, $decoded)) {
+                    $detail->photo = $filename;
+                }
+            }
+        } elseif (!empty($input['delete_photo']) && !empty($detail->photo)) {
+            // Delete photo
+            $oldPath = $docDir . '/' . $detail->photo;
+            if (file_exists($oldPath)) {
+                @unlink($oldPath);
+            }
+            $detail->photo = null;
+        }
+
         $result = $detail->createOrUpdate($user);
 
         if ($result > 0) {
@@ -877,7 +934,8 @@ function handleDetail($method, $parts, $input) {
                 'status' => 'ok',
                 'message' => 'Detail saved',
                 'id' => (int)$detail->id,
-                'entry_number' => (int)$detail->entry_number
+                'entry_number' => (int)$detail->entry_number,
+                'photo' => $detail->photo
             ]);
         } else {
             http_response_code(500);
@@ -2486,5 +2544,57 @@ function handleDefectPhoto($method, $parts, $input) {
     } else {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
+    }
+}
+
+/**
+ * Handle entry photo serving
+ * GET /entry-photo/{intervention_id}/file/{filename} - Serve photo file directly
+ */
+function handleEntryPhoto($method, $parts, $input) {
+    global $db, $conf;
+
+    $intervention_id = (int)($parts[1] ?? 0);
+
+    // Only support file serving: /entry-photo/{intervention_id}/file/{filename}
+    if (($parts[2] ?? '') !== 'file' || $method !== 'GET') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid request']);
+        return;
+    }
+
+    $filename = $parts[3] ?? '';
+    if (!$intervention_id || !$filename) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Intervention ID and filename required']);
+        return;
+    }
+
+    // Sanitize filename
+    $filename = basename($filename);
+
+    // Get intervention ref for folder path
+    dol_include_once('/fichinter/class/fichinter.class.php');
+    $fichinter = new Fichinter($db);
+    if ($fichinter->fetch($intervention_id) <= 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Intervention not found']);
+        return;
+    }
+
+    $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/entry_photos';
+    $filepath = $docDir . '/' . $filename;
+
+    if (file_exists($filepath)) {
+        // Serve file directly
+        $mimeType = mime_content_type($filepath);
+        header('Content-Type: ' . $mimeType);
+        header('Content-Length: ' . filesize($filepath));
+        header('Cache-Control: public, max-age=3600');
+        readfile($filepath);
+        exit;
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'File not found']);
     }
 }

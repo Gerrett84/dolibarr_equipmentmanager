@@ -1422,6 +1422,71 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: rgba(255, 255, 255, 0.3);
         }
 
+        /* Entry photo styles (Servicebericht Mängel-Foto) */
+        .entry-photo-section {
+            margin-top: 8px;
+        }
+
+        .btn-entry-photo {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: var(--bg-light);
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-entry-photo:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .entry-photo-preview {
+            position: relative;
+            display: inline-block;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+        }
+
+        .entry-photo-preview img {
+            display: block;
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .entry-photo-delete {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .entry-photo-delete:hover {
+            background: var(--danger-color);
+        }
+
         .checklist-complete-btn {
             margin-top: 12px;
         }
@@ -1612,6 +1677,19 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                         <div class="form-group">
                             <label class="form-label">Festgestellte Mängel</label>
                             <textarea class="form-textarea" id="entryIssuesFound" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Mangel-Foto</label>
+                            <div id="entryPhotoSection" class="entry-photo-section">
+                                <div id="entryPhotoPreview" class="entry-photo-preview" style="display:none;">
+                                    <img id="entryPhotoImg" src="" alt="Mangel-Foto" onclick="app.viewEntryPhoto()">
+                                    <button type="button" class="entry-photo-delete" onclick="app.deleteEntryPhoto()" title="Foto löschen">✕</button>
+                                </div>
+                                <button type="button" id="btnAddEntryPhoto" class="btn-entry-photo" onclick="app.captureEntryPhoto()">
+                                    📷 Foto hinzufügen
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

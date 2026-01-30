@@ -22,6 +22,7 @@ class InterventionDetail extends CommonObject
     public $notes;
     public $work_date;
     public $work_duration;
+    public $photo;
     public $date_creation;
     public $fk_user_creat;
     public $fk_user_modif;
@@ -57,6 +58,7 @@ class InterventionDetail extends CommonObject
         $sql .= "notes,";
         $sql .= "work_date,";
         $sql .= "work_duration,";
+        $sql .= "photo,";
         $sql .= "date_creation,";
         $sql .= "fk_user_creat";
         $sql .= ") VALUES (";
@@ -70,6 +72,7 @@ class InterventionDetail extends CommonObject
         $sql .= ($this->notes ? "'".$this->db->escape($this->notes)."'" : "NULL").",";
         $sql .= ($this->work_date ? "'".$this->db->idate($this->work_date)."'" : "NULL").",";
         $sql .= ($this->work_duration ? (int)$this->work_duration : "0").",";
+        $sql .= ($this->photo ? "'".$this->db->escape($this->photo)."'" : "NULL").",";
         $sql .= "'".$this->db->idate($now)."',";
         $sql .= (int)$user->id;
         $sql .= ")";
@@ -183,6 +186,7 @@ class InterventionDetail extends CommonObject
         $this->notes = $obj->notes;
         $this->work_date = $this->db->jdate($obj->work_date);
         $this->work_duration = $obj->work_duration;
+        $this->photo = $obj->photo ?? null;
         $this->date_creation = $this->db->jdate($obj->date_creation);
         $this->fk_user_creat = $obj->fk_user_creat;
         $this->fk_user_modif = $obj->fk_user_modif;
@@ -250,6 +254,7 @@ class InterventionDetail extends CommonObject
         $sql .= " notes = ".($this->notes ? "'".$this->db->escape($this->notes)."'" : "NULL").",";
         $sql .= " work_date = ".($this->work_date ? "'".$this->db->idate($this->work_date)."'" : "NULL").",";
         $sql .= " work_duration = ".($this->work_duration ? (int)$this->work_duration : "0").",";
+        $sql .= " photo = ".($this->photo ? "'".$this->db->escape($this->photo)."'" : "NULL").",";
         $sql .= " fk_user_modif = ".(int)$user->id;
         $sql .= " WHERE rowid = ".(int)$this->id;
 

@@ -69,3 +69,7 @@ VALUES ('propal', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50);
 -- v4.2: Add photo column to checklist item results for defect photos
 ALTER TABLE llx_equipmentmanager_checklist_item_results
 ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER note;
+
+-- v4.2: Add photo column to intervention details for defect photos in service reports
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER notes;

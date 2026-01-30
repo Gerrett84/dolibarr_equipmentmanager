@@ -288,6 +288,10 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                             $lines = max(1, ceil(strlen($entry->issues_found) / 100));
                             $estimated_height += 5 + ($lines * 4);
                         }
+                        // Add space for photo if exists
+                        if (!empty($entry->photo)) {
+                            $estimated_height += 35; // 30mm photo + 5mm margin
+                        }
                     }
                     // Check for recommendations
                     foreach ($entries as $entry) {
@@ -758,6 +762,32 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
                 $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
+            }
+
+            // Defect photo for this entry (v4.2)
+            if (!empty($entry->photo)) {
+                $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
+                $photoPath = $photoDir . '/' . $entry->photo;
+
+                if (file_exists($photoPath)) {
+                    // Check page break for photo (30mm height + margin)
+                    if ($curY + 35 > $this->page_hauteur - 20) {
+                        $pdf->AddPage();
+                        $curY = $this->marge_haute + 5;
+                    }
+
+                    $pdf->SetFont('', 'I', $default_font_size - 2);
+                    $pdf->SetXY($leftMargin + $textPadding, $curY);
+                    $pdf->Cell(25, 4, $outputlangs->transnoentities("DefectPhoto").":", 0, 0, 'L');
+
+                    // Draw photo (max 30mm height)
+                    $photoX = $leftMargin + $textPadding + 25;
+                    $photoMaxHeight = 30;
+                    $photoMaxWidth = 50;
+
+                    $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
+                    $curY += $photoMaxHeight + 3;
+                }
             }
 
             // Small spacing between entries (no separator line)

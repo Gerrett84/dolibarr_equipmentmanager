@@ -1281,6 +1281,11 @@ class ServiceReportApp {
         document.getElementById('entryWorkDone').value = entry.work_done || '';
         document.getElementById('entryIssuesFound').value = entry.issues_found || '';
 
+        // Load entry photo if exists
+        this.currentEntryPhoto = entry.photo || null;
+        this.currentEntryPhotoData = null; // Only set when new photo is captured
+        this.updateEntryPhotoUI();
+
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
     }
@@ -1298,6 +1303,11 @@ class ServiceReportApp {
         document.getElementById('entryMinutes').value = '0';
         document.getElementById('entryWorkDone').value = '';
         document.getElementById('entryIssuesFound').value = '';
+
+        // Clear entry photo
+        this.currentEntryPhoto = null;
+        this.currentEntryPhotoData = null;
+        this.updateEntryPhotoUI();
 
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
@@ -1323,6 +1333,14 @@ class ServiceReportApp {
             entryData.entry_id = this.currentEntry.id;
         }
 
+        // Add photo data if new photo was captured
+        if (this.currentEntryPhotoData) {
+            entryData.photo = this.currentEntryPhotoData;
+        } else if (this.currentEntryPhoto === null && this.currentEntry?.photo) {
+            // Photo was deleted
+            entryData.delete_photo = true;
+        }
+
         // Try to sync if online
         if (this.isOnline) {
             try {
@@ -1341,6 +1359,96 @@ class ServiceReportApp {
         } else {
             this.showToast('Offline - Speichern nicht möglich');
         }
+    }
+
+    // Update entry photo UI
+    updateEntryPhotoUI() {
+        const preview = document.getElementById('entryPhotoPreview');
+        const addBtn = document.getElementById('btnAddEntryPhoto');
+        const img = document.getElementById('entryPhotoImg');
+
+        if (this.currentEntryPhotoData) {
+            // New photo captured (base64)
+            preview.style.display = 'block';
+            addBtn.style.display = 'none';
+            img.src = this.currentEntryPhotoData;
+        } else if (this.currentEntryPhoto) {
+            // Existing photo from server
+            preview.style.display = 'block';
+            addBtn.style.display = 'none';
+            img.src = this.getEntryPhotoUrl(this.currentEntryPhoto);
+        } else {
+            // No photo
+            preview.style.display = 'none';
+            addBtn.style.display = 'flex';
+            img.src = '';
+        }
+    }
+
+    // Get URL for entry photo
+    getEntryPhotoUrl(filename) {
+        if (!filename || !this.currentIntervention) return '';
+        return `${CONFIG.apiBase}/entry-photo/${this.currentIntervention.id}/file/${filename}`;
+    }
+
+    // Capture entry photo
+    captureEntryPhoto() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.capture = 'environment';
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const base64Data = await this.readFileAsBase64(file);
+                this.currentEntryPhotoData = base64Data;
+                this.currentEntryPhoto = 'new'; // Mark as having a photo
+                this.updateEntryPhotoUI();
+                this.showToast('Foto hinzugefügt');
+            } catch (err) {
+                console.error('Failed to read photo:', err);
+                this.showToast('Fehler beim Laden des Fotos');
+            }
+        };
+
+        fileInput.click();
+    }
+
+    // Delete entry photo
+    deleteEntryPhoto() {
+        if (!confirm('Foto wirklich löschen?')) return;
+
+        this.currentEntryPhoto = null;
+        this.currentEntryPhotoData = null;
+        this.updateEntryPhotoUI();
+        this.showToast('Foto wird beim Speichern gelöscht');
+    }
+
+    // View entry photo fullscreen
+    viewEntryPhoto() {
+        let url;
+        if (this.currentEntryPhotoData) {
+            url = this.currentEntryPhotoData;
+        } else if (this.currentEntryPhoto) {
+            url = this.getEntryPhotoUrl(this.currentEntryPhoto);
+        }
+        if (!url) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'defect-photo-overlay';
+        overlay.innerHTML = `
+            <div class="defect-photo-fullscreen">
+                <button class="defect-photo-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                <img src="${url}" alt="Mangel-Foto">
+            </div>
+        `;
+        overlay.onclick = (e) => {
+            if (e.target === overlay) overlay.remove();
+        };
+        document.body.appendChild(overlay);
     }
 
     // Save summary (recommendations & notes) (v1.7)
