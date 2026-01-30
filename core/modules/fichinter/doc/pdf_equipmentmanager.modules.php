@@ -769,6 +769,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
                 $photoPath = $photoDir . '/' . $entry->photo;
 
+                // Log for debugging
+                dol_syslog("PDF: Photo path check - entry->photo=".$entry->photo." path=".$photoPath." exists=".file_exists($photoPath), LOG_DEBUG);
+
                 if (file_exists($photoPath)) {
                     // Check page break for photo (30mm height + margin)
                     if ($curY + 35 > $this->page_hauteur - 20) {
@@ -787,6 +790,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                     $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
                     $curY += $photoMaxHeight + 3;
+                } else {
+                    // Debug: show that photo exists in DB but file not found
+                    $pdf->SetFont('', 'I', $default_font_size - 2);
+                    $pdf->SetXY($leftMargin + $textPadding, $curY);
+                    $pdf->SetTextColor(255, 0, 0);
+                    $pdf->Cell(0, 4, "DEBUG: Foto nicht gefunden: ".$entry->photo, 0, 1, 'L');
+                    $pdf->SetTextColor(0, 0, 0);
+                    $curY = $pdf->GetY() + 1;
                 }
             }
 

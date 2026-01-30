@@ -1333,21 +1333,35 @@ class ServiceReportApp {
             entryData.entry_id = this.currentEntry.id;
         }
 
-        // Add photo data if new photo was captured
-        if (this.currentEntryPhotoData) {
-            entryData.photo = this.currentEntryPhotoData;
-        } else if (this.currentEntryPhoto === null && this.currentEntry?.photo) {
-            // Photo was deleted
+        // Handle photo deletion flag (photo upload is done separately)
+        if (this.currentEntryPhoto === null && this.currentEntry?.photo) {
             entryData.delete_photo = true;
         }
 
         // Try to sync if online
         if (this.isOnline) {
             try {
-                await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
+                // Save entry first
+                const response = await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
                     method: 'POST',
                     body: JSON.stringify(entryData)
                 });
+
+                // Upload photo separately if new photo was captured
+                if (this.currentEntryPhotoData && response.id) {
+                    try {
+                        await this.apiCall(`entry-photo/${entryData.intervention_id}/${response.id}`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                image: this.currentEntryPhotoData
+                            })
+                        });
+                    } catch (photoErr) {
+                        console.error('Photo upload failed:', photoErr);
+                        this.showToast('Entry gespeichert, aber Foto-Upload fehlgeschlagen');
+                    }
+                }
+
                 this.showToast('Gespeichert');
 
                 // Go back to entries list and refresh

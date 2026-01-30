@@ -2548,15 +2548,98 @@ function handleDefectPhoto($method, $parts, $input) {
 }
 
 /**
- * Handle entry photo serving
+ * Handle entry photo upload and serving
+ * POST /entry-photo/{intervention_id}/{entry_id} - Upload photo for entry
  * GET /entry-photo/{intervention_id}/file/{filename} - Serve photo file directly
  */
 function handleEntryPhoto($method, $parts, $input) {
-    global $db, $conf;
+    global $db, $conf, $user;
 
     $intervention_id = (int)($parts[1] ?? 0);
 
-    // Only support file serving: /entry-photo/{intervention_id}/file/{filename}
+    // POST: Upload photo for entry - /entry-photo/{intervention_id}/{entry_id}
+    if ($method === 'POST') {
+        $entry_id = (int)($parts[2] ?? 0);
+
+        if (!$intervention_id || !$entry_id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Intervention ID and Entry ID required']);
+            return;
+        }
+
+        // Check for base64 image data
+        if (empty($input['image'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No image data provided']);
+            return;
+        }
+
+        // Get intervention ref for folder path
+        dol_include_once('/fichinter/class/fichinter.class.php');
+        $fichinter = new Fichinter($db);
+        if ($fichinter->fetch($intervention_id) <= 0) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Intervention not found']);
+            return;
+        }
+
+        // Create directory if needed
+        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/entry_photos';
+        if (!is_dir($docDir)) {
+            dol_mkdir($docDir);
+        }
+
+        // Decode base64 image
+        $imageData = $input['image'];
+        if (strpos($imageData, 'data:image') === 0) {
+            $imageData = preg_replace('#^data:image/\w+;base64,#i', '', $imageData);
+        }
+        $imageData = base64_decode($imageData);
+
+        if ($imageData === false) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid base64 image data']);
+            return;
+        }
+
+        // Load entry to check for old photo
+        dol_include_once('/custom/equipmentmanager/class/interventiondetail.class.php');
+        $entry = new InterventionDetail($db);
+        $entryLoaded = ($entry->fetch($entry_id) > 0);
+
+        // Delete old photo if exists
+        if ($entryLoaded && !empty($entry->photo)) {
+            $oldPath = $docDir . '/' . $entry->photo;
+            if (file_exists($oldPath)) {
+                unlink($oldPath);
+            }
+        }
+
+        // Generate unique filename
+        $filename = 'entry_' . $entry_id . '_' . dol_print_date(dol_now(), '%Y%m%d_%H%M%S') . '.jpg';
+        $filepath = $docDir . '/' . $filename;
+
+        // Save new photo
+        if (file_put_contents($filepath, $imageData) === false) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to save image']);
+            return;
+        }
+
+        // Update entry with photo filename
+        $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail";
+        $sql .= " SET photo = '".$db->escape($filename)."'";
+        $sql .= " WHERE rowid = ".$entry_id;
+        $db->query($sql);
+
+        echo json_encode([
+            'success' => true,
+            'photo' => $filename
+        ]);
+        return;
+    }
+
+    // GET: Only support file serving: /entry-photo/{intervention_id}/file/{filename}
     if (($parts[2] ?? '') !== 'file' || $method !== 'GET') {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid request']);
