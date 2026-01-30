@@ -167,75 +167,7 @@ class ActionsEquipmentManager
         return 0;
     }
 
-    /**
-     * Hook for pdf_build_address - adds Objektadresse to proposal PDF
-     * When a SHIPPING contact is linked to a proposal, it shows below the customer address
-     *
-     * @param array $parameters Parameters
-     * @param CommonObject $object Object (Propal, Commande, etc.)
-     * @param string $action Action triggered
-     * @param HookManager $hookmanager Hook manager
-     * @return int <0 if error, 0 if nothing done, >0 if OK
-     */
-    public function pdf_build_address($parameters, &$object, &$action, $hookmanager)
-    {
-        global $langs;
-
-        // Only process for 'target' mode (customer address)
-        if (empty($parameters['mode']) || $parameters['mode'] != 'target') {
-            return 0;
-        }
-
-        // Check if object is a Propal (proposal)
-        if (!is_object($object) || get_class($object) != 'Propal') {
-            return 0;
-        }
-
-        // Get linked OBJ contact (Objektadresse)
-        $shippingContactIds = $object->getIdContact('external', 'OBJ');
-
-        if (empty($shippingContactIds) || !is_array($shippingContactIds) || count($shippingContactIds) == 0) {
-            return 0;
-        }
-
-        // Load the first shipping contact
-        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-        $contact = new Contact($this->db);
-
-        if ($contact->fetch($shippingContactIds[0]) <= 0) {
-            return 0;
-        }
-
-        // Build Objektadresse string
-        $langs->load("equipmentmanager@equipmentmanager");
-
-        $objektadresse = "\n\n" . $langs->trans("ObjectAddress") . ":\n";
-
-        // Name
-        if ($contact->lastname || $contact->firstname) {
-            $objektadresse .= trim($contact->firstname . ' ' . $contact->lastname) . "\n";
-        }
-
-        // Address
-        if ($contact->address) {
-            $objektadresse .= $contact->address . "\n";
-        }
-
-        // ZIP + City
-        $cityLine = '';
-        if ($contact->zip) {
-            $cityLine .= $contact->zip;
-        }
-        if ($contact->town) {
-            $cityLine .= ($cityLine ? ' ' : '') . $contact->town;
-        }
-        if ($cityLine) {
-            $objektadresse .= $cityLine;
-        }
-
-        // Append to hook result (will be added after the standard address)
-        $this->resprints = $objektadresse;
-
-        return 0;
-    }
+    // Note: Objektadresse for Propal PDFs is handled by the custom PDF template
+    // pdf_azur_objektadresse.modules.php - not via hook, because the hook prepends
+    // content instead of appending it.
 }
