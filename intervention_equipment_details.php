@@ -82,6 +82,47 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
     $minutes = GETPOST('work_minutes', 'int');
     $detail->work_duration = ($hours * 60) + $minutes;
 
+    // Handle photo upload/delete (v4.2)
+    $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
+
+    // Delete photo if requested
+    if (GETPOST('delete_photo', 'int') && !empty($detail->photo)) {
+        $oldPath = $photoDir . '/' . $detail->photo;
+        if (file_exists($oldPath)) {
+            @unlink($oldPath);
+        }
+        $detail->photo = null;
+    }
+
+    // Upload new photo
+    if (!empty($_FILES['entry_photo']['name']) && $_FILES['entry_photo']['error'] == 0) {
+        // Create directory if needed
+        if (!is_dir($photoDir)) {
+            dol_mkdir($photoDir);
+        }
+
+        // Delete old photo
+        if (!empty($detail->photo)) {
+            $oldPath = $photoDir . '/' . $detail->photo;
+            if (file_exists($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+
+        // Generate filename
+        $extension = strtolower(pathinfo($_FILES['entry_photo']['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, array('jpg', 'jpeg', 'png', 'gif'))) {
+            $extension = 'jpg';
+        }
+        $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
+        $filename = "entry_{$equipment_id}_{$timestamp}.{$extension}";
+        $filepath = $photoDir . '/' . $filename;
+
+        if (move_uploaded_file($_FILES['entry_photo']['tmp_name'], $filepath)) {
+            $detail->photo = $filename;
+        }
+    }
+
     $result = $detail->createOrUpdate($user);
 
     if ($result > 0) {
@@ -673,7 +714,7 @@ if ($object->id > 0) {
     if (($action == 'new_entry' || $action == 'edit_entry') && $permissiontoadd) {
         print '<tr id="entry_form">';
         print '<td colspan="5">';
-        print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+        print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" enctype="multipart/form-data">';
         print '<input type="hidden" name="token" value="'.newToken().'">';
         print '<input type="hidden" name="action" value="save_entry">';
         print '<input type="hidden" name="id" value="'.$object->id.'">';
@@ -713,6 +754,19 @@ if ($object->id > 0) {
         print '<textarea name="issues_found" rows="2" class="flat centpercent">';
         print $editEntry ? dol_escape_htmltag($editEntry->issues_found) : '';
         print '</textarea>';
+        print '</td></tr>';
+
+        // Defect photo (v4.2)
+        print '<tr><td>'.$langs->trans('DefectPhoto').'</td><td>';
+        if ($editEntry && !empty($editEntry->photo)) {
+            $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
+            $photoUrl = DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($object->ref) . '/entry_photos/' . $editEntry->photo);
+            print '<div style="margin-bottom:8px;">';
+            print '<a href="'.$photoUrl.'" target="_blank"><img src="'.$photoUrl.'" style="max-width:200px;max-height:150px;border:1px solid #ccc;border-radius:4px;" alt="Mangel-Foto"></a>';
+            print ' <label style="margin-left:10px;"><input type="checkbox" name="delete_photo" value="1"> '.$langs->trans('Delete').'</label>';
+            print '</div>';
+        }
+        print '<input type="file" name="entry_photo" accept="image/*" class="flat">';
         print '</td></tr>';
 
         print '<tr>';
@@ -764,11 +818,15 @@ if ($object->id > 0) {
             }
             print '</td>';
 
-            // Issues found (truncated)
+            // Issues found (truncated) + photo indicator
             print '<td>';
             if ($entry->issues_found) {
                 $text = dol_trunc(dol_escape_htmltag($entry->issues_found), 50);
                 print '<span class="warning">'.$text.'</span>';
+            }
+            if (!empty($entry->photo)) {
+                $photoUrl = DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($object->ref) . '/entry_photos/' . $entry->photo);
+                print ' <a href="'.$photoUrl.'" target="_blank" title="'.$langs->trans('DefectPhoto').'">📷</a>';
             }
             print '</td>';
 
