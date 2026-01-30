@@ -766,7 +766,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             // Defect photo for this entry (v4.2)
             if (!empty($entry->photo)) {
-                $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
+                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
                 $photoPath = $photoDir . '/' . $entry->photo;
 
                 // Log for debugging
