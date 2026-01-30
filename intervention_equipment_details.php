@@ -120,6 +120,10 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
 
         if (move_uploaded_file($_FILES['entry_photo']['tmp_name'], $filepath)) {
             $detail->photo = $filename;
+
+            // Add as linked document to the intervention
+            require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+            addFileIntoDatabaseIndex($photoDir, $filename, $filepath, 'uploaded', 0, $object);
         }
     }
 

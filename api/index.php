@@ -2632,6 +2632,10 @@ function handleEntryPhoto($method, $parts, $input) {
         $sql .= " WHERE rowid = ".$entry_id;
         $db->query($sql);
 
+        // Add as linked document to the intervention
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+        addFileIntoDatabaseIndex($docDir, $filename, $filepath, 'uploaded', 0, $fichinter);
+
         echo json_encode([
             'success' => true,
             'photo' => $filename
