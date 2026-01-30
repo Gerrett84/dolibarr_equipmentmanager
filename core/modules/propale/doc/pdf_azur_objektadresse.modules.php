@@ -1797,37 +1797,14 @@ class pdf_azur_objektadresse extends ModelePDFPropales
 				$posx = $this->marge_gauche;
 			}
 
-			// Show recipient frame
-			if (!getDolGlobalString('MAIN_PDF_NO_RECIPENT_FRAME')) {
-				$pdf->SetTextColor(0, 0, 0);
-				$pdf->SetFont('', '', $default_font_size - 2);
-				$pdf->SetXY($posx + 2, $posy - 5);
-				$pdf->MultiCell($widthrecbox, 5, $outputlangs->transnoentities("BillTo"), 0, $ltrdirection);
-				$pdf->RoundedRect($posx, $posy, $widthrecbox, $hautcadre, $this->corner_radius, '1234', 'D');
-			}
-
-			// Show recipient name
-			$pdf->SetXY($posx + 2, $posy + 3);
-			$pdf->SetFont('', 'B', $default_font_size);
-			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
-			$pdf->MultiCell($widthrecbox, 4, $carac_client_name, 0, $ltrdirection);
-
-			$posy = $pdf->getY();
-
-			// Show recipient information
-			$pdf->SetFont('', '', $default_font_size - 1);
-			$pdf->SetXY($posx + 2, $posy);
-			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
-			$pdf->MultiCell($widthrecbox, 4, $carac_client, 0, $ltrdirection);
-
-			// Show Objektadresse if linked (OBJ contact type)
+			// Check for Objektadresse and append to carac_client
+			$carac_objektadresse = '';
 			$idaddressshipping = $object->getIdContact('external', 'OBJ');
 			if (!empty($idaddressshipping) && is_array($idaddressshipping) && count($idaddressshipping) > 0) {
 				require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
 				$contactshipping = new Contact($this->db);
 				if ($contactshipping->fetch($idaddressshipping[0]) > 0) {
 					// Build Objektadresse string
-					$carac_objektadresse = '';
 					if ($contactshipping->lastname || $contactshipping->firstname) {
 						$carac_objektadresse .= trim($contactshipping->firstname.' '.$contactshipping->lastname)."\n";
 					}
@@ -1844,24 +1821,43 @@ class pdf_azur_objektadresse extends ModelePDFPropales
 					if ($cityline) {
 						$carac_objektadresse .= $cityline;
 					}
-
-					if (!empty($carac_objektadresse)) {
-						$posy = $pdf->getY() + 4;
-
-						// Show Objektadresse label
-						$pdf->SetXY($posx + 2, $posy);
-						$pdf->SetFont('', 'B', $default_font_size - 2);
-						$pdf->MultiCell($widthrecbox, 4, $outputlangs->transnoentities("ObjectAddress").':', 0, $ltrdirection);
-
-						$posy = $pdf->getY();
-
-						// Show Objektadresse content
-						$pdf->SetFont('', '', $default_font_size - 1);
-						$pdf->SetXY($posx + 2, $posy);
-						$pdf->MultiCell($widthrecbox, 4, $carac_objektadresse, 0, $ltrdirection);
-					}
 				}
 			}
+
+			// Append Objektadresse to carac_client if exists
+			if (!empty($carac_objektadresse)) {
+				$carac_client .= "\n\n".$outputlangs->transnoentities("ObjectAddress").":\n".$carac_objektadresse;
+			}
+
+			// Calculate frame height - increase if Objektadresse exists
+			$hautcadre_recipient = $hautcadre;
+			if (!empty($carac_objektadresse)) {
+				// Add extra height for Objektadresse label + content (approx 20-25mm)
+				$hautcadre_recipient = $hautcadre + 22;
+			}
+
+			// Show recipient frame
+			if (!getDolGlobalString('MAIN_PDF_NO_RECIPENT_FRAME')) {
+				$pdf->SetTextColor(0, 0, 0);
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$pdf->SetXY($posx + 2, $posy - 5);
+				$pdf->MultiCell($widthrecbox, 5, $outputlangs->transnoentities("BillTo"), 0, $ltrdirection);
+				$pdf->RoundedRect($posx, $posy, $widthrecbox, $hautcadre_recipient, $this->corner_radius, '1234', 'D');
+			}
+
+			// Show recipient name
+			$pdf->SetXY($posx + 2, $posy + 3);
+			$pdf->SetFont('', 'B', $default_font_size);
+			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
+			$pdf->MultiCell($widthrecbox, 4, $carac_client_name, 0, $ltrdirection);
+
+			$posy = $pdf->getY();
+
+			// Show recipient information (includes Objektadresse if appended above)
+			$pdf->SetFont('', '', $default_font_size - 1);
+			$pdf->SetXY($posx + 2, $posy);
+			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
+			$pdf->MultiCell($widthrecbox, 4, $carac_client, 0, $ltrdirection);
 		}
 
 		$pdf->SetTextColor(0, 0, 0);
