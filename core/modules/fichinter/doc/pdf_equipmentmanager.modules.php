@@ -1264,7 +1264,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->SetFont('', '', $default_font_size - 1);
                 foreach ($defectMaterials as $mat) {
                     $pdf->SetXY($this->marge_gauche + 10, $curY);
-                    $matText = "- ".$mat->qty."x [".$mat->product_ref."] ".$mat->product_label;
+                    $matText = "- ".intval($mat->qty)."x [".$mat->product_ref."] ".$mat->product_label;
                     $pdf->Cell(0, 4, $matText, 0, 1, 'L');
                     $curY += 4;
                 }

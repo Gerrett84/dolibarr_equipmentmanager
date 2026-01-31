@@ -856,6 +856,28 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: #f5f5f5;
         }
 
+        .product-result {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .product-result:last-child {
+            border-bottom: none;
+        }
+
+        .product-result:hover, .product-result:active {
+            background: #f5f5f5;
+        }
+
+        [data-theme="dark"] .product-result:hover,
+        [data-theme="dark"] .product-result:active {
+            background: var(--bg-secondary);
+        }
+
         .product-ref {
             font-weight: 600;
             font-size: 13px;
@@ -1487,6 +1509,96 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: var(--danger-color);
         }
 
+        /* Defect Material List (v4.2) */
+        .defect-material-list {
+            margin-bottom: 12px;
+        }
+        .defect-material-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .defect-material-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .defect-material-ref {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 12px;
+        }
+        .defect-material-label {
+            color: var(--text-primary);
+        }
+        .defect-material-qty {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-right: 12px;
+        }
+        .defect-material-delete {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(244, 67, 54, 0.1);
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .defect-material-delete:hover {
+            background: var(--danger-color);
+            color: white;
+        }
+        .btn-add-material {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-add-material:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        .selected-product-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+        .selected-product-info .product-ref {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        .selected-product-info .product-label {
+            flex: 1;
+        }
+        .btn-clear-product {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(244, 67, 54, 0.1);
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
         .checklist-complete-btn {
             margin-top: 12px;
         }
@@ -1840,6 +1952,15 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Defect Materials Section (v4.2) -->
+                        <div class="form-group" id="defectMaterialSection" style="display:none;">
+                            <label class="form-label">Material für Mängelbeseitigung</label>
+                            <div id="defectMaterialList" class="defect-material-list"></div>
+                            <button type="button" class="btn-add-material" onclick="app.showDefectMaterialModal()">
+                                + Material hinzufügen
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1959,6 +2080,39 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-success btn-block" id="btnSaveMaterial">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Defect Material Modal (v4.2) -->
+    <div class="modal" id="defectMaterialModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Material für Mängelbeseitigung</h3>
+                <button type="button" class="modal-close" onclick="app.closeDefectMaterialModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Produkt suchen *</label>
+                    <input type="text" class="form-input" id="defectProductSearch" placeholder="Artikelnr. oder Name..." autocomplete="off">
+                    <div id="defectProductResults" class="product-results"></div>
+                </div>
+                <div class="form-group" id="defectSelectedProduct" style="display:none;">
+                    <label class="form-label">Ausgewähltes Produkt</label>
+                    <div class="selected-product-info">
+                        <span id="defectProductRef" class="product-ref"></span>
+                        <span id="defectProductLabel" class="product-label"></span>
+                        <button type="button" class="btn-clear-product" onclick="app.clearDefectProduct()">✕</button>
+                    </div>
+                    <input type="hidden" id="defectProductId">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Menge</label>
+                    <input type="number" class="form-input" id="defectMaterialQty" value="1" min="1" step="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success btn-block" onclick="app.saveDefectMaterial()">Hinzufügen</button>
             </div>
         </div>
     </div>

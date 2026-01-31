@@ -44,6 +44,7 @@ dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
 dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
 dol_include_once('/equipmentmanager/class/checklistresult.class.php');
+dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
 // Check authentication - support both session and PWA token
 $authenticated = false;
@@ -174,6 +175,14 @@ try {
 
         case 'entry-photo':
             handleEntryPhoto($method, $parts, $input);
+            break;
+
+        case 'defect-material':
+            handleDefectMaterial($method, $parts, $input);
+            break;
+
+        case 'products':
+            handleProducts($method, $parts, $input);
             break;
 
         case 'equipment':
@@ -801,6 +810,19 @@ function handleDetail($method, $parts, $input) {
         $notes = '';
 
         foreach ($entries as $entry) {
+            // Load defect materials for this entry
+            $defectMaterials = DefectMaterial::fetchAllForEntry($db, $entry->id);
+            $materialsData = [];
+            foreach ($defectMaterials as $mat) {
+                $materialsData[] = [
+                    'id' => $mat->id,
+                    'fk_product' => $mat->fk_product,
+                    'product_ref' => $mat->product_ref,
+                    'product_label' => $mat->product_label,
+                    'qty' => intval($mat->qty)
+                ];
+            }
+
             $entriesData[] = [
                 'id' => (int)$entry->id,
                 'entry_number' => (int)$entry->entry_number,
@@ -810,7 +832,8 @@ function handleDetail($method, $parts, $input) {
                 'issues_found' => $entry->issues_found,
                 'work_date' => $entry->work_date ? dol_print_date($entry->work_date, 'dayrfc') : null,
                 'work_duration' => (int)$entry->work_duration,
-                'photo' => $entry->photo
+                'photo' => $entry->photo,
+                'materials' => $materialsData
             ];
             // Get recommendations/notes from any entry that has them
             if (!empty($entry->recommendations)) $recommendations = $entry->recommendations;
@@ -2695,4 +2718,129 @@ function handleEntryPhoto($method, $parts, $input) {
         http_response_code(404);
         echo json_encode(['error' => 'File not found']);
     }
+}
+
+/**
+ * Handle defect materials
+ * GET /defect-material/{entry_id} - List materials for an entry
+ * POST /defect-material/{entry_id} - Add material to entry
+ * DELETE /defect-material/{material_id} - Delete material
+ */
+function handleDefectMaterial($method, $parts, $input) {
+    global $db, $user;
+
+    $id = (int)($parts[1] ?? 0);
+
+    // GET - List materials for entry
+    if ($method === 'GET' && $id > 0) {
+        $materials = DefectMaterial::fetchAllForEntry($db, $id);
+        $result = array();
+        foreach ($materials as $mat) {
+            $result[] = array(
+                'id' => $mat->id,
+                'fk_product' => $mat->fk_product,
+                'product_ref' => $mat->product_ref,
+                'product_label' => $mat->product_label,
+                'qty' => intval($mat->qty)
+            );
+        }
+        echo json_encode($result);
+        return;
+    }
+
+    // POST - Add material
+    if ($method === 'POST' && $id > 0) {
+        $fk_product = (int)($input['fk_product'] ?? 0);
+        $qty = (int)($input['qty'] ?? 1);
+
+        if ($fk_product <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Product ID required']);
+            return;
+        }
+
+        $mat = new DefectMaterial($db);
+        $mat->fk_intervention_detail = $id;
+        $mat->fk_product = $fk_product;
+        $mat->qty = $qty;
+        $result = $mat->create($user);
+
+        if ($result > 0) {
+            // Reload to get product info
+            $mat->fetch($result);
+            echo json_encode([
+                'id' => $mat->id,
+                'fk_product' => $mat->fk_product,
+                'product_ref' => $mat->product_ref,
+                'product_label' => $mat->product_label,
+                'qty' => intval($mat->qty)
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to add material']);
+        }
+        return;
+    }
+
+    // DELETE - Remove material
+    if ($method === 'DELETE' && $id > 0) {
+        $mat = new DefectMaterial($db);
+        if ($mat->fetch($id) > 0) {
+            $mat->delete($user);
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Material not found']);
+        }
+        return;
+    }
+
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid request']);
+}
+
+/**
+ * Handle product search
+ * GET /products?search=term - Search products
+ */
+function handleProducts($method, $parts, $input) {
+    global $db;
+
+    if ($method !== 'GET') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+
+    if (strlen($search) < 2) {
+        echo json_encode([]);
+        return;
+    }
+
+    $sql = "SELECT rowid, ref, label, price, tosell, tobuy";
+    $sql .= " FROM ".MAIN_DB_PREFIX."product";
+    $sql .= " WHERE (ref LIKE '%".$db->escape($search)."%' OR label LIKE '%".$db->escape($search)."%')";
+    $sql .= " AND (tosell = 1 OR tobuy = 1)";
+    $sql .= " ORDER BY ref ASC";
+    $sql .= " LIMIT ".$limit;
+
+    $resql = $db->query($sql);
+    $products = [];
+
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $products[] = [
+                'id' => (int)$obj->rowid,
+                'ref' => $obj->ref,
+                'label' => $obj->label,
+                'price' => (float)$obj->price
+            ];
+        }
+        $db->free($resql);
+    }
+
+    echo json_encode($products);
 }

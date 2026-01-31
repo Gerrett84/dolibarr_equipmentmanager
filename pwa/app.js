@@ -390,6 +390,14 @@ class ServiceReportApp {
         // Info button
         document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
         document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
+
+        // Defect material section visibility (v4.2) - show after saving entry with issues
+        document.getElementById('entryIssuesFound').addEventListener('input', () => {
+            // Only show if editing existing entry (new entries must be saved first)
+            if (this.currentEntry && this.currentEntry.id) {
+                this.updateDefectMaterialVisibility();
+            }
+        });
     }
 
     updateOnlineStatus() {
@@ -1286,6 +1294,17 @@ class ServiceReportApp {
         this.currentEntryPhotoData = null; // Only set when new photo is captured
         this.updateEntryPhotoUI();
 
+        // Load defect materials (v4.2)
+        if (entry.id) {
+            this.loadDefectMaterials(entry.id);
+            // Show section if issues_found has content
+            if (entry.issues_found && entry.issues_found.trim().length > 0) {
+                document.getElementById('defectMaterialSection').style.display = 'block';
+            } else {
+                document.getElementById('defectMaterialSection').style.display = 'none';
+            }
+        }
+
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
     }
@@ -1303,6 +1322,11 @@ class ServiceReportApp {
         document.getElementById('entryMinutes').value = '0';
         document.getElementById('entryWorkDone').value = '';
         document.getElementById('entryIssuesFound').value = '';
+
+        // Clear defect materials (v4.2) - hidden for new entries
+        this.currentEntryDefectMaterials = [];
+        document.getElementById('defectMaterialList').innerHTML = '';
+        document.getElementById('defectMaterialSection').style.display = 'none';
 
         // Clear entry photo
         this.currentEntryPhoto = null;
@@ -1635,6 +1659,183 @@ class ServiceReportApp {
         };
         document.body.appendChild(overlay);
     }
+
+    // ========== DEFECT MATERIALS (v4.2) ==========
+
+    // Show defect material modal
+    showDefectMaterialModal() {
+        if (!this.currentEntry || !this.currentEntry.id) {
+            this.showToast('Bitte zuerst den Eintrag speichern');
+            return;
+        }
+        document.getElementById('defectMaterialModal').classList.add('show');
+        document.getElementById('defectProductSearch').value = '';
+        document.getElementById('defectProductResults').innerHTML = '';
+        document.getElementById('defectProductResults').classList.remove('show');
+        document.getElementById('defectSelectedProduct').style.display = 'none';
+        document.getElementById('defectProductId').value = '';
+        document.getElementById('defectMaterialQty').value = '1';
+
+        // Setup search listener
+        const searchInput = document.getElementById('defectProductSearch');
+        searchInput.oninput = () => this.searchDefectProducts();
+        searchInput.focus();
+    }
+
+    // Close defect material modal
+    closeDefectMaterialModal() {
+        document.getElementById('defectMaterialModal').classList.remove('show');
+    }
+
+    // Search products for defect material
+    async searchDefectProducts() {
+        const search = document.getElementById('defectProductSearch').value.trim();
+        const resultsDiv = document.getElementById('defectProductResults');
+
+        if (search.length < 2) {
+            resultsDiv.innerHTML = '';
+            resultsDiv.classList.remove('show');
+            return;
+        }
+
+        try {
+            const products = await this.apiCall(`products?search=${encodeURIComponent(search)}`);
+            if (products && products.length > 0) {
+                resultsDiv.innerHTML = products.map(p => `
+                    <div class="product-result" onclick="app.selectDefectProduct(${p.id}, '${p.ref.replace(/'/g, "\\'")}', '${p.label.replace(/'/g, "\\'")}')">
+                        <span class="product-ref">[${p.ref}]</span>
+                        <span class="product-label">${p.label}</span>
+                    </div>
+                `).join('');
+                resultsDiv.classList.add('show');
+            } else {
+                resultsDiv.innerHTML = '<div class="product-result" style="color: var(--text-secondary);">Keine Produkte gefunden</div>';
+                resultsDiv.classList.add('show');
+            }
+        } catch (err) {
+            console.error('Product search failed:', err);
+        }
+    }
+
+    // Select a product for defect material
+    selectDefectProduct(id, ref, label) {
+        document.getElementById('defectProductId').value = id;
+        document.getElementById('defectProductRef').textContent = '[' + ref + ']';
+        document.getElementById('defectProductLabel').textContent = label;
+        document.getElementById('defectSelectedProduct').style.display = 'block';
+        document.getElementById('defectProductResults').classList.remove('show');
+        document.getElementById('defectProductSearch').value = '';
+    }
+
+    // Clear selected product
+    clearDefectProduct() {
+        document.getElementById('defectProductId').value = '';
+        document.getElementById('defectSelectedProduct').style.display = 'none';
+    }
+
+    // Save defect material
+    async saveDefectMaterial() {
+        const productId = document.getElementById('defectProductId').value;
+        const qty = parseInt(document.getElementById('defectMaterialQty').value) || 1;
+
+        if (!productId) {
+            this.showToast('Bitte ein Produkt auswählen');
+            return;
+        }
+
+        if (!this.currentEntry || !this.currentEntry.id) {
+            this.showToast('Eintrag nicht gefunden');
+            return;
+        }
+
+        try {
+            const result = await this.apiCall(`defect-material/${this.currentEntry.id}`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    fk_product: parseInt(productId),
+                    qty: qty
+                })
+            });
+
+            // Add to local list
+            if (!this.currentEntryDefectMaterials) {
+                this.currentEntryDefectMaterials = [];
+            }
+            this.currentEntryDefectMaterials.push(result);
+            this.renderDefectMaterials();
+
+            this.closeDefectMaterialModal();
+            this.showToast('Material hinzugefügt');
+        } catch (err) {
+            console.error('Failed to save defect material:', err);
+            this.showToast('Fehler beim Speichern');
+        }
+    }
+
+    // Delete defect material
+    async deleteDefectMaterial(materialId) {
+        if (!confirm('Material wirklich entfernen?')) return;
+
+        try {
+            await this.apiCall(`defect-material/${materialId}`, {
+                method: 'DELETE'
+            });
+
+            // Remove from local list
+            this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.id !== materialId);
+            this.renderDefectMaterials();
+            this.showToast('Material entfernt');
+        } catch (err) {
+            console.error('Failed to delete defect material:', err);
+            this.showToast('Fehler beim Löschen');
+        }
+    }
+
+    // Render defect materials list
+    renderDefectMaterials() {
+        const container = document.getElementById('defectMaterialList');
+        const materials = this.currentEntryDefectMaterials || [];
+
+        if (materials.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; padding: 8px 0;">Noch kein Material hinzugefügt</div>';
+        } else {
+            container.innerHTML = materials.map(m => `
+                <div class="defect-material-item">
+                    <div class="defect-material-info">
+                        <span class="defect-material-ref">[${m.product_ref}]</span>
+                        <span class="defect-material-label">${m.product_label}</span>
+                    </div>
+                    <span class="defect-material-qty">${m.qty}x</span>
+                    <button class="defect-material-delete" onclick="app.deleteDefectMaterial(${m.id})">✕</button>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Load defect materials for entry
+    async loadDefectMaterials(entryId) {
+        try {
+            const materials = await this.apiCall(`defect-material/${entryId}`);
+            this.currentEntryDefectMaterials = materials || [];
+            this.renderDefectMaterials();
+        } catch (err) {
+            console.error('Failed to load defect materials:', err);
+            this.currentEntryDefectMaterials = [];
+        }
+    }
+
+    // Show/hide defect material section based on issues_found
+    updateDefectMaterialVisibility() {
+        const issuesFound = document.getElementById('entryIssuesFound').value.trim();
+        const section = document.getElementById('defectMaterialSection');
+        if (issuesFound.length > 0 && this.currentEntry && this.currentEntry.id) {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    }
+
+    // ========== END DEFECT MATERIALS ==========
 
     // Save summary (recommendations & notes) (v1.7)
     async saveSummary() {

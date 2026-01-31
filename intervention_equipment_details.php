@@ -848,7 +848,7 @@ if ($object->id > 0) {
                 foreach ($defectMaterials as $mat) {
                     print '<tr class="oddeven">';
                     print '<td>['.$mat->product_ref.'] '.$mat->product_label.'</td>';
-                    print '<td class="center">'.$mat->qty.'</td>';
+                    print '<td class="center">'.intval($mat->qty).'</td>';
                     print '<td class="center">';
                     print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_defect_material&defect_material_id='.$mat->id.'&entry_id='.$editEntry->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDelete').'\');">';
                     print img_delete();
