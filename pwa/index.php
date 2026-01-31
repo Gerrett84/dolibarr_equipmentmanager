@@ -1597,6 +1597,69 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-size: 16px;
             margin-bottom: 10px;
         }
+
+        /* Photo Choice Modal */
+        .photo-choice-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .photo-choice-modal {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .photo-choice-title {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .photo-choice-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .photo-choice-btn:active {
+            opacity: 0.8;
+        }
+
+        .photo-choice-icon {
+            font-size: 24px;
+        }
+
+        .photo-choice-cancel {
+            background: var(--border);
+            color: var(--text);
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>

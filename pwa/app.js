@@ -1405,12 +1405,46 @@ class ServiceReportApp {
         return `${CONFIG.apiBase}/entry-photo/${this.currentIntervention.id}/file/${filename}`;
     }
 
-    // Capture entry photo
+    // Capture entry photo - show choice between camera and gallery
     captureEntryPhoto() {
+        // Create choice overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'photo-choice-overlay';
+        overlay.innerHTML = `
+            <div class="photo-choice-modal">
+                <div class="photo-choice-title">Foto hinzufügen</div>
+                <button class="photo-choice-btn" onclick="app.takePhoto('camera')">
+                    <span class="photo-choice-icon">📷</span>
+                    Kamera
+                </button>
+                <button class="photo-choice-btn" onclick="app.takePhoto('gallery')">
+                    <span class="photo-choice-icon">🖼️</span>
+                    Galerie
+                </button>
+                <button class="photo-choice-btn photo-choice-cancel" onclick="this.closest('.photo-choice-overlay').remove()">
+                    Abbrechen
+                </button>
+            </div>
+        `;
+        overlay.onclick = (e) => {
+            if (e.target === overlay) overlay.remove();
+        };
+        document.body.appendChild(overlay);
+    }
+
+    // Take photo from camera or gallery
+    takePhoto(source) {
+        // Remove choice overlay
+        document.querySelector('.photo-choice-overlay')?.remove();
+
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
-        fileInput.capture = 'environment';
+
+        // Only set capture attribute for camera
+        if (source === 'camera') {
+            fileInput.capture = 'environment';
+        }
 
         fileInput.onchange = async (e) => {
             const file = e.target.files[0];
