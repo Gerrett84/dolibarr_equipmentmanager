@@ -73,3 +73,19 @@ ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER note;
 -- v4.2: Add photo column to intervention details for defect photos in service reports
 ALTER TABLE llx_equipmentmanager_intervention_detail
 ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER notes;
+
+-- v4.2: Create table for materials needed to fix defects
+CREATE TABLE IF NOT EXISTS llx_equipmentmanager_defect_material (
+    rowid integer AUTO_INCREMENT PRIMARY KEY,
+    fk_intervention_detail integer NOT NULL,
+    fk_product integer NOT NULL,
+    qty double(24,8) DEFAULT 1,
+    description text,
+    date_creation datetime NOT NULL,
+    tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat integer,
+    entity integer DEFAULT 1,
+    INDEX idx_defect_material_detail (fk_intervention_detail),
+    INDEX idx_defect_material_product (fk_product),
+    CONSTRAINT fk_defect_material_detail FOREIGN KEY (fk_intervention_detail) REFERENCES llx_equipmentmanager_intervention_detail(rowid) ON DELETE CASCADE
+) ENGINE=innodb;

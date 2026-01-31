@@ -15,6 +15,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
+dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
 /**
  * Class to generate PDF for Fichinter with Equipment Manager details
@@ -1244,6 +1245,30 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $pdf->Image($photoPath, $this->marge_gauche + 5, $curY, 50, 35, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
                     $curY += 38;
                 }
+            }
+
+            // Defect materials (v4.2)
+            $defectMaterials = DefectMaterial::fetchAllForEntry($this->db, $entry->id);
+            if (count($defectMaterials) > 0) {
+                // Check page break
+                if ($curY + 20 > $this->page_hauteur - 20) {
+                    $pdf->AddPage();
+                    $curY = $this->marge_haute;
+                }
+
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, $outputlangs->transnoentities("DefectMaterials").":", 0, 1, 'L');
+                $curY += 5;
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                foreach ($defectMaterials as $mat) {
+                    $pdf->SetXY($this->marge_gauche + 10, $curY);
+                    $matText = "- ".$mat->qty."x [".$mat->product_ref."] ".$mat->product_label;
+                    $pdf->Cell(0, 4, $matText, 0, 1, 'L');
+                    $curY += 4;
+                }
+                $curY += 2;
             }
 
             // Separator

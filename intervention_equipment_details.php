@@ -27,6 +27,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
+dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
 dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 
@@ -162,6 +163,46 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
     }
 
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id);
+    exit;
+}
+
+// Add defect material
+if ($action == 'add_defect_material' && $permissiontoadd && $entry_id > 0) {
+    $fk_product = GETPOST('defect_product_id', 'int');
+    $qty = GETPOST('defect_material_qty', 'int') ?: 1;
+
+    if ($fk_product > 0) {
+        $defectMat = new DefectMaterial($db);
+        $defectMat->fk_intervention_detail = $entry_id;
+        $defectMat->fk_product = $fk_product;
+        $defectMat->qty = $qty;
+        $result = $defectMat->create($user);
+
+        if ($result > 0) {
+            setEventMessages($langs->trans('MaterialAdded'), null, 'mesgs');
+        } else {
+            setEventMessages($defectMat->error, null, 'errors');
+        }
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id);
+    exit;
+}
+
+// Delete defect material
+if ($action == 'delete_defect_material' && $permissiontoadd) {
+    $defect_material_id = GETPOST('defect_material_id', 'int');
+
+    if ($defect_material_id > 0) {
+        $defectMat = new DefectMaterial($db);
+        if ($defectMat->fetch($defect_material_id) > 0) {
+            $entry_id = $defectMat->fk_intervention_detail;
+            $defectMat->delete($user);
+            setEventMessages($langs->trans('MaterialDeleted'), null, 'mesgs');
+        }
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id);
     exit;
 }
 
@@ -789,6 +830,59 @@ if ($object->id > 0) {
 
         print '</table>';
         print '</form>';
+
+        // Defect Materials Section (only for existing entries with issues)
+        if ($editEntry && $editEntry->id > 0 && !empty($editEntry->issues_found)) {
+            print '<div class="titre" style="margin-top:15px;">'.$langs->trans('DefectMaterials').'</div>';
+
+            // List existing materials
+            $defectMaterials = DefectMaterial::fetchAllForEntry($db, $editEntry->id);
+            if (count($defectMaterials) > 0) {
+                print '<table class="noborder centpercent">';
+                print '<tr class="liste_titre">';
+                print '<th>'.$langs->trans('Product').'</th>';
+                print '<th class="center" width="80">'.$langs->trans('Qty').'</th>';
+                print '<th class="center" width="60">'.$langs->trans('Action').'</th>';
+                print '</tr>';
+
+                foreach ($defectMaterials as $mat) {
+                    print '<tr class="oddeven">';
+                    print '<td>['.$mat->product_ref.'] '.$mat->product_label.'</td>';
+                    print '<td class="center">'.$mat->qty.'</td>';
+                    print '<td class="center">';
+                    print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_defect_material&defect_material_id='.$mat->id.'&entry_id='.$editEntry->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDelete').'\');">';
+                    print img_delete();
+                    print '</a>';
+                    print '</td>';
+                    print '</tr>';
+                }
+                print '</table>';
+            }
+
+            // Add new material form
+            print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+            print '<input type="hidden" name="token" value="'.newToken().'">';
+            print '<input type="hidden" name="action" value="add_defect_material">';
+            print '<input type="hidden" name="id" value="'.$object->id.'">';
+            print '<input type="hidden" name="equipment_id" value="'.$equipment_id.'">';
+            print '<input type="hidden" name="entry_id" value="'.$editEntry->id.'">';
+
+            print '<table class="noborder centpercent" style="margin-top:5px;">';
+            print '<tr class="oddeven">';
+            print '<td>';
+            $form = new Form($db);
+            print $form->select_produits('', 'defect_product_id', '', 0, 0, -1, 2, '', 0, array(), 0, '1', 0, 'maxwidth400');
+            print '</td>';
+            print '<td class="center" width="80">';
+            print '<input type="number" name="defect_material_qty" value="1" min="1" class="flat" style="width:60px;">';
+            print '</td>';
+            print '<td class="center" width="60">';
+            print '<input type="submit" class="button button-add" value="+">';
+            print '</td>';
+            print '</tr>';
+            print '</table>';
+            print '</form>';
+        }
         print '</td>';
         print '</tr>';
     }
