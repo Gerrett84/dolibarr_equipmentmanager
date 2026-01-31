@@ -83,7 +83,7 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
     $detail->work_duration = ($hours * 60) + $minutes;
 
     // Handle photo upload/delete (v4.2)
-    $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
+    $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '';
 
     // Delete photo if requested
     if (GETPOST('delete_photo', 'int') && !empty($detail->photo)) {
@@ -763,8 +763,8 @@ if ($object->id > 0) {
         // Defect photo (v4.2)
         print '<tr><td>'.$langs->trans('DefectPhoto').'</td><td>';
         if ($editEntry && !empty($editEntry->photo)) {
-            $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
-            $photoUrl = DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($object->ref) . '/entry_photos/' . $editEntry->photo);
+            $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '';
+            $photoUrl = DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($object->ref) . '/' . $editEntry->photo);
             print '<div style="margin-bottom:8px;">';
             print '<a href="'.$photoUrl.'" target="_blank"><img src="'.$photoUrl.'" style="max-width:200px;max-height:150px;border:1px solid #ccc;border-radius:4px;" alt="Mangel-Foto"></a>';
             print ' <label style="margin-left:10px;"><input type="checkbox" name="delete_photo" value="1"> '.$langs->trans('Delete').'</label>';
@@ -829,7 +829,7 @@ if ($object->id > 0) {
                 print '<span class="warning">'.$text.'</span>';
             }
             if (!empty($entry->photo)) {
-                $photoUrl = DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($object->ref) . '/entry_photos/' . $entry->photo);
+                $photoUrl = DOL_URL_ROOT . '/document.php?modulepart=ficheinter&file=' . urlencode(dol_sanitizeFileName($object->ref) . '/' . $entry->photo);
                 print ' <a href="'.$photoUrl.'" target="_blank" title="'.$langs->trans('DefectPhoto').'">📷</a>';
             }
             print '</td>';

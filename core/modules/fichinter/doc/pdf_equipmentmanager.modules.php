@@ -771,7 +771,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             // Defect photo for this entry (v4.2)
             if (!empty($entry->photo)) {
-                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/entry_photos';
+                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '';
                 $photoPath = $photoDir . '/' . $entry->photo;
 
                 if (file_exists($photoPath)) {
@@ -1233,7 +1233,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             // Defect photo
             if (!empty($entry->photo)) {
-                $photoPath = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/entry_photos/' . $entry->photo;
+                $photoPath = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/' . $entry->photo;
 
                 if (file_exists($photoPath)) {
                     if ($curY + 35 > $this->page_hauteur - 20) {

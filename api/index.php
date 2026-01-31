@@ -879,7 +879,7 @@ function handleDetail($method, $parts, $input) {
         dol_include_once('/fichinter/class/fichinter.class.php');
         $fichinter = new Fichinter($db);
         $fichinter->fetch($intervention_id);
-        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/entry_photos';
+        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '';
 
         // Handle photo upload
         if (!empty($input['photo']) && strpos($input['photo'], 'data:image') === 0) {
@@ -2584,7 +2584,7 @@ function handleEntryPhoto($method, $parts, $input) {
         }
 
         // Create directory if needed
-        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/entry_photos';
+        $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '';
         if (!is_dir($docDir)) {
             dol_mkdir($docDir);
         }
@@ -2669,7 +2669,7 @@ function handleEntryPhoto($method, $parts, $input) {
         return;
     }
 
-    $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/entry_photos';
+    $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '';
     $filepath = $docDir . '/' . $filename;
 
     if (file_exists($filepath)) {
