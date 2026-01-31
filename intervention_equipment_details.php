@@ -109,13 +109,20 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
             }
         }
 
-        // Generate filename
+        // Get equipment number for filename
+        $equipmentForPhoto = new Equipment($db);
+        $equipmentNumber = $equipment_id;
+        if ($equipmentForPhoto->fetch($equipment_id) > 0 && !empty($equipmentForPhoto->equipment_number)) {
+            $equipmentNumber = $equipmentForPhoto->equipment_number;
+        }
+
+        // Generate filename: {Intervention_ref}_{Equipment_number}_{date}.{ext}
         $extension = strtolower(pathinfo($_FILES['entry_photo']['name'], PATHINFO_EXTENSION));
         if (!in_array($extension, array('jpg', 'jpeg', 'png', 'gif'))) {
             $extension = 'jpg';
         }
         $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
-        $filename = "entry_{$equipment_id}_{$timestamp}.{$extension}";
+        $filename = dol_sanitizeFileName($object->ref) . '_' . dol_sanitizeFileName($equipmentNumber) . '_' . $timestamp . '.' . $extension;
         $filepath = $photoDir . '/' . $filename;
 
         if (move_uploaded_file($_FILES['entry_photo']['tmp_name'], $filepath)) {

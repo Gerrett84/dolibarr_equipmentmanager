@@ -2602,8 +2602,9 @@ function handleEntryPhoto($method, $parts, $input) {
             return;
         }
 
-        // Load entry to check for old photo
+        // Load entry to check for old photo and get equipment
         dol_include_once('/custom/equipmentmanager/class/interventiondetail.class.php');
+        dol_include_once('/custom/equipmentmanager/class/equipment.class.php');
         $entry = new InterventionDetail($db);
         $entryLoaded = ($entry->fetch($entry_id) > 0);
 
@@ -2615,8 +2616,18 @@ function handleEntryPhoto($method, $parts, $input) {
             }
         }
 
-        // Generate unique filename
-        $filename = 'entry_' . $entry_id . '_' . dol_print_date(dol_now(), '%Y%m%d_%H%M%S') . '.jpg';
+        // Get equipment number for filename
+        $equipmentNumber = 'unknown';
+        if ($entryLoaded && !empty($entry->fk_equipment)) {
+            $equipment = new Equipment($db);
+            if ($equipment->fetch($entry->fk_equipment) > 0) {
+                $equipmentNumber = $equipment->equipment_number ?: $equipment->id;
+            }
+        }
+
+        // Generate filename: {Intervention_ref}_{Equipment_number}_{date}.jpg
+        $timestamp = dol_print_date(dol_now(), '%Y%m%d_%H%M%S');
+        $filename = dol_sanitizeFileName($fichinter->ref) . '_' . dol_sanitizeFileName($equipmentNumber) . '_' . $timestamp . '.jpg';
         $filepath = $docDir . '/' . $filename;
 
         // Save new photo
