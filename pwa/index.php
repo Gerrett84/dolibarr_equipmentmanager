@@ -1511,6 +1511,92 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: #1b3d1b;
             color: #81c784;
         }
+
+        /* Photo Cropper */
+        .crop-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .crop-container {
+            position: relative;
+            max-width: 100%;
+            max-height: calc(100vh - 120px);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .crop-container img {
+            max-width: 100%;
+            max-height: calc(100vh - 120px);
+            display: block;
+        }
+
+        .crop-box {
+            position: absolute;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+            cursor: move;
+            touch-action: none;
+            min-width: 50px;
+            min-height: 50px;
+        }
+
+        .crop-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+        }
+
+        .crop-handle-se {
+            bottom: -12px;
+            right: -12px;
+            cursor: se-resize;
+        }
+
+        .crop-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .crop-btn {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .crop-btn-cancel {
+            background: #666;
+            color: #fff;
+        }
+
+        .crop-btn-confirm {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .crop-title {
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>

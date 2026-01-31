@@ -1418,10 +1418,8 @@ class ServiceReportApp {
 
             try {
                 const base64Data = await this.readFileAsBase64(file);
-                this.currentEntryPhotoData = base64Data;
-                this.currentEntryPhoto = 'new'; // Mark as having a photo
-                this.updateEntryPhotoUI();
-                this.showToast('Foto hinzugefügt');
+                // Show cropper instead of directly setting the photo
+                this.showPhotoCropper(base64Data);
             } catch (err) {
                 console.error('Failed to read photo:', err);
                 this.showToast('Fehler beim Laden des Fotos');
@@ -1429,6 +1427,180 @@ class ServiceReportApp {
         };
 
         fileInput.click();
+    }
+
+    // Show photo cropper overlay
+    showPhotoCropper(imageData) {
+        const overlay = document.createElement('div');
+        overlay.className = 'crop-overlay';
+        overlay.id = 'cropOverlay';
+
+        overlay.innerHTML = `
+            <div class="crop-title">Bildausschnitt wählen</div>
+            <div class="crop-container" id="cropContainer">
+                <img id="cropImage" src="${imageData}" alt="Zuschneiden">
+                <div class="crop-box" id="cropBox">
+                    <div class="crop-handle crop-handle-se" id="cropHandle"></div>
+                </div>
+            </div>
+            <div class="crop-buttons">
+                <button class="crop-btn crop-btn-cancel" onclick="app.cancelCrop()">Abbrechen</button>
+                <button class="crop-btn crop-btn-confirm" onclick="app.confirmCrop()">Zuschneiden</button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Wait for image to load then initialize cropper
+        const img = document.getElementById('cropImage');
+        img.onload = () => this.initCropper();
+        if (img.complete) this.initCropper();
+    }
+
+    // Initialize cropper box and handlers
+    initCropper() {
+        const container = document.getElementById('cropContainer');
+        const img = document.getElementById('cropImage');
+        const box = document.getElementById('cropBox');
+        const handle = document.getElementById('cropHandle');
+
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Initial crop box size (60% of smaller dimension, centered)
+        const size = Math.min(imgRect.width, imgRect.height) * 0.6;
+        const left = (imgRect.width - size) / 2;
+        const top = (imgRect.height - size) / 2;
+
+        box.style.width = size + 'px';
+        box.style.height = size + 'px';
+        box.style.left = left + 'px';
+        box.style.top = top + 'px';
+
+        // Store image dimensions for cropping
+        this.cropData = {
+            imgWidth: img.naturalWidth,
+            imgHeight: img.naturalHeight,
+            displayWidth: imgRect.width,
+            displayHeight: imgRect.height
+        };
+
+        // Drag crop box
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, startLeft, startTop, startWidth, startHeight;
+
+        const getEventPos = (e) => {
+            if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        };
+
+        // Handle move/resize start
+        handle.addEventListener('mousedown', (e) => { isResizing = true; e.stopPropagation(); startResize(e); });
+        handle.addEventListener('touchstart', (e) => { isResizing = true; e.stopPropagation(); startResize(e); });
+
+        box.addEventListener('mousedown', startDrag);
+        box.addEventListener('touchstart', startDrag);
+
+        function startDrag(e) {
+            if (isResizing) return;
+            isDragging = true;
+            const pos = getEventPos(e);
+            startX = pos.x;
+            startY = pos.y;
+            startLeft = box.offsetLeft;
+            startTop = box.offsetTop;
+            e.preventDefault();
+        }
+
+        function startResize(e) {
+            const pos = getEventPos(e);
+            startX = pos.x;
+            startY = pos.y;
+            startWidth = box.offsetWidth;
+            startHeight = box.offsetHeight;
+            e.preventDefault();
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('touchmove', onMove);
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchend', onEnd);
+
+        function onMove(e) {
+            if (!isDragging && !isResizing) return;
+            const pos = getEventPos(e);
+            const dx = pos.x - startX;
+            const dy = pos.y - startY;
+
+            if (isResizing) {
+                // Keep square aspect ratio
+                const delta = Math.max(dx, dy);
+                let newSize = Math.max(50, startWidth + delta);
+                newSize = Math.min(newSize, imgRect.width - box.offsetLeft, imgRect.height - box.offsetTop);
+                box.style.width = newSize + 'px';
+                box.style.height = newSize + 'px';
+            } else if (isDragging) {
+                let newLeft = Math.max(0, Math.min(startLeft + dx, imgRect.width - box.offsetWidth));
+                let newTop = Math.max(0, Math.min(startTop + dy, imgRect.height - box.offsetHeight));
+                box.style.left = newLeft + 'px';
+                box.style.top = newTop + 'px';
+            }
+            e.preventDefault();
+        }
+
+        function onEnd() {
+            isDragging = false;
+            isResizing = false;
+        }
+
+        // Store cleanup function
+        this.cropCleanup = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchend', onEnd);
+        };
+    }
+
+    // Cancel cropping
+    cancelCrop() {
+        if (this.cropCleanup) this.cropCleanup();
+        document.getElementById('cropOverlay')?.remove();
+    }
+
+    // Confirm and apply crop
+    confirmCrop() {
+        const img = document.getElementById('cropImage');
+        const box = document.getElementById('cropBox');
+
+        // Calculate crop coordinates in original image dimensions
+        const scaleX = this.cropData.imgWidth / this.cropData.displayWidth;
+        const scaleY = this.cropData.imgHeight / this.cropData.displayHeight;
+
+        const cropX = box.offsetLeft * scaleX;
+        const cropY = box.offsetTop * scaleY;
+        const cropW = box.offsetWidth * scaleX;
+        const cropH = box.offsetHeight * scaleY;
+
+        // Create canvas and crop
+        const canvas = document.createElement('canvas');
+        canvas.width = cropW;
+        canvas.height = cropH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+        // Get cropped image as base64
+        const croppedData = canvas.toDataURL('image/jpeg', 0.85);
+
+        // Set as entry photo
+        this.currentEntryPhotoData = croppedData;
+        this.currentEntryPhoto = 'new';
+        this.updateEntryPhotoUI();
+        this.showToast('Foto zugeschnitten');
+
+        // Cleanup
+        this.cancelCrop();
     }
 
     // Delete entry photo
