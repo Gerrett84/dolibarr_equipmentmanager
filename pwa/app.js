@@ -1199,6 +1199,8 @@ class ServiceReportApp {
             }
 
             // Store entries
+            console.log('API entriesData:', entriesData);
+            console.log('Entries with materials:', entriesData.entries);
             this.currentEntries = entriesData.entries || [];
 
             // Populate summary fields
@@ -1295,6 +1297,8 @@ class ServiceReportApp {
         this.updateEntryPhotoUI();
 
         // Load defect materials (v4.2) - use materials from entry response
+        console.log('Entry data:', entry);
+        console.log('Entry materials:', entry.materials);
         this.currentEntryDefectMaterials = entry.materials || [];
         this.renderDefectMaterials();
         // Show section if issues_found has content
