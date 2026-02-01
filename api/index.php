@@ -181,10 +181,6 @@ try {
             handleDefectMaterial($method, $parts, $input);
             break;
 
-        case 'products':
-            handleProducts($method, $parts, $input);
-            break;
-
         case 'equipment':
             handleEquipment($method, $parts, $input);
             break;
@@ -2797,50 +2793,4 @@ function handleDefectMaterial($method, $parts, $input) {
 
     http_response_code(400);
     echo json_encode(['error' => 'Invalid request']);
-}
-
-/**
- * Handle product search
- * GET /products?search=term - Search products
- */
-function handleProducts($method, $parts, $input) {
-    global $db;
-
-    if ($method !== 'GET') {
-        http_response_code(405);
-        echo json_encode(['error' => 'Method not allowed']);
-        return;
-    }
-
-    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
-
-    if (strlen($search) < 2) {
-        echo json_encode([]);
-        return;
-    }
-
-    $sql = "SELECT rowid, ref, label, price, tosell, tobuy";
-    $sql .= " FROM ".MAIN_DB_PREFIX."product";
-    $sql .= " WHERE (ref LIKE '%".$db->escape($search)."%' OR label LIKE '%".$db->escape($search)."%')";
-    $sql .= " AND (tosell = 1 OR tobuy = 1)";
-    $sql .= " ORDER BY ref ASC";
-    $sql .= " LIMIT ".$limit;
-
-    $resql = $db->query($sql);
-    $products = [];
-
-    if ($resql) {
-        while ($obj = $db->fetch_object($resql)) {
-            $products[] = [
-                'id' => (int)$obj->rowid,
-                'ref' => $obj->ref,
-                'label' => $obj->label,
-                'price' => (float)$obj->price
-            ];
-        }
-        $db->free($resql);
-    }
-
-    echo json_encode($products);
 }
