@@ -1294,15 +1294,14 @@ class ServiceReportApp {
         this.currentEntryPhotoData = null; // Only set when new photo is captured
         this.updateEntryPhotoUI();
 
-        // Load defect materials (v4.2)
-        if (entry.id) {
-            this.loadDefectMaterials(entry.id);
-            // Show section if issues_found has content
-            if (entry.issues_found && entry.issues_found.trim().length > 0) {
-                document.getElementById('defectMaterialSection').style.display = 'block';
-            } else {
-                document.getElementById('defectMaterialSection').style.display = 'none';
-            }
+        // Load defect materials (v4.2) - use materials from entry response
+        this.currentEntryDefectMaterials = entry.materials || [];
+        this.renderDefectMaterials();
+        // Show section if issues_found has content
+        if (entry.issues_found && entry.issues_found.trim().length > 0) {
+            document.getElementById('defectMaterialSection').style.display = 'block';
+        } else {
+            document.getElementById('defectMaterialSection').style.display = 'none';
         }
 
         // Show delete button for existing entries
@@ -1757,13 +1756,18 @@ class ServiceReportApp {
                 })
             });
 
-            // Add to local list
+            // Add to local list and update entry
             if (!this.currentEntryDefectMaterials) {
                 this.currentEntryDefectMaterials = [];
             }
             this.currentEntryDefectMaterials.push(result);
-            this.renderDefectMaterials();
 
+            // Also update currentEntry.materials for consistency
+            if (this.currentEntry) {
+                this.currentEntry.materials = [...this.currentEntryDefectMaterials];
+            }
+
+            this.renderDefectMaterials();
             this.closeDefectMaterialModal();
             this.showToast('Material hinzugefügt');
         } catch (err) {
@@ -1781,8 +1785,14 @@ class ServiceReportApp {
                 method: 'DELETE'
             });
 
-            // Remove from local list
+            // Remove from local list and update entry
             this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.id !== materialId);
+
+            // Also update currentEntry.materials for consistency
+            if (this.currentEntry) {
+                this.currentEntry.materials = [...this.currentEntryDefectMaterials];
+            }
+
             this.renderDefectMaterials();
             this.showToast('Material entfernt');
         } catch (err) {
