@@ -1199,8 +1199,6 @@ class ServiceReportApp {
             }
 
             // Store entries
-            console.log('API entriesData:', entriesData);
-            console.log('Entries with materials:', entriesData.entries);
             this.currentEntries = entriesData.entries || [];
 
             // Populate summary fields
@@ -1297,8 +1295,6 @@ class ServiceReportApp {
         this.updateEntryPhotoUI();
 
         // Load defect materials (v4.2) - use materials from entry response
-        console.log('Entry data:', entry);
-        console.log('Entry materials:', entry.materials);
         this.currentEntryDefectMaterials = entry.materials || [];
         this.renderDefectMaterials();
         // Show section if issues_found has content
@@ -1702,8 +1698,9 @@ class ServiceReportApp {
         }
 
         try {
-            const products = await this.apiCall(`products?search=${encodeURIComponent(search)}`);
-            if (products && products.length > 0) {
+            const response = await this.apiCall(`products?search=${encodeURIComponent(search)}`);
+            const products = response.products || [];
+            if (products.length > 0) {
                 resultsDiv.innerHTML = products.map(p => `
                     <div class="product-result" onclick="app.selectDefectProduct(${p.id}, '${p.ref.replace(/'/g, "\\'")}', '${p.label.replace(/'/g, "\\'")}')">
                         <span class="product-ref">[${p.ref}]</span>
