@@ -1870,7 +1870,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <button type="button" class="btn btn-primary btn-block" id="btnSaveSummary">Empfehlungen speichern</button>
 
             <!-- Materials Section -->
-            <div class="card" style="margin-top:12px;">
+            <div class="card" style="margin-top:12px;" id="materialsCard">
                 <div class="card-header">
                     <h3 class="card-title">Material</h3>
                     <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>

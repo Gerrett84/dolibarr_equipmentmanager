@@ -1163,6 +1163,7 @@ class ServiceReportApp {
     // Load entries list for equipment (v1.7)
     async loadEntries(equipment) {
         try {
+            console.log('loadEntries called with equipment:', equipment);
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
 
@@ -1183,8 +1184,9 @@ class ServiceReportApp {
             // Show equipment details (hide for general entries)
             if (equipment.id > 0) {
                 this.renderEquipmentDetails(equipment);
+                document.getElementById('equipmentDetailsSection').style.display = 'block';
             } else {
-                document.getElementById('equipmentDetailsCard').style.display = 'none';
+                document.getElementById('equipmentDetailsSection').style.display = 'none';
             }
 
             const listEl = document.getElementById('entriesList');
@@ -1397,10 +1399,12 @@ class ServiceReportApp {
         if (this.isOnline) {
             try {
                 // Save entry first
+                console.log('Saving entry with data:', entryData);
                 const response = await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
                     method: 'POST',
                     body: JSON.stringify(entryData)
                 });
+                console.log('Save response:', response);
 
                 // Upload photo separately if new photo was captured
                 if (this.currentEntryPhotoData && response.id) {
