@@ -1083,6 +1083,24 @@ class ServiceReportApp {
             const card = document.createElement('div');
             card.className = 'card';
 
+            // Add "General Work" option (entries without equipment) at top
+            const generalItem = document.createElement('div');
+            generalItem.className = 'equipment-item card-clickable';
+            generalItem.innerHTML = `
+                <div class="equipment-icon">📝</div>
+                <div class="equipment-info">
+                    <div class="equipment-ref">Allgemeine Arbeiten</div>
+                    <div class="equipment-label">Einträge ohne Anlagenbezug</div>
+                </div>
+                <span class="link-type-badge service">Allgemein</span>
+            `;
+            generalItem.addEventListener('click', () => {
+                // Create pseudo-equipment object for general entries
+                this.currentEquipment = { id: 0, ref: 'Allgemein', label: 'Allgemeine Arbeiten', link_type: 'service' };
+                this.loadEntries(this.currentEquipment);
+            });
+            card.appendChild(generalItem);
+
             // Equipment type labels - store as class property for reuse
             this.equipmentTypeLabels = {
                 'door_swing': 'Drehtür',
@@ -1151,14 +1169,23 @@ class ServiceReportApp {
             // Show equipment ref and label
             document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
 
-            // Show link type badge (Wartung/Service) on the right
-            const linkTypeBadge = equipment.link_type === 'maintenance'
-                ? '<span class="link-type-badge maintenance">Wartung</span>'
-                : '<span class="link-type-badge service">Service</span>';
+            // Show link type badge (Wartung/Service/Allgemein) on the right
+            let linkTypeBadge;
+            if (equipment.id === 0) {
+                linkTypeBadge = '<span class="link-type-badge service">Allgemein</span>';
+            } else if (equipment.link_type === 'maintenance') {
+                linkTypeBadge = '<span class="link-type-badge maintenance">Wartung</span>';
+            } else {
+                linkTypeBadge = '<span class="link-type-badge service">Service</span>';
+            }
             document.getElementById('entriesLinkType').innerHTML = linkTypeBadge;
 
-            // Show equipment details
-            this.renderEquipmentDetails(equipment);
+            // Show equipment details (hide for general entries)
+            if (equipment.id > 0) {
+                this.renderEquipmentDetails(equipment);
+            } else {
+                document.getElementById('equipmentDetailsCard').style.display = 'none';
+            }
 
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -1251,13 +1278,18 @@ class ServiceReportApp {
                 });
             }
 
-            // Load and display materials
-            const materials = equipment.materials || [];
-            this.renderMaterials(materials);
+            // Load and display materials (not for general entries)
+            if (equipment.id > 0) {
+                const materials = equipment.materials || [];
+                this.renderMaterials(materials);
+                document.getElementById('materialsCard').style.display = 'block';
+            } else {
+                document.getElementById('materialsCard').style.display = 'none';
+            }
 
-            // Load checklist if maintenance equipment
+            // Load checklist if maintenance equipment (not for general entries)
             const checklistCard = document.getElementById('checklistCard');
-            if (equipment.link_type === 'maintenance') {
+            if (equipment.id > 0 && equipment.link_type === 'maintenance') {
                 checklistCard.style.display = 'block';
                 await this.loadChecklist(this.currentIntervention.id, equipment.id);
             } else {

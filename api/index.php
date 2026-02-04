@@ -786,20 +786,23 @@ function handleDetail($method, $parts, $input) {
     global $db, $user;
 
     $intervention_id = (int)($parts[1] ?? 0);
-    $equipment_id = (int)($parts[2] ?? 0);
+    $equipment_id = (int)($parts[2] ?? 0);  // 0 = general entries (no equipment)
 
-    if (!$intervention_id || !$equipment_id) {
+    if (!$intervention_id) {
         http_response_code(400);
-        echo json_encode(['error' => 'Intervention ID and Equipment ID required']);
+        echo json_encode(['error' => 'Intervention ID required']);
         return;
     }
+
+    // equipment_id = 0 means "general entries" (without equipment link)
+    $equipment_id_or_null = $equipment_id > 0 ? $equipment_id : null;
 
     $detail = new InterventionDetail($db);
 
     if ($method === 'GET') {
-        // v1.7: Return all entries as array
-        $entries = $detail->fetchAllByInterventionEquipment($intervention_id, $equipment_id);
-        $totalDuration = $detail->getTotalDuration($intervention_id, $equipment_id);
+        // v1.7: Return all entries as array (equipment_id=0 means general entries)
+        $entries = $detail->fetchAllByInterventionEquipment($intervention_id, $equipment_id_or_null);
+        $totalDuration = $detail->getTotalDuration($intervention_id, $equipment_id_or_null);
 
         $entriesData = [];
         $recommendations = '';
@@ -852,7 +855,7 @@ function handleDetail($method, $parts, $input) {
 
         // If saving summary only (recommendations/notes), update first entry
         if ($save_summary_only) {
-            $entries = $detail->fetchAllByInterventionEquipment($intervention_id, $equipment_id);
+            $entries = $detail->fetchAllByInterventionEquipment($intervention_id, $equipment_id_or_null);
             if (count($entries) > 0) {
                 $detail = $entries[0];
                 $detail->recommendations = $input['recommendations'] ?? '';
@@ -861,7 +864,7 @@ function handleDetail($method, $parts, $input) {
             } else {
                 // No entries yet - create one with just recommendations/notes
                 $detail->fk_intervention = $intervention_id;
-                $detail->fk_equipment = $equipment_id;
+                $detail->fk_equipment = $equipment_id_or_null;  // Can be NULL for general entries
                 $detail->recommendations = $input['recommendations'] ?? '';
                 $detail->notes = $input['notes'] ?? '';
                 $detail->work_date = time();
@@ -886,7 +889,7 @@ function handleDetail($method, $parts, $input) {
         }
 
         $detail->fk_intervention = $intervention_id;
-        $detail->fk_equipment = $equipment_id;
+        $detail->fk_equipment = $equipment_id_or_null;  // Can be NULL for general entries
         $detail->work_done = $input['work_done'] ?? '';
         $detail->issues_found = $input['issues_found'] ?? '';
         $detail->recommendations = $input['recommendations'] ?? '';
@@ -930,7 +933,8 @@ function handleDetail($method, $parts, $input) {
                 elseif ($mimeType === 'image/gif') $extension = 'gif';
 
                 $timestamp = dol_print_date(dol_now(), "%Y%m%d%H%M%S");
-                $filename = "entry_{$equipment_id}_{$timestamp}.{$extension}";
+                $eqId = $equipment_id > 0 ? $equipment_id : 'general';
+                $filename = "entry_{$eqId}_{$timestamp}.{$extension}";
                 $filepath = $docDir . '/' . $filename;
 
                 if (file_put_contents($filepath, $decoded)) {

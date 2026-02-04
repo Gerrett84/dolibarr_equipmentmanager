@@ -74,6 +74,14 @@ ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER note;
 ALTER TABLE llx_equipmentmanager_intervention_detail
 ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER notes;
 
+-- v4.2: Allow entries without equipment (general work items)
+ALTER TABLE llx_equipmentmanager_intervention_detail
+MODIFY fk_equipment INT NULL;
+
+-- v4.2: Also allow materials without equipment reference
+ALTER TABLE llx_equipmentmanager_intervention_material
+MODIFY fk_equipment INT NULL;
+
 -- v4.2: Create table for materials needed to fix defects
 CREATE TABLE IF NOT EXISTS llx_equipmentmanager_defect_material (
     rowid integer AUTO_INCREMENT PRIMARY KEY,

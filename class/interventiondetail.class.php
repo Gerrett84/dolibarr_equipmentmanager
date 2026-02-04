@@ -63,7 +63,7 @@ class InterventionDetail extends CommonObject
         $sql .= "fk_user_creat";
         $sql .= ") VALUES (";
         $sql .= (int)$this->fk_intervention.",";
-        $sql .= (int)$this->fk_equipment.",";
+        $sql .= ($this->fk_equipment > 0 ? (int)$this->fk_equipment : "NULL").",";  // Allow NULL
         $sql .= (int)$this->entry_number.",";
         $sql .= ($this->report_text ? "'".$this->db->escape($this->report_text)."'" : "NULL").",";
         $sql .= ($this->work_done ? "'".$this->db->escape($this->work_done)."'" : "NULL").",";
@@ -100,12 +100,18 @@ class InterventionDetail extends CommonObject
 
     /**
      * Get next entry number for intervention + equipment
+     * @param int $fk_intervention Intervention ID
+     * @param int|null $fk_equipment Equipment ID (NULL for general entries)
      */
-    public function getNextEntryNumber($fk_intervention, $fk_equipment)
+    public function getNextEntryNumber($fk_intervention, $fk_equipment = null)
     {
         $sql = "SELECT MAX(entry_number) as max_entry FROM ".MAIN_DB_PREFIX.$this->table_element;
         $sql .= " WHERE fk_intervention = ".(int)$fk_intervention;
-        $sql .= " AND fk_equipment = ".(int)$fk_equipment;
+        if ($fk_equipment > 0) {
+            $sql .= " AND fk_equipment = ".(int)$fk_equipment;
+        } else {
+            $sql .= " AND fk_equipment IS NULL";
+        }
 
         $resql = $this->db->query($sql);
         if ($resql) {
@@ -194,15 +200,21 @@ class InterventionDetail extends CommonObject
 
     /**
      * Fetch all entries for intervention + equipment
+     * @param int $fk_intervention Intervention ID
+     * @param int|null $fk_equipment Equipment ID (NULL for general entries without equipment)
      * @return array Array of InterventionDetail objects
      */
-    public function fetchAllByInterventionEquipment($fk_intervention, $fk_equipment)
+    public function fetchAllByInterventionEquipment($fk_intervention, $fk_equipment = null)
     {
         $entries = array();
 
         $sql = "SELECT * FROM ".MAIN_DB_PREFIX.$this->table_element;
         $sql .= " WHERE fk_intervention = ".(int)$fk_intervention;
-        $sql .= " AND fk_equipment = ".(int)$fk_equipment;
+        if ($fk_equipment > 0) {
+            $sql .= " AND fk_equipment = ".(int)$fk_equipment;
+        } else {
+            $sql .= " AND fk_equipment IS NULL";
+        }
         $sql .= " ORDER BY entry_number DESC"; // Newest first
 
         dol_syslog(get_class($this)."::fetchAllByInterventionEquipment", LOG_DEBUG);
@@ -221,13 +233,29 @@ class InterventionDetail extends CommonObject
     }
 
     /**
-     * Get total duration of all entries for intervention + equipment
+     * Fetch all general entries for intervention (without equipment)
+     * @param int $fk_intervention Intervention ID
+     * @return array Array of InterventionDetail objects
      */
-    public function getTotalDuration($fk_intervention, $fk_equipment)
+    public function fetchAllGeneralEntries($fk_intervention)
+    {
+        return $this->fetchAllByInterventionEquipment($fk_intervention, null);
+    }
+
+    /**
+     * Get total duration of all entries for intervention + equipment
+     * @param int $fk_intervention Intervention ID
+     * @param int|null $fk_equipment Equipment ID (NULL for general entries)
+     */
+    public function getTotalDuration($fk_intervention, $fk_equipment = null)
     {
         $sql = "SELECT SUM(work_duration) as total FROM ".MAIN_DB_PREFIX.$this->table_element;
         $sql .= " WHERE fk_intervention = ".(int)$fk_intervention;
-        $sql .= " AND fk_equipment = ".(int)$fk_equipment;
+        if ($fk_equipment > 0) {
+            $sql .= " AND fk_equipment = ".(int)$fk_equipment;
+        } else {
+            $sql .= " AND fk_equipment IS NULL";
+        }
 
         $resql = $this->db->query($sql);
         if ($resql) {
