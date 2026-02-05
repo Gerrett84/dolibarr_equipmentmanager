@@ -1062,12 +1062,30 @@ class ServiceReportApp {
                 sigBtn.style.display = 'none';
             }
 
+            // Button container for action buttons
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px;';
+
             // Add "Add Equipment" button
             const addBtn = document.createElement('div');
             addBtn.className = 'add-equipment-btn';
+            addBtn.style.flex = '1';
             addBtn.innerHTML = '<span>➕</span> Anlage hinzufügen';
             addBtn.addEventListener('click', () => this.showEquipmentModal());
-            listEl.appendChild(addBtn);
+            btnContainer.appendChild(addBtn);
+
+            // Add "General Work" button
+            const generalBtn = document.createElement('div');
+            generalBtn.className = 'add-equipment-btn';
+            generalBtn.style.flex = '1';
+            generalBtn.innerHTML = '<span>📝</span> Allgemeine Arbeiten';
+            generalBtn.addEventListener('click', () => {
+                this.currentEquipment = { id: 0, ref: 'Allgemein', label: 'Allgemeine Arbeiten', link_type: 'service' };
+                this.loadEntries(this.currentEquipment);
+            });
+            btnContainer.appendChild(generalBtn);
+
+            listEl.appendChild(btnContainer);
 
             if (equipment.length === 0) {
                 listEl.innerHTML += `
@@ -1082,24 +1100,6 @@ class ServiceReportApp {
             // Create equipment list
             const card = document.createElement('div');
             card.className = 'card';
-
-            // Add "General Work" option (entries without equipment) at top
-            const generalItem = document.createElement('div');
-            generalItem.className = 'equipment-item card-clickable';
-            generalItem.innerHTML = `
-                <div class="equipment-icon">📝</div>
-                <div class="equipment-info">
-                    <div class="equipment-ref">Allgemeine Arbeiten</div>
-                    <div class="equipment-label">Einträge ohne Anlagenbezug</div>
-                </div>
-                <span class="link-type-badge service">Allgemein</span>
-            `;
-            generalItem.addEventListener('click', () => {
-                // Create pseudo-equipment object for general entries
-                this.currentEquipment = { id: 0, ref: 'Allgemein', label: 'Allgemeine Arbeiten', link_type: 'service' };
-                this.loadEntries(this.currentEquipment);
-            });
-            card.appendChild(generalItem);
 
             // Equipment type labels - store as class property for reuse
             this.equipmentTypeLabels = {
@@ -1163,7 +1163,6 @@ class ServiceReportApp {
     // Load entries list for equipment (v1.7)
     async loadEntries(equipment) {
         try {
-            console.log('loadEntries called with equipment:', equipment);
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
 
@@ -1399,12 +1398,10 @@ class ServiceReportApp {
         if (this.isOnline) {
             try {
                 // Save entry first
-                console.log('Saving entry with data:', entryData);
                 const response = await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
                     method: 'POST',
                     body: JSON.stringify(entryData)
                 });
-                console.log('Save response:', response);
 
                 // Upload photo separately if new photo was captured
                 if (this.currentEntryPhotoData && response.id) {
