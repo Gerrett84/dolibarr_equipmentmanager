@@ -828,6 +828,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                         $photoX = $leftMargin + $textPadding;
                         $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
                         $curY += $photoMaxHeight + 2;
+                        $pdf->SetY($curY); // Update PDF cursor position
                     }
                 }
             }
@@ -1034,6 +1035,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                         $photoX = $leftMargin + $textPadding;
                         $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
                         $curY += $photoMaxHeight + 2;
+                        $pdf->SetY($curY); // Update PDF cursor position
                     }
                 }
             }
