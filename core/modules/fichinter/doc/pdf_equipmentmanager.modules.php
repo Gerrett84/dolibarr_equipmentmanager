@@ -821,12 +821,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                             $curY = $this->marge_haute + 5;
                         }
 
-                        // Draw photo with thin border
-                        $photoX = $leftMargin + $textPadding + 2;
-                        $pdf->SetDrawColor(180, 180, 180);
-                        $pdf->Rect($photoX - 0.5, $curY - 0.5, $photoMaxWidth + 1, $photoMaxHeight + 1);
+                        // Draw photo without border, same indent as text
+                        $photoX = $leftMargin + $textPadding;
                         $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
-                        $pdf->SetDrawColor(0, 0, 0);
                         $curY += $photoMaxHeight + 2;
                     }
                 }
@@ -1027,12 +1024,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                             $curY = $this->marge_haute + 5;
                         }
 
-                        // Draw photo with thin border
-                        $photoX = $leftMargin + $textPadding + 2;
-                        $pdf->SetDrawColor(180, 180, 180);
-                        $pdf->Rect($photoX - 0.5, $curY - 0.5, $photoMaxWidth + 1, $photoMaxHeight + 1);
+                        // Draw photo without border, same indent as text
+                        $photoX = $leftMargin + $textPadding;
                         $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
-                        $pdf->SetDrawColor(0, 0, 0);
                         $curY += $photoMaxHeight + 2;
                     }
                 }
