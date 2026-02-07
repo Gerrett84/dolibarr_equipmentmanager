@@ -255,11 +255,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $total_material = 0;
                 $total_duration = 0;
                 $equipment_count = count($equipment_list);
-                $is_first_section = true;
+
+                // Render description as separate box BEFORE equipment sections
+                if (!empty($object->description)) {
+                    $curY = $this->_renderDescriptionBox($pdf, $object, $curY, $outputlangs, $default_font_size);
+                }
 
                 foreach ($equipment_list as $index => $equipment) {
-                    $is_first = $is_first_section;
-                    $is_first_section = false;
+                    $is_first = ($index === 0);  // First equipment (but description already rendered)
                     $is_last = ($index === $equipment_count - 1) && !$hasGeneralEntries;
 
                     // Load ALL equipment detail entries (v1.7 - multiple entries)
@@ -709,30 +712,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pageWidth = $this->page_largeur;
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // If first equipment, draw "Beschreibung" header (fully bordered)
-        if ($is_first) {
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->SetFillColor(240, 240, 240);
-            $pdf->SetDrawColor(0, 0, 0);
-            $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell($sectionWidth, 6, "Beschreibung", 'TLR', 1, 'L', 1);
-            $curY = $pdf->GetY();
-
-            // Add order description if available
-            if ($object && !empty($object->description)) {
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetTextColor(0, 0, 0);
-                $pdf->SetXY($leftMargin + 2, $curY + 2);
-                $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
-                $curY = $pdf->GetY() + 2;
-
-                // Draw separator line below description (same thickness as outer border)
-                $pdf->SetDrawColor(0, 0, 0);
-                $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-                $curY += 2;
-            }
-        }
-
         // Text padding inside bordered section
         $textPadding = 2;
 
@@ -919,14 +898,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetDrawColor(0, 0, 0);
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // Top border (only if not first - first has "Beschreibung" header)
-        if (!$is_first) {
-            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
-        }
+        // Top border
+        $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
         // Left border
-        $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
+        $pdf->Line($leftMargin, $startY, $leftMargin, $curY);
         // Right border
-        $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
+        $pdf->Line($leftMargin + $sectionWidth, $startY, $leftMargin + $sectionWidth, $curY);
         // Bottom border - skip if materials exist (table has its own border)
         if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
@@ -956,29 +933,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $rightMargin = $this->marge_droite;
         $pageWidth = $this->page_largeur;
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
-
-        // If first section, draw "Beschreibung" header
-        if ($is_first) {
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->SetFillColor(240, 240, 240);
-            $pdf->SetDrawColor(0, 0, 0);
-            $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell($sectionWidth, 6, "Beschreibung", 'TLR', 1, 'L', 1);
-            $curY = $pdf->GetY();
-
-            // Add order description if available
-            if ($object && !empty($object->description)) {
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetTextColor(0, 0, 0);
-                $pdf->SetXY($leftMargin + 2, $curY + 2);
-                $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
-                $curY = $pdf->GetY() + 2;
-
-                $pdf->SetDrawColor(0, 0, 0);
-                $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-                $curY += 2;
-            }
-        }
 
         $textPadding = 2;
 
@@ -1131,16 +1085,61 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Draw borders
         $pdf->SetDrawColor(0, 0, 0);
 
-        if (!$is_first) {
-            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
-        }
-        $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
-        $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
+        // Top border
+        $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
+        // Left border
+        $pdf->Line($leftMargin, $startY, $leftMargin, $curY);
+        // Right border
+        $pdf->Line($leftMargin + $sectionWidth, $startY, $leftMargin + $sectionWidth, $curY);
+        // Bottom border - skip if materials exist (table has its own border)
         if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
 
         return $curY + 4;
+    }
+
+    /**
+     * Render description box as separate section
+     *
+     * @param TCPDF $pdf PDF object
+     * @param Fichinter $object Fichinter object
+     * @param float $curY Current Y position
+     * @param Translate $outputlangs Output language object
+     * @param int $default_font_size Default font size
+     * @return float New Y position
+     */
+    protected function _renderDescriptionBox(&$pdf, $object, $curY, $outputlangs, $default_font_size)
+    {
+        $leftMargin = $this->marge_gauche;
+        $rightMargin = $this->marge_droite;
+        $pageWidth = $this->page_largeur;
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
+
+        $startY = $curY;
+
+        // Header "Beschreibung"
+        $pdf->SetFont('', 'B', $default_font_size);
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetXY($leftMargin, $curY);
+        $pdf->Cell($sectionWidth, 6, "Beschreibung", 1, 1, 'L', 1);
+        $curY = $pdf->GetY();
+
+        // Description text
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetXY($leftMargin + 2, $curY + 2);
+        $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
+        $curY = $pdf->GetY() + 2;
+
+        // Draw box around description content
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->Line($leftMargin, $startY + 6, $leftMargin, $curY); // Left
+        $pdf->Line($leftMargin + $sectionWidth, $startY + 6, $leftMargin + $sectionWidth, $curY); // Right
+        $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY); // Bottom
+
+        return $curY + 6; // Space before next section
     }
 
     /**
