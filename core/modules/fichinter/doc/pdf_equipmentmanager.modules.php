@@ -794,17 +794,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             // Issues found for this entry (with photo if exists)
-            if ($entry->issues_found) {
+            if ($entry->issues_found || !empty($entry->photo)) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
                 $curY = $pdf->GetY();
 
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($leftMargin + $textPadding, $curY);
-                $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
-                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
-                $curY = $pdf->GetY() + 1;
+                // Issues text
+                if ($entry->issues_found) {
+                    $pdf->SetFont('', '', $default_font_size - 1);
+                    $pdf->SetXY($leftMargin + $textPadding, $curY);
+                    $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
+                    $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
+                    $curY = $pdf->GetY() + 1;
+                }
 
                 // Defect photo directly under issues text (v4.2)
                 if (!empty($entry->photo)) {
@@ -997,17 +1000,20 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             // Issues found (with photo if exists)
-            if ($entry->issues_found) {
+            if ($entry->issues_found || !empty($entry->photo)) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
                 $curY = $pdf->GetY();
 
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($leftMargin + $textPadding, $curY);
-                $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
-                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
-                $curY = $pdf->GetY() + 1;
+                // Issues text
+                if ($entry->issues_found) {
+                    $pdf->SetFont('', '', $default_font_size - 1);
+                    $pdf->SetXY($leftMargin + $textPadding, $curY);
+                    $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
+                    $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
+                    $curY = $pdf->GetY() + 1;
+                }
 
                 // Defect photo directly under issues text (v4.2)
                 if (!empty($entry->photo)) {
