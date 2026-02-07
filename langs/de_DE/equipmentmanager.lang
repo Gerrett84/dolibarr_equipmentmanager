@@ -660,3 +660,7 @@ CleanupDuplicates=Duplikate bereinigen
 CleanupDuplicatesDesc=Entfernt doppelte Einträge in Checklisten-Sections und Items, die durch mehrfaches Ausführen der SQL-Migration entstanden sind.
 RunCleanup=Bereinigung starten
 ShowDuplicates=Duplikate anzeigen
+
+# General Work Entries v4.2
+GeneralWork=Allgemeine Arbeiten
+GeneralWorkDescription=Arbeitseinträge ohne Anlagenbezug (z.B. allgemeine Montagearbeiten, Anfahrt)

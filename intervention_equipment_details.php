@@ -61,8 +61,8 @@ if (!$permissiontoread) {
  * Actions
  */
 
-// Save entry (new or edit)
-if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
+// Save entry (new or edit) - equipment_id >= 0 (0 = general entries)
+if ($action == 'save_entry' && $permissiontoadd && $equipment_id >= 0) {
     $detail = new InterventionDetail($db);
 
     // Check if editing existing entry
@@ -71,7 +71,7 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id > 0) {
     }
 
     $detail->fk_intervention = $object->id;
-    $detail->fk_equipment = $equipment_id;
+    $detail->fk_equipment = $equipment_id > 0 ? $equipment_id : null;  // NULL for general entries
     $detail->work_done = GETPOST('work_done', 'restricthtml');
     $detail->issues_found = GETPOST('issues_found', 'restricthtml');
 
@@ -223,10 +223,11 @@ if ($action == 'delete_entry' && $permissiontoadd && $entry_id > 0) {
 }
 
 // Save summary (recommendations, notes)
-if ($action == 'save_summary' && $permissiontoadd && $equipment_id > 0) {
+if ($action == 'save_summary' && $permissiontoadd && $equipment_id >= 0) {
     // Get first entry or create one if none exists
     $detail = new InterventionDetail($db);
-    $entries = $detail->fetchAllByInterventionEquipment($object->id, $equipment_id);
+    $eq_id_or_null = $equipment_id > 0 ? $equipment_id : null;
+    $entries = $detail->fetchAllByInterventionEquipment($object->id, $eq_id_or_null);
 
     if (count($entries) > 0) {
         // Update recommendations/notes on first entry
@@ -237,7 +238,7 @@ if ($action == 'save_summary' && $permissiontoadd && $equipment_id > 0) {
     } else {
         // Create a new entry with just recommendations/notes
         $detail->fk_intervention = $object->id;
-        $detail->fk_equipment = $equipment_id;
+        $detail->fk_equipment = $eq_id_or_null;  // NULL for general entries
         $detail->recommendations = GETPOST('recommendations', 'restricthtml');
         $detail->notes = GETPOST('notes', 'restricthtml');
         $detail->work_date = dol_now();
@@ -249,11 +250,11 @@ if ($action == 'save_summary' && $permissiontoadd && $equipment_id > 0) {
     exit;
 }
 
-// Add material
-if ($action == 'add_material' && $permissiontoadd && $equipment_id > 0) {
+// Add material (equipment_id >= 0, 0 = general)
+if ($action == 'add_material' && $permissiontoadd && $equipment_id >= 0) {
     $material = new InterventionMaterial($db);
     $material->fk_intervention = $object->id;
-    $material->fk_equipment = $equipment_id;
+    $material->fk_equipment = $equipment_id > 0 ? $equipment_id : null;
     $material->fk_product = GETPOST('fk_product', 'int') > 0 ? GETPOST('fk_product', 'int') : null;
     $material->material_name = GETPOST('material_name', 'alpha');
     $material->material_description = GETPOST('material_description', 'restricthtml');
@@ -559,31 +560,36 @@ if ($object->id > 0) {
         $db->free($resql);
     }
 
-    if (count($linked_equipment) == 0) {
+    // Allow page even without equipment (for general entries)
+    // equipment_id = 0 means "general entries"
+    $isGeneralEntries = (GETPOSTISSET('equipment_id') && GETPOST('equipment_id', 'int') === 0);
+
+    if (count($linked_equipment) == 0 && !$isGeneralEntries) {
+        // Show info but also offer "Allgemeine Arbeiten" option
         print '<br>';
         print '<div class="info">';
         print '<span class="fa fa-info-circle"></span> ';
         print $langs->trans('NoEquipmentLinked').'<br>';
-        print $langs->trans('PleaseGoToEquipmentTabFirst');
+        print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id=0">'.$langs->trans('GeneralWork').'</a>';
         print '</div>';
-        llxFooter();
-        $db->close();
-        exit;
     }
 
-    // If no equipment selected, select first one
-    if (!$equipment_id) {
+    // If no equipment selected and we have linked equipment, select first one
+    if (!GETPOSTISSET('equipment_id') && count($linked_equipment) > 0) {
         $equipment_id = $linked_equipment[0];
     }
 
-    // Load current equipment
+    // Load current equipment (if not general entries)
     $equipment = new Equipment($db);
-    $equipment->fetch($equipment_id);
+    if ($equipment_id > 0) {
+        $equipment->fetch($equipment_id);
+    }
 
-    // Load all entries for this equipment
+    // Load all entries for this equipment (NULL for general entries)
     $detailHelper = new InterventionDetail($db);
-    $entries = $detailHelper->fetchAllByInterventionEquipment($object->id, $equipment_id);
-    $totalDuration = $detailHelper->getTotalDuration($object->id, $equipment_id);
+    $eq_id_for_fetch = $equipment_id > 0 ? $equipment_id : null;
+    $entries = $detailHelper->fetchAllByInterventionEquipment($object->id, $eq_id_for_fetch);
+    $totalDuration = $detailHelper->getTotalDuration($object->id, $eq_id_for_fetch);
 
     // Get recommendations/notes from first entry (if exists)
     $recommendations = '';
@@ -617,9 +623,14 @@ if ($object->id > 0) {
     $sql_processed .= " WHERE fk_intervention = ".(int)$object->id;
     $resql_processed = $db->query($sql_processed);
     $processed_equipment = array();
+    $hasProcessedGeneralEntries = false;
     if ($resql_processed) {
         while ($obj_proc = $db->fetch_object($resql_processed)) {
-            $processed_equipment[] = $obj_proc->fk_equipment;
+            if ($obj_proc->fk_equipment === null || $obj_proc->fk_equipment == 0) {
+                $hasProcessedGeneralEntries = true;
+            } else {
+                $processed_equipment[] = $obj_proc->fk_equipment;
+            }
         }
     }
 
@@ -630,11 +641,28 @@ if ($object->id > 0) {
     print '<td>';
 
     print '<select name="equipment_selector" class="flat minwidth400" onchange="window.location.href=\''.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id=\'+this.value">';
+
+    // Option: Allgemeine Arbeiten (equipment_id = 0)
+    $generalSelected = ($isGeneralEntries || (GETPOSTISSET('equipment_id') && GETPOST('equipment_id', 'int') == 0)) ? ' selected' : '';
+    print '<option value="0"'.$generalSelected.'>';
+    if ($hasProcessedGeneralEntries) {
+        print '✓ ';
+    } else {
+        print '○ ';
+    }
+    print '📝 '.$langs->trans('GeneralWork');
+    print '</option>';
+
+    // Separator
+    if (count($linked_equipment) > 0) {
+        print '<option disabled>──────────────────</option>';
+    }
+
     foreach ($linked_equipment as $eq_id) {
         $eq_temp = new Equipment($db);
         $eq_temp->fetch($eq_id);
 
-        $selected = ($eq_id == $equipment_id) ? ' selected' : '';
+        $selected = ($eq_id == $equipment_id && !$isGeneralEntries && $equipment_id > 0) ? ' selected' : '';
         $is_processed = in_array($eq_id, $processed_equipment);
 
         print '<option value="'.$eq_id.'"'.$selected.'>';
@@ -662,87 +690,126 @@ if ($object->id > 0) {
     // SECTION 1: EQUIPMENT INFO + SUMMARY
     // ========================================================================
 
-    print '<div class="fichecenter">';
-    print '<div class="fichehalfleft">';
-    print '<div class="underbanner clearboth"></div>';
-    print '<table class="border centpercent tableforfield">';
+    // Check if general entries mode
+    $isGeneralEntriesMode = ($equipment_id == 0 || $isGeneralEntries);
 
-    print '<tr class="liste_titre">';
-    print '<th colspan="2"><span class="fa fa-wrench paddingright"></span>'.$langs->trans('EquipmentInformation').'</th>';
-    print '</tr>';
+    // Equipment Info - only show if real equipment selected
+    if (!$isGeneralEntriesMode && $equipment_id > 0) {
+        print '<div class="fichecenter">';
+        print '<div class="fichehalfleft">';
+        print '<div class="underbanner clearboth"></div>';
+        print '<table class="border centpercent tableforfield">';
 
-    print '<tr><td class="titlefield">'.$langs->trans("EquipmentNumber").'</td><td>';
-    print '<strong>'.$equipment->equipment_number.'</strong>';
-    print '</td></tr>';
+        print '<tr class="liste_titre">';
+        print '<th colspan="2"><span class="fa fa-wrench paddingright"></span>'.$langs->trans('EquipmentInformation').'</th>';
+        print '</tr>';
 
-    print '<tr><td>'.$langs->trans("Label").'</td><td>';
-    print dol_escape_htmltag($equipment->label);
-    print '</td></tr>';
+        print '<tr><td class="titlefield">'.$langs->trans("EquipmentNumber").'</td><td>';
+        print '<strong>'.$equipment->equipment_number.'</strong>';
+        print '</td></tr>';
 
-    print '<tr><td>'.$langs->trans("Type").'</td><td>';
-    $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
-    print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
-    print '</td></tr>';
+        print '<tr><td>'.$langs->trans("Label").'</td><td>';
+        print dol_escape_htmltag($equipment->label);
+        print '</td></tr>';
 
-    // Link type (Wartung/Service)
-    $currentLinkType = isset($equipment_link_types[$equipment_id]) ? $equipment_link_types[$equipment_id] : 'service';
-    print '<tr><td>'.$langs->trans("LinkType").'</td><td>';
-    if ($currentLinkType == 'maintenance') {
-        print '<span class="badge badge-status4" style="background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:4px;">'.$langs->trans("MaintenanceWork").'</span>';
+        print '<tr><td>'.$langs->trans("Type").'</td><td>';
+        $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
+        print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
+        print '</td></tr>';
+
+        // Link type (Wartung/Service)
+        $currentLinkType = isset($equipment_link_types[$equipment_id]) ? $equipment_link_types[$equipment_id] : 'service';
+        print '<tr><td>'.$langs->trans("LinkType").'</td><td>';
+        if ($currentLinkType == 'maintenance') {
+            print '<span class="badge badge-status4" style="background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:4px;">'.$langs->trans("MaintenanceWork").'</span>';
+        } else {
+            print '<span class="badge badge-status1" style="background:#fff3e0;color:#e65100;padding:3px 8px;border-radius:4px;">'.$langs->trans("ServiceWork").'</span>';
+        }
+        print '</td></tr>';
+
+        if ($equipment->location_note) {
+            print '<tr><td class="tdtop">'.$langs->trans("LocationNote").'</td><td>';
+            print nl2br(dol_escape_htmltag($equipment->location_note));
+            print '</td></tr>';
+        }
+
+        print '</table>';
+        print '</div>';
+
+        print '<div class="fichehalfright">';
+        print '<div class="underbanner clearboth"></div>';
+
+        // Summary
+        $materials = InterventionMaterial::fetchAllForEquipment($db, $object->id, $equipment_id);
+        $material_total = InterventionMaterial::getTotalForEquipment($db, $object->id, $equipment_id);
+
+        print '<table class="border centpercent tableforfield">';
+        print '<tr class="liste_titre">';
+        print '<th colspan="2"><span class="fa fa-info-circle paddingright"></span>'.$langs->trans('Summary').'</th>';
+        print '</tr>';
+
+        print '<tr><td class="titlefield">'.$langs->trans("Entries").'</td><td>';
+        print '<strong>'.count($entries).'</strong>';
+        print '</td></tr>';
+
+        // Gesamt-Arbeitszeit
+        if ($totalDuration > 0) {
+            $hours = floor($totalDuration / 60);
+            $minutes = $totalDuration % 60;
+
+            print '<tr><td>'.$langs->trans("TotalDuration").'</td><td>';
+            print '<strong>'.$hours.'h '.$minutes.'min</strong>';
+            print '</td></tr>';
+        }
+
+        print '<tr><td>'.$langs->trans("MaterialItems").'</td><td>';
+        print '<strong>'.count($materials).'</strong>';
+        print '</td></tr>';
+
+        print '<tr><td>'.$langs->trans("TotalCost").'</td><td>';
+        print '<strong>'.price($material_total, 0, '', 1, -1, -1, $conf->currency).'</strong>';
+        print '</td></tr>';
+
+        print '</table>';
+        print '</div>';
+        print '</div>';
+
+        print '<div class="clearboth"></div>';
+        print '<br>';
     } else {
-        print '<span class="badge badge-status1" style="background:#fff3e0;color:#e65100;padding:3px 8px;border-radius:4px;">'.$langs->trans("ServiceWork").'</span>';
-    }
-    print '</td></tr>';
+        // General entries mode - show info banner and summary
+        print '<div class="info" style="margin-bottom:15px;">';
+        print '<span class="fa fa-info-circle"></span> ';
+        print '<strong>'.$langs->trans('GeneralWork').'</strong> - '.$langs->trans('GeneralWorkDescription');
+        print '</div>';
 
-    if ($equipment->location_note) {
-        print '<tr><td class="tdtop">'.$langs->trans("LocationNote").'</td><td>';
-        print nl2br(dol_escape_htmltag($equipment->location_note));
+        // Summary for general entries
+        $materials = InterventionMaterial::fetchAllForEquipment($db, $object->id, null);
+        $material_total = InterventionMaterial::getTotalForEquipment($db, $object->id, null);
+
+        print '<table class="border centpercent tableforfield" style="margin-bottom:15px;">';
+        print '<tr class="liste_titre">';
+        print '<th colspan="2"><span class="fa fa-info-circle paddingright"></span>'.$langs->trans('Summary').'</th>';
+        print '</tr>';
+
+        print '<tr><td class="titlefield">'.$langs->trans("Entries").'</td><td>';
+        print '<strong>'.count($entries).'</strong>';
         print '</td></tr>';
-    }
 
-    print '</table>';
-    print '</div>';
+        if ($totalDuration > 0) {
+            $hours = floor($totalDuration / 60);
+            $minutes = $totalDuration % 60;
+            print '<tr><td>'.$langs->trans("TotalDuration").'</td><td>';
+            print '<strong>'.$hours.'h '.$minutes.'min</strong>';
+            print '</td></tr>';
+        }
 
-    print '<div class="fichehalfright">';
-    print '<div class="underbanner clearboth"></div>';
-
-    // Summary
-    $materials = InterventionMaterial::fetchAllForEquipment($db, $object->id, $equipment_id);
-    $material_total = InterventionMaterial::getTotalForEquipment($db, $object->id, $equipment_id);
-
-    print '<table class="border centpercent tableforfield">';
-    print '<tr class="liste_titre">';
-    print '<th colspan="2"><span class="fa fa-info-circle paddingright"></span>'.$langs->trans('Summary').'</th>';
-    print '</tr>';
-
-    print '<tr><td class="titlefield">'.$langs->trans("Entries").'</td><td>';
-    print '<strong>'.count($entries).'</strong>';
-    print '</td></tr>';
-
-    // Gesamt-Arbeitszeit
-    if ($totalDuration > 0) {
-        $hours = floor($totalDuration / 60);
-        $minutes = $totalDuration % 60;
-
-        print '<tr><td>'.$langs->trans("TotalDuration").'</td><td>';
-        print '<strong>'.$hours.'h '.$minutes.'min</strong>';
+        print '<tr><td>'.$langs->trans("MaterialItems").'</td><td>';
+        print '<strong>'.count($materials).'</strong>';
         print '</td></tr>';
+
+        print '</table>';
     }
-
-    print '<tr><td>'.$langs->trans("MaterialItems").'</td><td>';
-    print '<strong>'.count($materials).'</strong>';
-    print '</td></tr>';
-
-    print '<tr><td>'.$langs->trans("TotalCost").'</td><td>';
-    print '<strong>'.price($material_total, 0, '', 1, -1, -1, $conf->currency).'</strong>';
-    print '</td></tr>';
-
-    print '</table>';
-    print '</div>';
-    print '</div>';
-
-    print '<div class="clearboth"></div>';
-    print '<br>';
 
     // ========================================================================
     // SECTION 2: REPORT ENTRIES
@@ -982,8 +1049,8 @@ if ($object->id > 0) {
     $currentLinkType = isset($equipment_link_types[$equipment_id]) ? $equipment_link_types[$equipment_id] : 'service';
     $isMaintenanceLink = ($currentLinkType == 'maintenance');
 
-    // Only show checklist section for maintenance, not for service
-    if ($isMaintenanceLink) {
+    // Only show checklist section for maintenance, not for service AND not for general entries
+    if ($isMaintenanceLink && !$isGeneralEntriesMode) {
         // Check if checklist exists for this equipment/intervention
         $checklistResult = new ChecklistResult($db);
         $hasChecklist = ($checklistResult->fetchByEquipmentIntervention($equipment_id, $eq_inter_id) > 0);
