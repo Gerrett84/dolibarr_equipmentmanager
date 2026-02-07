@@ -724,17 +724,24 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->SetTextColor(0, 0, 0);
                 $pdf->SetXY($leftMargin + 2, $curY + 2);
                 $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
-                $curY = $pdf->GetY() + 2;
+                $curY = $pdf->GetY() + 3;
 
-                // Draw separator line below description (same thickness as outer border)
+                // Draw separator line below description
                 $pdf->SetDrawColor(0, 0, 0);
                 $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-                $curY += 2;
+                $curY += 6; // More space after description before first equipment
             }
         }
 
         // Text padding inside bordered section
         $textPadding = 2;
+
+        // Separator line before non-first equipment sections
+        if (!$is_first) {
+            $pdf->SetDrawColor(128, 128, 128);
+            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
+            $curY = $startY + 3;
+        }
 
         // Equipment header
         $pdf->SetFont('', 'B', $default_font_size + 1);
@@ -814,39 +821,55 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY = $pdf->GetY() + 1;
             }
 
-            // Issues found for this entry
+            // Issues found for this entry (with photo in bordered box if exists)
             if ($entry->issues_found) {
+                $issueBoxStartY = $curY;
+
+                // Check if photo exists
+                $hasPhoto = false;
+                $photoPath = '';
+                if (!empty($entry->photo)) {
+                    $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref);
+                    $photoPath = $photoDir . '/' . $entry->photo;
+                    $hasPhoto = file_exists($photoPath);
+                }
+
+                // Calculate box width - narrower if photo exists
+                $photoWidth = $hasPhoto ? 45 : 0;
+                $photoHeight = $hasPhoto ? 30 : 0;
+                $textWidth = $sectionWidth - $textPadding * 2 - ($hasPhoto ? $photoWidth + 5 : 0);
+
+                // Draw issues header
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
                 $curY = $pdf->GetY();
 
+                // Draw issues text
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
-                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
-                $curY = $pdf->GetY() + 1;
-            }
+                $pdf->MultiCell($textWidth, 4, $issues_text, 0, 'L');
+                $textEndY = $pdf->GetY();
 
-            // Defect photo for this entry (v4.2)
-            if (!empty($entry->photo)) {
-                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '';
-                $photoPath = $photoDir . '/' . $entry->photo;
+                // Draw photo to the right if exists
+                if ($hasPhoto) {
+                    $photoX = $leftMargin + $sectionWidth - $photoWidth - $textPadding;
+                    $photoY = $issueBoxStartY;
 
-                if (file_exists($photoPath)) {
-                    // Check page break for photo (30mm height + margin)
-                    if ($curY + 35 > $this->page_hauteur - 20) {
+                    // Check page break for photo
+                    if ($photoY + $photoHeight > $this->page_hauteur - 20) {
                         $pdf->AddPage();
                         $curY = $this->marge_haute + 5;
+                        $photoY = $curY;
                     }
 
-                    // Draw photo directly without label (max 30mm height)
-                    $photoX = $leftMargin + $textPadding;
-                    $photoMaxHeight = 30;
-                    $photoMaxWidth = 50;
+                    $pdf->Image($photoPath, $photoX, $photoY, $photoWidth, $photoHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
 
-                    $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
-                    $curY += $photoMaxHeight + 3;
+                    // Use the higher of text end or photo end
+                    $curY = max($textEndY, $photoY + $photoHeight) + 1;
+                } else {
+                    $curY = $textEndY + 1;
                 }
             }
 
@@ -919,20 +942,17 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetDrawColor(0, 0, 0);
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // Top border (only if not first - first has "Beschreibung" header)
-        if (!$is_first) {
-            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
-        }
-        // Left border
-        $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
+        // Left border (skip separator area if not first)
+        $borderStartY = $is_first ? $startY + 6 : $startY + 3;
+        $pdf->Line($leftMargin, $borderStartY, $leftMargin, $curY);
         // Right border
-        $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
+        $pdf->Line($leftMargin + $sectionWidth, $borderStartY, $leftMargin + $sectionWidth, $curY);
         // Bottom border - skip if materials exist (table has its own border)
         if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
 
-        return $curY + 4;
+        return $curY + 8; // More spacing between equipment sections
     }
 
     /**
@@ -972,15 +992,22 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->SetTextColor(0, 0, 0);
                 $pdf->SetXY($leftMargin + 2, $curY + 2);
                 $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
-                $curY = $pdf->GetY() + 2;
+                $curY = $pdf->GetY() + 3;
 
                 $pdf->SetDrawColor(0, 0, 0);
                 $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-                $curY += 2;
+                $curY += 6; // More space after description
             }
         }
 
         $textPadding = 2;
+
+        // Separator line before non-first sections
+        if (!$is_first) {
+            $pdf->SetDrawColor(128, 128, 128);
+            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
+            $curY = $startY + 3;
+        }
 
         // Section header
         $pdf->SetFont('', 'B', $default_font_size + 1);
@@ -1042,34 +1069,55 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY = $pdf->GetY() + 1;
             }
 
-            // Issues found
+            // Issues found (with photo integrated if exists)
             if ($entry->issues_found) {
+                $issueBoxStartY = $curY;
+
+                // Check if photo exists
+                $hasPhoto = false;
+                $photoPath = '';
+                if (!empty($entry->photo)) {
+                    $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref);
+                    $photoPath = $photoDir . '/' . $entry->photo;
+                    $hasPhoto = file_exists($photoPath);
+                }
+
+                // Calculate box width - narrower if photo exists
+                $photoWidth = $hasPhoto ? 45 : 0;
+                $photoHeight = $hasPhoto ? 30 : 0;
+                $textWidth = $sectionWidth - $textPadding * 2 - ($hasPhoto ? $photoWidth + 5 : 0);
+
+                // Draw issues header
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
                 $curY = $pdf->GetY();
 
+                // Draw issues text
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
-                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
-                $curY = $pdf->GetY() + 1;
-            }
+                $pdf->MultiCell($textWidth, 4, $issues_text, 0, 'L');
+                $textEndY = $pdf->GetY();
 
-            // Photo
-            if (!empty($entry->photo)) {
-                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '';
-                $photoPath = $photoDir . '/' . $entry->photo;
+                // Draw photo to the right if exists
+                if ($hasPhoto) {
+                    $photoX = $leftMargin + $sectionWidth - $photoWidth - $textPadding;
+                    $photoY = $issueBoxStartY;
 
-                if (file_exists($photoPath)) {
-                    if ($curY + 35 > $this->page_hauteur - 20) {
+                    // Check page break for photo
+                    if ($photoY + $photoHeight > $this->page_hauteur - 20) {
                         $pdf->AddPage();
                         $curY = $this->marge_haute + 5;
+                        $photoY = $curY;
                     }
 
-                    $photoX = $leftMargin + $textPadding;
-                    $pdf->Image($photoPath, $photoX, $curY, 50, 30, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
-                    $curY += 33;
+                    $pdf->Image($photoPath, $photoX, $photoY, $photoWidth, $photoHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
+
+                    // Use the higher of text end or photo end
+                    $curY = max($textEndY, $photoY + $photoHeight) + 1;
+                } else {
+                    $curY = $textEndY + 1;
                 }
             }
 
@@ -1131,16 +1179,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Draw borders
         $pdf->SetDrawColor(0, 0, 0);
 
-        if (!$is_first) {
-            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
-        }
-        $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
-        $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
+        $borderStartY = $is_first ? $startY + 6 : $startY + 3;
+        $pdf->Line($leftMargin, $borderStartY, $leftMargin, $curY);
+        $pdf->Line($leftMargin + $sectionWidth, $borderStartY, $leftMargin + $sectionWidth, $curY);
         if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
 
-        return $curY + 4;
+        return $curY + 8; // More spacing between sections
     }
 
     /**
