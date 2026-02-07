@@ -793,7 +793,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY = $pdf->GetY() + 1;
             }
 
-            // Issues found for this entry
+            // Issues found for this entry (with photo if exists)
             if ($entry->issues_found) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
@@ -805,27 +805,30 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
                 $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
-            }
 
-            // Defect photo for this entry (v4.2)
-            if (!empty($entry->photo)) {
-                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '';
-                $photoPath = $photoDir . '/' . $entry->photo;
+                // Defect photo directly under issues text (v4.2)
+                if (!empty($entry->photo)) {
+                    $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref);
+                    $photoPath = $photoDir . '/' . $entry->photo;
 
-                if (file_exists($photoPath)) {
-                    // Check page break for photo (30mm height + margin)
-                    if ($curY + 35 > $this->page_hauteur - 20) {
-                        $pdf->AddPage();
-                        $curY = $this->marge_haute + 5;
+                    if (file_exists($photoPath)) {
+                        $photoMaxHeight = 25;
+                        $photoMaxWidth = 40;
+
+                        // Check page break for photo
+                        if ($curY + $photoMaxHeight + 5 > $this->page_hauteur - 20) {
+                            $pdf->AddPage();
+                            $curY = $this->marge_haute + 5;
+                        }
+
+                        // Draw photo with thin border
+                        $photoX = $leftMargin + $textPadding + 2;
+                        $pdf->SetDrawColor(180, 180, 180);
+                        $pdf->Rect($photoX - 0.5, $curY - 0.5, $photoMaxWidth + 1, $photoMaxHeight + 1);
+                        $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
+                        $pdf->SetDrawColor(0, 0, 0);
+                        $curY += $photoMaxHeight + 2;
                     }
-
-                    // Draw photo directly without label (max 30mm height)
-                    $photoX = $leftMargin + $textPadding;
-                    $photoMaxHeight = 30;
-                    $photoMaxWidth = 50;
-
-                    $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
-                    $curY += $photoMaxHeight + 3;
                 }
             }
 
@@ -996,7 +999,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY = $pdf->GetY() + 1;
             }
 
-            // Issues found
+            // Issues found (with photo if exists)
             if ($entry->issues_found) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
@@ -1008,22 +1011,30 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
                 $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
                 $curY = $pdf->GetY() + 1;
-            }
 
-            // Photo
-            if (!empty($entry->photo)) {
-                $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '';
-                $photoPath = $photoDir . '/' . $entry->photo;
+                // Defect photo directly under issues text (v4.2)
+                if (!empty($entry->photo)) {
+                    $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref);
+                    $photoPath = $photoDir . '/' . $entry->photo;
 
-                if (file_exists($photoPath)) {
-                    if ($curY + 35 > $this->page_hauteur - 20) {
-                        $pdf->AddPage();
-                        $curY = $this->marge_haute + 5;
+                    if (file_exists($photoPath)) {
+                        $photoMaxHeight = 25;
+                        $photoMaxWidth = 40;
+
+                        // Check page break for photo
+                        if ($curY + $photoMaxHeight + 5 > $this->page_hauteur - 20) {
+                            $pdf->AddPage();
+                            $curY = $this->marge_haute + 5;
+                        }
+
+                        // Draw photo with thin border
+                        $photoX = $leftMargin + $textPadding + 2;
+                        $pdf->SetDrawColor(180, 180, 180);
+                        $pdf->Rect($photoX - 0.5, $curY - 0.5, $photoMaxWidth + 1, $photoMaxHeight + 1);
+                        $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
+                        $pdf->SetDrawColor(0, 0, 0);
+                        $curY += $photoMaxHeight + 2;
                     }
-
-                    $photoX = $leftMargin + $textPadding;
-                    $pdf->Image($photoPath, $photoX, $curY, 50, 30, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
-                    $curY += 33;
                 }
             }
 
