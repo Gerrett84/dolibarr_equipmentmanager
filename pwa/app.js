@@ -17,6 +17,7 @@ class ServiceReportApp {
         this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
         this.signedTimeRange = 30; // v4.1 - time range in days for signed orders (0 = all)
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
+        this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
         this.init();
     }
@@ -1722,25 +1723,39 @@ class ServiceReportApp {
 
     // v4.3: Switch between product search and freetext mode
     switchDefectMaterialMode(mode) {
+        console.log('switchDefectMaterialMode:', mode);
         this.defectMaterialMode = mode;
+
         const productMode = document.getElementById('defectProductMode');
         const freetextMode = document.getElementById('defectFreetextMode');
         const tabProduct = document.getElementById('defectTabProduct');
         const tabFreetext = document.getElementById('defectTabFreetext');
+
+        // Defensive check
+        if (!productMode || !freetextMode || !tabProduct || !tabFreetext) {
+            console.error('Defect material mode elements not found');
+            return;
+        }
 
         if (mode === 'product') {
             productMode.style.display = 'block';
             freetextMode.style.display = 'none';
             tabProduct.classList.add('active');
             tabFreetext.classList.remove('active');
-            document.getElementById('defectProductSearch').focus();
+            // Clear freetext when switching to product
+            const freetextInput = document.getElementById('defectFreetextLabel');
+            if (freetextInput) freetextInput.value = '';
         } else {
             productMode.style.display = 'none';
             freetextMode.style.display = 'block';
             tabProduct.classList.remove('active');
             tabFreetext.classList.add('active');
-            document.getElementById('defectFreetextLabel').focus();
+            // Clear product selection when switching to freetext
+            const productIdInput = document.getElementById('defectProductId');
+            if (productIdInput) productIdInput.value = '';
+            document.getElementById('defectSelectedProduct').style.display = 'none';
         }
+        console.log('defectMaterialMode is now:', this.defectMaterialMode);
     }
 
     // Close defect material modal
@@ -1797,12 +1812,14 @@ class ServiceReportApp {
 
     // Save defect material (v4.3: supports product or freetext)
     async saveDefectMaterial() {
+        console.log('saveDefectMaterial, mode:', this.defectMaterialMode);
         const qty = parseInt(document.getElementById('defectMaterialQty').value) || 1;
         let body = { qty: qty };
 
         // v4.3: Check mode - product or freetext
         if (this.defectMaterialMode === 'freetext') {
             const freetextLabel = document.getElementById('defectFreetextLabel').value.trim();
+            console.log('Freetext mode, label:', freetextLabel);
             if (!freetextLabel) {
                 this.showToast('Bitte eine Bezeichnung eingeben');
                 return;
@@ -1810,6 +1827,7 @@ class ServiceReportApp {
             body.freetext_label = freetextLabel;
         } else {
             const productId = document.getElementById('defectProductId').value;
+            console.log('Product mode, productId:', productId);
             if (!productId) {
                 this.showToast('Bitte ein Produkt auswählen');
                 return;
