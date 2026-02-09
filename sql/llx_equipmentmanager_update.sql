@@ -97,3 +97,11 @@ CREATE TABLE IF NOT EXISTS llx_equipmentmanager_defect_material (
     INDEX idx_defect_material_product (fk_product),
     CONSTRAINT fk_defect_material_detail FOREIGN KEY (fk_intervention_detail) REFERENCES llx_equipmentmanager_intervention_detail(rowid) ON DELETE CASCADE
 ) ENGINE=innodb;
+
+-- v4.3: Allow freetext materials (no product reference required)
+ALTER TABLE llx_equipmentmanager_defect_material
+MODIFY fk_product integer NULL;
+
+-- v4.3: Add freetext_label for materials without product reference
+ALTER TABLE llx_equipmentmanager_defect_material
+ADD COLUMN IF NOT EXISTS freetext_label varchar(255) DEFAULT NULL AFTER fk_product;

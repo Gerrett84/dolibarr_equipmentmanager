@@ -878,6 +878,35 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: var(--bg-secondary);
         }
 
+        /* v4.3: Toggle Tabs for Product/Freetext */
+        .toggle-tabs {
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .toggle-tab {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .toggle-tab:not(.active):hover {
+            background: var(--bg-tertiary, #e9ecef);
+        }
+
         .product-ref {
             font-weight: 600;
             font-size: 13px;
@@ -2084,7 +2113,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         </div>
     </div>
 
-    <!-- Defect Material Modal (v4.2) -->
+    <!-- Defect Material Modal (v4.2, v4.3: Freitext) -->
     <div class="modal" id="defectMaterialModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -2092,19 +2121,36 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <button type="button" class="modal-close" onclick="app.closeDefectMaterialModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- v4.3: Toggle Produkt/Freitext -->
                 <div class="form-group">
-                    <label class="form-label">Produkt suchen *</label>
-                    <input type="text" class="form-input" id="defectProductSearch" placeholder="Artikelnr. oder Name..." autocomplete="off">
-                    <div id="defectProductResults" class="product-results"></div>
-                </div>
-                <div class="form-group" id="defectSelectedProduct" style="display:none;">
-                    <label class="form-label">Ausgewähltes Produkt</label>
-                    <div class="selected-product-info">
-                        <span id="defectProductRef" class="product-ref"></span>
-                        <span id="defectProductLabel" class="product-label"></span>
-                        <button type="button" class="btn-clear-product" onclick="app.clearDefectProduct()">✕</button>
+                    <div class="toggle-tabs">
+                        <button type="button" class="toggle-tab active" id="defectTabProduct" onclick="app.switchDefectMaterialMode('product')">📦 Produkt</button>
+                        <button type="button" class="toggle-tab" id="defectTabFreetext" onclick="app.switchDefectMaterialMode('freetext')">✏️ Freitext</button>
                     </div>
-                    <input type="hidden" id="defectProductId">
+                </div>
+                <!-- Produkt-Suche -->
+                <div id="defectProductMode">
+                    <div class="form-group">
+                        <label class="form-label">Produkt suchen</label>
+                        <input type="text" class="form-input" id="defectProductSearch" placeholder="Artikelnr. oder Name..." autocomplete="off">
+                        <div id="defectProductResults" class="product-results"></div>
+                    </div>
+                    <div class="form-group" id="defectSelectedProduct" style="display:none;">
+                        <label class="form-label">Ausgewähltes Produkt</label>
+                        <div class="selected-product-info">
+                            <span id="defectProductRef" class="product-ref"></span>
+                            <span id="defectProductLabel" class="product-label"></span>
+                            <button type="button" class="btn-clear-product" onclick="app.clearDefectProduct()">✕</button>
+                        </div>
+                        <input type="hidden" id="defectProductId">
+                    </div>
+                </div>
+                <!-- Freitext-Eingabe -->
+                <div id="defectFreetextMode" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Material-Bezeichnung *</label>
+                        <input type="text" class="form-input" id="defectFreetextLabel" placeholder="z.B. Türschließer TS 3000">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Menge</label>

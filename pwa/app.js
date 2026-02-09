@@ -1701,17 +1701,46 @@ class ServiceReportApp {
             return;
         }
         document.getElementById('defectMaterialModal').classList.add('show');
+
+        // Reset to product mode
+        this.defectMaterialMode = 'product';
+        this.switchDefectMaterialMode('product');
+
         document.getElementById('defectProductSearch').value = '';
         document.getElementById('defectProductResults').innerHTML = '';
         document.getElementById('defectProductResults').classList.remove('show');
         document.getElementById('defectSelectedProduct').style.display = 'none';
         document.getElementById('defectProductId').value = '';
+        document.getElementById('defectFreetextLabel').value = '';
         document.getElementById('defectMaterialQty').value = '1';
 
         // Setup search listener
         const searchInput = document.getElementById('defectProductSearch');
         searchInput.oninput = () => this.searchDefectProducts();
         searchInput.focus();
+    }
+
+    // v4.3: Switch between product search and freetext mode
+    switchDefectMaterialMode(mode) {
+        this.defectMaterialMode = mode;
+        const productMode = document.getElementById('defectProductMode');
+        const freetextMode = document.getElementById('defectFreetextMode');
+        const tabProduct = document.getElementById('defectTabProduct');
+        const tabFreetext = document.getElementById('defectTabFreetext');
+
+        if (mode === 'product') {
+            productMode.style.display = 'block';
+            freetextMode.style.display = 'none';
+            tabProduct.classList.add('active');
+            tabFreetext.classList.remove('active');
+            document.getElementById('defectProductSearch').focus();
+        } else {
+            productMode.style.display = 'none';
+            freetextMode.style.display = 'block';
+            tabProduct.classList.remove('active');
+            tabFreetext.classList.add('active');
+            document.getElementById('defectFreetextLabel').focus();
+        }
     }
 
     // Close defect material modal
@@ -1766,14 +1795,26 @@ class ServiceReportApp {
         document.getElementById('defectSelectedProduct').style.display = 'none';
     }
 
-    // Save defect material
+    // Save defect material (v4.3: supports product or freetext)
     async saveDefectMaterial() {
-        const productId = document.getElementById('defectProductId').value;
         const qty = parseInt(document.getElementById('defectMaterialQty').value) || 1;
+        let body = { qty: qty };
 
-        if (!productId) {
-            this.showToast('Bitte ein Produkt auswählen');
-            return;
+        // v4.3: Check mode - product or freetext
+        if (this.defectMaterialMode === 'freetext') {
+            const freetextLabel = document.getElementById('defectFreetextLabel').value.trim();
+            if (!freetextLabel) {
+                this.showToast('Bitte eine Bezeichnung eingeben');
+                return;
+            }
+            body.freetext_label = freetextLabel;
+        } else {
+            const productId = document.getElementById('defectProductId').value;
+            if (!productId) {
+                this.showToast('Bitte ein Produkt auswählen');
+                return;
+            }
+            body.fk_product = parseInt(productId);
         }
 
         if (!this.currentEntry || !this.currentEntry.id) {
@@ -1784,10 +1825,7 @@ class ServiceReportApp {
         try {
             const result = await this.apiCall(`defect-material/${this.currentEntry.id}`, {
                 method: 'POST',
-                body: JSON.stringify({
-                    fk_product: parseInt(productId),
-                    qty: qty
-                })
+                body: JSON.stringify(body)
             });
 
             // Add to local list and update entry

@@ -815,7 +815,8 @@ function handleDetail($method, $parts, $input) {
             foreach ($defectMaterials as $mat) {
                 $materialsData[] = [
                     'id' => $mat->id,
-                    'fk_product' => $mat->fk_product,
+                    'fk_product' => $mat->fk_product ?: 0,
+                    'freetext_label' => $mat->freetext_label ?: '',
                     'product_ref' => $mat->product_ref,
                     'product_label' => $mat->product_label,
                     'qty' => intval($mat->qty)
@@ -2723,7 +2724,7 @@ function handleEntryPhoto($method, $parts, $input) {
 /**
  * Handle defect materials
  * GET /defect-material/{entry_id} - List materials for an entry
- * POST /defect-material/{entry_id} - Add material to entry
+ * POST /defect-material/{entry_id} - Add material to entry (product OR freetext)
  * DELETE /defect-material/{material_id} - Delete material
  */
 function handleDefectMaterial($method, $parts, $input) {
@@ -2738,7 +2739,8 @@ function handleDefectMaterial($method, $parts, $input) {
         foreach ($materials as $mat) {
             $result[] = array(
                 'id' => $mat->id,
-                'fk_product' => $mat->fk_product,
+                'fk_product' => $mat->fk_product ?: 0,
+                'freetext_label' => $mat->freetext_label ?: '',
                 'product_ref' => $mat->product_ref,
                 'product_label' => $mat->product_label,
                 'qty' => intval($mat->qty)
@@ -2748,20 +2750,23 @@ function handleDefectMaterial($method, $parts, $input) {
         return;
     }
 
-    // POST - Add material
+    // POST - Add material (product OR freetext)
     if ($method === 'POST' && $id > 0) {
         $fk_product = (int)($input['fk_product'] ?? 0);
+        $freetext_label = trim($input['freetext_label'] ?? '');
         $qty = (int)($input['qty'] ?? 1);
 
-        if ($fk_product <= 0) {
+        // v4.3: Either product ID or freetext required
+        if ($fk_product <= 0 && empty($freetext_label)) {
             http_response_code(400);
-            echo json_encode(['error' => 'Product ID required']);
+            echo json_encode(['error' => 'Product ID or freetext label required']);
             return;
         }
 
         $mat = new DefectMaterial($db);
         $mat->fk_intervention_detail = $id;
-        $mat->fk_product = $fk_product;
+        $mat->fk_product = $fk_product > 0 ? $fk_product : 0;
+        $mat->freetext_label = $freetext_label;
         $mat->qty = $qty;
         $result = $mat->create($user);
 
@@ -2770,7 +2775,8 @@ function handleDefectMaterial($method, $parts, $input) {
             $mat->fetch($result);
             echo json_encode([
                 'id' => $mat->id,
-                'fk_product' => $mat->fk_product,
+                'fk_product' => $mat->fk_product ?: 0,
+                'freetext_label' => $mat->freetext_label ?: '',
                 'product_ref' => $mat->product_ref,
                 'product_label' => $mat->product_label,
                 'qty' => intval($mat->qty)

@@ -12,13 +12,14 @@ class DefectMaterial
     public $rowid;
     public $fk_intervention_detail;
     public $fk_product;
+    public $freetext_label;  // v4.3: For materials without product reference
     public $qty;
     public $description;
     public $date_creation;
     public $fk_user_creat;
     public $entity;
 
-    // Loaded product data
+    // Loaded product data (or freetext)
     public $product_ref;
     public $product_label;
     public $product_price;
@@ -43,11 +44,12 @@ class DefectMaterial
         $this->fk_user_creat = $user->id;
 
         $sql = "INSERT INTO ".MAIN_DB_PREFIX.$this->table_element." (";
-        $sql .= "fk_intervention_detail, fk_product, qty, description,";
+        $sql .= "fk_intervention_detail, fk_product, freetext_label, qty, description,";
         $sql .= " date_creation, fk_user_creat, entity";
         $sql .= ") VALUES (";
         $sql .= (int)$this->fk_intervention_detail.",";
-        $sql .= (int)$this->fk_product.",";
+        $sql .= ($this->fk_product > 0 ? (int)$this->fk_product : "NULL").",";
+        $sql .= ($this->freetext_label ? "'".$this->db->escape($this->freetext_label)."'" : "NULL").",";
         $sql .= (float)($this->qty ?: 1).",";
         $sql .= ($this->description ? "'".$this->db->escape($this->description)."'" : "NULL").",";
         $sql .= "'".$this->db->idate($this->date_creation)."',";
@@ -72,7 +74,7 @@ class DefectMaterial
      */
     public function fetch($id)
     {
-        $sql = "SELECT m.*, p.ref as product_ref, p.label as product_label, p.price as product_price";
+        $sql = "SELECT m.*, m.freetext_label, p.ref as product_ref, p.label as product_label, p.price as product_price";
         $sql .= " FROM ".MAIN_DB_PREFIX.$this->table_element." m";
         $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product p ON p.rowid = m.fk_product";
         $sql .= " WHERE m.rowid = ".(int)$id;
@@ -98,14 +100,23 @@ class DefectMaterial
         $this->rowid = $obj->rowid;
         $this->fk_intervention_detail = $obj->fk_intervention_detail;
         $this->fk_product = $obj->fk_product;
+        $this->freetext_label = $obj->freetext_label ?? '';
         $this->qty = $obj->qty;
         $this->description = $obj->description;
         $this->date_creation = $this->db->jdate($obj->date_creation);
         $this->fk_user_creat = $obj->fk_user_creat;
         $this->entity = $obj->entity;
-        $this->product_ref = $obj->product_ref ?? '';
-        $this->product_label = $obj->product_label ?? '';
-        $this->product_price = $obj->product_price ?? 0;
+
+        // v4.3: Use freetext_label if no product reference
+        if ($obj->fk_product > 0) {
+            $this->product_ref = $obj->product_ref ?? '';
+            $this->product_label = $obj->product_label ?? '';
+            $this->product_price = $obj->product_price ?? 0;
+        } else {
+            $this->product_ref = 'FREI';
+            $this->product_label = $this->freetext_label ?: $this->description ?: 'Freitext';
+            $this->product_price = 0;
+        }
     }
 
     /**
@@ -130,7 +141,7 @@ class DefectMaterial
     {
         $materials = array();
 
-        $sql = "SELECT m.*, p.ref as product_ref, p.label as product_label, p.price as product_price";
+        $sql = "SELECT m.*, m.freetext_label, p.ref as product_ref, p.label as product_label, p.price as product_price";
         $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_defect_material m";
         $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product p ON p.rowid = m.fk_product";
         $sql .= " WHERE m.fk_intervention_detail = ".(int)$fk_intervention_detail;
@@ -156,7 +167,7 @@ class DefectMaterial
     {
         $materials = array();
 
-        $sql = "SELECT m.*, p.ref as product_ref, p.label as product_label, p.price as product_price,";
+        $sql = "SELECT m.*, m.freetext_label, p.ref as product_ref, p.label as product_label, p.price as product_price,";
         $sql .= " d.fk_equipment, d.issues_found";
         $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_defect_material m";
         $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."product p ON p.rowid = m.fk_product";
