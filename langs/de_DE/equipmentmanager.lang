@@ -664,3 +664,9 @@ ShowDuplicates=Duplikate anzeigen
 # General Work Entries v4.2
 GeneralWork=Allgemeine Arbeiten
 GeneralWorkDescription=Arbeitseinträge ohne Anlagenbezug (z.B. allgemeine Montagearbeiten, Anfahrt)
+
+# Freetext Material v4.3
+Freetext=Freitext
+Product=Produkt
+MaterialDescription=Materialbeschreibung
+ProductOrFreetextRequired=Produkt oder Freitext-Beschreibung erforderlich

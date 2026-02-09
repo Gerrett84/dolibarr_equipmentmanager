@@ -169,12 +169,15 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id >= 0) {
 // Add defect material
 if ($action == 'add_defect_material' && $permissiontoadd && $entry_id > 0) {
     $fk_product = GETPOST('defect_product_id', 'int');
+    $freetext_label = GETPOST('defect_freetext_label', 'alpha');
     $qty = GETPOST('defect_material_qty', 'int') ?: 1;
 
-    if ($fk_product > 0) {
+    // v4.3: Either product OR freetext required
+    if ($fk_product > 0 || !empty($freetext_label)) {
         $defectMat = new DefectMaterial($db);
         $defectMat->fk_intervention_detail = $entry_id;
-        $defectMat->fk_product = $fk_product;
+        $defectMat->fk_product = $fk_product > 0 ? $fk_product : null;
+        $defectMat->freetext_label = $freetext_label;
         $defectMat->qty = $qty;
         $result = $defectMat->create($user);
 
@@ -183,6 +186,8 @@ if ($action == 'add_defect_material' && $permissiontoadd && $entry_id > 0) {
         } else {
             setEventMessages($defectMat->error, null, 'errors');
         }
+    } else {
+        setEventMessages($langs->trans('ProductOrFreetextRequired'), null, 'errors');
     }
 
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id);
@@ -926,7 +931,7 @@ if ($object->id > 0) {
                 print '</table>';
             }
 
-            // Add new material form
+            // Add new material form with toggle for product/freetext (v4.3)
             print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
             print '<input type="hidden" name="token" value="'.newToken().'">';
             print '<input type="hidden" name="action" value="add_defect_material">';
@@ -934,12 +939,26 @@ if ($object->id > 0) {
             print '<input type="hidden" name="equipment_id" value="'.$equipment_id.'">';
             print '<input type="hidden" name="entry_id" value="'.$editEntry->id.'">';
 
+            // Toggle tabs
+            print '<div style="margin: 10px 0;">';
+            print '<button type="button" id="defectTabProduct" class="button" onclick="switchDefectMode(\'product\')" style="margin-right:5px;">📦 '.$langs->trans('Product').'</button>';
+            print '<button type="button" id="defectTabFreetext" class="button" onclick="switchDefectMode(\'freetext\')" style="background:#f0f0f0;">✏️ '.$langs->trans('Freetext').'</button>';
+            print '</div>';
+
             print '<table class="noborder centpercent" style="margin-top:5px;">';
             print '<tr class="oddeven">';
-            print '<td>';
+
+            // Product mode (default)
+            print '<td id="defectProductMode">';
             $form = new Form($db);
             print $form->select_produits('', 'defect_product_id', '', 0, 0, -1, 2, '', 0, array(), 0, '1', 0, 'maxwidth400');
             print '</td>';
+
+            // Freetext mode (hidden initially)
+            print '<td id="defectFreetextMode" style="display:none;">';
+            print '<input type="text" name="defect_freetext_label" class="flat minwidth300" placeholder="'.$langs->trans('MaterialDescription').'">';
+            print '</td>';
+
             print '<td class="center" width="80">';
             print '<input type="number" name="defect_material_qty" value="1" min="1" class="flat" style="width:60px;">';
             print '</td>';
@@ -1466,6 +1485,32 @@ function setAllOK(sectionCode) {
             }
         }
     });
+}
+
+// v4.3: Switch between product and freetext mode for defect materials
+function switchDefectMode(mode) {
+    var productMode = document.getElementById('defectProductMode');
+    var freetextMode = document.getElementById('defectFreetextMode');
+    var tabProduct = document.getElementById('defectTabProduct');
+    var tabFreetext = document.getElementById('defectTabFreetext');
+
+    if (mode === 'product') {
+        productMode.style.display = '';
+        freetextMode.style.display = 'none';
+        tabProduct.style.background = '';
+        tabFreetext.style.background = '#f0f0f0';
+        // Clear freetext input
+        var freetextInput = freetextMode.querySelector('input[name="defect_freetext_label"]');
+        if (freetextInput) freetextInput.value = '';
+    } else {
+        productMode.style.display = 'none';
+        freetextMode.style.display = '';
+        tabProduct.style.background = '#f0f0f0';
+        tabFreetext.style.background = '';
+        // Clear product selector
+        var productSelect = productMode.querySelector('select[name="defect_product_id"]');
+        if (productSelect) productSelect.value = '';
+    }
 }
 </script>
 <?php
