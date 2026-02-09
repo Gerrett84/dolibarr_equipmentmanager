@@ -3,7 +3,7 @@
  */
 
 const DB_NAME = 'equipmentmanager_pwa';
-const DB_VERSION = 4; // v4: Fix equipment store to support same equipment in multiple interventions
+const DB_VERSION = 5; // v5: Add defect_materials store for offline support
 
 class OfflineDB {
     constructor() {
@@ -93,6 +93,13 @@ class OfflineDB {
                 if (!db.objectStoreNames.contains('checklists')) {
                     const checklists = db.createObjectStore('checklists', { keyPath: 'key' });
                     checklists.createIndex('intervention_id', 'intervention_id', { unique: false });
+                }
+
+                // v5: Defect materials for offline support (freetext materials)
+                if (!db.objectStoreNames.contains('defect_materials')) {
+                    const defectMats = db.createObjectStore('defect_materials', { keyPath: 'local_id', autoIncrement: true });
+                    defectMats.createIndex('entry_id', 'entry_id', { unique: false });
+                    defectMats.createIndex('synced', 'synced', { unique: false });
                 }
             };
         });
@@ -322,6 +329,58 @@ class OfflineDB {
     // v2: Remove pending upload
     async removePendingUpload(id) {
         await this.delete('pending_uploads', id);
+    }
+
+    // v5: Save defect material (offline support)
+    async saveDefectMaterial(entryId, material) {
+        const data = {
+            entry_id: entryId,
+            fk_product: material.fk_product || null,
+            freetext_label: material.freetext_label || '',
+            product_ref: material.product_ref || (material.freetext_label ? 'FREI' : ''),
+            product_label: material.product_label || material.freetext_label || '',
+            qty: material.qty || 1,
+            synced: false,
+            timestamp: Date.now()
+        };
+        const localId = await this.put('defect_materials', data);
+        data.local_id = localId;
+
+        // Add to sync queue
+        await this.addToSyncQueue('defect_material', {
+            entry_id: entryId,
+            fk_product: data.fk_product,
+            freetext_label: data.freetext_label,
+            qty: data.qty,
+            local_id: localId
+        });
+
+        return data;
+    }
+
+    // v5: Get defect materials for entry (including unsynced)
+    async getDefectMaterials(entryId) {
+        return await this.getByIndex('defect_materials', 'entry_id', entryId);
+    }
+
+    // v5: Mark defect material as synced
+    async markDefectMaterialSynced(localId, serverId) {
+        const mat = await this.get('defect_materials', localId);
+        if (mat) {
+            mat.id = serverId;
+            mat.synced = true;
+            await this.put('defect_materials', mat);
+        }
+    }
+
+    // v5: Delete defect material
+    async deleteDefectMaterial(localId) {
+        await this.delete('defect_materials', localId);
+    }
+
+    // v5: Get unsynced defect materials
+    async getUnsyncedDefectMaterials() {
+        return await this.getByIndex('defect_materials', 'synced', false);
     }
 }
 

@@ -1596,6 +1596,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: var(--danger-color);
             color: white;
         }
+        .defect-material-item.offline {
+            border-left: 3px solid var(--warning-color);
+            background: rgba(255, 193, 7, 0.1);
+        }
         .btn-add-material {
             width: 100%;
             padding: 10px;

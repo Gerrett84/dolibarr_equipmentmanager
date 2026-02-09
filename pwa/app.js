@@ -1840,58 +1840,82 @@ class ServiceReportApp {
             return;
         }
 
-        try {
-            const result = await this.apiCall(`defect-material/${this.currentEntry.id}`, {
-                method: 'POST',
-                body: JSON.stringify(body)
-            });
+        // v4.3: Support offline saving for freetext materials
+        if (this.isOnline) {
+            try {
+                const result = await this.apiCall(`defect-material/${this.currentEntry.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                });
 
-            // Add to local list and update entry
-            if (!this.currentEntryDefectMaterials) {
-                this.currentEntryDefectMaterials = [];
+                // Add to local list
+                if (!this.currentEntryDefectMaterials) {
+                    this.currentEntryDefectMaterials = [];
+                }
+                this.currentEntryDefectMaterials.push(result);
+
+                this.renderDefectMaterials();
+                this.closeDefectMaterialModal();
+                this.showToast('Material hinzugefügt');
+            } catch (err) {
+                console.error('Failed to save defect material:', err);
+                this.showToast('Fehler beim Speichern');
             }
-            this.currentEntryDefectMaterials.push(result);
+        } else {
+            // Offline mode - save to IndexedDB
+            try {
+                const savedMaterial = await offlineDB.saveDefectMaterial(this.currentEntry.id, body);
 
-            // Also update currentEntry.materials for consistency
-            if (this.currentEntry) {
-                this.currentEntry.materials = [...this.currentEntryDefectMaterials];
+                // Add to local list with offline indicator
+                if (!this.currentEntryDefectMaterials) {
+                    this.currentEntryDefectMaterials = [];
+                }
+                this.currentEntryDefectMaterials.push(savedMaterial);
+
+                this.renderDefectMaterials();
+                this.closeDefectMaterialModal();
+                this.showToast('Material offline gespeichert');
+            } catch (err) {
+                console.error('Failed to save defect material offline:', err);
+                this.showToast('Fehler beim Offline-Speichern');
             }
-
-            this.renderDefectMaterials();
-            this.closeDefectMaterialModal();
-            this.showToast('Material hinzugefügt');
-        } catch (err) {
-            console.error('Failed to save defect material:', err);
-            this.showToast('Fehler beim Speichern');
         }
     }
 
-    // Delete defect material
-    async deleteDefectMaterial(materialId) {
+    // Delete defect material (v4.3: supports local and server materials)
+    async deleteDefectMaterial(materialId, type = 'server') {
         if (!confirm('Material wirklich entfernen?')) return;
 
         try {
-            await this.apiCall(`defect-material/${materialId}`, {
-                method: 'DELETE'
-            });
-
-            // Remove from local list and update entry
-            this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.id !== materialId);
-
-            // Also update currentEntry.materials for consistency
-            if (this.currentEntry) {
-                this.currentEntry.materials = [...this.currentEntryDefectMaterials];
+            if (type === 'local') {
+                // Delete from IndexedDB
+                await offlineDB.deleteDefectMaterial(materialId);
+                // Remove from local list by local_id
+                this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.local_id !== materialId);
+                this.showToast('Material entfernt');
+            } else {
+                // Delete from server
+                if (this.isOnline) {
+                    await this.apiCall(`defect-material/${materialId}`, {
+                        method: 'DELETE'
+                    });
+                    this.showToast('Material entfernt');
+                } else {
+                    this.showToast('Offline - Löschen nicht möglich');
+                    return;
+                }
+                // Remove from local list by server id
+                this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.id !== materialId);
             }
 
             this.renderDefectMaterials();
-            this.showToast('Material entfernt');
         } catch (err) {
             console.error('Failed to delete defect material:', err);
             this.showToast('Fehler beim Löschen');
         }
     }
 
-    // Render defect materials list
+    // Render defect materials list (v4.3: with offline indicator)
     renderDefectMaterials() {
         const container = document.getElementById('defectMaterialList');
         const materials = this.currentEntryDefectMaterials || [];
@@ -1899,29 +1923,51 @@ class ServiceReportApp {
         if (materials.length === 0) {
             container.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; padding: 8px 0;">Noch kein Material hinzugefügt</div>';
         } else {
-            container.innerHTML = materials.map(m => `
-                <div class="defect-material-item">
+            container.innerHTML = materials.map(m => {
+                // Check if offline (has local_id but no server id or synced=false)
+                const isOffline = m.local_id && !m.synced;
+                const deleteId = m.id || m.local_id;
+                const deleteType = m.id ? 'server' : 'local';
+
+                return `
+                <div class="defect-material-item${isOffline ? ' offline' : ''}">
                     <div class="defect-material-info">
-                        <span class="defect-material-ref">[${m.product_ref}]</span>
+                        <span class="defect-material-ref">[${m.product_ref}]${isOffline ? ' ⏳' : ''}</span>
                         <span class="defect-material-label">${m.product_label}</span>
                     </div>
                     <span class="defect-material-qty">${m.qty}x</span>
-                    <button class="defect-material-delete" onclick="app.deleteDefectMaterial(${m.id})">✕</button>
+                    <button class="defect-material-delete" onclick="app.deleteDefectMaterial(${deleteId}, '${deleteType}')">✕</button>
                 </div>
-            `).join('');
+            `}).join('');
         }
     }
 
-    // Load defect materials for entry
+    // Load defect materials for entry (v4.3: with offline support)
     async loadDefectMaterials(entryId) {
-        try {
-            const materials = await this.apiCall(`defect-material/${entryId}`);
-            this.currentEntryDefectMaterials = materials || [];
-            this.renderDefectMaterials();
-        } catch (err) {
-            console.error('Failed to load defect materials:', err);
-            this.currentEntryDefectMaterials = [];
+        let serverMaterials = [];
+        let offlineMaterials = [];
+
+        // Try to load from server if online
+        if (this.isOnline) {
+            try {
+                serverMaterials = await this.apiCall(`defect-material/${entryId}`) || [];
+            } catch (err) {
+                console.error('Failed to load defect materials from server:', err);
+            }
         }
+
+        // Always check for offline materials
+        try {
+            offlineMaterials = await offlineDB.getDefectMaterials(entryId) || [];
+            // Filter only unsynced materials (synced ones are already in serverMaterials)
+            offlineMaterials = offlineMaterials.filter(m => !m.synced);
+        } catch (err) {
+            console.error('Failed to load offline defect materials:', err);
+        }
+
+        // Combine: server materials + unsynced offline materials
+        this.currentEntryDefectMaterials = [...serverMaterials, ...offlineMaterials];
+        this.renderDefectMaterials();
     }
 
     // Show/hide defect material section based on issues_found
@@ -2138,9 +2184,10 @@ class ServiceReportApp {
             const queue = await offlineDB.getSyncQueue();
 
             if (queue.length > 0) {
-                // Separate link-equipment from other changes
+                // Separate different change types
                 const linkEquipmentChanges = queue.filter(item => item.type === 'link-equipment');
-                const otherChanges = queue.filter(item => item.type !== 'link-equipment');
+                const defectMaterialChanges = queue.filter(item => item.type === 'defect_material');
+                const otherChanges = queue.filter(item => item.type !== 'link-equipment' && item.type !== 'defect_material');
 
                 // Sync link-equipment separately (direct API calls)
                 for (const item of linkEquipmentChanges) {
@@ -2152,6 +2199,27 @@ class ServiceReportApp {
                         syncedCount++;
                     } catch (err) {
                         console.warn('Failed to sync link-equipment:', err);
+                    }
+                }
+
+                // v4.3: Sync defect materials separately
+                for (const item of defectMaterialChanges) {
+                    try {
+                        const result = await this.apiCall(`defect-material/${item.data.entry_id}`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                fk_product: item.data.fk_product,
+                                freetext_label: item.data.freetext_label,
+                                qty: item.data.qty
+                            })
+                        });
+                        // Mark local material as synced
+                        if (item.data.local_id && result.id) {
+                            await offlineDB.markDefectMaterialSynced(item.data.local_id, result.id);
+                        }
+                        syncedCount++;
+                    } catch (err) {
+                        console.warn('Failed to sync defect material:', err);
                     }
                 }
 
