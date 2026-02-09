@@ -1556,6 +1556,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: flex;
             flex-direction: column;
             gap: 2px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
         }
         .defect-material-ref {
             font-weight: 600;
@@ -1564,11 +1567,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
         .defect-material-label {
             color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .defect-material-qty {
             color: var(--text-secondary);
             font-size: 13px;
             margin-right: 12px;
+            min-width: 35px;
+            text-align: right;
+            flex-shrink: 0;
         }
         .defect-material-delete {
             width: 28px;
