@@ -1723,7 +1723,6 @@ class ServiceReportApp {
 
     // v4.3: Switch between product search and freetext mode
     switchDefectMaterialMode(mode) {
-        console.log('switchDefectMaterialMode:', mode);
         this.defectMaterialMode = mode;
 
         const productMode = document.getElementById('defectProductMode');
@@ -1731,9 +1730,7 @@ class ServiceReportApp {
         const tabProduct = document.getElementById('defectTabProduct');
         const tabFreetext = document.getElementById('defectTabFreetext');
 
-        // Defensive check
         if (!productMode || !freetextMode || !tabProduct || !tabFreetext) {
-            console.error('Defect material mode elements not found');
             return;
         }
 
@@ -1742,7 +1739,6 @@ class ServiceReportApp {
             freetextMode.style.display = 'none';
             tabProduct.classList.add('active');
             tabFreetext.classList.remove('active');
-            // Clear freetext when switching to product
             const freetextInput = document.getElementById('defectFreetextLabel');
             if (freetextInput) freetextInput.value = '';
         } else {
@@ -1750,12 +1746,10 @@ class ServiceReportApp {
             freetextMode.style.display = 'block';
             tabProduct.classList.remove('active');
             tabFreetext.classList.add('active');
-            // Clear product selection when switching to freetext
             const productIdInput = document.getElementById('defectProductId');
             if (productIdInput) productIdInput.value = '';
             document.getElementById('defectSelectedProduct').style.display = 'none';
         }
-        console.log('defectMaterialMode is now:', this.defectMaterialMode);
     }
 
     // Close defect material modal
@@ -1812,14 +1806,12 @@ class ServiceReportApp {
 
     // Save defect material (v4.3: supports product or freetext)
     async saveDefectMaterial() {
-        console.log('saveDefectMaterial, mode:', this.defectMaterialMode);
         const qty = parseInt(document.getElementById('defectMaterialQty').value) || 1;
         let body = { qty: qty };
 
         // v4.3: Check mode - product or freetext
         if (this.defectMaterialMode === 'freetext') {
             const freetextLabel = document.getElementById('defectFreetextLabel').value.trim();
-            console.log('Freetext mode, label:', freetextLabel);
             if (!freetextLabel) {
                 this.showToast('Bitte eine Bezeichnung eingeben');
                 return;
@@ -1827,7 +1819,6 @@ class ServiceReportApp {
             body.freetext_label = freetextLabel;
         } else {
             const productId = document.getElementById('defectProductId').value;
-            console.log('Product mode, productId:', productId);
             if (!productId) {
                 this.showToast('Bitte ein Produkt auswählen');
                 return;

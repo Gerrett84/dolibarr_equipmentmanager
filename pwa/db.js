@@ -335,7 +335,6 @@ class OfflineDB {
     async saveDefectMaterial(entryId, material) {
         // Check if store exists
         if (!this.db.objectStoreNames.contains('defect_materials')) {
-            console.error('defect_materials store not found - DB upgrade needed. Please clear browser data.');
             throw new Error('DB upgrade needed - please clear browser data and reload');
         }
 
@@ -350,12 +349,8 @@ class OfflineDB {
             timestamp: Date.now()
         };
 
-        console.log('Saving defect material offline:', data);
-
         const localId = await this.put('defect_materials', data);
         data.local_id = localId;
-
-        console.log('Saved with local_id:', localId);
 
         // Add to sync queue
         await this.addToSyncQueue('defect_material', {
