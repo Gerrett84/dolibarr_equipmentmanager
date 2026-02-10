@@ -212,6 +212,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --shadow: 0 1px 3px rgba(0,0,0,0.1);
             --input-bg: #ffffff;
             --input-border: #dddddd;
+            --primary-color: #263c5c;
+            --primary-light: rgba(38, 60, 92, 0.1);
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
         }
 
         [data-theme="dark"] {
@@ -226,6 +231,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --shadow: 0 1px 3px rgba(0,0,0,0.3);
             --input-bg: #3d3d3d;
             --input-border: #505050;
+            --primary-color: #4a90d9;
+            --primary-light: rgba(74, 144, 217, 0.2);
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
         }
 
         * {

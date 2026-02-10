@@ -333,8 +333,14 @@ class OfflineDB {
 
     // v5: Save defect material (offline support)
     async saveDefectMaterial(entryId, material) {
+        // Check if store exists
+        if (!this.db.objectStoreNames.contains('defect_materials')) {
+            console.error('defect_materials store not found - DB upgrade needed. Please clear browser data.');
+            throw new Error('DB upgrade needed - please clear browser data and reload');
+        }
+
         const data = {
-            entry_id: entryId,
+            entry_id: parseInt(entryId),
             fk_product: material.fk_product || null,
             freetext_label: material.freetext_label || '',
             product_ref: material.product_ref || (material.freetext_label ? 'FREI' : ''),
@@ -343,12 +349,17 @@ class OfflineDB {
             synced: false,
             timestamp: Date.now()
         };
+
+        console.log('Saving defect material offline:', data);
+
         const localId = await this.put('defect_materials', data);
         data.local_id = localId;
 
+        console.log('Saved with local_id:', localId);
+
         // Add to sync queue
         await this.addToSyncQueue('defect_material', {
-            entry_id: entryId,
+            entry_id: parseInt(entryId),
             fk_product: data.fk_product,
             freetext_label: data.freetext_label,
             qty: data.qty,

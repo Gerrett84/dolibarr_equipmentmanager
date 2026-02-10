@@ -1877,7 +1877,12 @@ class ServiceReportApp {
                 this.showToast('Material offline gespeichert');
             } catch (err) {
                 console.error('Failed to save defect material offline:', err);
-                this.showToast('Fehler beim Offline-Speichern');
+                // Check if DB upgrade needed
+                if (err.message && err.message.includes('DB upgrade')) {
+                    this.showToast('Bitte Browser-Daten löschen und neu laden');
+                } else {
+                    this.showToast('Fehler beim Offline-Speichern: ' + (err.message || 'Unbekannt'));
+                }
             }
         }
     }
