@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.1.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.3.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,22 @@
 -----
 
 ## Features
+
+### NEU in v4.3: Freitext-Material
+
+- **Freitext für Mängel-Material** - Material ohne Produktauswahl erfassen
+- **Toggle Produkt/Freitext** - Umschalten zwischen Produktsuche und Freitext
+- **Offline-Support** - Freitext-Material wird lokal gespeichert und später synchronisiert
+- **Backend & PWA** - In beiden Oberflächen verfügbar
+
+### NEU in v4.2: Mängel-Fotos & Dokumentation
+
+- **Mängel-Fotos** - Fotos für Checklisten-Punkte und Service-Einträge
+- **Interner Mängelbericht** - Neues PDF mit Objektadresse, Anlagennummer und Fotos
+- **Mängel-Materialien** - Material für Mängelbeseitigung erfassen
+- **Allgemeine Arbeiten** - Service-Einträge ohne Anlagenbezug
+- **Clickable Adressen** - Adressen in PWA öffnen Maps-App
+- **Foto-Zuschnitt** - Bilder in PWA zuschneiden
 
 ### NEU in v3.0: Checklisten-System
 
@@ -154,6 +170,25 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.3.0 (2025-02-11)
+
+- **Freitext-Material** - Material für Mängelbeseitigung als Freitext eingeben
+- **Toggle Produkt/Freitext** - Umschalten zwischen Produktsuche und Freitext-Eingabe
+- **Offline-Support** - Freitext-Material wird offline gespeichert und später synchronisiert
+- **Backend-Integration** - Toggle-Buttons im Dolibarr Backend
+- **CSS-Variablen** - Bessere Theme-Unterstützung in PWA
+
+### v4.2.0 (2025-02-11)
+
+- **Mängel-Fotos** - Fotos für Checklisten-Punkte und Service-Einträge
+- **Interner Mängelbericht PDF** - Neues PDF mit Objektadresse, Anlagennummer, Kontakt und Fotos
+- **Mängel-Materialien** - Material für Mängelbeseitigung erfassen (Produkt oder Freitext)
+- **Allgemeine Arbeiten** - Service-Einträge ohne Anlagenbezug (Montage, Anfahrt, etc.)
+- **Clickable Adressen** - Adressen in PWA öffnen Maps-App
+- **Foto-Upload** - Backend und PWA mit Kamera/Galerie Auswahl
+- **Foto-Zuschnitt** - Bilder in PWA zuschneiden vor Upload
+- **PDF-Layout** - Beschreibung als separate Box, Foto im Mängel-Bereich
 
 ### v4.1.1 (2025-01-30)
 
@@ -353,6 +388,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.1.1
-**Released:** January 2025
+**Current Version:** 4.3.0
+**Released:** February 2025
 **Compatibility:** Dolibarr 16.0+
