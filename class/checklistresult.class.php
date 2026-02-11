@@ -243,7 +243,7 @@ class ChecklistResult extends CommonObject
     {
         $this->item_results = array();
 
-        $sql = "SELECT rowid, fk_checklist_result, fk_checklist_item, answer, answer_text, note, date_creation, tms";
+        $sql = "SELECT rowid, fk_checklist_result, fk_checklist_item, answer, answer_text, note, photo, date_creation, tms";
         $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results";
         $sql .= " WHERE fk_checklist_result = ".(int)$this->id;
 
@@ -257,7 +257,8 @@ class ChecklistResult extends CommonObject
                     'fk_checklist_item' => $obj->fk_checklist_item,
                     'answer' => $obj->answer,
                     'answer_text' => $obj->answer_text,
-                    'note' => $obj->note
+                    'note' => $obj->note,
+                    'photo' => $obj->photo
                 );
             }
             $this->db->free($resql);
@@ -275,9 +276,10 @@ class ChecklistResult extends CommonObject
      * @param string $answer Answer value (ok, mangel, nv, ja, nein)
      * @param string $answer_text Text answer for info fields
      * @param string $note Additional note
+     * @param string $photo Photo filename for defect documentation
      * @return int <0 if KO, >0 if OK
      */
-    public function saveItemResult($item_id, $answer, $answer_text = '', $note = '')
+    public function saveItemResult($item_id, $answer, $answer_text = '', $note = '', $photo = '')
     {
         $now = dol_now();
 
@@ -293,18 +295,20 @@ class ChecklistResult extends CommonObject
             $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results SET";
             $sql .= " answer = ".($answer ? "'".$this->db->escape($answer)."'" : 'NULL').",";
             $sql .= " answer_text = ".($answer_text ? "'".$this->db->escape($answer_text)."'" : 'NULL').",";
-            $sql .= " note = ".($note ? "'".$this->db->escape($note)."'" : 'NULL');
+            $sql .= " note = ".($note ? "'".$this->db->escape($note)."'" : 'NULL').",";
+            $sql .= " photo = ".($photo ? "'".$this->db->escape($photo)."'" : 'NULL');
             $sql .= " WHERE rowid = ".(int)$obj->rowid;
         } else {
             // Insert new
             $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results";
-            $sql .= " (fk_checklist_result, fk_checklist_item, answer, answer_text, note, date_creation)";
+            $sql .= " (fk_checklist_result, fk_checklist_item, answer, answer_text, note, photo, date_creation)";
             $sql .= " VALUES (";
             $sql .= (int)$this->id.",";
             $sql .= (int)$item_id.",";
             $sql .= ($answer ? "'".$this->db->escape($answer)."'" : 'NULL').",";
             $sql .= ($answer_text ? "'".$this->db->escape($answer_text)."'" : 'NULL').",";
             $sql .= ($note ? "'".$this->db->escape($note)."'" : 'NULL').",";
+            $sql .= ($photo ? "'".$this->db->escape($photo)."'" : 'NULL').",";
             $sql .= "'".$this->db->idate($now)."'";
             $sql .= ")";
         }

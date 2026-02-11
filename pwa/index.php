@@ -212,6 +212,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --shadow: 0 1px 3px rgba(0,0,0,0.1);
             --input-bg: #ffffff;
             --input-border: #dddddd;
+            --primary-color: #263c5c;
+            --primary-light: rgba(38, 60, 92, 0.1);
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
         }
 
         [data-theme="dark"] {
@@ -226,6 +231,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --shadow: 0 1px 3px rgba(0,0,0,0.3);
             --input-bg: #3d3d3d;
             --input-border: #505050;
+            --primary-color: #4a90d9;
+            --primary-light: rgba(74, 144, 217, 0.2);
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
         }
 
         * {
@@ -856,6 +866,57 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             background: #f5f5f5;
         }
 
+        .product-result {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .product-result:last-child {
+            border-bottom: none;
+        }
+
+        .product-result:hover, .product-result:active {
+            background: #f5f5f5;
+        }
+
+        [data-theme="dark"] .product-result:hover,
+        [data-theme="dark"] .product-result:active {
+            background: var(--bg-secondary);
+        }
+
+        /* v4.3: Toggle Tabs for Product/Freetext */
+        .toggle-tabs {
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .toggle-tab {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .toggle-tab:not(.active):hover {
+            background: var(--bg-tertiary, #e9ecef);
+        }
+
         .product-ref {
             font-weight: 600;
             font-size: 13px;
@@ -1123,6 +1184,33 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: var(--text-secondary);
         }
 
+        /* Clickable address links */
+        .address-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .address-link:hover,
+        .address-link:active {
+            text-decoration: underline;
+        }
+
+        .customer-address .address-link,
+        .object-address-details .address-link {
+            color: inherit;
+        }
+
+        .customer-address .address-link:hover,
+        .object-address-details .address-link:hover {
+            color: var(--primary-color);
+        }
+
+        .address-header .address-link {
+            color: inherit;
+            font-weight: inherit;
+        }
+
         .object-address-divider {
             margin-top: 12px;
             padding-top: 12px;
@@ -1277,6 +1365,292 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: var(--text-muted);
         }
 
+        /* Defect photo styles */
+        .defect-photo-section {
+            margin-top: 8px;
+        }
+
+        .btn-defect-photo {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-light);
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-defect-photo:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .defect-photo-preview {
+            position: relative;
+            display: inline-block;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .defect-photo-preview img {
+            display: block;
+            max-width: 120px;
+            max-height: 90px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .defect-photo-delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .defect-photo-delete:hover {
+            background: var(--danger-color);
+        }
+
+        .defect-photo-loading {
+            padding: 8px 12px;
+            background: var(--bg-light);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .defect-photo-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .defect-photo-fullscreen {
+            position: relative;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .defect-photo-fullscreen img {
+            max-width: 100%;
+            max-height: calc(100vh - 40px);
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .defect-photo-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .defect-photo-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Entry photo styles (Servicebericht Mängel-Foto) */
+        .entry-photo-section {
+            margin-top: 8px;
+        }
+
+        .btn-entry-photo {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: var(--bg-light);
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-entry-photo:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .entry-photo-preview {
+            position: relative;
+            display: inline-block;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+        }
+
+        .entry-photo-preview img {
+            display: block;
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .entry-photo-delete {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .entry-photo-delete:hover {
+            background: var(--danger-color);
+        }
+
+        /* Defect Material List (v4.2) */
+        .defect-material-list {
+            margin-bottom: 12px;
+        }
+        .defect-material-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .defect-material-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .defect-material-ref {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 12px;
+        }
+        .defect-material-label {
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .defect-material-qty {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-right: 12px;
+            min-width: 35px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .defect-material-delete {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(244, 67, 54, 0.1);
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .defect-material-delete:hover {
+            background: var(--danger-color);
+            color: white;
+        }
+        .defect-material-item.offline {
+            border-left: 3px solid var(--warning-color);
+            background: rgba(255, 193, 7, 0.1);
+        }
+        .btn-add-material {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-add-material:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        .selected-product-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+        .selected-product-info .product-ref {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        .selected-product-info .product-label {
+            flex: 1;
+        }
+        .btn-clear-product {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(244, 67, 54, 0.1);
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
         .checklist-complete-btn {
             margin-top: 12px;
         }
@@ -1300,6 +1674,155 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         [data-theme="dark"] .checklist-status {
             background: #1b3d1b;
             color: #81c784;
+        }
+
+        /* Photo Cropper */
+        .crop-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .crop-container {
+            position: relative;
+            max-width: 100%;
+            max-height: calc(100vh - 120px);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .crop-container img {
+            max-width: 100%;
+            max-height: calc(100vh - 120px);
+            display: block;
+        }
+
+        .crop-box {
+            position: absolute;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+            cursor: move;
+            touch-action: none;
+            min-width: 50px;
+            min-height: 50px;
+        }
+
+        .crop-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+        }
+
+        .crop-handle-se {
+            bottom: -12px;
+            right: -12px;
+            cursor: se-resize;
+        }
+
+        .crop-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .crop-btn {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .crop-btn-cancel {
+            background: #666;
+            color: #fff;
+        }
+
+        .crop-btn-confirm {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .crop-title {
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        /* Photo Choice Modal */
+        .photo-choice-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .photo-choice-modal {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .photo-choice-title {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .photo-choice-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .photo-choice-btn:active {
+            opacity: 0.8;
+        }
+
+        .photo-choice-icon {
+            font-size: 24px;
+        }
+
+        .photo-choice-cancel {
+            background: var(--border);
+            color: var(--text);
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -1399,7 +1922,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <button type="button" class="btn btn-primary btn-block" id="btnSaveSummary">Empfehlungen speichern</button>
 
             <!-- Materials Section -->
-            <div class="card" style="margin-top:12px;">
+            <div class="card" style="margin-top:12px;" id="materialsCard">
                 <div class="card-header">
                     <h3 class="card-title">Material</h3>
                     <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
@@ -1467,6 +1990,28 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                         <div class="form-group">
                             <label class="form-label">Festgestellte Mängel</label>
                             <textarea class="form-textarea" id="entryIssuesFound" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Mangel-Foto</label>
+                            <div id="entryPhotoSection" class="entry-photo-section">
+                                <div id="entryPhotoPreview" class="entry-photo-preview" style="display:none;">
+                                    <img id="entryPhotoImg" src="" alt="Mangel-Foto" onclick="app.viewEntryPhoto()">
+                                    <button type="button" class="entry-photo-delete" onclick="app.deleteEntryPhoto()" title="Foto löschen">✕</button>
+                                </div>
+                                <button type="button" id="btnAddEntryPhoto" class="btn-entry-photo" onclick="app.captureEntryPhoto()">
+                                    📷 Foto hinzufügen
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Defect Materials Section (v4.2) -->
+                        <div class="form-group" id="defectMaterialSection" style="display:none;">
+                            <label class="form-label">Material für Mängelbeseitigung</label>
+                            <div id="defectMaterialList" class="defect-material-list"></div>
+                            <button type="button" class="btn-add-material" onclick="app.showDefectMaterialModal()">
+                                + Material hinzufügen
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1587,6 +2132,56 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-success btn-block" id="btnSaveMaterial">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Defect Material Modal (v4.2, v4.3: Freitext) -->
+    <div class="modal" id="defectMaterialModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Material für Mängelbeseitigung</h3>
+                <button type="button" class="modal-close" onclick="app.closeDefectMaterialModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- v4.3: Toggle Produkt/Freitext -->
+                <div class="form-group">
+                    <div class="toggle-tabs">
+                        <button type="button" class="toggle-tab active" id="defectTabProduct" onclick="app.switchDefectMaterialMode('product')">📦 Produkt</button>
+                        <button type="button" class="toggle-tab" id="defectTabFreetext" onclick="app.switchDefectMaterialMode('freetext')">✏️ Freitext</button>
+                    </div>
+                </div>
+                <!-- Produkt-Suche -->
+                <div id="defectProductMode">
+                    <div class="form-group">
+                        <label class="form-label">Produkt suchen</label>
+                        <input type="text" class="form-input" id="defectProductSearch" placeholder="Artikelnr. oder Name..." autocomplete="off">
+                        <div id="defectProductResults" class="product-results"></div>
+                    </div>
+                    <div class="form-group" id="defectSelectedProduct" style="display:none;">
+                        <label class="form-label">Ausgewähltes Produkt</label>
+                        <div class="selected-product-info">
+                            <span id="defectProductRef" class="product-ref"></span>
+                            <span id="defectProductLabel" class="product-label"></span>
+                            <button type="button" class="btn-clear-product" onclick="app.clearDefectProduct()">✕</button>
+                        </div>
+                        <input type="hidden" id="defectProductId">
+                    </div>
+                </div>
+                <!-- Freitext-Eingabe -->
+                <div id="defectFreetextMode" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Material-Bezeichnung *</label>
+                        <input type="text" class="form-input" id="defectFreetextLabel" placeholder="z.B. Türschließer TS 3000">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Menge</label>
+                    <input type="number" class="form-input" id="defectMaterialQty" value="1" min="1" step="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success btn-block" onclick="app.saveDefectMaterial()">Hinzufügen</button>
             </div>
         </div>
     </div>

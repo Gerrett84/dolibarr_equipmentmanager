@@ -15,6 +15,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 dol_include_once('/equipmentmanager/class/interventiondetail.class.php');
 dol_include_once('/equipmentmanager/class/interventionmaterial.class.php');
+dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
 /**
  * Class to generate PDF for Fichinter with Equipment Manager details
@@ -244,15 +245,25 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $this->db->free($resql);
             }
 
+            // Check for general entries (without equipment)
+            $generalDetailHelper = new InterventionDetail($this->db);
+            $generalEntries = $generalDetailHelper->fetchAllByInterventionEquipment($object->id, null);
+            $hasGeneralEntries = (count($generalEntries) > 0);
+
             // Display equipment sections
-            if (count($equipment_list) > 0) {
+            if (count($equipment_list) > 0 || $hasGeneralEntries) {
                 $total_material = 0;
                 $total_duration = 0;
                 $equipment_count = count($equipment_list);
 
+                // Render description as separate box BEFORE equipment sections
+                if (!empty($object->description)) {
+                    $curY = $this->_renderDescriptionBox($pdf, $object, $curY, $outputlangs, $default_font_size);
+                }
+
                 foreach ($equipment_list as $index => $equipment) {
-                    $is_first = ($index === 0);
-                    $is_last = ($index === $equipment_count - 1);
+                    $is_first = ($index === 0);  // First equipment (but description already rendered)
+                    $is_last = ($index === $equipment_count - 1) && !$hasGeneralEntries;
 
                     // Load ALL equipment detail entries (v1.7 - multiple entries)
                     $detailHelper = new InterventionDetail($this->db);
@@ -288,6 +299,10 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                             $lines = max(1, ceil(strlen($entry->issues_found) / 100));
                             $estimated_height += 5 + ($lines * 4);
                         }
+                        // Add space for photo if exists
+                        if (!empty($entry->photo)) {
+                            $estimated_height += 35; // 30mm photo + 5mm margin
+                        }
                     }
                     // Check for recommendations
                     foreach ($entries as $entry) {
@@ -321,6 +336,57 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                     // Render equipment section with all entries
                     $curY = $this->_renderEquipmentSection($pdf, $equipment, $entries, $materials, $equipment_material_total, $curY, $outputlangs, $default_font_size, $is_first, $is_last, $total_duration, $object);
+                }
+
+                // Render general entries section (v4.2 - entries without equipment)
+                if ($hasGeneralEntries) {
+                    // Sort entries by date (oldest first)
+                    usort($generalEntries, function($a, $b) {
+                        return $a->work_date - $b->work_date;
+                    });
+
+                    // Load materials for general entries (fk_equipment IS NULL)
+                    $generalMaterials = InterventionMaterial::fetchAllForEquipment($this->db, $object->id, null);
+                    $generalMaterialTotal = InterventionMaterial::getTotalForEquipment($this->db, $object->id, null);
+                    $total_material += $generalMaterialTotal;
+
+                    // Add duration from general entries
+                    $generalDuration = $generalDetailHelper->getTotalDuration($object->id, null);
+                    $total_duration += $generalDuration;
+
+                    // Estimate height needed
+                    $estimated_height = 15;
+                    foreach ($generalEntries as $entry) {
+                        $estimated_height += 7;
+                        if ($entry->work_done) {
+                            $lines = max(1, ceil(strlen($entry->work_done) / 100));
+                            $estimated_height += 5 + ($lines * 4);
+                        }
+                        if ($entry->issues_found) {
+                            $lines = max(1, ceil(strlen($entry->issues_found) / 100));
+                            $estimated_height += 5 + ($lines * 4);
+                        }
+                        if (!empty($entry->photo)) {
+                            $estimated_height += 35;
+                        }
+                    }
+                    if (count($generalMaterials) > 0) {
+                        $estimated_height += 6 + (count($generalMaterials) * 5);
+                    }
+
+                    $page_bottom = $this->page_hauteur - $this->marge_basse - 15;
+                    $available_space = $page_bottom - $curY;
+                    $signatureSpace = 60; // General entries are always last
+
+                    if ($available_space < $estimated_height + $signatureSpace) {
+                        $pdf->AddPage();
+                        $pagenb++;
+                        $curY = $this->marge_haute + 5;
+                        $pdf->SetY($curY);
+                    }
+
+                    // Render general entries section
+                    $curY = $this->_renderGeneralEntriesSection($pdf, $generalEntries, $generalMaterials, $generalMaterialTotal, $curY, $outputlangs, $default_font_size, $is_first_section, $object);
                 }
 
                 // Add summary table after all equipment sections
@@ -394,6 +460,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             if (!empty($conf->global->MAIN_UMASK)) {
                 @chmod($file, octdec($conf->global->MAIN_UMASK));
+            }
+
+            // Generate internal defect report PDF (v4.2)
+            if (!$object->specimen) {
+                $this->_generateDefectReport($object, $outputlangs, $dir, $objectref);
             }
 
             $this->result = array('fullpath' => $file);
@@ -641,30 +712,6 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pageWidth = $this->page_largeur;
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // If first equipment, draw "Beschreibung" header (fully bordered)
-        if ($is_first) {
-            $pdf->SetFont('', 'B', $default_font_size);
-            $pdf->SetFillColor(240, 240, 240);
-            $pdf->SetDrawColor(0, 0, 0);
-            $pdf->SetXY($leftMargin, $curY);
-            $pdf->Cell($sectionWidth, 6, "Beschreibung", 'TLR', 1, 'L', 1);
-            $curY = $pdf->GetY();
-
-            // Add order description if available
-            if ($object && !empty($object->description)) {
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetTextColor(0, 0, 0);
-                $pdf->SetXY($leftMargin + 2, $curY + 2);
-                $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
-                $curY = $pdf->GetY() + 2;
-
-                // Draw separator line below description (same thickness as outer border)
-                $pdf->SetDrawColor(0, 0, 0);
-                $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
-                $curY += 2;
-            }
-        }
-
         // Text padding inside bordered section
         $textPadding = 2;
 
@@ -746,18 +793,44 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $curY = $pdf->GetY() + 1;
             }
 
-            // Issues found for this entry
-            if ($entry->issues_found) {
+            // Issues found for this entry (with photo if exists)
+            if ($entry->issues_found || !empty($entry->photo)) {
                 $pdf->SetFont('', 'B', $default_font_size - 1);
                 $pdf->SetXY($leftMargin + $textPadding, $curY);
                 $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
                 $curY = $pdf->GetY();
 
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->SetXY($leftMargin + $textPadding, $curY);
-                $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
-                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
-                $curY = $pdf->GetY() + 1;
+                // Issues text
+                if ($entry->issues_found) {
+                    $pdf->SetFont('', '', $default_font_size - 1);
+                    $pdf->SetXY($leftMargin + $textPadding, $curY);
+                    $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
+                    $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
+                    $curY = $pdf->GetY() + 1;
+                }
+
+                // Defect photo directly under issues text (v4.2)
+                if (!empty($entry->photo)) {
+                    $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref);
+                    $photoPath = $photoDir . '/' . $entry->photo;
+
+                    if (file_exists($photoPath)) {
+                        $photoMaxHeight = 25;
+                        $photoMaxWidth = 40;
+
+                        // Check page break for photo
+                        if ($curY + $photoMaxHeight + 5 > $this->page_hauteur - 20) {
+                            $pdf->AddPage();
+                            $curY = $this->marge_haute + 5;
+                        }
+
+                        // Draw photo without border, same indent as text
+                        $photoX = $leftMargin + $textPadding;
+                        $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
+                        $curY += $photoMaxHeight + 2;
+                        $pdf->SetY($curY); // Update PDF cursor position
+                    }
+                }
             }
 
             // Small spacing between entries (no separator line)
@@ -829,20 +902,257 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $pdf->SetDrawColor(0, 0, 0);
         $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
 
-        // Top border (only if not first - first has "Beschreibung" header)
-        if (!$is_first) {
-            $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
-        }
+        // Top border
+        $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
         // Left border
-        $pdf->Line($leftMargin, $startY + ($is_first ? 6 : 0), $leftMargin, $curY);
+        $pdf->Line($leftMargin, $startY, $leftMargin, $curY);
         // Right border
-        $pdf->Line($leftMargin + $sectionWidth, $startY + ($is_first ? 6 : 0), $leftMargin + $sectionWidth, $curY);
+        $pdf->Line($leftMargin + $sectionWidth, $startY, $leftMargin + $sectionWidth, $curY);
         // Bottom border - skip if materials exist (table has its own border)
         if (count($materials) == 0) {
             $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
         }
 
         return $curY + 4;
+    }
+
+    /**
+     * Render general entries section (entries without equipment reference)
+     *
+     * @param TCPDF $pdf PDF object
+     * @param array $entries Array of InterventionDetail objects
+     * @param array $materials Array of material objects
+     * @param float $material_total Material total
+     * @param float $curY Current Y position
+     * @param Translate $outputlangs Output language object
+     * @param int $default_font_size Default font size
+     * @param bool $is_first Is this the first section
+     * @param Fichinter $object Fichinter object
+     * @return float New Y position
+     */
+    protected function _renderGeneralEntriesSection(&$pdf, $entries, $materials, $material_total, $curY, $outputlangs, $default_font_size, $is_first = false, $object = null)
+    {
+        $startY = $curY;
+        $leftMargin = $this->marge_gauche;
+        $rightMargin = $this->marge_droite;
+        $pageWidth = $this->page_largeur;
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
+
+        $textPadding = 2;
+
+        // Section header
+        $pdf->SetFont('', 'B', $default_font_size + 1);
+        $pdf->SetXY($leftMargin + $textPadding, $curY);
+        $pdf->SetTextColor(0, 0, 100);
+        $pdf->MultiCell(0, 5, $outputlangs->transnoentities("GeneralWork"), 0, 'L');
+
+        $curY = $pdf->GetY() + 3;
+
+        // Collect recommendations from all entries
+        $recommendations = '';
+        foreach ($entries as $entry) {
+            if (!empty($entry->recommendations)) {
+                $recommendations = $entry->recommendations;
+            }
+        }
+
+        // Render each entry
+        $entryCount = count($entries);
+        foreach ($entries as $entryIndex => $entry) {
+            // Date and duration header
+            $pdf->SetFont('', 'B', $default_font_size - 2);
+            $pdf->SetFillColor(220, 220, 220);
+            $pdf->SetTextColor(0, 0, 0);
+
+            $date_text = '';
+            if ($entry->work_date) {
+                $date_text = dol_print_date($entry->work_date, 'day', false, $outputlangs, true);
+            }
+
+            $duration_text = '';
+            if ($entry->work_duration > 0) {
+                $hours = floor($entry->work_duration / 60);
+                $minutes = $entry->work_duration % 60;
+                $duration_text = $hours." Std.";
+                if ($minutes > 0) {
+                    $duration_text .= " ".$minutes." min.";
+                }
+            }
+
+            $pdf->SetCellPadding(1);
+            $pdf->SetXY($leftMargin, $curY);
+            $pdf->Cell(120, 5, $date_text, 'LTB', 0, 'L', 1);
+            $pdf->Cell($sectionWidth - 120, 5, $duration_text, 'RTB', 1, 'R', 1);
+            $pdf->SetCellPadding(0);
+
+            $curY = $pdf->GetY() + 2;
+
+            // Work done
+            if ($entry->work_done) {
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
+                $pdf->MultiCell(0, 4, $outputlangs->transnoentities("WorkDone").":", 0, 'L');
+                $curY = $pdf->GetY();
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
+                $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $outputlangs->convToOutputCharset($entry->work_done), 0, 'L');
+                $curY = $pdf->GetY() + 1;
+            }
+
+            // Issues found (with photo if exists)
+            if ($entry->issues_found || !empty($entry->photo)) {
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->SetXY($leftMargin + $textPadding, $curY);
+                $pdf->MultiCell(0, 4, $outputlangs->transnoentities("IssuesFound").":", 0, 'L');
+                $curY = $pdf->GetY();
+
+                // Issues text
+                if ($entry->issues_found) {
+                    $pdf->SetFont('', '', $default_font_size - 1);
+                    $pdf->SetXY($leftMargin + $textPadding, $curY);
+                    $issues_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($entry->issues_found));
+                    $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $issues_text, 0, 'L');
+                    $curY = $pdf->GetY() + 1;
+                }
+
+                // Defect photo directly under issues text (v4.2)
+                if (!empty($entry->photo)) {
+                    $photoDir = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref);
+                    $photoPath = $photoDir . '/' . $entry->photo;
+
+                    if (file_exists($photoPath)) {
+                        $photoMaxHeight = 25;
+                        $photoMaxWidth = 40;
+
+                        // Check page break for photo
+                        if ($curY + $photoMaxHeight + 5 > $this->page_hauteur - 20) {
+                            $pdf->AddPage();
+                            $curY = $this->marge_haute + 5;
+                        }
+
+                        // Draw photo without border, same indent as text
+                        $photoX = $leftMargin + $textPadding;
+                        $pdf->Image($photoPath, $photoX, $curY, $photoMaxWidth, $photoMaxHeight, '', '', '', false, 150, '', false, false, 0, 'LT', false, false);
+                        $curY += $photoMaxHeight + 2;
+                        $pdf->SetY($curY); // Update PDF cursor position
+                    }
+                }
+            }
+
+            if ($entryIndex < $entryCount - 1) {
+                $curY += 3;
+            }
+        }
+
+        // Recommendations
+        if (!empty($recommendations)) {
+            $curY += 1;
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($leftMargin + $textPadding, $curY);
+            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("Recommendations").":", 0, 'L');
+            $curY = $pdf->GetY();
+
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($leftMargin + $textPadding, $curY);
+            $recommendations_text = str_replace("\n", "\n- ", "- ".$outputlangs->convToOutputCharset($recommendations));
+            $pdf->MultiCell($sectionWidth - $textPadding * 2, 4, $recommendations_text, 0, 'L');
+            $curY = $pdf->GetY() + 1;
+        }
+
+        // Materials table
+        if (count($materials) > 0) {
+            $curY = $pdf->GetY() + 1;
+
+            $pdf->SetFont('', 'B', $default_font_size - 2);
+            $pdf->SetFillColor(220, 220, 220);
+
+            $pdf->SetCellPadding(1);
+            $pdf->SetXY($leftMargin, $curY);
+            $pdf->Cell(120, 5, "Material", 'LT', 0, 'L', 1);
+            $pdf->Cell(25, 5, $outputlangs->transnoentities("Qty"), 'T', 0, 'C', 1);
+            $pdf->Cell($sectionWidth - 145, 5, $outputlangs->transnoentities("Unit"), 'RT', 1, 'C', 1);
+
+            $curY = $pdf->GetY();
+
+            $pdf->SetFont('', '', $default_font_size - 2);
+            $materialCount = count($materials);
+            $materialIndex = 0;
+            foreach ($materials as $material) {
+                $materialIndex++;
+                $isLast = ($materialIndex === $materialCount);
+                $pdf->SetXY($leftMargin, $curY);
+                $pdf->Cell(120, 5, $outputlangs->convToOutputCharset($material->material_name), 'L'.($isLast ? 'B' : ''), 0, 'L');
+                $pdf->Cell(25, 5, $material->quantity, ($isLast ? 'B' : ''), 0, 'C');
+                $pdf->Cell($sectionWidth - 145, 5, $outputlangs->convToOutputCharset($material->unit), 'R'.($isLast ? 'B' : ''), 1, 'C');
+
+                $curY = $pdf->GetY();
+            }
+
+            $pdf->SetCellPadding(0);
+            $curY = $pdf->GetY();
+        } else {
+            $curY = $pdf->GetY() + 1;
+        }
+
+        // Draw borders
+        $pdf->SetDrawColor(0, 0, 0);
+
+        // Top border
+        $pdf->Line($leftMargin, $startY, $leftMargin + $sectionWidth, $startY);
+        // Left border
+        $pdf->Line($leftMargin, $startY, $leftMargin, $curY);
+        // Right border
+        $pdf->Line($leftMargin + $sectionWidth, $startY, $leftMargin + $sectionWidth, $curY);
+        // Bottom border - skip if materials exist (table has its own border)
+        if (count($materials) == 0) {
+            $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY);
+        }
+
+        return $curY + 4;
+    }
+
+    /**
+     * Render description box as separate section
+     *
+     * @param TCPDF $pdf PDF object
+     * @param Fichinter $object Fichinter object
+     * @param float $curY Current Y position
+     * @param Translate $outputlangs Output language object
+     * @param int $default_font_size Default font size
+     * @return float New Y position
+     */
+    protected function _renderDescriptionBox(&$pdf, $object, $curY, $outputlangs, $default_font_size)
+    {
+        $leftMargin = $this->marge_gauche;
+        $rightMargin = $this->marge_droite;
+        $pageWidth = $this->page_largeur;
+        $sectionWidth = $pageWidth - $leftMargin - $rightMargin;
+
+        $startY = $curY;
+
+        // Header "Beschreibung"
+        $pdf->SetFont('', 'B', $default_font_size);
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetXY($leftMargin, $curY);
+        $pdf->Cell($sectionWidth, 6, "Beschreibung", 1, 1, 'L', 1);
+        $curY = $pdf->GetY();
+
+        // Description text
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetXY($leftMargin + 2, $curY + 2);
+        $pdf->MultiCell($sectionWidth - 4, 4, $outputlangs->convToOutputCharset($object->description), 0, 'L');
+        $curY = $pdf->GetY() + 2;
+
+        // Draw box around description content
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->Line($leftMargin, $startY + 6, $leftMargin, $curY); // Left
+        $pdf->Line($leftMargin + $sectionWidth, $startY + 6, $leftMargin + $sectionWidth, $curY); // Right
+        $pdf->Line($leftMargin, $curY, $leftMargin + $sectionWidth, $curY); // Bottom
+
+        return $curY + 6; // Space before next section
     }
 
     /**
@@ -1009,5 +1319,272 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $default_font_size = pdf_getPDFFontSize($outputlangs);
 
         return pdf_pagefoot($pdf, $outputlangs, 'FICHINTER_FREE_TEXT', $conf->mycompany, $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object);
+    }
+
+    /**
+     * Generate internal defect report PDF (v4.2)
+     * Lists all equipment with defects including equipment data and photos
+     *
+     * @param Fichinter $object Fichinter object
+     * @param Translate $outputlangs Output language object
+     * @param string $dir Output directory
+     * @param string $objectref Object reference
+     * @return int 1 if OK, 0 if no defects found
+     */
+    protected function _generateDefectReport($object, $outputlangs, $dir, $objectref)
+    {
+        global $conf, $mysoc;
+
+        // Collect all entries with defects
+        $defects = array();
+
+        // Get linked equipments (same query as main PDF)
+        $sql = "SELECT DISTINCT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+        $sql .= " WHERE fk_intervention = ".(int)$object->id;
+        $sql .= " ORDER BY rowid ASC";
+
+        $resql = $this->db->query($sql);
+        $equipmentList = array();
+
+        if ($resql) {
+            $num = $this->db->num_rows($resql);
+            for ($i = 0; $i < $num; $i++) {
+                $obj = $this->db->fetch_object($resql);
+                $equipment = new Equipment($this->db);
+                if ($equipment->fetch($obj->fk_equipment) > 0) {
+                    $equipmentList[] = $equipment;
+                }
+            }
+            $this->db->free($resql);
+        }
+
+        foreach ($equipmentList as $equipment) {
+            $detailHelper = new InterventionDetail($this->db);
+            $entries = $detailHelper->fetchAllByInterventionEquipment($object->id, $equipment->id);
+
+            foreach ($entries as $entry) {
+                if (!empty($entry->issues_found)) {
+                    $defects[] = array(
+                        'equipment' => $equipment,
+                        'entry' => $entry
+                    );
+                }
+            }
+        }
+
+        // Also check for general entries with defects (v4.2)
+        $generalDetailHelper = new InterventionDetail($this->db);
+        $generalEntries = $generalDetailHelper->fetchAllByInterventionEquipment($object->id, null);
+
+        foreach ($generalEntries as $entry) {
+            if (!empty($entry->issues_found)) {
+                $defects[] = array(
+                    'equipment' => null, // NULL indicates general entry
+                    'entry' => $entry
+                );
+            }
+        }
+
+        // No defects found - skip PDF generation
+        if (empty($defects)) {
+            return 0;
+        }
+
+        // Create PDF
+        $pdf = pdf_getInstance($this->format);
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+        $pdf->SetAutoPageBreak(1, 0);
+
+        if (class_exists('TCPDF')) {
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+        }
+        $pdf->SetFont(pdf_getPDFFont($outputlangs));
+
+        $pdf->Open();
+        $pdf->AddPage();
+
+        $curY = $this->marge_haute;
+
+        // Header
+        $pdf->SetFont('', 'B', $default_font_size + 4);
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->Cell(0, 8, "INTERNE MÄNGELLISTE", 0, 1, 'C');
+        $curY += 10;
+
+        // Intervention info
+        $pdf->SetFont('', '', $default_font_size);
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->Cell(0, 5, "Servicebericht: ".$object->ref, 0, 1, 'L');
+        $curY += 5;
+
+        if ($object->thirdparty) {
+            $pdf->SetXY($this->marge_gauche, $curY);
+            $pdf->Cell(0, 5, "Kunde: ".$object->thirdparty->name, 0, 1, 'L');
+            $curY += 5;
+        }
+
+        // Object address in header (from first equipment's fk_address)
+        $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
+        $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
+        $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+        $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
+
+        $resql_addr = $this->db->query($sql_addr);
+        if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
+            $obj_addr = $this->db->fetch_object($resql_addr);
+            require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+            $contact = new Contact($this->db);
+            if ($contact->fetch($obj_addr->fk_address) > 0) {
+                $addrParts = array();
+                // Add name
+                $contactName = trim($contact->firstname.' '.$contact->lastname);
+                if (!empty($contactName)) {
+                    $addrParts[] = $contactName;
+                }
+                if ($contact->address) {
+                    $addrParts[] = str_replace("\n", ", ", $contact->address);
+                }
+                if ($contact->zip || $contact->town) {
+                    $addrParts[] = trim($contact->zip.' '.$contact->town);
+                }
+                if (!empty($addrParts)) {
+                    $pdf->SetXY($this->marge_gauche, $curY);
+                    $pdf->Cell(0, 5, "Objekt: ".implode(", ", $addrParts), 0, 1, 'L');
+                    $curY += 5;
+                }
+            }
+        }
+
+        $pdf->SetXY($this->marge_gauche, $curY);
+        $pdf->Cell(0, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 1, 'L');
+        $curY += 8;
+
+        // Separator line
+        $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+        $curY += 5;
+
+        // List defects
+        $defectNum = 0;
+        foreach ($defects as $defect) {
+            $defectNum++;
+            $equipment = $defect['equipment'];
+            $entry = $defect['entry'];
+
+            // Check page break
+            if ($curY + 70 > $this->page_hauteur - 20) {
+                $pdf->AddPage();
+                $curY = $this->marge_haute;
+            }
+
+            // Defect number and equipment name (or "General Work" for NULL equipment)
+            $pdf->SetFont('', 'B', $default_font_size);
+            $pdf->SetXY($this->marge_gauche, $curY);
+            if ($equipment !== null) {
+                $pdf->Cell(0, 5, $defectNum.". ".$equipment->name, 0, 1, 'L');
+            } else {
+                $pdf->Cell(0, 5, $defectNum.". ".$outputlangs->transnoentities("GeneralWork"), 0, 1, 'L');
+            }
+            $curY += 6;
+
+            // Equipment details: Anlagennummer, Hersteller, Bezeichnung, Standort
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $details = array();
+            if ($equipment !== null) {
+                if (!empty($equipment->equipment_number)) {
+                    $details[] = "Anl.Nr: ".$equipment->equipment_number;
+                }
+                if (!empty($equipment->manufacturer)) {
+                    $details[] = "Hersteller: ".$equipment->manufacturer;
+                }
+                if (!empty($equipment->label)) {
+                    $details[] = "Bezeichnung: ".$equipment->label;
+                }
+                if (!empty($equipment->location_note)) {
+                    $details[] = "Standort: ".$equipment->location_note;
+                }
+            }
+            if (!empty($details)) {
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, implode(" | ", $details), 0, 1, 'L');
+                $curY += 5;
+            }
+
+            // Defect date
+            if (!empty($entry->work_date)) {
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, "Festgestellt am: ".dol_print_date($entry->work_date, 'day'), 0, 1, 'L');
+                $curY += 5;
+            }
+
+            // Defect description
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche + 5, $curY);
+            $pdf->Cell(0, 4, "Mangel:", 0, 1, 'L');
+            $curY += 4;
+
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetXY($this->marge_gauche + 5, $curY);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, 4, $entry->issues_found, 0, 'L');
+            $curY = $pdf->GetY() + 2;
+
+            // Defect photo
+            if (!empty($entry->photo)) {
+                $photoPath = DOL_DATA_ROOT . '/ficheinter/' . dol_sanitizeFileName($object->ref) . '/' . $entry->photo;
+
+                if (file_exists($photoPath)) {
+                    if ($curY + 35 > $this->page_hauteur - 20) {
+                        $pdf->AddPage();
+                        $curY = $this->marge_haute;
+                    }
+
+                    $pdf->Image($photoPath, $this->marge_gauche + 5, $curY, 50, 35, '', '', '', false, 150, '', false, false, 1, 'LT', false, false);
+                    $curY += 38;
+                }
+            }
+
+            // Defect materials (v4.2)
+            $defectMaterials = DefectMaterial::fetchAllForEntry($this->db, $entry->id);
+            if (count($defectMaterials) > 0) {
+                // Check page break
+                if ($curY + 20 > $this->page_hauteur - 20) {
+                    $pdf->AddPage();
+                    $curY = $this->marge_haute;
+                }
+
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->SetXY($this->marge_gauche + 5, $curY);
+                $pdf->Cell(0, 4, $outputlangs->transnoentities("DefectMaterials").":", 0, 1, 'L');
+                $curY += 5;
+
+                $pdf->SetFont('', '', $default_font_size - 1);
+                foreach ($defectMaterials as $mat) {
+                    $pdf->SetXY($this->marge_gauche + 10, $curY);
+                    $matText = "- ".intval($mat->qty)."x [".$mat->product_ref."] ".$mat->product_label;
+                    $pdf->Cell(0, 4, $matText, 0, 1, 'L');
+                    $curY += 4;
+                }
+                $curY += 2;
+            }
+
+            // Separator
+            $curY += 3;
+            $pdf->SetDrawColor(200, 200, 200);
+            $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+            $pdf->SetDrawColor(0, 0, 0);
+            $curY += 5;
+        }
+
+        // Save PDF
+        $defectFile = $dir."/".$objectref."_maengel.pdf";
+        $pdf->Close();
+        $pdf->Output($defectFile, 'F');
+
+        if (!empty($conf->global->MAIN_UMASK)) {
+            @chmod($defectFile, octdec($conf->global->MAIN_UMASK));
+        }
+
+        return 1;
     }
 }

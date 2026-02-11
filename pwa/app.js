@@ -17,6 +17,7 @@ class ServiceReportApp {
         this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
         this.signedTimeRange = 30; // v4.1 - time range in days for signed orders (0 = all)
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
+        this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
         this.init();
     }
@@ -390,6 +391,14 @@ class ServiceReportApp {
         // Info button
         document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
         document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
+
+        // Defect material section visibility (v4.2) - show after saving entry with issues
+        document.getElementById('entryIssuesFound').addEventListener('input', () => {
+            // Only show if editing existing entry (new entries must be saved first)
+            if (this.currentEntry && this.currentEntry.id) {
+                this.updateDefectMaterialVisibility();
+            }
+        });
     }
 
     updateOnlineStatus() {
@@ -896,7 +905,7 @@ class ServiceReportApp {
             statusText = 'Abgeschlossen';
         }
 
-        // Format object addresses
+        // Format object addresses with clickable maps link
         let objectAddressHtml = '';
         if (intervention.object_addresses && intervention.object_addresses.length > 0) {
             const addr = intervention.object_addresses[0]; // Show first address
@@ -907,13 +916,17 @@ class ServiceReportApp {
                         ${addr.name || ''}
                     </p>
                     <p class="object-address-details">
-                        ${addr.address || ''}<br>
-                        ${addr.zip || ''} ${addr.town || ''}
+                        ${this.renderAddressLink(addr.address, addr.zip, addr.town)}
                     </p>
                     ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:4px 0 0; font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
                 </div>
             `;
         }
+
+        // Customer address with clickable maps link
+        const customerAddressHtml = intervention.customer?.address || intervention.customer?.zip || intervention.customer?.town
+            ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
+            : '';
 
         card.innerHTML = `
             <div class="card-header">
@@ -927,8 +940,7 @@ class ServiceReportApp {
                     ${intervention.customer?.name || 'Kunde'}
                 </p>
                 <p class="customer-address">
-                    ${intervention.customer?.address || ''}<br>
-                    ${intervention.customer?.zip || ''} ${intervention.customer?.town || ''}
+                    ${customerAddressHtml}
                 </p>
                 ${objectAddressHtml}
                 ${intervention.date_start ? `<p class="date-text">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
@@ -1051,12 +1063,30 @@ class ServiceReportApp {
                 sigBtn.style.display = 'none';
             }
 
+            // Button container for action buttons
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px;';
+
             // Add "Add Equipment" button
             const addBtn = document.createElement('div');
             addBtn.className = 'add-equipment-btn';
+            addBtn.style.flex = '1';
             addBtn.innerHTML = '<span>➕</span> Anlage hinzufügen';
             addBtn.addEventListener('click', () => this.showEquipmentModal());
-            listEl.appendChild(addBtn);
+            btnContainer.appendChild(addBtn);
+
+            // Add "General Work" button
+            const generalBtn = document.createElement('div');
+            generalBtn.className = 'add-equipment-btn';
+            generalBtn.style.flex = '1';
+            generalBtn.innerHTML = '<span>📝</span> Allgemeine Arbeiten';
+            generalBtn.addEventListener('click', () => {
+                this.currentEquipment = { id: 0, ref: 'Allgemein', label: 'Allgemeine Arbeiten', link_type: 'service' };
+                this.loadEntries(this.currentEquipment);
+            });
+            btnContainer.appendChild(generalBtn);
+
+            listEl.appendChild(btnContainer);
 
             if (equipment.length === 0) {
                 listEl.innerHTML += `
@@ -1140,14 +1170,24 @@ class ServiceReportApp {
             // Show equipment ref and label
             document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
 
-            // Show link type badge (Wartung/Service) on the right
-            const linkTypeBadge = equipment.link_type === 'maintenance'
-                ? '<span class="link-type-badge maintenance">Wartung</span>'
-                : '<span class="link-type-badge service">Service</span>';
+            // Show link type badge (Wartung/Service/Allgemein) on the right
+            let linkTypeBadge;
+            if (equipment.id === 0) {
+                linkTypeBadge = '<span class="link-type-badge service">Allgemein</span>';
+            } else if (equipment.link_type === 'maintenance') {
+                linkTypeBadge = '<span class="link-type-badge maintenance">Wartung</span>';
+            } else {
+                linkTypeBadge = '<span class="link-type-badge service">Service</span>';
+            }
             document.getElementById('entriesLinkType').innerHTML = linkTypeBadge;
 
-            // Show equipment details
-            this.renderEquipmentDetails(equipment);
+            // Show equipment details (hide for general entries)
+            if (equipment.id > 0) {
+                this.renderEquipmentDetails(equipment);
+                document.getElementById('equipmentDetailsSection').style.display = 'block';
+            } else {
+                document.getElementById('equipmentDetailsSection').style.display = 'none';
+            }
 
             const listEl = document.getElementById('entriesList');
             listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -1240,13 +1280,18 @@ class ServiceReportApp {
                 });
             }
 
-            // Load and display materials
-            const materials = equipment.materials || [];
-            this.renderMaterials(materials);
+            // Load and display materials (not for general entries)
+            if (equipment.id > 0) {
+                const materials = equipment.materials || [];
+                this.renderMaterials(materials);
+                document.getElementById('materialsCard').style.display = 'block';
+            } else {
+                document.getElementById('materialsCard').style.display = 'none';
+            }
 
-            // Load checklist if maintenance equipment
+            // Load checklist if maintenance equipment (not for general entries)
             const checklistCard = document.getElementById('checklistCard');
-            if (equipment.link_type === 'maintenance') {
+            if (equipment.id > 0 && equipment.link_type === 'maintenance') {
                 checklistCard.style.display = 'block';
                 await this.loadChecklist(this.currentIntervention.id, equipment.id);
             } else {
@@ -1278,6 +1323,21 @@ class ServiceReportApp {
         document.getElementById('entryWorkDone').value = entry.work_done || '';
         document.getElementById('entryIssuesFound').value = entry.issues_found || '';
 
+        // Load entry photo if exists
+        this.currentEntryPhoto = entry.photo || null;
+        this.currentEntryPhotoData = null; // Only set when new photo is captured
+        this.updateEntryPhotoUI();
+
+        // Load defect materials (v4.2) - use materials from entry response
+        this.currentEntryDefectMaterials = entry.materials || [];
+        this.renderDefectMaterials();
+        // Show section if issues_found has content
+        if (entry.issues_found && entry.issues_found.trim().length > 0) {
+            document.getElementById('defectMaterialSection').style.display = 'block';
+        } else {
+            document.getElementById('defectMaterialSection').style.display = 'none';
+        }
+
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
     }
@@ -1295,6 +1355,16 @@ class ServiceReportApp {
         document.getElementById('entryMinutes').value = '0';
         document.getElementById('entryWorkDone').value = '';
         document.getElementById('entryIssuesFound').value = '';
+
+        // Clear defect materials (v4.2) - hidden for new entries
+        this.currentEntryDefectMaterials = [];
+        document.getElementById('defectMaterialList').innerHTML = '';
+        document.getElementById('defectMaterialSection').style.display = 'none';
+
+        // Clear entry photo
+        this.currentEntryPhoto = null;
+        this.currentEntryPhotoData = null;
+        this.updateEntryPhotoUI();
 
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
@@ -1320,13 +1390,35 @@ class ServiceReportApp {
             entryData.entry_id = this.currentEntry.id;
         }
 
+        // Handle photo deletion flag (photo upload is done separately)
+        if (this.currentEntryPhoto === null && this.currentEntry?.photo) {
+            entryData.delete_photo = true;
+        }
+
         // Try to sync if online
         if (this.isOnline) {
             try {
-                await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
+                // Save entry first
+                const response = await this.apiCall(`detail/${entryData.intervention_id}/${entryData.equipment_id}`, {
                     method: 'POST',
                     body: JSON.stringify(entryData)
                 });
+
+                // Upload photo separately if new photo was captured
+                if (this.currentEntryPhotoData && response.id) {
+                    try {
+                        await this.apiCall(`entry-photo/${entryData.intervention_id}/${response.id}`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                image: this.currentEntryPhotoData
+                            })
+                        });
+                    } catch (photoErr) {
+                        console.error('Photo upload failed:', photoErr);
+                        this.showToast('Entry gespeichert, aber Foto-Upload fehlgeschlagen');
+                    }
+                }
+
                 this.showToast('Gespeichert');
 
                 // Go back to entries list and refresh
@@ -1339,6 +1431,553 @@ class ServiceReportApp {
             this.showToast('Offline - Speichern nicht möglich');
         }
     }
+
+    // Update entry photo UI
+    updateEntryPhotoUI() {
+        const preview = document.getElementById('entryPhotoPreview');
+        const addBtn = document.getElementById('btnAddEntryPhoto');
+        const img = document.getElementById('entryPhotoImg');
+
+        if (this.currentEntryPhotoData) {
+            // New photo captured (base64)
+            preview.style.display = 'block';
+            addBtn.style.display = 'none';
+            img.src = this.currentEntryPhotoData;
+        } else if (this.currentEntryPhoto) {
+            // Existing photo from server
+            preview.style.display = 'block';
+            addBtn.style.display = 'none';
+            img.src = this.getEntryPhotoUrl(this.currentEntryPhoto);
+        } else {
+            // No photo
+            preview.style.display = 'none';
+            addBtn.style.display = 'flex';
+            img.src = '';
+        }
+    }
+
+    // Get URL for entry photo
+    getEntryPhotoUrl(filename) {
+        if (!filename || !this.currentIntervention) return '';
+        return `${CONFIG.apiBase}/entry-photo/${this.currentIntervention.id}/file/${filename}`;
+    }
+
+    // Capture entry photo - let iOS/browser handle source selection
+    captureEntryPhoto() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const base64Data = await this.readFileAsBase64(file);
+                // Show cropper
+                this.showPhotoCropper(base64Data);
+            } catch (err) {
+                console.error('Failed to read photo:', err);
+                this.showToast('Fehler beim Laden des Fotos');
+            }
+        };
+
+        fileInput.click();
+    }
+
+    // Show photo cropper overlay
+    showPhotoCropper(imageData) {
+        const overlay = document.createElement('div');
+        overlay.className = 'crop-overlay';
+        overlay.id = 'cropOverlay';
+
+        overlay.innerHTML = `
+            <div class="crop-title">Bildausschnitt wählen</div>
+            <div class="crop-container" id="cropContainer">
+                <img id="cropImage" src="${imageData}" alt="Zuschneiden">
+                <div class="crop-box" id="cropBox">
+                    <div class="crop-handle crop-handle-se" id="cropHandle"></div>
+                </div>
+            </div>
+            <div class="crop-buttons">
+                <button class="crop-btn crop-btn-cancel" onclick="app.cancelCrop()">Abbrechen</button>
+                <button class="crop-btn crop-btn-confirm" onclick="app.confirmCrop()">Zuschneiden</button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Wait for image to load then initialize cropper
+        const img = document.getElementById('cropImage');
+        img.onload = () => this.initCropper();
+        if (img.complete) this.initCropper();
+    }
+
+    // Initialize cropper box and handlers
+    initCropper() {
+        const container = document.getElementById('cropContainer');
+        const img = document.getElementById('cropImage');
+        const box = document.getElementById('cropBox');
+        const handle = document.getElementById('cropHandle');
+
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Initial crop box size (60% of smaller dimension, centered)
+        const size = Math.min(imgRect.width, imgRect.height) * 0.6;
+        const left = (imgRect.width - size) / 2;
+        const top = (imgRect.height - size) / 2;
+
+        box.style.width = size + 'px';
+        box.style.height = size + 'px';
+        box.style.left = left + 'px';
+        box.style.top = top + 'px';
+
+        // Store image dimensions for cropping
+        this.cropData = {
+            imgWidth: img.naturalWidth,
+            imgHeight: img.naturalHeight,
+            displayWidth: imgRect.width,
+            displayHeight: imgRect.height
+        };
+
+        // Drag crop box
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, startLeft, startTop, startWidth, startHeight;
+
+        const getEventPos = (e) => {
+            if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        };
+
+        // Handle move/resize start
+        handle.addEventListener('mousedown', (e) => { isResizing = true; e.stopPropagation(); startResize(e); });
+        handle.addEventListener('touchstart', (e) => { isResizing = true; e.stopPropagation(); startResize(e); });
+
+        box.addEventListener('mousedown', startDrag);
+        box.addEventListener('touchstart', startDrag);
+
+        function startDrag(e) {
+            if (isResizing) return;
+            isDragging = true;
+            const pos = getEventPos(e);
+            startX = pos.x;
+            startY = pos.y;
+            startLeft = box.offsetLeft;
+            startTop = box.offsetTop;
+            e.preventDefault();
+        }
+
+        function startResize(e) {
+            const pos = getEventPos(e);
+            startX = pos.x;
+            startY = pos.y;
+            startWidth = box.offsetWidth;
+            startHeight = box.offsetHeight;
+            e.preventDefault();
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('touchmove', onMove);
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchend', onEnd);
+
+        function onMove(e) {
+            if (!isDragging && !isResizing) return;
+            const pos = getEventPos(e);
+            const dx = pos.x - startX;
+            const dy = pos.y - startY;
+
+            if (isResizing) {
+                // Keep square aspect ratio
+                const delta = Math.max(dx, dy);
+                let newSize = Math.max(50, startWidth + delta);
+                newSize = Math.min(newSize, imgRect.width - box.offsetLeft, imgRect.height - box.offsetTop);
+                box.style.width = newSize + 'px';
+                box.style.height = newSize + 'px';
+            } else if (isDragging) {
+                let newLeft = Math.max(0, Math.min(startLeft + dx, imgRect.width - box.offsetWidth));
+                let newTop = Math.max(0, Math.min(startTop + dy, imgRect.height - box.offsetHeight));
+                box.style.left = newLeft + 'px';
+                box.style.top = newTop + 'px';
+            }
+            e.preventDefault();
+        }
+
+        function onEnd() {
+            isDragging = false;
+            isResizing = false;
+        }
+
+        // Store cleanup function
+        this.cropCleanup = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchend', onEnd);
+        };
+    }
+
+    // Cancel cropping
+    cancelCrop() {
+        if (this.cropCleanup) this.cropCleanup();
+        document.getElementById('cropOverlay')?.remove();
+    }
+
+    // Confirm and apply crop
+    confirmCrop() {
+        const img = document.getElementById('cropImage');
+        const box = document.getElementById('cropBox');
+
+        // Calculate crop coordinates in original image dimensions
+        const scaleX = this.cropData.imgWidth / this.cropData.displayWidth;
+        const scaleY = this.cropData.imgHeight / this.cropData.displayHeight;
+
+        const cropX = box.offsetLeft * scaleX;
+        const cropY = box.offsetTop * scaleY;
+        const cropW = box.offsetWidth * scaleX;
+        const cropH = box.offsetHeight * scaleY;
+
+        // Create canvas and crop
+        const canvas = document.createElement('canvas');
+        canvas.width = cropW;
+        canvas.height = cropH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+        // Get cropped image as base64
+        const croppedData = canvas.toDataURL('image/jpeg', 0.85);
+
+        // Set as entry photo
+        this.currentEntryPhotoData = croppedData;
+        this.currentEntryPhoto = 'new';
+        this.updateEntryPhotoUI();
+        this.showToast('Foto zugeschnitten');
+
+        // Cleanup
+        this.cancelCrop();
+    }
+
+    // Delete entry photo
+    deleteEntryPhoto() {
+        if (!confirm('Foto wirklich löschen?')) return;
+
+        this.currentEntryPhoto = null;
+        this.currentEntryPhotoData = null;
+        this.updateEntryPhotoUI();
+        this.showToast('Foto wird beim Speichern gelöscht');
+    }
+
+    // View entry photo fullscreen
+    viewEntryPhoto() {
+        let url;
+        if (this.currentEntryPhotoData) {
+            url = this.currentEntryPhotoData;
+        } else if (this.currentEntryPhoto) {
+            url = this.getEntryPhotoUrl(this.currentEntryPhoto);
+        }
+        if (!url) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'defect-photo-overlay';
+        overlay.innerHTML = `
+            <div class="defect-photo-fullscreen">
+                <button class="defect-photo-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                <img src="${url}" alt="Mangel-Foto">
+            </div>
+        `;
+        overlay.onclick = (e) => {
+            if (e.target === overlay) overlay.remove();
+        };
+        document.body.appendChild(overlay);
+    }
+
+    // ========== DEFECT MATERIALS (v4.2) ==========
+
+    // Show defect material modal
+    showDefectMaterialModal() {
+        if (!this.currentEntry || !this.currentEntry.id) {
+            this.showToast('Bitte zuerst den Eintrag speichern');
+            return;
+        }
+        document.getElementById('defectMaterialModal').classList.add('show');
+
+        // Reset to product mode
+        this.defectMaterialMode = 'product';
+        this.switchDefectMaterialMode('product');
+
+        document.getElementById('defectProductSearch').value = '';
+        document.getElementById('defectProductResults').innerHTML = '';
+        document.getElementById('defectProductResults').classList.remove('show');
+        document.getElementById('defectSelectedProduct').style.display = 'none';
+        document.getElementById('defectProductId').value = '';
+        document.getElementById('defectFreetextLabel').value = '';
+        document.getElementById('defectMaterialQty').value = '1';
+
+        // Setup search listener
+        const searchInput = document.getElementById('defectProductSearch');
+        searchInput.oninput = () => this.searchDefectProducts();
+        searchInput.focus();
+    }
+
+    // v4.3: Switch between product search and freetext mode
+    switchDefectMaterialMode(mode) {
+        this.defectMaterialMode = mode;
+
+        const productMode = document.getElementById('defectProductMode');
+        const freetextMode = document.getElementById('defectFreetextMode');
+        const tabProduct = document.getElementById('defectTabProduct');
+        const tabFreetext = document.getElementById('defectTabFreetext');
+
+        if (!productMode || !freetextMode || !tabProduct || !tabFreetext) {
+            return;
+        }
+
+        if (mode === 'product') {
+            productMode.style.display = 'block';
+            freetextMode.style.display = 'none';
+            tabProduct.classList.add('active');
+            tabFreetext.classList.remove('active');
+            const freetextInput = document.getElementById('defectFreetextLabel');
+            if (freetextInput) freetextInput.value = '';
+        } else {
+            productMode.style.display = 'none';
+            freetextMode.style.display = 'block';
+            tabProduct.classList.remove('active');
+            tabFreetext.classList.add('active');
+            const productIdInput = document.getElementById('defectProductId');
+            if (productIdInput) productIdInput.value = '';
+            document.getElementById('defectSelectedProduct').style.display = 'none';
+        }
+    }
+
+    // Close defect material modal
+    closeDefectMaterialModal() {
+        document.getElementById('defectMaterialModal').classList.remove('show');
+    }
+
+    // Search products for defect material
+    async searchDefectProducts() {
+        const search = document.getElementById('defectProductSearch').value.trim();
+        const resultsDiv = document.getElementById('defectProductResults');
+
+        if (search.length < 2) {
+            resultsDiv.innerHTML = '';
+            resultsDiv.classList.remove('show');
+            return;
+        }
+
+        try {
+            const response = await this.apiCall(`products?search=${encodeURIComponent(search)}`);
+            const products = response.products || [];
+            if (products.length > 0) {
+                resultsDiv.innerHTML = products.map(p => `
+                    <div class="product-result" onclick="app.selectDefectProduct(${p.id}, '${p.ref.replace(/'/g, "\\'")}', '${p.label.replace(/'/g, "\\'")}')">
+                        <span class="product-ref">[${p.ref}]</span>
+                        <span class="product-label">${p.label}</span>
+                    </div>
+                `).join('');
+                resultsDiv.classList.add('show');
+            } else {
+                resultsDiv.innerHTML = '<div class="product-result" style="color: var(--text-secondary);">Keine Produkte gefunden</div>';
+                resultsDiv.classList.add('show');
+            }
+        } catch (err) {
+            console.error('Product search failed:', err);
+        }
+    }
+
+    // Select a product for defect material
+    selectDefectProduct(id, ref, label) {
+        document.getElementById('defectProductId').value = id;
+        document.getElementById('defectProductRef').textContent = '[' + ref + ']';
+        document.getElementById('defectProductLabel').textContent = label;
+        document.getElementById('defectSelectedProduct').style.display = 'block';
+        document.getElementById('defectProductResults').classList.remove('show');
+        document.getElementById('defectProductSearch').value = '';
+    }
+
+    // Clear selected product
+    clearDefectProduct() {
+        document.getElementById('defectProductId').value = '';
+        document.getElementById('defectSelectedProduct').style.display = 'none';
+    }
+
+    // Save defect material (v4.3: supports product or freetext)
+    async saveDefectMaterial() {
+        const qty = parseInt(document.getElementById('defectMaterialQty').value) || 1;
+        let body = { qty: qty };
+
+        // v4.3: Check mode - product or freetext
+        if (this.defectMaterialMode === 'freetext') {
+            const freetextLabel = document.getElementById('defectFreetextLabel').value.trim();
+            if (!freetextLabel) {
+                this.showToast('Bitte eine Bezeichnung eingeben');
+                return;
+            }
+            body.freetext_label = freetextLabel;
+        } else {
+            const productId = document.getElementById('defectProductId').value;
+            if (!productId) {
+                this.showToast('Bitte ein Produkt auswählen');
+                return;
+            }
+            body.fk_product = parseInt(productId);
+        }
+
+        if (!this.currentEntry || !this.currentEntry.id) {
+            this.showToast('Eintrag nicht gefunden');
+            return;
+        }
+
+        // v4.3: Support offline saving for freetext materials
+        if (this.isOnline) {
+            try {
+                const result = await this.apiCall(`defect-material/${this.currentEntry.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                });
+
+                // Add to local list
+                if (!this.currentEntryDefectMaterials) {
+                    this.currentEntryDefectMaterials = [];
+                }
+                this.currentEntryDefectMaterials.push(result);
+
+                this.renderDefectMaterials();
+                this.closeDefectMaterialModal();
+                this.showToast('Material hinzugefügt');
+            } catch (err) {
+                console.error('Failed to save defect material:', err);
+                this.showToast('Fehler beim Speichern');
+            }
+        } else {
+            // Offline mode - save to IndexedDB
+            try {
+                const savedMaterial = await offlineDB.saveDefectMaterial(this.currentEntry.id, body);
+
+                // Add to local list with offline indicator
+                if (!this.currentEntryDefectMaterials) {
+                    this.currentEntryDefectMaterials = [];
+                }
+                this.currentEntryDefectMaterials.push(savedMaterial);
+
+                this.renderDefectMaterials();
+                this.closeDefectMaterialModal();
+                this.showToast('Material offline gespeichert');
+            } catch (err) {
+                console.error('Failed to save defect material offline:', err);
+                // Check if DB upgrade needed
+                if (err.message && err.message.includes('DB upgrade')) {
+                    this.showToast('Bitte Browser-Daten löschen und neu laden');
+                } else {
+                    this.showToast('Fehler beim Offline-Speichern: ' + (err.message || 'Unbekannt'));
+                }
+            }
+        }
+    }
+
+    // Delete defect material (v4.3: supports local and server materials)
+    async deleteDefectMaterial(materialId, type = 'server') {
+        if (!confirm('Material wirklich entfernen?')) return;
+
+        try {
+            if (type === 'local') {
+                // Delete from IndexedDB
+                await offlineDB.deleteDefectMaterial(materialId);
+                // Remove from local list by local_id
+                this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.local_id !== materialId);
+                this.showToast('Material entfernt');
+            } else {
+                // Delete from server
+                if (this.isOnline) {
+                    await this.apiCall(`defect-material/${materialId}`, {
+                        method: 'DELETE'
+                    });
+                    this.showToast('Material entfernt');
+                } else {
+                    this.showToast('Offline - Löschen nicht möglich');
+                    return;
+                }
+                // Remove from local list by server id
+                this.currentEntryDefectMaterials = this.currentEntryDefectMaterials.filter(m => m.id !== materialId);
+            }
+
+            this.renderDefectMaterials();
+        } catch (err) {
+            console.error('Failed to delete defect material:', err);
+            this.showToast('Fehler beim Löschen');
+        }
+    }
+
+    // Render defect materials list (v4.3: with offline indicator)
+    renderDefectMaterials() {
+        const container = document.getElementById('defectMaterialList');
+        const materials = this.currentEntryDefectMaterials || [];
+
+        if (materials.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; padding: 8px 0;">Noch kein Material hinzugefügt</div>';
+        } else {
+            container.innerHTML = materials.map(m => {
+                // Check if offline (has local_id but no server id or synced=false)
+                const isOffline = m.local_id && !m.synced;
+                const deleteId = m.id || m.local_id;
+                const deleteType = m.id ? 'server' : 'local';
+
+                return `
+                <div class="defect-material-item${isOffline ? ' offline' : ''}">
+                    <div class="defect-material-info">
+                        <span class="defect-material-ref">[${m.product_ref}]${isOffline ? ' ⏳' : ''}</span>
+                        <span class="defect-material-label">${m.product_label}</span>
+                    </div>
+                    <span class="defect-material-qty">${m.qty}x</span>
+                    <button class="defect-material-delete" onclick="app.deleteDefectMaterial(${deleteId}, '${deleteType}')">✕</button>
+                </div>
+            `}).join('');
+        }
+    }
+
+    // Load defect materials for entry (v4.3: with offline support)
+    async loadDefectMaterials(entryId) {
+        let serverMaterials = [];
+        let offlineMaterials = [];
+
+        // Try to load from server if online
+        if (this.isOnline) {
+            try {
+                serverMaterials = await this.apiCall(`defect-material/${entryId}`) || [];
+            } catch (err) {
+                console.error('Failed to load defect materials from server:', err);
+            }
+        }
+
+        // Always check for offline materials
+        try {
+            offlineMaterials = await offlineDB.getDefectMaterials(entryId) || [];
+            // Filter only unsynced materials (synced ones are already in serverMaterials)
+            offlineMaterials = offlineMaterials.filter(m => !m.synced);
+        } catch (err) {
+            console.error('Failed to load offline defect materials:', err);
+        }
+
+        // Combine: server materials + unsynced offline materials
+        this.currentEntryDefectMaterials = [...serverMaterials, ...offlineMaterials];
+        this.renderDefectMaterials();
+    }
+
+    // Show/hide defect material section based on issues_found
+    updateDefectMaterialVisibility() {
+        const issuesFound = document.getElementById('entryIssuesFound').value.trim();
+        const section = document.getElementById('defectMaterialSection');
+        if (issuesFound.length > 0 && this.currentEntry && this.currentEntry.id) {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    }
+
+    // ========== END DEFECT MATERIALS ==========
 
     // Save summary (recommendations & notes) (v1.7)
     async saveSummary() {
@@ -1541,9 +2180,10 @@ class ServiceReportApp {
             const queue = await offlineDB.getSyncQueue();
 
             if (queue.length > 0) {
-                // Separate link-equipment from other changes
+                // Separate different change types
                 const linkEquipmentChanges = queue.filter(item => item.type === 'link-equipment');
-                const otherChanges = queue.filter(item => item.type !== 'link-equipment');
+                const defectMaterialChanges = queue.filter(item => item.type === 'defect_material');
+                const otherChanges = queue.filter(item => item.type !== 'link-equipment' && item.type !== 'defect_material');
 
                 // Sync link-equipment separately (direct API calls)
                 for (const item of linkEquipmentChanges) {
@@ -1555,6 +2195,27 @@ class ServiceReportApp {
                         syncedCount++;
                     } catch (err) {
                         console.warn('Failed to sync link-equipment:', err);
+                    }
+                }
+
+                // v4.3: Sync defect materials separately
+                for (const item of defectMaterialChanges) {
+                    try {
+                        const result = await this.apiCall(`defect-material/${item.data.entry_id}`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                fk_product: item.data.fk_product,
+                                freetext_label: item.data.freetext_label,
+                                qty: item.data.qty
+                            })
+                        });
+                        // Mark local material as synced
+                        if (item.data.local_id && result.id) {
+                            await offlineDB.markDefectMaterialSynced(item.data.local_id, result.id);
+                        }
+                        syncedCount++;
+                    } catch (err) {
+                        console.warn('Failed to sync defect material:', err);
                     }
                 }
 
@@ -1741,6 +2402,35 @@ class ServiceReportApp {
 
     formatDateInput(date) {
         return date.toISOString().split('T')[0];
+    }
+
+    /**
+     * Generate a maps URL from address components
+     * Opens in Apple Maps on iOS, Google Maps on Android/Desktop
+     */
+    getMapsUrl(address, zip, town) {
+        const parts = [];
+        if (address) parts.push(address);
+        if (zip) parts.push(zip);
+        if (town) parts.push(town);
+
+        if (parts.length === 0) return null;
+
+        const query = encodeURIComponent(parts.join(', '));
+        // Universal link that works on iOS (Apple Maps) and Android/Desktop (Google Maps)
+        return `https://maps.apple.com/?q=${query}`;
+    }
+
+    /**
+     * Create a clickable address link
+     */
+    renderAddressLink(address, zip, town, additionalClasses = '') {
+        const mapsUrl = this.getMapsUrl(address, zip, town);
+        const addressText = `${address || ''}<br>${zip || ''} ${town || ''}`.trim();
+
+        if (!mapsUrl || !addressText) return addressText;
+
+        return `<a href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" class="address-link ${additionalClasses}" title="In Karten öffnen">${addressText}</a>`;
     }
 
     showToast(message) {
@@ -2033,9 +2723,14 @@ class ServiceReportApp {
                 header.style.alignItems = 'center';
                 header.style.gap = '8px';
                 const addressIds = group.equipment.map(eq => eq.id);
+                const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
+                const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
                 header.innerHTML = `
                     <input type="checkbox" class="address-select-all" data-address="${addrKey}" style="width:18px;height:18px;">
-                    <span>📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}</span>
+                    ${mapsUrl
+                        ? `<a href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" class="address-link" title="In Karten öffnen">📍 ${addressText}</a>`
+                        : `<span>📍 ${addressText}</span>`
+                    }
                 `;
                 header.querySelector('.address-select-all').addEventListener('change', (e) => {
                     const checked = e.target.checked;
@@ -2141,7 +2836,11 @@ class ServiceReportApp {
 
             const header = document.createElement('div');
             header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
-            header.innerHTML = `📍 ${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
+            const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            header.innerHTML = mapsUrl
+                ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">📍 ${addressText}</a>`
+                : `📍 ${addressText}`;
             listEl.appendChild(header);
 
             group.equipment.forEach(eq => {
@@ -2565,11 +3264,18 @@ class ServiceReportApp {
             html += '<h4 class="info-heading">Kunde</h4>';
             html += `<div class="info-text">`;
             html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
+            const customerMapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
+            if (customerMapsUrl) {
+                html += `<a href="${customerMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
+            }
             if (intervention.customer.address) {
                 html += `${this.escapeHtml(intervention.customer.address)}<br>`;
             }
             if (intervention.customer.zip || intervention.customer.town) {
                 html += `${this.escapeHtml(intervention.customer.zip || '')} ${this.escapeHtml(intervention.customer.town || '')}`;
+            }
+            if (customerMapsUrl) {
+                html += `</a>`;
             }
             html += `</div>`;
             html += '</div>';
@@ -2586,11 +3292,18 @@ class ServiceReportApp {
                 if (addr.name) {
                     html += `<strong>${this.escapeHtml(addr.name)}</strong><br>`;
                 }
+                const addrMapsUrl = this.getMapsUrl(addr.address, addr.zip, addr.town);
+                if (addrMapsUrl) {
+                    html += `<a href="${addrMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
+                }
                 if (addr.address) {
                     html += `${this.escapeHtml(addr.address)}<br>`;
                 }
                 if (addr.zip || addr.town) {
                     html += `${this.escapeHtml(addr.zip || '')} ${this.escapeHtml(addr.town || '')}`;
+                }
+                if (addrMapsUrl) {
+                    html += `</a>`;
                 }
                 html += `</div>`;
             });
@@ -3096,6 +3809,26 @@ class ServiceReportApp {
                             ${!canEditChecklist ? 'disabled' : ''}
                             onchange="app.onChecklistNoteChange(this)">`;
 
+                // Defect photo section (shown when answer is 'mangel')
+                const currentPhoto = result.photo || '';
+                const showPhotoSection = currentAnswer === 'mangel';
+                html += `<div class="defect-photo-section" data-item="${itemId}" style="display:${showPhotoSection ? 'block' : 'none'}">`;
+
+                if (currentPhoto) {
+                    // Show photo thumbnail
+                    html += `<div class="defect-photo-preview" data-item="${itemId}">
+                        <img src="${this.getDefectPhotoUrl(currentPhoto)}" alt="Mangel-Foto" onclick="app.viewDefectPhoto('${currentPhoto}')">
+                        ${canEditChecklist ? `<button type="button" class="defect-photo-delete" onclick="app.deleteDefectPhoto(${itemId})" title="Foto löschen">✕</button>` : ''}
+                    </div>`;
+                } else if (canEditChecklist) {
+                    // Show add photo button
+                    html += `<button type="button" class="btn-defect-photo" onclick="app.captureDefectPhoto(${itemId})">
+                        📷 Foto hinzufügen
+                    </button>`;
+                }
+
+                html += `</div>`;
+
                 html += `</div>`;
             });
 
@@ -3253,6 +3986,12 @@ class ServiceReportApp {
         const noteEl = selectEl.closest('.checklist-item').querySelector('.checklist-item-note');
         const note = noteEl ? noteEl.value : '';
 
+        // Show/hide defect photo section based on answer
+        const photoSection = selectEl.closest('.checklist-item').querySelector('.defect-photo-section');
+        if (photoSection) {
+            photoSection.style.display = answer === 'mangel' ? 'block' : 'none';
+        }
+
         await this.saveChecklistItem(itemCode, answer, note, skipToast);
     }
 
@@ -3266,6 +4005,157 @@ class ServiceReportApp {
         const answer = selectEl ? selectEl.value : '';
 
         await this.saveChecklistItem(itemCode, answer, note);
+    }
+
+    // Get URL for defect photo
+    getDefectPhotoUrl(filename) {
+        if (!filename) return '';
+        const checklistId = this.currentChecklist?.checklist?.id;
+        if (!checklistId) return '';
+        // Photos are served via API endpoint with filename
+        return `${CONFIG.apiBase}/defect-photo/${checklistId}/file/${filename}`;
+    }
+
+    // Capture defect photo for an item
+    async captureDefectPhoto(itemId) {
+        if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist?.checklist?.id) {
+            this.showToast('Fehler: Checkliste nicht geladen');
+            return;
+        }
+
+        // Create file input for camera capture
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.capture = 'environment'; // Use back camera on mobile
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Show loading indicator
+            const photoSection = document.querySelector(`.defect-photo-section[data-item="${itemId}"]`);
+            if (photoSection) {
+                photoSection.innerHTML = '<div class="defect-photo-loading">📷 Wird hochgeladen...</div>';
+            }
+
+            try {
+                // Read file as base64
+                const base64Data = await this.readFileAsBase64(file);
+
+                // Upload via API: defect-photo/{checklist_id}/{item_id}
+                const response = await this.apiCall(`defect-photo/${this.currentChecklist.checklist.id}/${itemId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        image: base64Data,
+                        filename: file.name
+                    })
+                });
+
+                if (response.status === 'ok' && response.filename) {
+                    // Update UI with new photo
+                    if (photoSection) {
+                        photoSection.innerHTML = `
+                            <div class="defect-photo-preview" data-item="${itemId}">
+                                <img src="${this.getDefectPhotoUrl(response.filename)}" alt="Mangel-Foto" onclick="app.viewDefectPhoto('${response.filename}')">
+                                <button type="button" class="defect-photo-delete" onclick="app.deleteDefectPhoto(${itemId})" title="Foto löschen">✕</button>
+                            </div>`;
+                    }
+
+                    // Update local checklist data
+                    if (this.currentChecklist?.results?.[itemId]) {
+                        this.currentChecklist.results[itemId].photo = response.filename;
+                    }
+
+                    this.showToast('Foto gespeichert');
+                } else {
+                    throw new Error(response.error || 'Upload fehlgeschlagen');
+                }
+            } catch (err) {
+                console.error('Failed to upload defect photo:', err);
+                this.showToast('Fehler beim Hochladen');
+
+                // Restore add button
+                if (photoSection) {
+                    photoSection.innerHTML = `
+                        <button type="button" class="btn-defect-photo" onclick="app.captureDefectPhoto(${itemId})">
+                            📷 Foto hinzufügen
+                        </button>`;
+                }
+            }
+        };
+
+        fileInput.click();
+    }
+
+    // Read file as base64
+    readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Delete defect photo
+    async deleteDefectPhoto(itemId) {
+        if (!this.currentIntervention || !this.currentChecklist?.checklist?.id) {
+            this.showToast('Fehler: Checkliste nicht geladen');
+            return;
+        }
+
+        if (!confirm('Foto wirklich löschen?')) {
+            return;
+        }
+
+        const photoSection = document.querySelector(`.defect-photo-section[data-item="${itemId}"]`);
+
+        try {
+            await this.apiCall(`defect-photo/${this.currentChecklist.checklist.id}/${itemId}`, {
+                method: 'DELETE'
+            });
+
+            // Update UI - show add button again
+            if (photoSection) {
+                photoSection.innerHTML = `
+                    <button type="button" class="btn-defect-photo" onclick="app.captureDefectPhoto(${itemId})">
+                        📷 Foto hinzufügen
+                    </button>`;
+            }
+
+            // Update local checklist data
+            if (this.currentChecklist?.results?.[itemId]) {
+                this.currentChecklist.results[itemId].photo = '';
+            }
+
+            this.showToast('Foto gelöscht');
+        } catch (err) {
+            console.error('Failed to delete defect photo:', err);
+            this.showToast('Fehler beim Löschen');
+        }
+    }
+
+    // View defect photo in fullscreen
+    viewDefectPhoto(filename) {
+        const url = this.getDefectPhotoUrl(filename);
+        if (!url) return;
+
+        // Create fullscreen overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'defect-photo-overlay';
+        overlay.innerHTML = `
+            <div class="defect-photo-fullscreen">
+                <button class="defect-photo-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                <img src="${url}" alt="Mangel-Foto">
+            </div>
+        `;
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        };
+        document.body.appendChild(overlay);
     }
 
     // Save a single checklist item
