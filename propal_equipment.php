@@ -42,6 +42,7 @@ if ($id > 0 || !empty($ref)) {
         dol_print_error($db, 'Failed to load proposal');
         exit;
     }
+    $object->fetch_thirdparty();
 }
 
 $permissiontoread = $user->hasRight('propal', 'lire');

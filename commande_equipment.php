@@ -42,6 +42,7 @@ if ($id > 0 || !empty($ref)) {
         dol_print_error($db, 'Failed to load order');
         exit;
     }
+    $object->fetch_thirdparty();
 }
 
 $permissiontoread = $user->hasRight('commande', 'lire');
