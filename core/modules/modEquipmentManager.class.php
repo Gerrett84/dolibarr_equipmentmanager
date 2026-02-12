@@ -34,9 +34,11 @@ class modEquipmentManager extends DolibarrModules
         $this->module_parts = array(
             'models' => 1,  // This module provides document templates
             'hooks' => array(
-                'toprightmenu',  // Hook for adding to top right menu
-                'formmail',      // Hook for auto-attaching PDFs to emails
-                'pdfgeneration', // Hook for adding Objektadresse to proposal PDF
+                'toprightmenu',      // Hook for adding to top right menu
+                'formmail',          // Hook for auto-attaching PDFs to emails
+                'pdfgeneration',     // Hook for adding Objektadresse to proposal PDF
+                'propalcard',        // Hook for Propal PDF generation
+                'ordercard',         // Hook for Commande PDF generation
             ),
         );
         $this->dirs = array();

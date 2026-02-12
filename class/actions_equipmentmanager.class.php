@@ -284,4 +284,98 @@ class ActionsEquipmentManager
         // Return 1 to completely replace the address (skip normal building)
         return 1;
     }
+
+    /**
+     * Hook for beforePDFCreation - adds equipment list to note_public for Propal/Commande PDFs
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object (Propal, Commande)
+     * @param string $action Action triggered
+     * @param HookManager $hookmanager Hook manager
+     * @return int 0 = nothing done
+     */
+    public function beforePDFCreation($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs, $conf;
+
+        // Check if object is Propal or Commande
+        $className = is_object($object) ? get_class($object) : '';
+        if (!in_array($className, array('Propal', 'Commande'))) {
+            return 0;
+        }
+
+        // Determine document type
+        $docType = ($className == 'Propal') ? 'propal' : 'commande';
+
+        // Load equipment links
+        dol_include_once('/equipmentmanager/class/documentequipmentlink.class.php');
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+
+        $linkHelper = new DocumentEquipmentLink($this->db, $docType);
+        $linked_equipment = $linkHelper->fetchAllByDocument($object->id);
+
+        if (empty($linked_equipment)) {
+            return 0;
+        }
+
+        // Load translations
+        $langs->load("equipmentmanager@equipmentmanager");
+
+        // Get equipment type labels
+        $type_labels = Equipment::getEquipmentTypesTranslated($this->db, $langs);
+
+        // Build equipment list text
+        $equipmentText = "\n\n" . $langs->trans('AffectedEquipment') . ":\n";
+        $equipmentText .= str_repeat('-', 40) . "\n";
+
+        foreach ($linked_equipment as $link) {
+            $line = '• ' . $link->equipment_number;
+            if (!empty($link->equipment_label)) {
+                $line .= ' (' . $link->equipment_label . ')';
+            }
+
+            // Add type
+            $typeName = isset($type_labels[$link->equipment_type]) ? $type_labels[$link->equipment_type] : $link->equipment_type;
+            $line .= ' - ' . $typeName;
+
+            // Add link type badge
+            $linkTypeName = ($link->link_type == 'maintenance') ? $langs->trans('Maintenance') : $langs->trans('Service');
+            $line .= ' [' . $linkTypeName . ']';
+
+            // Add location if available
+            if (!empty($link->location_note)) {
+                $line .= "\n  " . $langs->trans('LocationNote') . ': ' . $link->location_note;
+            }
+
+            $equipmentText .= $line . "\n";
+        }
+
+        // Store original note for restoration after PDF generation
+        $object->equipmentmanager_original_note_public = $object->note_public;
+
+        // Append equipment list to public note
+        $object->note_public = ($object->note_public ? $object->note_public : '') . $equipmentText;
+
+        return 0;
+    }
+
+    /**
+     * Hook for afterPDFCreation - restores original note_public after PDF generation
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object (Propal, Commande)
+     * @param string $action Action triggered
+     * @param HookManager $hookmanager Hook manager
+     * @return int 0 = nothing done
+     */
+    public function afterPDFCreation($parameters, &$object, &$action, $hookmanager)
+    {
+        // Restore original note if we modified it
+        if (isset($object->equipmentmanager_original_note_public)) {
+            $object->note_public = $object->equipmentmanager_original_note_public;
+            unset($object->equipmentmanager_original_note_public);
+        }
+
+        return 0;
+    }
 }
