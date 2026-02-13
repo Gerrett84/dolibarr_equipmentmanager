@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.3.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.4.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,14 @@
 -----
 
 ## Features
+
+### NEU in v4.4: Anlagen in Angeboten & Aufträgen
+
+- **Equipment-Tab in Angeboten** - Anlagen direkt im Angebot verknüpfen
+- **Equipment-Tab in Aufträgen** - Anlagen im Auftrag verwalten
+- **Automatische Übernahme** - Anlagen werden von Angebot → Auftrag → Serviceauftrag übernommen
+- **Copy-Button** - Anlageninfos mit einem Klick in die Zwischenablage kopieren
+- **Wartung/Service-Unterscheidung** - Separate Kennzeichnung der Arbeitsart
 
 ### NEU in v4.3: Freitext-Material
 
@@ -170,6 +178,15 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.4.0 (2025-02-12)
+
+- **Equipment in Angeboten** - Neuer Tab "Anlagen" in Angeboten (Propal)
+- **Equipment in Aufträgen** - Neuer Tab "Anlagen" in Aufträgen (Commande)
+- **Automatische Übernahme** - Equipment wird von Angebot → Auftrag → Serviceauftrag übernommen
+- **Copy-Button** - Anlageninfo in Zwischenablage kopieren für schnelles Einfügen
+- **Bulk-Verknüpfung** - Mehrere Anlagen gleichzeitig verknüpfen
+- **Wartung/Service-Toggle** - Arbeitsart direkt umschalten
 
 ### v4.3.0 (2025-02-11)
 
@@ -388,6 +405,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.3.0
+**Current Version:** 4.4.0
 **Released:** February 2025
 **Compatibility:** Dolibarr 16.0+

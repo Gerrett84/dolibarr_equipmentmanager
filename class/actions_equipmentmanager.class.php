@@ -186,8 +186,9 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Check if object is a Propal (proposal)
-        if (!is_object($object) || get_class($object) != 'Propal') {
+        // Check if object is a Propal or Commande
+        $className = is_object($object) ? get_class($object) : '';
+        if (!in_array($className, array('Propal', 'Commande'))) {
             return 0;
         }
 
@@ -254,7 +255,7 @@ class ActionsEquipmentManager
         // Now append Objektadresse
         $langs->load("equipmentmanager@equipmentmanager");
 
-        $stringaddress .= "\n\n".$outputlangs->transnoentities("ObjectAddress").":\n";
+        $stringaddress .= "\n".$outputlangs->transnoentities("ObjectAddress").":\n";
 
         // Name
         if ($contactObj->lastname || $contactObj->firstname) {
@@ -284,4 +285,5 @@ class ActionsEquipmentManager
         // Return 1 to completely replace the address (skip normal building)
         return 1;
     }
+
 }

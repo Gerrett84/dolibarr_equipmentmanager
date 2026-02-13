@@ -670,3 +670,24 @@ Freetext=Freitext
 Product=Produkt
 MaterialDescription=Materialbeschreibung
 ProductOrFreetextRequired=Produkt oder Freitext-Beschreibung erforderlich
+
+# Propal/Commande Equipment Links v4.4
+LinkedEquipment=Verknüpfte Anlagen
+AvailableEquipment=Verfügbare Anlagen
+CopyAll=Alle kopieren
+CopyToClipboard=In Zwischenablage kopieren
+CopyAllToClipboard=Alle in Zwischenablage kopieren
+CopiedToClipboard=In Zwischenablage kopiert
+ConfirmUnlinkEquipment=Möchten Sie diese Anlage wirklich entfernen?
+LinkSelected=Ausgewählte verknüpfen
+LinkTypeUpdated=Verknüpfungsart aktualisiert
+ToggleLinkType=Verknüpfungsart wechseln
+MaintenanceShort=W
+ServiceShort=S
+AffectedEquipment=Betroffene Anlagen
+CopyEquipmentInfo=Anlageninfo kopieren
+PropalHasEquipment=Das verknüpfte Angebot enthält Anlagen:
+CommandeHasEquipment=Der verknüpfte Auftrag enthält Anlagen:
+ImportEquipment=Anlagen importieren
+EquipmentImported=%s Anlagen importiert
+NoEquipmentToImport=Keine Anlagen zum Importieren gefunden

@@ -105,3 +105,33 @@ MODIFY fk_product integer NULL;
 -- v4.3: Add freetext_label for materials without product reference
 ALTER TABLE llx_equipmentmanager_defect_material
 ADD COLUMN IF NOT EXISTS freetext_label varchar(255) DEFAULT NULL AFTER fk_product;
+
+-- v4.4: Equipment links for Propal (Angebot) and Commande (Auftrag)
+-- This allows linking equipment to proposals/orders before creating a service intervention
+CREATE TABLE IF NOT EXISTS llx_equipmentmanager_propal_equipment (
+    rowid integer AUTO_INCREMENT PRIMARY KEY,
+    fk_propal integer NOT NULL,
+    fk_equipment integer NOT NULL,
+    link_type varchar(20) DEFAULT 'service',  -- 'maintenance' or 'service'
+    date_creation datetime NOT NULL,
+    tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat integer,
+    entity integer DEFAULT 1,
+    INDEX idx_propal_equipment_propal (fk_propal),
+    INDEX idx_propal_equipment_equipment (fk_equipment),
+    UNIQUE KEY uk_propal_equipment (fk_propal, fk_equipment)
+) ENGINE=innodb;
+
+CREATE TABLE IF NOT EXISTS llx_equipmentmanager_commande_equipment (
+    rowid integer AUTO_INCREMENT PRIMARY KEY,
+    fk_commande integer NOT NULL,
+    fk_equipment integer NOT NULL,
+    link_type varchar(20) DEFAULT 'service',  -- 'maintenance' or 'service'
+    date_creation datetime NOT NULL,
+    tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat integer,
+    entity integer DEFAULT 1,
+    INDEX idx_commande_equipment_commande (fk_commande),
+    INDEX idx_commande_equipment_equipment (fk_equipment),
+    UNIQUE KEY uk_commande_equipment (fk_commande, fk_equipment)
+) ENGINE=innodb;

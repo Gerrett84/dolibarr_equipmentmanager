@@ -23,6 +23,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/fichinter.lib.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
+dol_include_once('/equipmentmanager/class/documentequipmentlink.class.php');
 
 $langs->loadLangs(array('interventions', 'equipmentmanager@equipmentmanager'));
 
@@ -52,6 +53,21 @@ if (!$permissiontoread) {
 /*
  * Actions
  */
+
+// Import equipment from linked Commande
+if ($action == 'import_from_commande' && $permissiontoadd) {
+    $commande_id = GETPOST('commande_id', 'int');
+    if ($commande_id > 0) {
+        $count = DocumentEquipmentLink::copyLinks($db, $commande_id, 'commande', $object->id, 'fichinter', $user);
+        if ($count > 0) {
+            setEventMessages($langs->trans('EquipmentImported', $count), null, 'mesgs');
+        } else {
+            setEventMessages($langs->trans('NoEquipmentToImport'), null, 'warnings');
+        }
+    }
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
+    exit;
+}
 
 // Link equipment with type (single)
 if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service'))) {
@@ -184,7 +200,46 @@ if ($object->id > 0) {
     print '</div>';
     
     print dol_get_fiche_end();
-    
+
+    // Check for linked Commande with equipment
+    $linkedCommandes = array();
+    $sql = "SELECT ee.fk_source, c.ref, c.rowid";
+    $sql .= " FROM ".MAIN_DB_PREFIX."element_element as ee";
+    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."commande as c ON c.rowid = ee.fk_source";
+    $sql .= " WHERE ee.fk_target = ".(int)$object->id;
+    $sql .= " AND ee.sourcetype = 'commande'";
+    $sql .= " AND ee.targettype = 'fichinter'";
+
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            // Check if commande has equipment linked
+            $sqlCheck = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."equipmentmanager_commande_equipment WHERE fk_commande = ".(int)$obj->rowid;
+            $resCheck = $db->query($sqlCheck);
+            if ($resCheck) {
+                $objCheck = $db->fetch_object($resCheck);
+                if ($objCheck->nb > 0) {
+                    $linkedCommandes[] = $obj;
+                }
+            }
+        }
+        $db->free($resql);
+    }
+
+    // Show import from Commande section if there are linked commandes with equipment
+    if (count($linkedCommandes) > 0 && $permissiontoadd) {
+        print '<div class="info" style="margin-bottom: 15px;">';
+        print '<span class="fa fa-info-circle paddingright"></span>';
+        print $langs->trans('CommandeHasEquipment').' ';
+        foreach ($linkedCommandes as $lc) {
+            print '<a href="'.DOL_URL_ROOT.'/commande/card.php?id='.$lc->rowid.'">'.$lc->ref.'</a> ';
+            print '<a class="button small" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=import_from_commande&commande_id='.$lc->rowid.'&token='.newToken().'">';
+            print '<span class="fa fa-download"></span> '.$langs->trans('ImportEquipment');
+            print '</a> ';
+        }
+        print '</div>';
+    }
+
     // Get linked equipment
     $sql = "SELECT l.fk_equipment, l.link_type, l.date_creation";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as l";

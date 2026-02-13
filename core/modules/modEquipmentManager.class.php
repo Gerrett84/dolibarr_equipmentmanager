@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '4.2.0';
+        $this->version = '4.4.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -34,9 +34,11 @@ class modEquipmentManager extends DolibarrModules
         $this->module_parts = array(
             'models' => 1,  // This module provides document templates
             'hooks' => array(
-                'toprightmenu',  // Hook for adding to top right menu
-                'formmail',      // Hook for auto-attaching PDFs to emails
-                'pdfgeneration', // Hook for adding Objektadresse to proposal PDF
+                'toprightmenu',      // Hook for adding to top right menu
+                'formmail',          // Hook for auto-attaching PDFs to emails
+                'pdfgeneration',     // Hook for adding Objektadresse to Propal/Commande PDF
+                'ordersuppliercard', // Hook context for order PDF
+                'ordercard',         // Hook context for order PDF
             ),
         );
         $this->dirs = array();
@@ -253,6 +255,12 @@ class modEquipmentManager extends DolibarrModules
 
             // Service Report tab auf Intervention - v1.6
             'intervention:+equipmentmanager_service_report:ServiceReport:equipmentmanager@equipmentmanager:$user->hasRight("equipmentmanager", "equipment", "read"):/equipmentmanager/intervention_equipment_details.php?id=__ID__',
+
+            // Equipment tab auf Propal (Angebot) - v4.4
+            'propal:+equipmentmanager:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("propal", "lire"):/equipmentmanager/propal_equipment.php?id=__ID__',
+
+            // Equipment tab auf Commande (Auftrag) - v4.4
+            'order:+equipmentmanager:Equipment:equipmentmanager@equipmentmanager:$user->hasRight("commande", "lire"):/equipmentmanager/commande_equipment.php?id=__ID__',
         );
 
         $this->dictionaries = array();
