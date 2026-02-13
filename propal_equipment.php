@@ -212,7 +212,7 @@ if ($object->id > 0) {
     print '<table class="noborder centpercent">';
 
     print '<tr class="liste_titre">';
-    print '<th colspan="6">';
+    print '<th colspan="7">';
     print '<span class="fa fa-link paddingright"></span>'.$langs->trans('LinkedEquipment');
     if (count($linked_equipment) > 0) {
         print ' <button type="button" class="button small" onclick="copyAllEquipment()" title="'.$langs->trans('CopyAllToClipboard').'">';
@@ -281,7 +281,7 @@ if ($object->id > 0) {
             print '</tr>';
         }
     } else {
-        print '<tr><td colspan="6" class="opacitymedium center" style="padding: 20px;">';
+        print '<tr><td colspan="7" class="opacitymedium center" style="padding: 20px;">';
         print $langs->trans('NoEquipmentLinked');
         print '</td></tr>';
     }
@@ -313,7 +313,7 @@ if ($object->id > 0) {
         print '<table class="noborder centpercent">';
 
         print '<tr class="liste_titre">';
-        print '<th colspan="6">';
+        print '<th colspan="7">';
         print '<span class="fa fa-cubes paddingright"></span>'.$langs->trans('AvailableEquipment');
         print ' <span class="opacitymedium">('.$object->thirdparty->name.')</span>';
         print '</th>';
@@ -325,7 +325,8 @@ if ($object->id > 0) {
         print '<th>'.$langs->trans('Label').'</th>';
         print '<th>'.$langs->trans('Type').'</th>';
         print '<th>'.$langs->trans('LocationNote').'</th>';
-        print '<th class="center" width="150">'.$langs->trans('Link').'</th>';
+        print '<th class="center" width="60">'.$langs->trans('LinkAsMaintenance').'</th>';
+        print '<th class="center" width="60">'.$langs->trans('LinkAsService').'</th>';
         print '</tr>';
 
         foreach ($available_equipment as $eq_id => $eq) {
@@ -348,13 +349,17 @@ if ($object->id > 0) {
             // Location
             print '<td>'.dol_escape_htmltag($eq->location_note).'</td>';
 
-            // Link buttons
-            print '<td class="center nowraponall">';
-            print '<a class="button buttongen" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$eq_id.'&link_type=maintenance&token='.newToken().'" title="'.$langs->trans('LinkAsMaintenance').'">';
-            print '<span class="fa fa-wrench"></span> '.$langs->trans('MaintenanceShort');
-            print '</a> ';
-            print '<a class="button buttongen" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$eq_id.'&link_type=service&token='.newToken().'" title="'.$langs->trans('LinkAsService').'">';
-            print '<span class="fa fa-cog"></span> '.$langs->trans('ServiceShort');
+            // Maintenance button
+            print '<td class="center">';
+            print '<a class="button smallpaddingimp" style="background: #4caf50; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$eq_id.'&link_type=maintenance&token='.newToken().'" title="'.$langs->trans('LinkAsMaintenance').'">';
+            print '<span class="fa fa-wrench"></span>';
+            print '</a>';
+            print '</td>';
+
+            // Service button
+            print '<td class="center">';
+            print '<a class="button smallpaddingimp" style="background: #ff9800; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$eq_id.'&link_type=service&token='.newToken().'" title="'.$langs->trans('LinkAsService').'">';
+            print '<span class="fa fa-cog"></span>';
             print '</a>';
             print '</td>';
 

@@ -186,8 +186,9 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Check if object is a Propal (proposal)
-        if (!is_object($object) || get_class($object) != 'Propal') {
+        // Check if object is a Propal or Commande
+        $className = is_object($object) ? get_class($object) : '';
+        if (!in_array($className, array('Propal', 'Commande'))) {
             return 0;
         }
 
@@ -325,7 +326,7 @@ class ActionsEquipmentManager
         $type_labels = Equipment::getEquipmentTypesTranslated($this->db, $langs);
 
         // Build equipment list text
-        $equipmentText = "\n\n" . $langs->trans('AffectedEquipment') . ":\n";
+        $equipmentText = "\n\n" . $langs->trans('Equipment') . ":\n";
         $equipmentText .= str_repeat('-', 40) . "\n";
 
         foreach ($linked_equipment as $link) {
@@ -337,10 +338,6 @@ class ActionsEquipmentManager
             // Add type
             $typeName = isset($type_labels[$link->equipment_type]) ? $type_labels[$link->equipment_type] : $link->equipment_type;
             $line .= ' - ' . $typeName;
-
-            // Add link type badge
-            $linkTypeName = ($link->link_type == 'maintenance') ? $langs->trans('Maintenance') : $langs->trans('Service');
-            $line .= ' [' . $linkTypeName . ']';
 
             // Add location if available
             if (!empty($link->location_note)) {
