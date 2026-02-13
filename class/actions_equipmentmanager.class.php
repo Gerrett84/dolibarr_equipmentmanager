@@ -252,31 +252,23 @@ class ActionsEquipmentManager
             }
         }
 
-        // Now append Objektadresse
+        // Now append Objektadresse (compact format)
         $langs->load("equipmentmanager@equipmentmanager");
 
-        $stringaddress .= "\n\n".$outputlangs->transnoentities("ObjectAddress").":\n";
-
-        // Name
+        // Build compact object address
+        $objAddr = '';
         if ($contactObj->lastname || $contactObj->firstname) {
-            $stringaddress .= trim($contactObj->firstname.' '.$contactObj->lastname)."\n";
+            $objAddr .= trim($contactObj->firstname.' '.$contactObj->lastname);
         }
-
-        // Address
         if ($contactObj->address) {
-            $stringaddress .= $contactObj->address."\n";
+            $objAddr .= ($objAddr ? ', ' : '').$contactObj->address;
+        }
+        if ($contactObj->zip || $contactObj->town) {
+            $objAddr .= ($objAddr ? ', ' : '').trim($contactObj->zip.' '.$contactObj->town);
         }
 
-        // ZIP + City
-        $cityLine = '';
-        if ($contactObj->zip) {
-            $cityLine .= $contactObj->zip;
-        }
-        if ($contactObj->town) {
-            $cityLine .= ($cityLine ? ' ' : '').$contactObj->town;
-        }
-        if ($cityLine) {
-            $stringaddress .= $cityLine;
+        if ($objAddr) {
+            $stringaddress .= "\n".$outputlangs->transnoentities("ObjectAddress").": ".$objAddr;
         }
 
         // Set the complete address as hook output
