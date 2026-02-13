@@ -37,6 +37,8 @@ class modEquipmentManager extends DolibarrModules
                 'toprightmenu',      // Hook for adding to top right menu
                 'formmail',          // Hook for auto-attaching PDFs to emails
                 'pdfgeneration',     // Hook for adding Objektadresse to Propal/Commande PDF
+                'ordersuppliercard', // Hook context for order PDF
+                'ordercard',         // Hook context for order PDF
             ),
         );
         $this->dirs = array();
