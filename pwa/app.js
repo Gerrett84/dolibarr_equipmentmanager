@@ -392,6 +392,9 @@ class ServiceReportApp {
         document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
         document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
 
+        // PDF Preview button
+        document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
+
         // Defect material section visibility (v4.2) - show after saving entry with issues
         document.getElementById('entryIssuesFound').addEventListener('input', () => {
             // Only show if editing existing entry (new entries must be saved first)
@@ -434,6 +437,7 @@ class ServiceReportApp {
             document.getElementById('navRelease').style.display = 'none';
             document.getElementById('navInfo').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
+            document.getElementById('navPdfPreview').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
         } else {
             backBtn.style.display = 'block';
@@ -1038,6 +1042,9 @@ class ServiceReportApp {
             // Show/hide documents button
             const docsBtn = document.getElementById('navDocuments');
             docsBtn.style.display = 'flex';
+
+            // Show PDF preview button
+            document.getElementById('navPdfPreview').style.display = 'flex';
 
             // console.log('Equipment loaded, signedStatus:', signedStatus);
 
@@ -3241,6 +3248,23 @@ class ServiceReportApp {
 
     closeDocumentsModal() {
         document.getElementById('documentsModal').classList.remove('show');
+    }
+
+    // Show PDF preview in new tab
+    showPdfPreview() {
+        if (!this.currentIntervention) {
+            this.showToast('Keine Intervention ausgewählt');
+            return;
+        }
+
+        if (!this.isOnline) {
+            this.showToast('PDF-Vorschau nur online verfügbar');
+            return;
+        }
+
+        // Open PDF preview in new tab
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
+        window.open(previewUrl, '_blank');
     }
 
     async showInfo() {

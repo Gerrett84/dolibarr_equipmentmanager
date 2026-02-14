@@ -2069,6 +2069,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <span class="nav-icon">📄</span>
             <span>Dokumente</span>
         </button>
+        <button class="nav-item" id="navPdfPreview" style="display:none;">
+            <span class="nav-icon">👁️</span>
+            <span>Vorschau</span>
+        </button>
         <button class="nav-item" data-view="viewSignature" id="navSignature" style="display:none;">
             <span class="nav-icon">✍️</span>
             <span>Unterschrift</span>
