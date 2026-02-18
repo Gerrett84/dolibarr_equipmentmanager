@@ -1399,8 +1399,8 @@ class ServiceReportApp {
     loadCommissioningAcceptanceFields(entry) {
         const section = document.getElementById('commissioningAcceptanceSection');
 
-        // Only show for service entries, not maintenance
-        if (this.currentEquipment?.link_type !== 'service') {
+        // Hide for maintenance entries, show for everything else (service, general)
+        if (this.currentEquipment?.link_type === 'maintenance') {
             section.style.display = 'none';
             return;
         }
@@ -1474,8 +1474,8 @@ class ServiceReportApp {
             issues_found: document.getElementById('entryIssuesFound').value
         };
 
-        // Add commissioning/acceptance fields for service entries (v4.5)
-        if (this.currentEquipment?.link_type === 'service') {
+        // Add commissioning/acceptance fields for non-maintenance entries (v4.5)
+        if (this.currentEquipment?.link_type !== 'maintenance') {
             entryData.commissioning_done = document.getElementById('entryCommissioningDone').checked ? 1 : 0;
             entryData.commissioning_date = entryData.commissioning_done ? document.getElementById('entryCommissioningDate').value : null;
             entryData.commissioning_note = !entryData.commissioning_done ? document.getElementById('entryCommissioningNote').value : null;
