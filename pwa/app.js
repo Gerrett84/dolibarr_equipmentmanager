@@ -1398,9 +1398,10 @@ class ServiceReportApp {
     // Load commissioning and acceptance fields (v4.5)
     loadCommissioningAcceptanceFields(entry) {
         const section = document.getElementById('commissioningAcceptanceSection');
+        if (!section) return; // Safety check
 
         // Hide for maintenance entries, show for everything else (service, general)
-        if (this.currentEquipment?.link_type === 'maintenance') {
+        if (this.currentEquipment && this.currentEquipment.link_type === 'maintenance') {
             section.style.display = 'none';
             return;
         }

@@ -2018,8 +2018,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                             </button>
                         </div>
 
-                        <!-- Commissioning & Acceptance Section (v4.5) - only for service entries -->
-                        <div id="commissioningAcceptanceSection" style="display:none; margin-top:16px; padding:12px; background:var(--bg-secondary); border-radius:8px;">
+                        <!-- Commissioning & Acceptance Section (v4.5) - hidden for maintenance entries -->
+                        <div id="commissioningAcceptanceSection" style="margin-top:16px; padding:12px; background:var(--bg-secondary); border-radius:8px;">
                             <h4 style="margin:0 0 12px 0; font-size:14px; color:var(--text-muted);">Inbetriebnahme & Abnahme</h4>
 
                             <!-- Commissioning -->
