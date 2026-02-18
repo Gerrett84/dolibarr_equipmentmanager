@@ -395,6 +395,9 @@ class ServiceReportApp {
         // PDF Preview button
         document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
 
+        // Acceptance Protocol button (v4.5)
+        document.getElementById('navAcceptanceProtocol').addEventListener('click', () => this.showAcceptanceProtocol());
+
         // Defect material section visibility (v4.2) - show after saving entry with issues
         document.getElementById('entryIssuesFound').addEventListener('input', () => {
             // Only show if editing existing entry (new entries must be saved first)
@@ -402,6 +405,33 @@ class ServiceReportApp {
                 this.updateDefectMaterialVisibility();
             }
         });
+
+        // Commissioning/Acceptance checkbox handlers (v4.5)
+        document.getElementById('entryCommissioningDone').addEventListener('change', (e) => {
+            this.updateCommissioningAcceptanceUI('commissioning', e.target.checked);
+        });
+        document.getElementById('entryAcceptanceDone').addEventListener('change', (e) => {
+            this.updateCommissioningAcceptanceUI('acceptance', e.target.checked);
+        });
+    }
+
+    // Toggle commissioning/acceptance date vs note visibility (v4.5)
+    updateCommissioningAcceptanceUI(type, isDone) {
+        const dateRow = document.getElementById(type === 'commissioning' ? 'commissioningDateRow' : 'acceptanceDateRow');
+        const noteRow = document.getElementById(type === 'commissioning' ? 'commissioningNoteRow' : 'acceptanceNoteRow');
+        const dateInput = document.getElementById(type === 'commissioning' ? 'entryCommissioningDate' : 'entryAcceptanceDate');
+
+        if (isDone) {
+            dateRow.style.display = 'block';
+            noteRow.style.display = 'none';
+            // Set today's date if empty
+            if (!dateInput.value) {
+                dateInput.value = this.formatDateInput(new Date());
+            }
+        } else {
+            dateRow.style.display = 'none';
+            noteRow.style.display = 'block';
+        }
     }
 
     updateOnlineStatus() {
@@ -438,6 +468,7 @@ class ServiceReportApp {
             document.getElementById('navInfo').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navPdfPreview').style.display = 'none';
+            document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
         } else {
             backBtn.style.display = 'block';
@@ -1070,6 +1101,18 @@ class ServiceReportApp {
                 sigBtn.style.display = 'none';
             }
 
+            // Show acceptance protocol button only if signed and has acceptance data (v4.5)
+            const accBtn = document.getElementById('navAcceptanceProtocol');
+            const hasAcceptanceData = equipment.some(eq =>
+                eq.link_type === 'service' && eq.detail &&
+                (eq.detail.commissioning_done || eq.detail.acceptance_done)
+            );
+            if (signedStatus >= 3 && hasAcceptanceData) {
+                accBtn.style.display = 'flex';
+            } else {
+                accBtn.style.display = 'none';
+            }
+
             // Button container for action buttons
             const btnContainer = document.createElement('div');
             btnContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px;';
@@ -1345,8 +1388,44 @@ class ServiceReportApp {
             document.getElementById('defectMaterialSection').style.display = 'none';
         }
 
+        // Commissioning/Acceptance section (v4.5) - only for service entries
+        this.loadCommissioningAcceptanceFields(entry);
+
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
+    }
+
+    // Load commissioning and acceptance fields (v4.5)
+    loadCommissioningAcceptanceFields(entry) {
+        const section = document.getElementById('commissioningAcceptanceSection');
+
+        // Only show for service entries, not maintenance
+        if (this.currentEquipment?.link_type !== 'service') {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+
+        // Commissioning
+        const commDone = document.getElementById('entryCommissioningDone');
+        const commDate = document.getElementById('entryCommissioningDate');
+        const commNote = document.getElementById('entryCommissioningNote');
+
+        commDone.checked = !!entry?.commissioning_done;
+        commDate.value = entry?.commissioning_date || '';
+        commNote.value = entry?.commissioning_note || '';
+        this.updateCommissioningAcceptanceUI('commissioning', commDone.checked);
+
+        // Acceptance
+        const accDone = document.getElementById('entryAcceptanceDone');
+        const accDate = document.getElementById('entryAcceptanceDate');
+        const accNote = document.getElementById('entryAcceptanceNote');
+
+        accDone.checked = !!entry?.acceptance_done;
+        accDate.value = entry?.acceptance_date || '';
+        accNote.value = entry?.acceptance_note || '';
+        this.updateCommissioningAcceptanceUI('acceptance', accDone.checked);
     }
 
     // Add new entry (v1.7)
@@ -1373,6 +1452,9 @@ class ServiceReportApp {
         this.currentEntryPhotoData = null;
         this.updateEntryPhotoUI();
 
+        // Clear commissioning/acceptance fields (v4.5)
+        this.loadCommissioningAcceptanceFields(null);
+
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
     }
@@ -1391,6 +1473,16 @@ class ServiceReportApp {
             work_done: document.getElementById('entryWorkDone').value,
             issues_found: document.getElementById('entryIssuesFound').value
         };
+
+        // Add commissioning/acceptance fields for service entries (v4.5)
+        if (this.currentEquipment?.link_type === 'service') {
+            entryData.commissioning_done = document.getElementById('entryCommissioningDone').checked ? 1 : 0;
+            entryData.commissioning_date = entryData.commissioning_done ? document.getElementById('entryCommissioningDate').value : null;
+            entryData.commissioning_note = !entryData.commissioning_done ? document.getElementById('entryCommissioningNote').value : null;
+            entryData.acceptance_done = document.getElementById('entryAcceptanceDone').checked ? 1 : 0;
+            entryData.acceptance_date = entryData.acceptance_done ? document.getElementById('entryAcceptanceDate').value : null;
+            entryData.acceptance_note = !entryData.acceptance_done ? document.getElementById('entryAcceptanceNote').value : null;
+        }
 
         // Add entry_id if editing existing entry
         if (this.currentEntry && this.currentEntry.id) {
@@ -3265,6 +3357,23 @@ class ServiceReportApp {
         // Open PDF preview in new tab
         const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
         window.open(previewUrl, '_blank');
+    }
+
+    // Show acceptance protocol PDF in new tab (v4.5)
+    showAcceptanceProtocol() {
+        if (!this.currentIntervention) {
+            this.showToast('Keine Intervention ausgewählt');
+            return;
+        }
+
+        if (!this.isOnline) {
+            this.showToast('Abnahmeprotokoll nur online verfügbar');
+            return;
+        }
+
+        // Open acceptance protocol in new tab
+        const protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        window.open(protocolUrl, '_blank');
     }
 
     async showInfo() {

@@ -2017,6 +2017,39 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                                 + Material hinzufügen
                             </button>
                         </div>
+
+                        <!-- Commissioning & Acceptance Section (v4.5) - only for service entries -->
+                        <div id="commissioningAcceptanceSection" style="display:none; margin-top:16px; padding:12px; background:var(--bg-secondary); border-radius:8px;">
+                            <h4 style="margin:0 0 12px 0; font-size:14px; color:var(--text-muted);">Inbetriebnahme & Abnahme</h4>
+
+                            <!-- Commissioning -->
+                            <div class="form-group" style="margin-bottom:12px;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="entryCommissioningDone" style="width:20px; height:20px;">
+                                    <span>Inbetriebnahme durchgeführt</span>
+                                </label>
+                                <div id="commissioningDateRow" style="display:none; margin-top:8px;">
+                                    <input type="date" class="form-input" id="entryCommissioningDate" style="width:100%;">
+                                </div>
+                                <div id="commissioningNoteRow" style="display:none; margin-top:8px;">
+                                    <textarea class="form-textarea" id="entryCommissioningNote" rows="2" placeholder="Bemerkung (warum nicht durchgeführt)"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Acceptance -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="entryAcceptanceDone" style="width:20px; height:20px;">
+                                    <span>Abnahme durchgeführt</span>
+                                </label>
+                                <div id="acceptanceDateRow" style="display:none; margin-top:8px;">
+                                    <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%;">
+                                </div>
+                                <div id="acceptanceNoteRow" style="display:none; margin-top:8px;">
+                                    <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Bemerkung (warum nicht durchgeführt)"></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -2076,6 +2109,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         <button class="nav-item" id="navPdfPreview" style="display:none;">
             <span class="nav-icon">👁️</span>
             <span>Vorschau</span>
+        </button>
+        <button class="nav-item" id="navAcceptanceProtocol" style="display:none;">
+            <span class="nav-icon">📋</span>
+            <span>Abnahme</span>
         </button>
         <button class="nav-item" data-view="viewSignature" id="navSignature" style="display:none;">
             <span class="nav-icon">✍️</span>
