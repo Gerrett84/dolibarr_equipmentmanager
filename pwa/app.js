@@ -3387,14 +3387,11 @@ class ServiceReportApp {
         document.getElementById('eqDetailType').textContent = typeLabel;
         document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
 
-        // Show serial number only if available
+        // Show serial number (editable, so always show row)
         const serialRow = document.getElementById('eqDetailSerialRow');
-        if (equipment.serial_number) {
-            document.getElementById('eqDetailSerial').textContent = equipment.serial_number;
-            serialRow.style.display = 'block';
-        } else {
-            serialRow.style.display = 'none';
-        }
+        const serialEl = document.getElementById('eqDetailSerial');
+        serialEl.textContent = equipment.serial_number || '-';
+        serialRow.style.display = 'block';
 
         // Add click handlers for editable fields
         const labelEl = document.getElementById('eqDetailLabel');
@@ -3402,7 +3399,7 @@ class ServiceReportApp {
         const manufacturerEl = document.getElementById('eqDetailManufacturer');
 
         // Style editable fields
-        [labelEl, locationEl, manufacturerEl].forEach(el => {
+        [labelEl, locationEl, manufacturerEl, serialEl].forEach(el => {
             el.style.background = 'var(--input-bg)';
             el.style.border = '1px dashed var(--border-color)';
         });
@@ -3411,6 +3408,7 @@ class ServiceReportApp {
         labelEl.onclick = () => this.editEquipmentField('label', 'Bezeichnung', equipment.label || '');
         locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
         manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
+        serialEl.onclick = () => this.editEquipmentField('serial_number', 'Seriennummer', equipment.serial_number || '');
     }
 
     // Edit equipment field via prompt
@@ -3433,6 +3431,8 @@ class ServiceReportApp {
                     this.currentEquipment.location = newValue;
                 } else if (field === 'manufacturer') {
                     this.currentEquipment.manufacturer = newValue;
+                } else if (field === 'serial_number') {
+                    this.currentEquipment.serial_number = newValue;
                 }
 
                 // Re-render details

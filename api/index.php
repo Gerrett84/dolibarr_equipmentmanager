@@ -2304,7 +2304,7 @@ function handleEquipment($method, $parts, $input) {
 
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Update equipment - only specific fields allowed from PWA
-        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings'];
+        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number'];
 
         foreach ($allowed_fields as $field) {
             if (isset($input[$field])) {
@@ -2319,6 +2319,8 @@ function handleEquipment($method, $parts, $input) {
                     $equipment->manufacturer = $input[$field];
                 } elseif ($field === 'door_wings') {
                     $equipment->door_wings = $input[$field];
+                } elseif ($field === 'serial_number') {
+                    $equipment->serial_number = $input[$field];
                 }
             }
         }

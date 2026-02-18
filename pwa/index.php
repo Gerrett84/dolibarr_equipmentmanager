@@ -1893,7 +1893,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                         </div>
                         <div id="eqDetailSerialRow" style="display:none;">
                             <span style="color:var(--text-muted);">Seriennummer:</span>
-                            <div id="eqDetailSerial" class="eq-detail-value" style="padding:4px;">-</div>
+                            <div id="eqDetailSerial" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
                     </div>
                 </div>
