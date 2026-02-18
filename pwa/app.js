@@ -3387,6 +3387,15 @@ class ServiceReportApp {
         document.getElementById('eqDetailType').textContent = typeLabel;
         document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
 
+        // Show serial number only if available
+        const serialRow = document.getElementById('eqDetailSerialRow');
+        if (equipment.serial_number) {
+            document.getElementById('eqDetailSerial').textContent = equipment.serial_number;
+            serialRow.style.display = 'block';
+        } else {
+            serialRow.style.display = 'none';
+        }
+
         // Add click handlers for editable fields
         const labelEl = document.getElementById('eqDetailLabel');
         const locationEl = document.getElementById('eqDetailLocation');

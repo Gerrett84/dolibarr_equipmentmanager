@@ -739,7 +739,16 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $pdf->MultiCell(90, 4, "Standort: ".$outputlangs->convToOutputCharset($equipment->location_note), 0, 'L');
         }
 
-        $curY = $pdf->GetY() + 3;
+        $curY = $pdf->GetY();
+
+        // Serial number (only if available)
+        if (!empty($equipment->serial_number)) {
+            $pdf->SetXY($leftMargin + $textPadding, $curY);
+            $pdf->MultiCell(0, 4, $outputlangs->transnoentities("SerialNumber").": ".$outputlangs->convToOutputCharset($equipment->serial_number), 0, 'L');
+            $curY = $pdf->GetY();
+        }
+
+        $curY += 3;
 
         // Collect recommendations from all entries
         $recommendations = '';
@@ -1500,6 +1509,9 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
                 if (!empty($equipment->label)) {
                     $details[] = "Bezeichnung: ".$equipment->label;
+                }
+                if (!empty($equipment->serial_number)) {
+                    $details[] = "S/N: ".$equipment->serial_number;
                 }
                 if (!empty($equipment->location_note)) {
                     $details[] = "Standort: ".$equipment->location_note;

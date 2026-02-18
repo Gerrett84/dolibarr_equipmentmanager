@@ -1891,6 +1891,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                             <span style="color:var(--text-muted);">Hersteller:</span>
                             <div id="eqDetailManufacturer" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
+                        <div id="eqDetailSerialRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Seriennummer:</span>
+                            <div id="eqDetailSerial" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body" style="padding:0;">
