@@ -2040,27 +2040,34 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
                             <!-- Acceptance (Abnahme) -->
                             <div class="form-group" style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+                                <!-- Parent: Doing acceptance at all? -->
                                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold;">
-                                    <input type="checkbox" id="entryAcceptanceDone" style="width:20px; height:20px;">
-                                    <span>Abnahme erfolgt</span>
+                                    <input type="checkbox" id="entryDoingAcceptance" style="width:20px; height:20px;">
+                                    <span>Abnahme durchführen</span>
                                 </label>
-                                <div id="acceptanceDetailsRow" style="display:none; margin-top:8px;">
-                                    <label class="form-label" style="font-size:12px;">Abnahme am:</label>
-                                    <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%; margin-bottom:8px;">
 
-                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:8px;">
-                                        <input type="checkbox" id="entryAcceptanceDefectFree" style="width:18px; height:18px;" checked>
-                                        <span>Mängelfrei</span>
+                                <!-- Sub-section: Acceptance details (shown when doing acceptance) -->
+                                <div id="acceptanceDetailsRow" style="display:none; margin-top:12px; margin-left:28px; padding:10px; background:var(--bg-tertiary); border-radius:6px;">
+                                    <!-- Success checkbox -->
+                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:#2e7d32;">
+                                        <input type="checkbox" id="entryAcceptanceDone" style="width:20px; height:20px;">
+                                        <span>Abnahme erfolgreich</span>
                                     </label>
 
-                                    <div id="acceptanceDefectsRow" style="display:none; margin-top:8px;">
-                                        <label class="form-label" style="font-size:12px; color:#d32f2f;">Folgende wesentliche Mängel liegen vor:</label>
-                                        <textarea class="form-textarea" id="entryAcceptanceDefects" rows="3" placeholder="Mängelbeschreibung (Pflichtfeld)" style="border-color:#d32f2f;"></textarea>
-                                    </div>
-
-                                    <div id="acceptanceNoteRow" style="margin-top:8px;">
+                                    <!-- Success: Date + optional note -->
+                                    <div id="acceptanceSuccessRow" style="display:none; margin-top:10px;">
+                                        <label class="form-label" style="font-size:12px;">Abnahme am:</label>
+                                        <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%; margin-bottom:8px;">
                                         <label class="form-label" style="font-size:12px;">Bemerkung (optional):</label>
                                         <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Zusätzliche Bemerkungen"></textarea>
+                                    </div>
+
+                                    <!-- Failed: Mandatory defect description -->
+                                    <div id="acceptanceFailedRow" style="margin-top:10px;">
+                                        <label class="form-label" style="font-size:12px; color:#d32f2f; font-weight:bold;">
+                                            Abnahme konnte nicht erfolgen - wesentliche Mängel:
+                                        </label>
+                                        <textarea class="form-textarea" id="entryAcceptanceDefects" rows="3" placeholder="Mängelbeschreibung (Pflichtfeld bei nicht erfolgter Abnahme)" style="border-color:#d32f2f;"></textarea>
                                     </div>
                                 </div>
                             </div>

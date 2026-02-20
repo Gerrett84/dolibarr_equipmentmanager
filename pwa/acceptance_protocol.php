@@ -1,8 +1,8 @@
 <?php
 /**
- * Acceptance Protocol PDF Generator (v4.5.1)
+ * Acceptance Protocol PDF Generator (v4.5.2)
  * Generates acceptance protocol for service interventions
- * Two-column layout: Inbetriebnahme | Abnahme
+ * Two-column layout: Inbetriebnahme | Abnahme (equal height)
  */
 
 // Load Dolibarr environment
@@ -126,7 +126,6 @@ $pdf->Ln(6);
 
 // ========== CUSTOMER / OBJECT ADDRESS (Two columns) ==========
 $colWidth = ($contentWidth / 2) - 5;
-$startY = $pdf->GetY();
 
 // Headers
 $pdf->SetFont('', 'B', $default_font_size);
@@ -167,123 +166,147 @@ if ($objectAddress) {
 }
 $objectEndY = $pdf->GetY();
 
-$pdf->SetY(max($customerEndY, $objectEndY) + 6);
+$pdf->SetY(max($customerEndY, $objectEndY) + 8);
 
 // ========== EQUIPMENT LIST ==========
+$equipmentCount = count($equipmentList);
+$equipmentIndex = 0;
+
 foreach ($equipmentList as $eq) {
-    // Check if we need a new page (need ~60mm for one equipment block)
-    if ($pdf->GetY() > 200) {
+    $equipmentIndex++;
+
+    // Check if we need a new page (need ~70mm for one equipment block)
+    if ($pdf->GetY() > 190) {
         $pdf->AddPage();
     }
 
     $typeLabel = isset($typeLabels[$eq->equipment_type]) ? $typeLabels[$eq->equipment_type] : $eq->equipment_type;
 
-    // Equipment header with gray background
-    $pdf->SetFillColor(220, 220, 220);
-    $pdf->SetFont('', 'B', $default_font_size);
-    $pdf->Cell(0, 6, $eq->equipment_number." - ".$eq->label, 1, 1, 'L', true);
+    // ===== EQUIPMENT HEADER WITH THICK BORDER =====
+    $pdf->SetDrawColor(0, 0, 0);
+    $pdf->SetLineWidth(0.5); // Thick line for equipment separation
+
+    // Equipment number badge + header
+    $pdf->SetFillColor(50, 50, 50); // Dark gray
+    $pdf->SetTextColor(255, 255, 255); // White text
+    $pdf->SetFont('', 'B', $default_font_size + 1);
+    $pdf->Cell(12, 7, $equipmentIndex.".", 1, 0, 'C', true);
+
+    $pdf->SetFillColor(200, 200, 200); // Light gray
+    $pdf->SetTextColor(0, 0, 0); // Black text
+    $pdf->Cell($contentWidth - 12, 7, " ".$eq->equipment_number." - ".$eq->label, 1, 1, 'L', true);
+
+    $pdf->SetLineWidth(0.2); // Back to normal line width
 
     // Equipment details line
-    $pdf->SetFillColor(245, 245, 245);
+    $pdf->SetFillColor(240, 240, 240);
     $pdf->SetFont('', '', $default_font_size - 1);
     $details = "Typ: ".$typeLabel;
     if (!empty($eq->serial_number)) $details .= "  |  S/N: ".$eq->serial_number;
     if (!empty($eq->manufacturer)) $details .= "  |  Hersteller: ".$eq->manufacturer;
     if (!empty($eq->location_note)) $details .= "  |  Standort: ".$eq->location_note;
-    $pdf->Cell(0, 5, $details, 'LRB', 1, 'L', true);
+    $pdf->Cell(0, 5, $details, 1, 1, 'L', true);
 
-    $pdf->Ln(2);
+    $pdf->Ln(1);
 
-    // ===== TWO COLUMN LAYOUT: IBN | ABNAHME =====
-    $halfWidth = ($contentWidth / 2) - 3;
+    // ===== TWO COLUMN LAYOUT: IBN | ABNAHME (EQUAL HEIGHT) =====
+    $halfWidth = ($contentWidth / 2) - 2;
     $boxStartY = $pdf->GetY();
+    $rowHeight = 5;
+    $headerHeight = 6;
+
+    // Fixed height for both columns (4 rows + header)
+    $fixedBoxHeight = $headerHeight + ($rowHeight * 4);
 
     // ----- LEFT COLUMN: INBETRIEBNAHME -----
     $pdf->SetXY($leftMargin, $boxStartY);
-    $pdf->SetFillColor(240, 248, 255); // Light blue
+    $pdf->SetFillColor(220, 235, 250); // Light blue
     $pdf->SetFont('', 'B', $default_font_size);
-    $pdf->Cell($halfWidth, 6, "INBETRIEBNAHME", 1, 1, 'C', true);
+    $pdf->Cell($halfWidth, $headerHeight, "INBETRIEBNAHME", 1, 1, 'C', true);
 
     $pdf->SetFont('', '', $default_font_size - 1);
-    $pdf->SetX($leftMargin);
-
-    // Erfolgt row
     $pdf->SetFillColor(255, 255, 255);
-    $erfolgtIBN = $eq->commissioning_done ? "Ja" : "Nein";
-    $pdf->Cell($halfWidth, 5, "Erfolgt: ".$erfolgtIBN, 'LR', 1, 'L');
 
+    // Row 1: Erfolgt
+    $pdf->SetX($leftMargin);
+    $erfolgtIBN = $eq->commissioning_done ? "Ja" : "Nein";
+    $pdf->Cell($halfWidth, $rowHeight, "Erfolgt: ".$erfolgtIBN, 'LR', 1, 'L');
+
+    // Row 2: Datum or Bemerkung label
     $pdf->SetX($leftMargin);
     if ($eq->commissioning_done) {
-        // Show date
         $dateStr = $eq->commissioning_date ? dol_print_date($db->jdate($eq->commissioning_date), 'day') : '-';
-        $pdf->Cell($halfWidth, 5, "Datum: ".$dateStr, 'LR', 1, 'L');
-        $pdf->SetX($leftMargin);
-        $pdf->Cell($halfWidth, 5, "", 'LRB', 1, 'L'); // Empty row for balance
+        $pdf->Cell($halfWidth, $rowHeight, "Datum: ".$dateStr, 'LR', 1, 'L');
     } else {
-        // Show note
-        $note = $eq->commissioning_note ?: '-';
-        $pdf->Cell($halfWidth, 5, "Bemerkung:", 'LR', 1, 'L');
-        $pdf->SetX($leftMargin);
-        $pdf->MultiCell($halfWidth, 5, $note, 'LRB', 'L');
+        $pdf->Cell($halfWidth, $rowHeight, "Bemerkung:", 'LR', 1, 'L');
     }
 
-    $leftEndY = $pdf->GetY();
+    // Row 3: Empty or note content
+    $pdf->SetX($leftMargin);
+    if ($eq->commissioning_done) {
+        $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
+    } else {
+        $note = $eq->commissioning_note ?: '-';
+        $pdf->Cell($halfWidth, $rowHeight, $note, 'LR', 1, 'L');
+    }
+
+    // Row 4: Empty (for equal height)
+    $pdf->SetX($leftMargin);
+    $pdf->Cell($halfWidth, $rowHeight, "", 'LRB', 1, 'L');
 
     // ----- RIGHT COLUMN: ABNAHME -----
-    $pdf->SetXY($leftMargin + $halfWidth + 6, $boxStartY);
-    $pdf->SetFillColor(255, 250, 240); // Light orange
+    $pdf->SetXY($leftMargin + $halfWidth + 4, $boxStartY);
+    $pdf->SetFillColor(255, 245, 220); // Light orange/yellow
     $pdf->SetFont('', 'B', $default_font_size);
-    $pdf->Cell($halfWidth, 6, "ABNAHME", 1, 1, 'C', true);
+    $pdf->Cell($halfWidth, $headerHeight, "ABNAHME", 1, 1, 'C', true);
 
     $pdf->SetFont('', '', $default_font_size - 1);
-    $pdf->SetX($leftMargin + $halfWidth + 6);
-
-    // Erfolgt row
     $pdf->SetFillColor(255, 255, 255);
+
+    // Row 1: Erfolgt (Ja = erfolgreich abgeschlossen, Nein = Mängel vorhanden)
+    $pdf->SetX($leftMargin + $halfWidth + 4);
     $erfolgtAbn = $eq->acceptance_done ? "Ja" : "Nein";
-    $pdf->Cell($halfWidth, 5, "Erfolgt: ".$erfolgtAbn, 'LR', 1, 'L');
+    $pdf->Cell($halfWidth, $rowHeight, "Erfolgt: ".$erfolgtAbn, 'LR', 1, 'L');
 
-    $pdf->SetX($leftMargin + $halfWidth + 6);
+    // Row 2
+    $pdf->SetX($leftMargin + $halfWidth + 4);
     if ($eq->acceptance_done) {
-        // Show date
+        // Abnahme erfolgreich - Datum anzeigen
         $dateStr = $eq->acceptance_date ? dol_print_date($db->jdate($eq->acceptance_date), 'day') : '-';
-        $pdf->Cell($halfWidth, 5, "Datum: ".$dateStr, 'LR', 1, 'L');
-
-        // Mängelfrei
-        $pdf->SetX($leftMargin + $halfWidth + 6);
-        $maengelfrei = $eq->acceptance_defect_free ? "Ja" : "Nein";
-        $pdf->Cell($halfWidth, 5, "Mängelfrei: ".$maengelfrei, 'LR', 1, 'L');
-
-        // Note/Mängel
-        $pdf->SetX($leftMargin + $halfWidth + 6);
-        if (!$eq->acceptance_defect_free) {
-            $pdf->SetFont('', 'I', $default_font_size - 1);
-            $pdf->Cell($halfWidth, 5, "Mängel:", 'LR', 1, 'L');
-            $pdf->SetX($leftMargin + $halfWidth + 6);
-            $pdf->MultiCell($halfWidth, 5, $eq->acceptance_note ?: '-', 'LRB', 'L');
-            $pdf->SetFont('', '', $default_font_size - 1);
-        } else {
-            if (!empty($eq->acceptance_note)) {
-                $pdf->Cell($halfWidth, 5, "Bemerkung: ".$eq->acceptance_note, 'LRB', 1, 'L');
-            } else {
-                $pdf->Cell($halfWidth, 5, "", 'LRB', 1, 'L');
-            }
-        }
+        $pdf->Cell($halfWidth, $rowHeight, "Datum: ".$dateStr, 'LR', 1, 'L');
     } else {
-        // Not done - empty rows
-        $pdf->Cell($halfWidth, 5, "", 'LR', 1, 'L');
-        $pdf->SetX($leftMargin + $halfWidth + 6);
-        $pdf->Cell($halfWidth, 5, "", 'LRB', 1, 'L');
+        // Abnahme nicht erfolgt wegen Mängel
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell($halfWidth, $rowHeight, "Wesentliche Mängel:", 'LR', 1, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
     }
 
-    $rightEndY = $pdf->GetY();
+    // Row 3
+    $pdf->SetX($leftMargin + $halfWidth + 4);
+    if ($eq->acceptance_done) {
+        // Optional: Bemerkung bei erfolgreicher Abnahme
+        if (!empty($eq->acceptance_note)) {
+            $pdf->Cell($halfWidth, $rowHeight, "Bemerkung: ".$eq->acceptance_note, 'LR', 1, 'L');
+        } else {
+            $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
+        }
+    } else {
+        // Mängelbeschreibung (Pflicht bei nicht erfolgter Abnahme)
+        $maengel = $eq->acceptance_note ?: '-';
+        $pdf->SetFont('', 'I', $default_font_size - 1);
+        $pdf->Cell($halfWidth, $rowHeight, $maengel, 'LR', 1, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
+    }
 
-    // Ensure both columns end at the same height
-    $maxY = max($leftEndY, $rightEndY);
-    $pdf->SetY($maxY + 2);
+    // Row 4
+    $pdf->SetX($leftMargin + $halfWidth + 4);
+    $pdf->Cell($halfWidth, $rowHeight, "", 'LRB', 1, 'L');
+
+    // Move to after both columns
+    $pdf->SetY($boxStartY + $fixedBoxHeight + 1);
 
     // ===== ADDITIONAL OPTIONS ROW =====
-    $pdf->SetFillColor(250, 250, 250);
+    $pdf->SetFillColor(248, 248, 248);
     $pdf->SetFont('', '', $default_font_size - 1);
     $checkYes = "[X]";
     $checkNo = "[  ]";
@@ -292,22 +315,39 @@ foreach ($equipmentList as $eq) {
     $testbook = $eq->testbook_handed ? $checkYes : $checkNo;
 
     $pdf->Cell($halfWidth, 5, $instruction." Einweisung erfolgt", 1, 0, 'L', true);
-    $pdf->Cell(6, 5, "", 0, 0); // Spacer
+    $pdf->Cell(4, 5, "", 0, 0); // Spacer
     $pdf->Cell($halfWidth, 5, $testbook." Prüfbuch übergeben", 1, 1, 'L', true);
 
-    $pdf->Ln(6);
+    // Space between equipment blocks
+    $pdf->Ln(8);
+
+    // Draw separator line between equipment (except for last one)
+    if ($equipmentIndex < $equipmentCount) {
+        $pdf->SetDrawColor(180, 180, 180);
+        $pdf->SetLineWidth(0.3);
+        $sepY = $pdf->GetY() - 4;
+        $pdf->Line($leftMargin, $sepY, $leftMargin + $contentWidth, $sepY);
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetLineWidth(0.2);
+    }
 }
 
 // ========== SIGNATURE SECTION ==========
 // Check if we need a new page for signatures
-if ($pdf->GetY() > 220) {
+if ($pdf->GetY() > 210) {
     $pdf->AddPage();
 }
 
-$pdf->Ln(3);
-$pdf->SetFont('', 'B', $default_font_size);
+$pdf->Ln(5);
+$pdf->SetDrawColor(0, 0, 0);
+$pdf->SetLineWidth(0.5);
+$pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
+$pdf->SetLineWidth(0.2);
+$pdf->Ln(5);
+
+$pdf->SetFont('', 'B', $default_font_size + 1);
 $pdf->Cell(0, 6, "UNTERSCHRIFTEN", 0, 1, 'L');
-$pdf->Ln(2);
+$pdf->Ln(3);
 
 // Find customer signature from intervention
 $signatureFile = null;
@@ -322,42 +362,55 @@ if (is_dir($signatureDir)) {
     }
 }
 
-// Find technician signature from EquipmentManager
+// Find technician signature from EquipmentManager - use CURRENT logged in user
 $techSignatureFile = null;
-$techUserId = $fichinter->fk_user_valid ?: $fichinter->fk_user_author;
-if ($techUserId) {
-    $techFile = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$techUserId.'.png';
-    if (file_exists($techFile)) {
-        $techSignatureFile = $techFile;
-    }
+$techFile = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+if (file_exists($techFile)) {
+    $techSignatureFile = $techFile;
 }
 
 // Two-column signature boxes
 $boxWidth = ($contentWidth / 2) - 5;
-$boxHeight = 25;
+$boxHeight = 28;
 $curY = $pdf->GetY();
 
 // Technician signature (left)
-$pdf->SetFont('', '', $default_font_size - 1);
+$pdf->SetFont('', 'B', $default_font_size - 1);
 $pdf->SetXY($leftMargin, $curY);
-$pdf->Cell($boxWidth, 5, "Techniker:", 0, 1);
+$pdf->Cell($boxWidth, 5, "Techniker: ".$user->getFullName($langs), 0, 1);
+$pdf->SetLineWidth(0.3);
 $pdf->Rect($leftMargin, $curY + 5, $boxWidth, $boxHeight);
 
 if ($techSignatureFile) {
     $pdf->Image($techSignatureFile, $leftMargin + 2, $curY + 7, $boxWidth - 4, $boxHeight - 6, '', '', '', false, 300, '', false, false, 0, 'CM');
+} else {
+    // Show placeholder text if no signature
+    $pdf->SetFont('', 'I', 7);
+    $pdf->SetTextColor(150, 150, 150);
+    $pdf->SetXY($leftMargin + 2, $curY + 15);
+    $pdf->Cell($boxWidth - 4, 5, "(Keine Unterschrift hinterlegt)", 0, 0, 'C');
+    $pdf->SetTextColor(0, 0, 0);
 }
 
 // Customer signature (right)
+$pdf->SetFont('', 'B', $default_font_size - 1);
 $pdf->SetXY($leftMargin + $boxWidth + 10, $curY);
 $pdf->Cell($boxWidth, 5, "Auftraggeber:", 0, 1);
 $pdf->Rect($leftMargin + $boxWidth + 10, $curY + 5, $boxWidth, $boxHeight);
 
 if ($signatureFile && file_exists($signatureFile)) {
     $pdf->Image($signatureFile, $leftMargin + $boxWidth + 12, $curY + 7, $boxWidth - 4, $boxHeight - 6, '', '', '', false, 300, '', false, false, 0, 'CM');
+} else {
+    // Show placeholder text if no signature
+    $pdf->SetFont('', 'I', 7);
+    $pdf->SetTextColor(150, 150, 150);
+    $pdf->SetXY($leftMargin + $boxWidth + 12, $curY + 15);
+    $pdf->Cell($boxWidth - 4, 5, "(Keine Unterschrift vorhanden)", 0, 0, 'C');
+    $pdf->SetTextColor(0, 0, 0);
 }
 
 // Date and place line
-$pdf->SetY($curY + $boxHeight + 10);
+$pdf->SetY($curY + $boxHeight + 12);
 $pdf->SetFont('', '', $default_font_size - 1);
 $pdf->Cell(0, 5, "Ort, Datum: ________________________________________     ".dol_print_date(dol_now(), 'day'), 0, 1);
 

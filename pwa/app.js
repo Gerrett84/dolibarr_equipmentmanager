@@ -410,11 +410,13 @@ class ServiceReportApp {
         document.getElementById('entryCommissioningDone').addEventListener('change', (e) => {
             this.updateCommissioningUI(e.target.checked);
         });
-        document.getElementById('entryAcceptanceDone').addEventListener('change', (e) => {
-            this.updateAcceptanceUI(e.target.checked);
+        // Parent checkbox: "Abnahme durchführen"
+        document.getElementById('entryDoingAcceptance').addEventListener('change', (e) => {
+            this.updateDoingAcceptanceUI(e.target.checked);
         });
-        document.getElementById('entryAcceptanceDefectFree').addEventListener('change', (e) => {
-            this.updateAcceptanceDefectFreeUI(e.target.checked);
+        // Success checkbox: "Abnahme erfolgreich"
+        document.getElementById('entryAcceptanceDone').addEventListener('change', (e) => {
+            this.updateAcceptanceSuccessUI(e.target.checked);
         });
     }
 
@@ -436,25 +438,40 @@ class ServiceReportApp {
         }
     }
 
-    // Toggle acceptance details visibility (v4.5)
-    updateAcceptanceUI(isDone) {
+    // Toggle acceptance section visibility when "Abnahme durchführen" is clicked (v4.5.2)
+    updateDoingAcceptanceUI(isDoing) {
         const detailsRow = document.getElementById('acceptanceDetailsRow');
+        const successRow = document.getElementById('acceptanceSuccessRow');
+        const failedRow = document.getElementById('acceptanceFailedRow');
+        const successCheckbox = document.getElementById('entryAcceptanceDone');
+
+        if (isDoing) {
+            detailsRow.style.display = 'block';
+            // Default: show failed row (defects), hide success row
+            // User must explicitly check "Abnahme erfolgreich"
+            this.updateAcceptanceSuccessUI(successCheckbox.checked);
+        } else {
+            detailsRow.style.display = 'none';
+            successCheckbox.checked = false;
+        }
+    }
+
+    // Toggle success vs failed display when "Abnahme erfolgreich" is clicked (v4.5.2)
+    updateAcceptanceSuccessUI(isSuccess) {
+        const successRow = document.getElementById('acceptanceSuccessRow');
+        const failedRow = document.getElementById('acceptanceFailedRow');
         const dateInput = document.getElementById('entryAcceptanceDate');
 
-        if (isDone) {
-            detailsRow.style.display = 'block';
+        if (isSuccess) {
+            successRow.style.display = 'block';
+            failedRow.style.display = 'none';
             if (!dateInput.value) {
                 dateInput.value = this.formatDateInput(new Date());
             }
         } else {
-            detailsRow.style.display = 'none';
+            successRow.style.display = 'none';
+            failedRow.style.display = 'block';
         }
-    }
-
-    // Toggle defects field visibility (v4.5)
-    updateAcceptanceDefectFreeUI(isDefectFree) {
-        const defectsRow = document.getElementById('acceptanceDefectsRow');
-        defectsRow.style.display = isDefectFree ? 'none' : 'block';
     }
 
     updateOnlineStatus() {
@@ -1438,20 +1455,30 @@ class ServiceReportApp {
         commNote.value = entry?.commissioning_note || '';
         this.updateCommissioningUI(commDone.checked);
 
-        // Acceptance
+        // Acceptance (v4.5.2 - new logic)
+        const doingAcc = document.getElementById('entryDoingAcceptance');
         const accDone = document.getElementById('entryAcceptanceDone');
         const accDate = document.getElementById('entryAcceptanceDate');
-        const accDefectFree = document.getElementById('entryAcceptanceDefectFree');
         const accDefects = document.getElementById('entryAcceptanceDefects');
         const accNote = document.getElementById('entryAcceptanceNote');
 
-        accDone.checked = !!entry?.acceptance_done;
+        // Determine if user was doing acceptance:
+        // - acceptance_done = 1 → doing acceptance, successful
+        // - acceptance_done = 0 AND acceptance_note has content → doing acceptance, failed
+        // - acceptance_done = 0 AND acceptance_note empty → not doing acceptance
+        const wasDoingAcceptance = !!entry?.acceptance_done || !!(entry?.acceptance_note);
+        const wasSuccessful = !!entry?.acceptance_done;
+
+        doingAcc.checked = wasDoingAcceptance;
+        accDone.checked = wasSuccessful;
         accDate.value = entry?.acceptance_date || '';
-        accDefectFree.checked = entry?.acceptance_defect_free !== 0; // Default true
-        accDefects.value = entry?.acceptance_defect_free === 0 ? (entry?.acceptance_note || '') : '';
-        accNote.value = entry?.acceptance_defect_free !== 0 ? (entry?.acceptance_note || '') : '';
-        this.updateAcceptanceUI(accDone.checked);
-        this.updateAcceptanceDefectFreeUI(accDefectFree.checked);
+        accNote.value = wasSuccessful ? (entry?.acceptance_note || '') : '';
+        accDefects.value = !wasSuccessful && wasDoingAcceptance ? (entry?.acceptance_note || '') : '';
+
+        this.updateDoingAcceptanceUI(doingAcc.checked);
+        if (doingAcc.checked) {
+            this.updateAcceptanceSuccessUI(accDone.checked);
+        }
 
         // Instruction & Testbook
         document.getElementById('entryInstructionDone').checked = !!entry?.instruction_done;
@@ -1504,22 +1531,36 @@ class ServiceReportApp {
             issues_found: document.getElementById('entryIssuesFound').value
         };
 
-        // Add commissioning/acceptance fields for non-maintenance entries (v4.5)
+        // Add commissioning/acceptance fields for non-maintenance entries (v4.5.2)
         if (this.currentEquipment?.link_type !== 'maintenance') {
             const commDone = document.getElementById('entryCommissioningDone').checked;
             entryData.commissioning_done = commDone ? 1 : 0;
             entryData.commissioning_date = commDone ? document.getElementById('entryCommissioningDate').value : null;
             entryData.commissioning_note = !commDone ? document.getElementById('entryCommissioningNote').value : null;
 
-            const accDone = document.getElementById('entryAcceptanceDone').checked;
-            const accDefectFree = document.getElementById('entryAcceptanceDefectFree').checked;
-            entryData.acceptance_done = accDone ? 1 : 0;
-            entryData.acceptance_date = accDone ? document.getElementById('entryAcceptanceDate').value : null;
-            entryData.acceptance_defect_free = accDefectFree ? 1 : 0;
-            // Use defects field if not defect-free, otherwise use note field
-            entryData.acceptance_note = accDone ?
-                (accDefectFree ? document.getElementById('entryAcceptanceNote').value : document.getElementById('entryAcceptanceDefects').value)
-                : null;
+            // Acceptance: new logic (v4.5.2)
+            const doingAcceptance = document.getElementById('entryDoingAcceptance').checked;
+            const accSuccessful = document.getElementById('entryAcceptanceDone').checked;
+
+            if (doingAcceptance && accSuccessful) {
+                // Abnahme erfolgreich durchgeführt
+                entryData.acceptance_done = 1;
+                entryData.acceptance_date = document.getElementById('entryAcceptanceDate').value || null;
+                entryData.acceptance_note = document.getElementById('entryAcceptanceNote').value || null;
+            } else if (doingAcceptance && !accSuccessful) {
+                // Abnahme durchgeführt aber fehlgeschlagen (Mängel)
+                entryData.acceptance_done = 0;
+                entryData.acceptance_date = null;
+                entryData.acceptance_note = document.getElementById('entryAcceptanceDefects').value || null;
+            } else {
+                // Keine Abnahme durchgeführt (andere Arbeiten)
+                entryData.acceptance_done = 0;
+                entryData.acceptance_date = null;
+                entryData.acceptance_note = null;
+            }
+
+            // acceptance_defect_free is no longer used in new logic, but keep for backwards compat
+            entryData.acceptance_defect_free = accSuccessful ? 1 : 0;
 
             entryData.instruction_done = document.getElementById('entryInstructionDone').checked ? 1 : 0;
             entryData.testbook_handed = document.getElementById('entryTestbookHanded').checked ? 1 : 0;
