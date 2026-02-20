@@ -668,7 +668,8 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
-    $sql .= " d.acceptance_done, d.acceptance_date, d.acceptance_note";
+    $sql .= " d.acceptance_done, d.acceptance_date, d.acceptance_defect_free, d.acceptance_note,";
+    $sql .= " d.instruction_done, d.testbook_handed";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
@@ -708,7 +709,10 @@ function getInterventionEquipment($intervention_id) {
                     'commissioning_note' => $obj->commissioning_note,
                     'acceptance_done' => (int)$obj->acceptance_done,
                     'acceptance_date' => $obj->acceptance_date,
-                    'acceptance_note' => $obj->acceptance_note
+                    'acceptance_defect_free' => (int)$obj->acceptance_defect_free,
+                    'acceptance_note' => $obj->acceptance_note,
+                    'instruction_done' => (int)$obj->instruction_done,
+                    'testbook_handed' => (int)$obj->testbook_handed
                 ];
             }
 
@@ -847,7 +851,10 @@ function handleDetail($method, $parts, $input) {
                 'commissioning_note' => $entry->commissioning_note,
                 'acceptance_done' => (int)$entry->acceptance_done,
                 'acceptance_date' => $entry->acceptance_date ? dol_print_date($entry->acceptance_date, 'dayrfc') : null,
-                'acceptance_note' => $entry->acceptance_note
+                'acceptance_defect_free' => (int)$entry->acceptance_defect_free,
+                'acceptance_note' => $entry->acceptance_note,
+                'instruction_done' => (int)$entry->instruction_done,
+                'testbook_handed' => (int)$entry->testbook_handed
             ];
             // Get recommendations/notes from any entry that has them
             if (!empty($entry->recommendations)) $recommendations = $entry->recommendations;
@@ -918,7 +925,10 @@ function handleDetail($method, $parts, $input) {
         $detail->commissioning_note = $input['commissioning_note'] ?? '';
         $detail->acceptance_done = (int)($input['acceptance_done'] ?? 0);
         $detail->acceptance_date = !empty($input['acceptance_date']) ? strtotime($input['acceptance_date']) : null;
+        $detail->acceptance_defect_free = (int)($input['acceptance_defect_free'] ?? 1);
         $detail->acceptance_note = $input['acceptance_note'] ?? '';
+        $detail->instruction_done = (int)($input['instruction_done'] ?? 0);
+        $detail->testbook_handed = (int)($input['testbook_handed'] ?? 0);
 
         // Get intervention ref for photo directory
         dol_include_once('/fichinter/class/fichinter.class.php');

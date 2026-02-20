@@ -29,7 +29,10 @@ class InterventionDetail extends CommonObject
     public $commissioning_note;
     public $acceptance_done;
     public $acceptance_date;
+    public $acceptance_defect_free;
     public $acceptance_note;
+    public $instruction_done;
+    public $testbook_handed;
     public $date_creation;
     public $fk_user_creat;
     public $fk_user_modif;
@@ -71,7 +74,10 @@ class InterventionDetail extends CommonObject
         $sql .= "commissioning_note,";
         $sql .= "acceptance_done,";
         $sql .= "acceptance_date,";
+        $sql .= "acceptance_defect_free,";
         $sql .= "acceptance_note,";
+        $sql .= "instruction_done,";
+        $sql .= "testbook_handed,";
         $sql .= "date_creation,";
         $sql .= "fk_user_creat";
         $sql .= ") VALUES (";
@@ -91,7 +97,10 @@ class InterventionDetail extends CommonObject
         $sql .= ($this->commissioning_note ? "'".$this->db->escape($this->commissioning_note)."'" : "NULL").",";
         $sql .= (int)$this->acceptance_done.",";
         $sql .= ($this->acceptance_date ? "'".$this->db->idate($this->acceptance_date)."'" : "NULL").",";
+        $sql .= (int)$this->acceptance_defect_free.",";
         $sql .= ($this->acceptance_note ? "'".$this->db->escape($this->acceptance_note)."'" : "NULL").",";
+        $sql .= (int)$this->instruction_done.",";
+        $sql .= (int)$this->testbook_handed.",";
         $sql .= "'".$this->db->idate($now)."',";
         $sql .= (int)$user->id;
         $sql .= ")";
@@ -218,7 +227,10 @@ class InterventionDetail extends CommonObject
         $this->commissioning_note = $obj->commissioning_note ?? null;
         $this->acceptance_done = $obj->acceptance_done ?? 0;
         $this->acceptance_date = isset($obj->acceptance_date) ? $this->db->jdate($obj->acceptance_date) : null;
+        $this->acceptance_defect_free = $obj->acceptance_defect_free ?? 1;
         $this->acceptance_note = $obj->acceptance_note ?? null;
+        $this->instruction_done = $obj->instruction_done ?? 0;
+        $this->testbook_handed = $obj->testbook_handed ?? 0;
         $this->date_creation = $this->db->jdate($obj->date_creation);
         $this->fk_user_creat = $obj->fk_user_creat;
         $this->fk_user_modif = $obj->fk_user_modif;
@@ -314,7 +326,10 @@ class InterventionDetail extends CommonObject
         $sql .= " commissioning_note = ".($this->commissioning_note ? "'".$this->db->escape($this->commissioning_note)."'" : "NULL").",";
         $sql .= " acceptance_done = ".(int)$this->acceptance_done.",";
         $sql .= " acceptance_date = ".($this->acceptance_date ? "'".$this->db->idate($this->acceptance_date)."'" : "NULL").",";
+        $sql .= " acceptance_defect_free = ".(int)$this->acceptance_defect_free.",";
         $sql .= " acceptance_note = ".($this->acceptance_note ? "'".$this->db->escape($this->acceptance_note)."'" : "NULL").",";
+        $sql .= " instruction_done = ".(int)$this->instruction_done.",";
+        $sql .= " testbook_handed = ".(int)$this->testbook_handed.",";
         $sql .= " fk_user_modif = ".(int)$user->id;
         $sql .= " WHERE rowid = ".(int)$this->id;
 

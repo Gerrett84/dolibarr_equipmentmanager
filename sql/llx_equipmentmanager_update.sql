@@ -153,4 +153,13 @@ ALTER TABLE llx_equipmentmanager_intervention_detail
 ADD COLUMN IF NOT EXISTS acceptance_date DATE DEFAULT NULL AFTER acceptance_done;
 
 ALTER TABLE llx_equipmentmanager_intervention_detail
-ADD COLUMN IF NOT EXISTS acceptance_note TEXT DEFAULT NULL AFTER acceptance_date;
+ADD COLUMN IF NOT EXISTS acceptance_defect_free TINYINT(1) DEFAULT 1 AFTER acceptance_date;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS acceptance_note TEXT DEFAULT NULL AFTER acceptance_defect_free;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS instruction_done TINYINT(1) DEFAULT 0 AFTER acceptance_note;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS testbook_handed TINYINT(1) DEFAULT 0 AFTER instruction_done;

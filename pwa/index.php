@@ -2022,32 +2022,59 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                         <div id="commissioningAcceptanceSection" style="margin-top:16px; padding:12px; background:var(--bg-secondary); border-radius:8px;">
                             <h4 style="margin:0 0 12px 0; font-size:14px; color:var(--text-muted);">Inbetriebnahme & Abnahme</h4>
 
-                            <!-- Commissioning -->
-                            <div class="form-group" style="margin-bottom:12px;">
-                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <!-- Commissioning (Inbetriebnahme) -->
+                            <div class="form-group" style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold;">
                                     <input type="checkbox" id="entryCommissioningDone" style="width:20px; height:20px;">
-                                    <span>Inbetriebnahme durchgeführt</span>
+                                    <span>Inbetriebnahme erfolgt</span>
                                 </label>
                                 <div id="commissioningDateRow" style="display:none; margin-top:8px;">
+                                    <label class="form-label" style="font-size:12px;">Erfolgt am:</label>
                                     <input type="date" class="form-input" id="entryCommissioningDate" style="width:100%;">
                                 </div>
                                 <div id="commissioningNoteRow" style="display:none; margin-top:8px;">
-                                    <textarea class="form-textarea" id="entryCommissioningNote" rows="2" placeholder="Bemerkung (warum nicht durchgeführt)"></textarea>
+                                    <label class="form-label" style="font-size:12px;">Bemerkung:</label>
+                                    <textarea class="form-textarea" id="entryCommissioningNote" rows="2" placeholder="Grund warum nicht durchgeführt"></textarea>
                                 </div>
                             </div>
 
-                            <!-- Acceptance -->
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <!-- Acceptance (Abnahme) -->
+                            <div class="form-group" style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold;">
                                     <input type="checkbox" id="entryAcceptanceDone" style="width:20px; height:20px;">
-                                    <span>Abnahme durchgeführt</span>
+                                    <span>Abnahme erfolgt</span>
                                 </label>
-                                <div id="acceptanceDateRow" style="display:none; margin-top:8px;">
-                                    <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%;">
+                                <div id="acceptanceDetailsRow" style="display:none; margin-top:8px;">
+                                    <label class="form-label" style="font-size:12px;">Abnahme am:</label>
+                                    <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%; margin-bottom:8px;">
+
+                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:8px;">
+                                        <input type="checkbox" id="entryAcceptanceDefectFree" style="width:18px; height:18px;" checked>
+                                        <span>Mängelfrei</span>
+                                    </label>
+
+                                    <div id="acceptanceDefectsRow" style="display:none; margin-top:8px;">
+                                        <label class="form-label" style="font-size:12px; color:#d32f2f;">Folgende wesentliche Mängel liegen vor:</label>
+                                        <textarea class="form-textarea" id="entryAcceptanceDefects" rows="3" placeholder="Mängelbeschreibung (Pflichtfeld)" style="border-color:#d32f2f;"></textarea>
+                                    </div>
+
+                                    <div id="acceptanceNoteRow" style="margin-top:8px;">
+                                        <label class="form-label" style="font-size:12px;">Bemerkung (optional):</label>
+                                        <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Zusätzliche Bemerkungen"></textarea>
+                                    </div>
                                 </div>
-                                <div id="acceptanceNoteRow" style="display:none; margin-top:8px;">
-                                    <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Bemerkung (warum nicht durchgeführt)"></textarea>
-                                </div>
+                            </div>
+
+                            <!-- Instruction & Testbook -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
+                                    <input type="checkbox" id="entryInstructionDone" style="width:20px; height:20px;">
+                                    <span>Einweisung erfolgt</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="entryTestbookHanded" style="width:20px; height:20px;">
+                                    <span>Prüfbuch übergeben</span>
+                                </label>
                             </div>
                         </div>
                     </div>

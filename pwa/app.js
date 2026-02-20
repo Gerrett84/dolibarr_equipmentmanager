@@ -408,23 +408,25 @@ class ServiceReportApp {
 
         // Commissioning/Acceptance checkbox handlers (v4.5)
         document.getElementById('entryCommissioningDone').addEventListener('change', (e) => {
-            this.updateCommissioningAcceptanceUI('commissioning', e.target.checked);
+            this.updateCommissioningUI(e.target.checked);
         });
         document.getElementById('entryAcceptanceDone').addEventListener('change', (e) => {
-            this.updateCommissioningAcceptanceUI('acceptance', e.target.checked);
+            this.updateAcceptanceUI(e.target.checked);
+        });
+        document.getElementById('entryAcceptanceDefectFree').addEventListener('change', (e) => {
+            this.updateAcceptanceDefectFreeUI(e.target.checked);
         });
     }
 
-    // Toggle commissioning/acceptance date vs note visibility (v4.5)
-    updateCommissioningAcceptanceUI(type, isDone) {
-        const dateRow = document.getElementById(type === 'commissioning' ? 'commissioningDateRow' : 'acceptanceDateRow');
-        const noteRow = document.getElementById(type === 'commissioning' ? 'commissioningNoteRow' : 'acceptanceNoteRow');
-        const dateInput = document.getElementById(type === 'commissioning' ? 'entryCommissioningDate' : 'entryAcceptanceDate');
+    // Toggle commissioning date vs note visibility (v4.5)
+    updateCommissioningUI(isDone) {
+        const dateRow = document.getElementById('commissioningDateRow');
+        const noteRow = document.getElementById('commissioningNoteRow');
+        const dateInput = document.getElementById('entryCommissioningDate');
 
         if (isDone) {
             dateRow.style.display = 'block';
             noteRow.style.display = 'none';
-            // Set today's date if empty
             if (!dateInput.value) {
                 dateInput.value = this.formatDateInput(new Date());
             }
@@ -432,6 +434,27 @@ class ServiceReportApp {
             dateRow.style.display = 'none';
             noteRow.style.display = 'block';
         }
+    }
+
+    // Toggle acceptance details visibility (v4.5)
+    updateAcceptanceUI(isDone) {
+        const detailsRow = document.getElementById('acceptanceDetailsRow');
+        const dateInput = document.getElementById('entryAcceptanceDate');
+
+        if (isDone) {
+            detailsRow.style.display = 'block';
+            if (!dateInput.value) {
+                dateInput.value = this.formatDateInput(new Date());
+            }
+        } else {
+            detailsRow.style.display = 'none';
+        }
+    }
+
+    // Toggle defects field visibility (v4.5)
+    updateAcceptanceDefectFreeUI(isDefectFree) {
+        const defectsRow = document.getElementById('acceptanceDefectsRow');
+        defectsRow.style.display = isDefectFree ? 'none' : 'block';
     }
 
     updateOnlineStatus() {
@@ -1101,17 +1124,14 @@ class ServiceReportApp {
                 sigBtn.style.display = 'none';
             }
 
-            // Show acceptance protocol button only if signed and has acceptance data (v4.5)
+            // Show acceptance protocol button if has acceptance data (v4.5)
+            // Available even before signing so user can preview
             const accBtn = document.getElementById('navAcceptanceProtocol');
             const hasAcceptanceData = equipment.some(eq =>
                 eq.link_type === 'service' && eq.detail &&
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
-            if (signedStatus >= 3 && hasAcceptanceData) {
-                accBtn.style.display = 'flex';
-            } else {
-                accBtn.style.display = 'none';
-            }
+            accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
 
             // Button container for action buttons
             const btnContainer = document.createElement('div');
@@ -1416,17 +1436,26 @@ class ServiceReportApp {
         commDone.checked = !!entry?.commissioning_done;
         commDate.value = entry?.commissioning_date || '';
         commNote.value = entry?.commissioning_note || '';
-        this.updateCommissioningAcceptanceUI('commissioning', commDone.checked);
+        this.updateCommissioningUI(commDone.checked);
 
         // Acceptance
         const accDone = document.getElementById('entryAcceptanceDone');
         const accDate = document.getElementById('entryAcceptanceDate');
+        const accDefectFree = document.getElementById('entryAcceptanceDefectFree');
+        const accDefects = document.getElementById('entryAcceptanceDefects');
         const accNote = document.getElementById('entryAcceptanceNote');
 
         accDone.checked = !!entry?.acceptance_done;
         accDate.value = entry?.acceptance_date || '';
-        accNote.value = entry?.acceptance_note || '';
-        this.updateCommissioningAcceptanceUI('acceptance', accDone.checked);
+        accDefectFree.checked = entry?.acceptance_defect_free !== 0; // Default true
+        accDefects.value = entry?.acceptance_defect_free === 0 ? (entry?.acceptance_note || '') : '';
+        accNote.value = entry?.acceptance_defect_free !== 0 ? (entry?.acceptance_note || '') : '';
+        this.updateAcceptanceUI(accDone.checked);
+        this.updateAcceptanceDefectFreeUI(accDefectFree.checked);
+
+        // Instruction & Testbook
+        document.getElementById('entryInstructionDone').checked = !!entry?.instruction_done;
+        document.getElementById('entryTestbookHanded').checked = !!entry?.testbook_handed;
     }
 
     // Add new entry (v1.7)
@@ -1477,12 +1506,23 @@ class ServiceReportApp {
 
         // Add commissioning/acceptance fields for non-maintenance entries (v4.5)
         if (this.currentEquipment?.link_type !== 'maintenance') {
-            entryData.commissioning_done = document.getElementById('entryCommissioningDone').checked ? 1 : 0;
-            entryData.commissioning_date = entryData.commissioning_done ? document.getElementById('entryCommissioningDate').value : null;
-            entryData.commissioning_note = !entryData.commissioning_done ? document.getElementById('entryCommissioningNote').value : null;
-            entryData.acceptance_done = document.getElementById('entryAcceptanceDone').checked ? 1 : 0;
-            entryData.acceptance_date = entryData.acceptance_done ? document.getElementById('entryAcceptanceDate').value : null;
-            entryData.acceptance_note = !entryData.acceptance_done ? document.getElementById('entryAcceptanceNote').value : null;
+            const commDone = document.getElementById('entryCommissioningDone').checked;
+            entryData.commissioning_done = commDone ? 1 : 0;
+            entryData.commissioning_date = commDone ? document.getElementById('entryCommissioningDate').value : null;
+            entryData.commissioning_note = !commDone ? document.getElementById('entryCommissioningNote').value : null;
+
+            const accDone = document.getElementById('entryAcceptanceDone').checked;
+            const accDefectFree = document.getElementById('entryAcceptanceDefectFree').checked;
+            entryData.acceptance_done = accDone ? 1 : 0;
+            entryData.acceptance_date = accDone ? document.getElementById('entryAcceptanceDate').value : null;
+            entryData.acceptance_defect_free = accDefectFree ? 1 : 0;
+            // Use defects field if not defect-free, otherwise use note field
+            entryData.acceptance_note = accDone ?
+                (accDefectFree ? document.getElementById('entryAcceptanceNote').value : document.getElementById('entryAcceptanceDefects').value)
+                : null;
+
+            entryData.instruction_done = document.getElementById('entryInstructionDone').checked ? 1 : 0;
+            entryData.testbook_handed = document.getElementById('entryTestbookHanded').checked ? 1 : 0;
         }
 
         // Add entry_id if editing existing entry
