@@ -182,30 +182,25 @@ foreach ($equipmentList as $eq) {
 
     $typeLabel = isset($typeLabels[$eq->equipment_type]) ? $typeLabels[$eq->equipment_type] : $eq->equipment_type;
 
-    // ===== EQUIPMENT HEADER WITH THICK BORDER =====
+    // ===== EQUIPMENT HEADER =====
     $pdf->SetDrawColor(0, 0, 0);
-    $pdf->SetLineWidth(0.5); // Thick line for equipment separation
+    $pdf->SetLineWidth(0.3);
 
-    // Equipment number badge + header
-    $pdf->SetFillColor(50, 50, 50); // Dark gray
-    $pdf->SetTextColor(255, 255, 255); // White text
-    $pdf->SetFont('', 'B', $default_font_size + 1);
-    $pdf->Cell(12, 7, $equipmentIndex.".", 1, 0, 'C', true);
-
-    $pdf->SetFillColor(200, 200, 200); // Light gray
-    $pdf->SetTextColor(0, 0, 0); // Black text
-    $pdf->Cell($contentWidth - 12, 7, " ".$eq->equipment_number." - ".$eq->label, 1, 1, 'L', true);
-
-    $pdf->SetLineWidth(0.2); // Back to normal line width
+    // Equipment header (simple, like before)
+    $pdf->SetFillColor(230, 230, 230);
+    $pdf->SetFont('', 'B', $default_font_size);
+    $pdf->Cell(0, 6, $eq->equipment_number." - ".$eq->label, 1, 1, 'L', true);
 
     // Equipment details line
-    $pdf->SetFillColor(240, 240, 240);
+    $pdf->SetFillColor(245, 245, 245);
     $pdf->SetFont('', '', $default_font_size - 1);
     $details = "Typ: ".$typeLabel;
     if (!empty($eq->serial_number)) $details .= "  |  S/N: ".$eq->serial_number;
     if (!empty($eq->manufacturer)) $details .= "  |  Hersteller: ".$eq->manufacturer;
     if (!empty($eq->location_note)) $details .= "  |  Standort: ".$eq->location_note;
-    $pdf->Cell(0, 5, $details, 1, 1, 'L', true);
+    $pdf->Cell(0, 5, $details, 'LRB', 1, 'L', true);
+
+    $pdf->SetLineWidth(0.2);
 
     $pdf->Ln(1);
 
@@ -220,29 +215,38 @@ foreach ($equipmentList as $eq) {
 
     // ----- LEFT COLUMN: INBETRIEBNAHME -----
     $pdf->SetXY($leftMargin, $boxStartY);
-    $pdf->SetFillColor(220, 235, 250); // Light blue
+    $pdf->SetFillColor(240, 240, 240); // Light gray (no color)
     $pdf->SetFont('', 'B', $default_font_size);
     $pdf->Cell($halfWidth, $headerHeight, "INBETRIEBNAHME", 1, 1, 'C', true);
 
-    $pdf->SetFont('', '', $default_font_size - 1);
     $pdf->SetFillColor(255, 255, 255);
 
-    // Row 1: Erfolgt
+    // Row 1: Erfolgt (label bold)
     $pdf->SetX($leftMargin);
     $erfolgtIBN = $eq->commissioning_done ? "Ja" : "Nein";
-    $pdf->Cell($halfWidth, $rowHeight, "Erfolgt: ".$erfolgtIBN, 'LR', 1, 'L');
+    $pdf->SetFont('', 'B', $default_font_size - 1);
+    $pdf->Cell(18, $rowHeight, "Erfolgt:", 'L', 0, 'L');
+    $pdf->SetFont('', '', $default_font_size - 1);
+    $pdf->Cell($halfWidth - 18, $rowHeight, $erfolgtIBN, 'R', 1, 'L');
 
-    // Row 2: Datum or Bemerkung label
+    // Row 2: Datum or Bemerkung
     $pdf->SetX($leftMargin);
     if ($eq->commissioning_done) {
         $dateStr = $eq->commissioning_date ? dol_print_date($db->jdate($eq->commissioning_date), 'day') : '-';
-        $pdf->Cell($halfWidth, $rowHeight, "Datum: ".$dateStr, 'LR', 1, 'L');
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell(18, $rowHeight, "Datum:", 'L', 0, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->Cell($halfWidth - 18, $rowHeight, $dateStr, 'R', 1, 'L');
     } else {
-        $pdf->Cell($halfWidth, $rowHeight, "Bemerkung:", 'LR', 1, 'L');
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell(22, $rowHeight, "Bemerkung:", 'L', 0, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->Cell($halfWidth - 22, $rowHeight, "", 'R', 1, 'L');
     }
 
-    // Row 3: Empty or note content
+    // Row 3: Note content or empty
     $pdf->SetX($leftMargin);
+    $pdf->SetFont('', '', $default_font_size - 1);
     if ($eq->commissioning_done) {
         $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
     } else {
@@ -256,24 +260,29 @@ foreach ($equipmentList as $eq) {
 
     // ----- RIGHT COLUMN: ABNAHME -----
     $pdf->SetXY($leftMargin + $halfWidth + 4, $boxStartY);
-    $pdf->SetFillColor(255, 245, 220); // Light orange/yellow
+    $pdf->SetFillColor(240, 240, 240); // Light gray (no color)
     $pdf->SetFont('', 'B', $default_font_size);
     $pdf->Cell($halfWidth, $headerHeight, "ABNAHME", 1, 1, 'C', true);
 
-    $pdf->SetFont('', '', $default_font_size - 1);
     $pdf->SetFillColor(255, 255, 255);
 
-    // Row 1: Erfolgt (Ja = erfolgreich abgeschlossen, Nein = Mängel vorhanden)
+    // Row 1: Erfolgt (label bold)
     $pdf->SetX($leftMargin + $halfWidth + 4);
     $erfolgtAbn = $eq->acceptance_done ? "Ja" : "Nein";
-    $pdf->Cell($halfWidth, $rowHeight, "Erfolgt: ".$erfolgtAbn, 'LR', 1, 'L');
+    $pdf->SetFont('', 'B', $default_font_size - 1);
+    $pdf->Cell(18, $rowHeight, "Erfolgt:", 'L', 0, 'L');
+    $pdf->SetFont('', '', $default_font_size - 1);
+    $pdf->Cell($halfWidth - 18, $rowHeight, $erfolgtAbn, 'R', 1, 'L');
 
     // Row 2
     $pdf->SetX($leftMargin + $halfWidth + 4);
     if ($eq->acceptance_done) {
         // Abnahme erfolgreich - Datum anzeigen
         $dateStr = $eq->acceptance_date ? dol_print_date($db->jdate($eq->acceptance_date), 'day') : '-';
-        $pdf->Cell($halfWidth, $rowHeight, "Datum: ".$dateStr, 'LR', 1, 'L');
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell(18, $rowHeight, "Datum:", 'L', 0, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->Cell($halfWidth - 18, $rowHeight, $dateStr, 'R', 1, 'L');
     } else {
         // Abnahme nicht erfolgt wegen Mängel
         $pdf->SetFont('', 'B', $default_font_size - 1);
@@ -286,16 +295,17 @@ foreach ($equipmentList as $eq) {
     if ($eq->acceptance_done) {
         // Optional: Bemerkung bei erfolgreicher Abnahme
         if (!empty($eq->acceptance_note)) {
-            $pdf->Cell($halfWidth, $rowHeight, "Bemerkung: ".$eq->acceptance_note, 'LR', 1, 'L');
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->Cell(22, $rowHeight, "Bemerkung:", 'L', 0, 'L');
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->Cell($halfWidth - 22, $rowHeight, $eq->acceptance_note, 'R', 1, 'L');
         } else {
             $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
         }
     } else {
-        // Mängelbeschreibung (Pflicht bei nicht erfolgter Abnahme)
+        // Mängelbeschreibung
         $maengel = $eq->acceptance_note ?: '-';
-        $pdf->SetFont('', 'I', $default_font_size - 1);
         $pdf->Cell($halfWidth, $rowHeight, $maengel, 'LR', 1, 'L');
-        $pdf->SetFont('', '', $default_font_size - 1);
     }
 
     // Row 4
@@ -306,7 +316,6 @@ foreach ($equipmentList as $eq) {
     $pdf->SetY($boxStartY + $fixedBoxHeight + 1);
 
     // ===== ADDITIONAL OPTIONS ROW =====
-    $pdf->SetFillColor(248, 248, 248);
     $pdf->SetFont('', '', $default_font_size - 1);
     $checkYes = "[X]";
     $checkNo = "[  ]";
@@ -314,12 +323,12 @@ foreach ($equipmentList as $eq) {
     $instruction = $eq->instruction_done ? $checkYes : $checkNo;
     $testbook = $eq->testbook_handed ? $checkYes : $checkNo;
 
-    $pdf->Cell($halfWidth, 5, $instruction." Einweisung erfolgt", 1, 0, 'L', true);
+    $pdf->Cell($halfWidth, 5, $instruction." Einweisung erfolgt", 1, 0, 'L');
     $pdf->Cell(4, 5, "", 0, 0); // Spacer
-    $pdf->Cell($halfWidth, 5, $testbook." Prüfbuch übergeben", 1, 1, 'L', true);
+    $pdf->Cell($halfWidth, 5, $testbook." Prüfbuch übergeben", 1, 1, 'L');
 
     // Space between equipment blocks
-    $pdf->Ln(8);
+    $pdf->Ln(6);
 
     // Draw separator line between equipment (except for last one)
     if ($equipmentIndex < $equipmentCount) {
