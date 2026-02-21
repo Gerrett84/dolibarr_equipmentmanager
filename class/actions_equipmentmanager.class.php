@@ -109,6 +109,12 @@ class ActionsEquipmentManager
             $filesToAttach[] = $checklistsPdf;
         }
 
+        // Add Abnahmeprotokoll PDF if exists
+        $abnahmeprotokoll = $dir.'/Abnahmeprotokoll_'.$objectref.'.pdf';
+        if (file_exists($abnahmeprotokoll)) {
+            $filesToAttach[] = $abnahmeprotokoll;
+        }
+
         // Merge with existing fileinit (keep intervention PDF if already there)
         if (!empty($object->param['fileinit']) && is_array($object->param['fileinit'])) {
             foreach ($object->param['fileinit'] as $existingFile) {
