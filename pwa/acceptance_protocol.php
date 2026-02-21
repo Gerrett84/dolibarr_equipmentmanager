@@ -336,8 +336,11 @@ foreach ($equipmentList as $eq) {
 }
 
 // ========== SIGNATURE SECTION (anchored at bottom) ==========
+// Disable auto page break for signature section
+$pdf->SetAutoPageBreak(false);
+
 // A4 page = 297mm, we want signatures starting at ~240mm from top
-$signatureStartY = 237;
+$signatureStartY = 240;
 
 // If content goes past signature area, add new page
 if ($pdf->GetY() > $signatureStartY - 5) {
