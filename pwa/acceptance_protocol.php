@@ -117,9 +117,25 @@ $pageWidth = $pdf->getPageWidth();
 $contentWidth = $pageWidth - 30; // margins
 $leftMargin = 15;
 
+// ========== LOGO ==========
+$posy = 15; // Start Y position
+$logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
+if ($mysoc->logo && file_exists($logo)) {
+    $height = pdf_getHeightForLogo($logo);
+    $pdf->Image($logo, $leftMargin, $posy, 0, $height);
+    $posy += $height + 3;
+}
+
+// Company name
+$pdf->SetFont('', 'B', $default_font_size + 1);
+$pdf->SetXY($leftMargin, $posy);
+$pdf->Cell(0, 5, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
+$posy += 7;
+
 // ========== HEADER ==========
-$pdf->SetFont('', 'B', 16);
-$pdf->Cell(0, 10, "INBETRIEBNAHME- UND ABNAHMEPROTOKOLL", 0, 1, 'C');
+$pdf->SetY($posy);
+$pdf->SetFont('', 'B', 14);
+$pdf->Cell(0, 8, "INBETRIEBNAHME- UND ABNAHMEPROTOKOLL", 0, 1, 'C');
 $pdf->SetFont('', '', $default_font_size);
 $pdf->Cell(0, 5, "Serviceauftrag: ".$fichinter->ref, 0, 1, 'C');
 $pdf->Ln(6);
