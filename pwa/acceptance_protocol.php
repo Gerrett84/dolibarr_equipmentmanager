@@ -321,27 +321,31 @@ foreach ($equipmentList as $eq) {
     $pdf->Cell(4, 5, "", 0, 0); // Spacer
     $pdf->Cell($halfWidth, 5, $testbook." Prüfbuch übergeben", 1, 1, 'L');
 
-    // Space between equipment blocks
-    $pdf->Ln(6);
-
-    // Draw separator line between equipment (except for last one)
+    // Space and separator between equipment blocks
     if ($equipmentIndex < $equipmentCount) {
+        $pdf->Ln(4);
         $pdf->SetDrawColor(180, 180, 180);
         $pdf->SetLineWidth(0.3);
-        $sepY = $pdf->GetY() - 4;
-        $pdf->Line($leftMargin, $sepY, $leftMargin + $contentWidth, $sepY);
+        $pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.2);
+        $pdf->Ln(4);
+    } else {
+        $pdf->Ln(2);
     }
 }
 
-// ========== SIGNATURE SECTION ==========
-// Check if enough space for signatures (need ~50mm)
-if ($pdf->GetY() > 230) {
+// ========== SIGNATURE SECTION (anchored at bottom) ==========
+// A4 page = 297mm, we want signatures starting at ~240mm from top
+$signatureStartY = 237;
+
+// If content goes past signature area, add new page
+if ($pdf->GetY() > $signatureStartY - 5) {
     $pdf->AddPage();
 }
 
-$pdf->Ln(8);
+// Jump to fixed position at bottom
+$pdf->SetY($signatureStartY);
 $pdf->SetDrawColor(0, 0, 0);
 $pdf->SetLineWidth(0.5);
 $pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
