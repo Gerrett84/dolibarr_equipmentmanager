@@ -350,13 +350,14 @@ if ($pdf->GetY() > $signatureStartY - 5) {
 // Jump to fixed position at bottom
 $pdf->SetY($signatureStartY);
 
-// Find customer signature from intervention
+// Find customer signature from intervention (filename: {date}_signature.png)
 $signatureFile = null;
 $signatureDir = $conf->ficheinter->dir_output.'/'.$fichinter->ref.'/signatures';
 if (is_dir($signatureDir)) {
     $files = scandir($signatureDir);
     foreach ($files as $file) {
-        if (preg_match('/^customer_signature.*\.png$/', $file)) {
+        // Match pattern: 20250221153045_signature.png
+        if (preg_match('/_signature\.png$/', $file)) {
             $signatureFile = $signatureDir.'/'.$file;
             break;
         }
