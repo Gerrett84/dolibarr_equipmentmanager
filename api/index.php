@@ -1834,6 +1834,12 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     // Use Fichinter's setSignedStatus if available
     if (method_exists($fichinter, 'setSignedStatus')) {
         $result = $fichinter->setSignedStatus($tmpUser, Fichinter::$SIGNED_STATUSES['STATUS_SIGNED_RECEIVER_ONLINE'], 0, 'FICHINTER_MODIFY');
+        // Also update online_sign_name and online_sign_ip (setSignedStatus doesn't set these)
+        $sqlSignerInfo = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
+        $sqlSignerInfo .= "online_sign_ip = '".$db->escape($signerIp)."',";
+        $sqlSignerInfo .= "online_sign_name = '".$db->escape($signerName)."'";
+        $sqlSignerInfo .= " WHERE rowid = ".(int)$intervention_id;
+        $db->query($sqlSignerInfo);
     } else {
         // Fallback to direct SQL update
         $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
