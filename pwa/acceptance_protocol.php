@@ -215,11 +215,8 @@ foreach ($equipmentList as $eq) {
 
     // ----- LEFT COLUMN: INBETRIEBNAHME -----
     $pdf->SetXY($leftMargin, $boxStartY);
-    $pdf->SetFillColor(240, 240, 240); // Light gray (no color)
-    $pdf->SetFont('', 'B', $default_font_size);
-    $pdf->Cell($halfWidth, $headerHeight, "INBETRIEBNAHME", 1, 1, 'C', true);
-
-    $pdf->SetFillColor(255, 255, 255);
+    $pdf->SetFont('', 'B', $default_font_size - 1);
+    $pdf->Cell($halfWidth, $headerHeight, "Inbetriebnahme", 'LTR', 1, 'L'); // No fill, underline style
 
     // Row 1: Erfolgt (label bold)
     $pdf->SetX($leftMargin);
@@ -260,11 +257,8 @@ foreach ($equipmentList as $eq) {
 
     // ----- RIGHT COLUMN: ABNAHME -----
     $pdf->SetXY($leftMargin + $halfWidth + 4, $boxStartY);
-    $pdf->SetFillColor(240, 240, 240); // Light gray (no color)
-    $pdf->SetFont('', 'B', $default_font_size);
-    $pdf->Cell($halfWidth, $headerHeight, "ABNAHME", 1, 1, 'C', true);
-
-    $pdf->SetFillColor(255, 255, 255);
+    $pdf->SetFont('', 'B', $default_font_size - 1);
+    $pdf->Cell($halfWidth, $headerHeight, "Abnahme", 'LTR', 1, 'L'); // No fill, underline style
 
     // Row 1: Erfolgt (label bold)
     $pdf->SetX($leftMargin + $halfWidth + 4);
