@@ -216,7 +216,7 @@ foreach ($equipmentList as $eq) {
     // ----- LEFT COLUMN: INBETRIEBNAHME -----
     $pdf->SetXY($leftMargin, $boxStartY);
     $pdf->SetFont('', 'B', $default_font_size - 1);
-    $pdf->Cell($halfWidth, $headerHeight, "Inbetriebnahme", 'LTR', 1, 'L'); // No fill, underline style
+    $pdf->Cell($halfWidth, $headerHeight, "Inbetriebnahme", 1, 1, 'L'); // With bottom border (underline)
 
     // Row 1: Erfolgt (label bold)
     $pdf->SetX($leftMargin);
@@ -258,7 +258,7 @@ foreach ($equipmentList as $eq) {
     // ----- RIGHT COLUMN: ABNAHME -----
     $pdf->SetXY($leftMargin + $halfWidth + 4, $boxStartY);
     $pdf->SetFont('', 'B', $default_font_size - 1);
-    $pdf->Cell($halfWidth, $headerHeight, "Abnahme", 'LTR', 1, 'L'); // No fill, underline style
+    $pdf->Cell($halfWidth, $headerHeight, "Abnahme", 1, 1, 'L'); // With bottom border (underline)
 
     // Row 1: Erfolgt (label bold)
     $pdf->SetX($leftMargin + $halfWidth + 4);
@@ -335,13 +335,22 @@ foreach ($equipmentList as $eq) {
     }
 }
 
-// ========== SIGNATURE SECTION ==========
-// Check if we need a new page for signatures
-if ($pdf->GetY() > 210) {
+// ========== SIGNATURE SECTION (always at bottom) ==========
+// Calculate position for signatures at bottom of page
+$signatureHeight = 50; // Total height needed for signature section
+$pageHeight = $pdf->getPageHeight();
+$bottomMargin = 15;
+$signatureStartY = $pageHeight - $bottomMargin - $signatureHeight;
+
+// Check if we need a new page (not enough space for signatures)
+if ($pdf->GetY() > $signatureStartY - 10) {
     $pdf->AddPage();
+    $signatureStartY = $pageHeight - $bottomMargin - $signatureHeight;
 }
 
-$pdf->Ln(5);
+// Position at bottom
+$pdf->SetY($signatureStartY);
+
 $pdf->SetDrawColor(0, 0, 0);
 $pdf->SetLineWidth(0.5);
 $pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
@@ -374,7 +383,7 @@ if (file_exists($techFile)) {
 
 // Two-column signature boxes
 $boxWidth = ($contentWidth / 2) - 5;
-$boxHeight = 28;
+$boxHeight = 25;
 $curY = $pdf->GetY();
 
 // Technician signature (left)
@@ -390,7 +399,7 @@ if ($techSignatureFile) {
     // Show placeholder text if no signature
     $pdf->SetFont('', 'I', 7);
     $pdf->SetTextColor(150, 150, 150);
-    $pdf->SetXY($leftMargin + 2, $curY + 15);
+    $pdf->SetXY($leftMargin + 2, $curY + 12);
     $pdf->Cell($boxWidth - 4, 5, "(Keine Unterschrift hinterlegt)", 0, 0, 'C');
     $pdf->SetTextColor(0, 0, 0);
 }
@@ -407,15 +416,21 @@ if ($signatureFile && file_exists($signatureFile)) {
     // Show placeholder text if no signature
     $pdf->SetFont('', 'I', 7);
     $pdf->SetTextColor(150, 150, 150);
-    $pdf->SetXY($leftMargin + $boxWidth + 12, $curY + 15);
+    $pdf->SetXY($leftMargin + $boxWidth + 12, $curY + 12);
     $pdf->Cell($boxWidth - 4, 5, "(Keine Unterschrift vorhanden)", 0, 0, 'C');
     $pdf->SetTextColor(0, 0, 0);
 }
 
-// Date and place line
-$pdf->SetY($curY + $boxHeight + 12);
+// Date and place line - use object address town
+$ortText = '';
+if ($objectAddress && !empty($objectAddress->town)) {
+    $ortText = $objectAddress->town;
+} elseif ($fichinter->thirdparty && !empty($fichinter->thirdparty->town)) {
+    $ortText = $fichinter->thirdparty->town;
+}
+$pdf->SetY($curY + $boxHeight + 8);
 $pdf->SetFont('', '', $default_font_size - 1);
-$pdf->Cell(0, 5, "Ort, Datum: ________________________________________     ".dol_print_date(dol_now(), 'day'), 0, 1);
+$pdf->Cell(0, 5, $ortText.", ".dol_print_date(dol_now(), 'day'), 0, 1);
 
 // Output PDF
 $pdf->Output("Abnahmeprotokoll_".$fichinter->ref.".pdf", 'I');
