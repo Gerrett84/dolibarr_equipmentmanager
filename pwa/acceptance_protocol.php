@@ -349,15 +349,10 @@ if ($pdf->GetY() > $signatureStartY - 5) {
 
 // Jump to fixed position at bottom
 $pdf->SetY($signatureStartY);
-$pdf->SetDrawColor(0, 0, 0);
-$pdf->SetLineWidth(0.5);
-$pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
-$pdf->SetLineWidth(0.2);
-$pdf->Ln(5);
 
-$pdf->SetFont('', 'B', $default_font_size + 1);
-$pdf->Cell(0, 6, "UNTERSCHRIFTEN", 0, 1, 'L');
-$pdf->Ln(3);
+$pdf->SetFont('', 'B', $default_font_size);
+$pdf->Cell(0, 6, "Unterschriften", 0, 1, 'L');
+$pdf->Ln(2);
 
 // Find customer signature from intervention
 $signatureFile = null;
