@@ -350,10 +350,6 @@ if ($pdf->GetY() > $signatureStartY - 5) {
 // Jump to fixed position at bottom
 $pdf->SetY($signatureStartY);
 
-$pdf->SetFont('', 'B', $default_font_size);
-$pdf->Cell(0, 6, "Unterschriften", 0, 1, 'L');
-$pdf->Ln(2);
-
 // Find customer signature from intervention
 $signatureFile = null;
 $signatureDir = $conf->ficheinter->dir_output.'/'.$fichinter->ref.'/signatures';
@@ -421,9 +417,13 @@ if ($objectAddress && !empty($objectAddress->town)) {
 } elseif ($fichinter->thirdparty && !empty($fichinter->thirdparty->town)) {
     $ortText = $fichinter->thirdparty->town;
 }
-$pdf->SetY($curY + $boxHeight + 8);
+$pdf->SetY($curY + $boxHeight + 6);
 $pdf->SetFont('', '', $default_font_size - 1);
 $pdf->Cell(0, 5, $ortText.", ".dol_print_date(dol_now(), 'day'), 0, 1);
+
+// Reset line settings to prevent stray lines
+$pdf->SetLineWidth(0);
+$pdf->SetDrawColor(255, 255, 255);
 
 // Output PDF
 $pdf->Output("Abnahmeprotokoll_".$fichinter->ref.".pdf", 'I');
