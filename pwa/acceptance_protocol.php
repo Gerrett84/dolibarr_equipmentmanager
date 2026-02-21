@@ -394,12 +394,25 @@ if ($techSignatureFile) {
     $pdf->SetTextColor(0, 0, 0);
 }
 
-// Get signer name from database
+// Get signer name from database (set when customer signs)
 $signerName = '';
 $sqlSigner = "SELECT online_sign_name FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$fichinter->id;
 $resSigner = $db->query($sqlSigner);
 if ($resSigner && $objSigner = $db->fetch_object($resSigner)) {
     $signerName = $objSigner->online_sign_name;
+}
+
+// Fallback: Try to get name from BILLING contact if no signer name
+if (empty($signerName)) {
+    $contacts = $fichinter->liste_contact(-1, 'external');
+    if (is_array($contacts)) {
+        foreach ($contacts as $contact) {
+            if ($contact['code'] == 'BILLING' || $contact['code'] == 'CUSTOMER') {
+                $signerName = trim($contact['firstname'].' '.$contact['lastname']);
+                break;
+            }
+        }
+    }
 }
 
 // Customer signature (right)
