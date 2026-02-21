@@ -336,9 +336,9 @@ foreach ($equipmentList as $eq) {
 }
 
 // ========== SIGNATURE SECTION (fixed at bottom) ==========
-$signatureHeight = 55; // Total height needed: header + boxes + date line
+$signatureHeight = 48; // header(6) + spacing(3) + label(5) + box(25) + date(8) = ~47mm
 $pageHeight = $pdf->getPageHeight();
-$bottomMargin = 12;
+$bottomMargin = 10;
 $signatureY = $pageHeight - $bottomMargin - $signatureHeight;
 
 // Check if we need a new page (content overlaps signature area)
