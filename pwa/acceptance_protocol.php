@@ -335,22 +335,23 @@ foreach ($equipmentList as $eq) {
     }
 }
 
-// ========== SIGNATURE SECTION (always at bottom) ==========
-// Calculate position for signatures at bottom of page
-$signatureHeight = 50; // Total height needed for signature section
+// ========== SIGNATURE SECTION ==========
+// Calculate space needed for signatures
+$signatureHeight = 55; // Total height needed: header + boxes + date line
 $pageHeight = $pdf->getPageHeight();
 $bottomMargin = 15;
-$signatureStartY = $pageHeight - $bottomMargin - $signatureHeight;
+$currentY = $pdf->GetY();
+$spaceLeft = $pageHeight - $bottomMargin - $currentY;
 
 // Check if we need a new page (not enough space for signatures)
-if ($pdf->GetY() > $signatureStartY - 10) {
+if ($spaceLeft < $signatureHeight) {
     $pdf->AddPage();
-    $signatureStartY = $pageHeight - $bottomMargin - $signatureHeight;
+    // On new page, position at bottom
+    $pdf->SetY($pageHeight - $bottomMargin - $signatureHeight);
 }
+// Otherwise just continue from current position (no jump to bottom needed)
 
-// Position at bottom
-$pdf->SetY($signatureStartY);
-
+$pdf->Ln(5);
 $pdf->SetDrawColor(0, 0, 0);
 $pdf->SetLineWidth(0.5);
 $pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
