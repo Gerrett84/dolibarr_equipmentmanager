@@ -394,10 +394,22 @@ if ($techSignatureFile) {
     $pdf->SetTextColor(0, 0, 0);
 }
 
+// Get signer name from database
+$signerName = '';
+$sqlSigner = "SELECT online_sign_name FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$fichinter->id;
+$resSigner = $db->query($sqlSigner);
+if ($resSigner && $objSigner = $db->fetch_object($resSigner)) {
+    $signerName = $objSigner->online_sign_name;
+}
+
 // Customer signature (right)
 $pdf->SetFont('', 'B', $default_font_size - 1);
 $pdf->SetXY($leftMargin + $boxWidth + 10, $curY);
-$pdf->Cell($boxWidth, 5, "Auftraggeber:", 0, 1);
+$customerLabel = "Auftraggeber:";
+if (!empty($signerName)) {
+    $customerLabel .= " ".$signerName;
+}
+$pdf->Cell($boxWidth, 5, $customerLabel, 0, 1);
 $pdf->Rect($leftMargin + $boxWidth + 10, $curY + 5, $boxWidth, $boxHeight);
 
 if ($signatureFile && file_exists($signatureFile)) {
@@ -426,5 +438,26 @@ $pdf->Cell(0, 5, $ortText.", ".dol_print_date(dol_now(), 'day'), 0, 1);
 $pdf->SetLineWidth(0);
 $pdf->SetDrawColor(255, 255, 255);
 
-// Output PDF
-$pdf->Output("Abnahmeprotokoll_".$fichinter->ref.".pdf", 'I');
+// Generate PDF content
+$pdfFilename = "Abnahmeprotokoll_".$fichinter->ref.".pdf";
+
+// Save PDF to documents directory
+$docDir = $conf->ficheinter->dir_output.'/'.$fichinter->ref;
+if (!is_dir($docDir)) {
+    dol_mkdir($docDir);
+}
+$pdfPath = $docDir.'/'.$pdfFilename;
+
+// Get PDF as string, save to file, then output
+$pdfContent = $pdf->Output($pdfFilename, 'S'); // Get as string
+file_put_contents($pdfPath, $pdfContent);
+
+// Index the file in Dolibarr
+dol_include_once('/core/lib/files.lib.php');
+addFileIntoDatabaseIndex($docDir, basename($pdfPath), '', 'generated', 0);
+
+// Output PDF to browser
+header('Content-Type: application/pdf');
+header('Content-Disposition: inline; filename="'.$pdfFilename.'"');
+header('Content-Length: '.strlen($pdfContent));
+echo $pdfContent;
