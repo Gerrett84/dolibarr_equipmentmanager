@@ -335,20 +335,13 @@ foreach ($equipmentList as $eq) {
     }
 }
 
-// ========== SIGNATURE SECTION (fixed at bottom) ==========
-$signatureHeight = 48; // header(6) + spacing(3) + label(5) + box(25) + date(8) = ~47mm
-$pageHeight = $pdf->getPageHeight();
-$bottomMargin = 10;
-$signatureY = $pageHeight - $bottomMargin - $signatureHeight;
-
-// Check if we need a new page (content overlaps signature area)
-if ($pdf->GetY() > $signatureY) {
+// ========== SIGNATURE SECTION ==========
+// Check if enough space for signatures (need ~50mm)
+if ($pdf->GetY() > 230) {
     $pdf->AddPage();
-    $signatureY = $pageHeight - $bottomMargin - $signatureHeight;
 }
 
-// Always position at fixed bottom location
-$pdf->SetY($signatureY);
+$pdf->Ln(8);
 $pdf->SetDrawColor(0, 0, 0);
 $pdf->SetLineWidth(0.5);
 $pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
