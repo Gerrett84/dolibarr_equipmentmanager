@@ -188,20 +188,18 @@ if ($fichinter->thirdparty) {
     }
 }
 
-// Object address (right) - positioned at same Y as customer start, right-aligned
-$rightColX = $leftMargin + $colWidth + 3;
-$rightColWidth = $colWidth - 6;
-$pdf->SetXY($rightColX, $posy);
+// Object address (right) - positioned at same Y as customer start
+$pdf->SetXY($leftMargin + $colWidth + 3, $posy);
 if ($objectAddress) {
     if ($objectAddress->address) {
-        $pdf->Cell($rightColWidth, 4, $objectAddress->address, 0, 1, 'R');
-        $pdf->SetX($rightColX);
+        $pdf->Cell($colWidth - 6, 4, $objectAddress->address, 0, 1, 'L');
+        $pdf->SetX($leftMargin + $colWidth + 3);
     }
     if ($objectAddress->zip || $objectAddress->town) {
-        $pdf->Cell($rightColWidth, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1, 'R');
+        $pdf->Cell($colWidth - 6, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1, 'L');
     }
 } else {
-    $pdf->Cell($rightColWidth, 4, "-", 0, 1, 'R');
+    $pdf->Cell($colWidth - 6, 4, "-", 0, 1, 'L');
 }
 
 $pdf->SetY($boxStartY + $addressBoxHeight + 5);
