@@ -1759,51 +1759,64 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $pdf->Cell($contentWidth, 10, "Inbetriebnahme- und Abnahmeprotokoll", 1, 1, 'C', true);
     $posy += 12;
 
-    // Date (left) and Intervention ref (right)
+    // Intervention ref (left) and Date (right)
     $pdf->SetFont('', '', $default_font_size - 1);
     $pdf->SetXY($leftMargin, $posy);
-    $pdf->Cell(50, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 0, 'L');
-    $pdf->Cell(0, 5, "Serviceauftrag: ".$fichinter->ref, 0, 1, 'R');
-    $posy += 7;
+    $pdf->Cell(50, 5, "Serviceauftrag: ".$fichinter->ref, 0, 0, 'L');
+    $pdf->Cell(0, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 1, 'R');
+    $posy += 9;
 
-    // Customer / Object Address columns
-    $colWidth = ($contentWidth / 2) - 5;
+    // Customer / Object Address columns with box
+    $colWidth = ($contentWidth / 2) - 3;
+    $boxStartY = $posy;
+
+    // Draw background box for addresses
+    $addressBoxHeight = 28;
+    $pdf->SetDrawColor(200, 200, 200);
+    $pdf->SetFillColor(250, 250, 250);
+    $pdf->Rect($leftMargin, $boxStartY, $contentWidth, $addressBoxHeight, 'DF');
+
+    $posy += 3;
+
+    // Headers inside box
     $pdf->SetFont('', 'B', $default_font_size);
-    $pdf->Cell($colWidth, 5, "Auftraggeber:", 0, 0);
-    $pdf->SetX($leftMargin + $colWidth + 10);
-    $pdf->Cell($colWidth, 5, "Objektadresse:", 0, 1);
+    $pdf->SetXY($leftMargin + 3, $posy);
+    $pdf->Cell($colWidth - 6, 5, "Auftraggeber:", 0, 0, 'L');
+    $pdf->SetX($leftMargin + $colWidth + 3);
+    $pdf->Cell($colWidth - 6, 5, "Objektadresse:", 0, 1, 'L');
+    $posy += 6;
 
     $pdf->SetFont('', '', $default_font_size - 1);
-    $infoY = $pdf->GetY();
 
-    $pdf->SetXY($leftMargin, $infoY);
+    // Customer details (left)
+    $pdf->SetXY($leftMargin + 3, $posy);
     if ($fichinter->thirdparty) {
-        $pdf->MultiCell($colWidth, 4, $fichinter->thirdparty->name, 0, 'L');
+        $pdf->Cell($colWidth - 6, 4, $fichinter->thirdparty->name, 0, 1, 'L');
         if ($fichinter->thirdparty->address) {
-            $pdf->SetX($leftMargin);
-            $pdf->MultiCell($colWidth, 4, $fichinter->thirdparty->address, 0, 'L');
+            $pdf->SetX($leftMargin + 3);
+            $pdf->Cell($colWidth - 6, 4, $fichinter->thirdparty->address, 0, 1, 'L');
         }
         if ($fichinter->thirdparty->zip || $fichinter->thirdparty->town) {
-            $pdf->SetX($leftMargin);
-            $pdf->Cell($colWidth, 4, trim($fichinter->thirdparty->zip.' '.$fichinter->thirdparty->town), 0, 1);
+            $pdf->SetX($leftMargin + 3);
+            $pdf->Cell($colWidth - 6, 4, trim($fichinter->thirdparty->zip.' '.$fichinter->thirdparty->town), 0, 1, 'L');
         }
     }
-    $customerEndY = $pdf->GetY();
 
-    $pdf->SetXY($leftMargin + $colWidth + 10, $infoY);
+    // Object address (right)
+    $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
     if ($objectAddress) {
         if ($objectAddress->address) {
-            $pdf->MultiCell($colWidth, 4, $objectAddress->address, 0, 'L');
+            $pdf->Cell($colWidth - 6, 4, $objectAddress->address, 0, 1, 'L');
+            $pdf->SetX($leftMargin + $colWidth + 3);
         }
         if ($objectAddress->zip || $objectAddress->town) {
-            $pdf->SetX($leftMargin + $colWidth + 10);
-            $pdf->Cell($colWidth, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1);
+            $pdf->Cell($colWidth - 6, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1, 'L');
         }
     } else {
-        $pdf->Cell($colWidth, 4, "-", 0, 1);
+        $pdf->Cell($colWidth - 6, 4, "-", 0, 1, 'L');
     }
-    $objectEndY = $pdf->GetY();
-    $pdf->SetY(max($customerEndY, $objectEndY) + 8);
+
+    $pdf->SetY($boxStartY + $addressBoxHeight + 5);
 
     // Equipment list
     $equipmentCount = count($equipmentList);
