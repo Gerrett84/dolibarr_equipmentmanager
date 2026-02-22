@@ -1723,6 +1723,10 @@ function generateAcceptanceProtocol($fichinter, $user) {
 
     // Create PDF
     $pdf = pdf_getInstance();
+    if (class_exists('TCPDF')) {
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+    }
     $pdf->SetCreator("Dolibarr ".DOL_VERSION);
     $pdf->SetAuthor($mysoc->name);
     $pdf->SetTitle("Abnahmeprotokoll ".$fichinter->ref);
@@ -1802,18 +1806,20 @@ function generateAcceptanceProtocol($fichinter, $user) {
         }
     }
 
-    // Object address (right)
-    $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
+    // Object address (right) - right-aligned
+    $rightColX = $leftMargin + $colWidth + 3;
+    $rightColWidth = $colWidth - 6;
+    $pdf->SetXY($rightColX, $posy);
     if ($objectAddress) {
         if ($objectAddress->address) {
-            $pdf->Cell($colWidth - 6, 4, $objectAddress->address, 0, 1, 'L');
-            $pdf->SetX($leftMargin + $colWidth + 3);
+            $pdf->Cell($rightColWidth, 4, $objectAddress->address, 0, 1, 'R');
+            $pdf->SetX($rightColX);
         }
         if ($objectAddress->zip || $objectAddress->town) {
-            $pdf->Cell($colWidth - 6, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1, 'L');
+            $pdf->Cell($rightColWidth, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1, 'R');
         }
     } else {
-        $pdf->Cell($colWidth - 6, 4, "-", 0, 1, 'L');
+        $pdf->Cell($rightColWidth, 4, "-", 0, 1, 'R');
     }
 
     $pdf->SetY($boxStartY + $addressBoxHeight + 5);
