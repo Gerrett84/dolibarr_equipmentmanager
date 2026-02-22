@@ -1809,6 +1809,12 @@ function generateAcceptanceProtocol($fichinter, $user) {
     // Object address (right)
     $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
     if ($objectAddress) {
+        // Name
+        $objName = trim($objectAddress->firstname.' '.$objectAddress->lastname);
+        if (!empty($objName)) {
+            $pdf->Cell($colWidth - 6, 4, $objName, 0, 1, 'L');
+            $pdf->SetX($leftMargin + $colWidth + 3);
+        }
         if ($objectAddress->address) {
             $pdf->Cell($colWidth - 6, 4, $objectAddress->address, 0, 1, 'L');
             $pdf->SetX($leftMargin + $colWidth + 3);
