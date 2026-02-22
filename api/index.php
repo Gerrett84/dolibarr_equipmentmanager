@@ -1741,22 +1741,30 @@ function generateAcceptanceProtocol($fichinter, $user) {
     if ($mysoc->logo && file_exists($logo)) {
         $height = pdf_getHeightForLogo($logo);
         $pdf->Image($logo, $leftMargin, $posy, 0, $height);
-        $posy += $height + 3;
+        $posy += $height + 5;
+    } else {
+        $posy += 5;
     }
 
     // Company name
-    $pdf->SetFont('', 'B', $default_font_size + 1);
+    $pdf->SetFont('', 'B', $default_font_size + 2);
     $pdf->SetXY($leftMargin, $posy);
-    $pdf->Cell(0, 5, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
-    $posy += 7;
+    $pdf->Cell(0, 6, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
+    $posy += 8;
 
-    // Header
-    $pdf->SetY($posy);
-    $pdf->SetFont('', 'B', 14);
-    $pdf->Cell(0, 8, "INBETRIEBNAHME- UND ABNAHMEPROTOKOLL", 0, 1, 'C');
-    $pdf->SetFont('', '', $default_font_size);
-    $pdf->Cell(0, 5, "Serviceauftrag: ".$fichinter->ref, 0, 1, 'C');
-    $pdf->Ln(6);
+    // Header (gray box like checklist)
+    $pdf->SetFont('', 'B', $default_font_size + 4);
+    $pdf->SetXY($leftMargin, $posy);
+    $pdf->SetFillColor(240, 240, 240);
+    $pdf->Cell($contentWidth, 10, "Inbetriebnahme- und Abnahmeprotokoll", 1, 1, 'C', true);
+    $posy += 12;
+
+    // Date (left) and Intervention ref (right)
+    $pdf->SetFont('', '', $default_font_size - 1);
+    $pdf->SetXY($leftMargin, $posy);
+    $pdf->Cell(50, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 0, 'L');
+    $pdf->Cell(0, 5, "Serviceauftrag: ".$fichinter->ref, 0, 1, 'R');
+    $posy += 7;
 
     // Customer / Object Address columns
     $colWidth = ($contentWidth / 2) - 5;
