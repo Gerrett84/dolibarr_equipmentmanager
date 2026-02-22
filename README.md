@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.4.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,17 @@
 -----
 
 ## Features
+
+### NEU in v4.5: Inbetriebnahme- & Abnahmeprotokoll
+
+- **Abnahmeprotokoll PDF** - Professionelles Protokoll für Inbetriebnahme und Abnahme
+- **Zwei-Spalten-Layout** - IBN und Abnahme nebeneinander pro Anlage
+- **Automatische Generierung** - PDF wird beim Unterschreiben automatisch erstellt
+- **Email-Anhang** - Protokoll wird automatisch an Emails angehängt
+- **Checklisten-PDF** - Wird ebenfalls automatisch beim Abschluss generiert
+- **Einheitliches Design** - Logo, Header und Adressen-Box wie Checklisten
+- **Unterschriften** - Techniker- und Kundenunterschrift im Protokoll
+- **Signer-Name** - Name des Unterschreibenden wird gespeichert und angezeigt
 
 ### NEU in v4.4: Anlagen in Angeboten & Aufträgen
 
@@ -178,6 +189,17 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.5.0 (2025-02-22)
+
+- **Abnahmeprotokoll PDF** - Neues Protokoll für Inbetriebnahme und Abnahme
+- **Zwei-Spalten-Layout** - IBN-Daten und Abnahme-Daten nebeneinander pro Anlage
+- **Automatische PDF-Generierung** - Checklisten- und Abnahmeprotokoll-PDF beim Unterschreiben
+- **Email-Anhänge** - Alle PDFs (Signiert, Checklisten, Abnahmeprotokoll) automatisch anhängen
+- **Einheitliches PDF-Design** - Logo, Firmenname, grauer Titel-Header, Adressen-Box
+- **Signer-Name Fix** - Name des Unterschreibenden wird korrekt gespeichert
+- **Serviceauftrag im PDF** - Referenz links, Datum rechts (wie Checkliste)
+- **Seriennummer in PDF** - Equipment-Seriennummer wird angezeigt
 
 ### v4.4.0 (2025-02-12)
 
@@ -405,6 +427,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.4.0
+**Current Version:** 4.5.0
 **Released:** February 2025
 **Compatibility:** Dolibarr 16.0+
