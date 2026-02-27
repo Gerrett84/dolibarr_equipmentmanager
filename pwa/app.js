@@ -694,11 +694,10 @@ class ServiceReportApp {
         const signedStatus = intervention.signed_status || 0;
         const baseStatus = intervention.status || 0;
 
-        // Erledigt: signed (3) AND validated/closed (status >= 1)
-        if (signedStatus >= 3 && baseStatus >= 1) return 'signed';
+        // Erledigt: closed in Dolibarr (status=3), OR digitally signed (signed_status>=3) and validated
+        if (baseStatus >= 3 || (signedStatus >= 3 && baseStatus >= 1)) return 'signed';
 
-        // Freigegeben: released for signature (1 or 2) but NOT yet signed
-        // If signed (3) but still draft (0), it goes to 'open' below
+        // Freigegeben: released for signature (1 or 2) but NOT yet signed/closed
         if (signedStatus >= 1 && signedStatus < 3) return 'released';
 
         // Offen: everything else including:
