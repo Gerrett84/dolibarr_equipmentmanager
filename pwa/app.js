@@ -965,7 +965,7 @@ class ServiceReportApp {
         if (intervention.status === 0) {
             statusClass = 'open';
             statusText = 'Offen';
-        } else if (signedStatus >= 3) {
+        } else if (signedStatus >= 3 || intervention.status >= 3) {
             statusClass = 'signed';
             statusText = 'Unterschrieben';
         } else if (signedStatus >= 1) {
