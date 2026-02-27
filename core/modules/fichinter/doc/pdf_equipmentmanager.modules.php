@@ -608,12 +608,12 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $sql_addr .= " AND e.fk_address IS NOT NULL";
                 $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
 
+                require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
                 $resql_addr = $this->db->query($sql_addr);
                 if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
                     $obj_addr = $this->db->fetch_object($resql_addr);
                     if ($obj_addr->fk_address > 0) {
                         // Load contact details from socpeople
-                        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
                         $contact = new Contact($this->db);
                         if ($contact->fetch($obj_addr->fk_address) > 0) {
                             $objectAddr = '';
@@ -630,6 +630,35 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                         }
                     }
                     $this->db->free($resql_addr);
+                }
+
+                // Fallback: if no equipment address found, check contacts linked to the intervention
+                if (empty($objectAddr)) {
+                    $sql_contact = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
+                    $sql_contact .= " WHERE ec.element_id = ".(int)$object->id;
+                    $sql_contact .= " AND ec.fk_c_type_contact IN (";
+                    $sql_contact .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
+                    $sql_contact .= "  WHERE elementtype = 'fichinter' AND code = 'LOCATIONOFJOB'";
+                    $sql_contact .= " ) LIMIT 1";
+                    $resql_contact = $this->db->query($sql_contact);
+                    if ($resql_contact && $this->db->num_rows($resql_contact) > 0) {
+                        $obj_contact = $this->db->fetch_object($resql_contact);
+                        $contact = new Contact($this->db);
+                        if ($contact->fetch($obj_contact->fk_socpeople) > 0) {
+                            $objectAddr = '';
+                            if ($contact->lastname || $contact->firstname) {
+                                $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
+                            }
+                            if ($contact->address) {
+                                $objectAddr .= $contact->address."\n";
+                            }
+                            if ($contact->zip || $contact->town) {
+                                $objectAddr .= trim($contact->zip.' '.$contact->town);
+                            }
+                            $objectAddr = trim($objectAddr);
+                        }
+                        $this->db->free($resql_contact);
+                    }
                 }
 
                 // Only display if we have an object address
