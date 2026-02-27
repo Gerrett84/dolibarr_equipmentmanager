@@ -1175,12 +1175,10 @@ class ServiceReportApp {
             listEl.appendChild(btnContainer);
 
             if (equipment.length === 0) {
-                listEl.innerHTML += `
-                    <div class="empty-state">
-                        <div class="empty-icon">🔧</div>
-                        <p>Kein Equipment verknüpft</p>
-                    </div>
-                `;
+                const emptyState = document.createElement('div');
+                emptyState.className = 'empty-state';
+                emptyState.innerHTML = '<div class="empty-icon">🔧</div><p>Kein Equipment verknüpft</p>';
+                listEl.appendChild(emptyState);
                 return;
             }
 
