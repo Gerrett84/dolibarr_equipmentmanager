@@ -501,7 +501,7 @@ function handleIntervention($method, $parts, $input) {
 
             // Validate file
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-            $maxSize = 10 * 1024 * 1024; // 10MB
+            $maxSize = 2 * 1024 * 1024 * 1024; // 2GB
 
             if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
                 // Provide specific error messages for PHP upload errors
@@ -531,7 +531,7 @@ function handleIntervention($method, $parts, $input) {
 
             if ($uploadedFile['size'] > $maxSize) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Datei zu groß (max 10MB, Datei: ' . round($uploadedFile['size']/1024/1024, 2) . 'MB)']);
+                echo json_encode(['error' => 'Datei zu groß (max 2GB, Datei: ' . round($uploadedFile['size']/1024/1024, 2) . 'MB)']);
                 return;
             }
 
