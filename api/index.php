@@ -666,7 +666,10 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " e.location_note, e.manufacturer, e.door_wings,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
-    $sql .= " d.notes, d.work_date, d.work_duration";
+    $sql .= " d.notes, d.work_date, d.work_duration,";
+    $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
+    $sql .= " d.acceptance_done, d.acceptance_date, d.acceptance_defect_free, d.acceptance_note,";
+    $sql .= " d.instruction_done, d.testbook_handed";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
@@ -700,7 +703,16 @@ function getInterventionEquipment($intervention_id) {
                     'recommendations' => $obj->recommendations,
                     'notes' => $obj->notes,
                     'work_date' => $obj->work_date,
-                    'work_duration' => (int)$obj->work_duration
+                    'work_duration' => (int)$obj->work_duration,
+                    'commissioning_done' => (int)$obj->commissioning_done,
+                    'commissioning_date' => $obj->commissioning_date,
+                    'commissioning_note' => $obj->commissioning_note,
+                    'acceptance_done' => (int)$obj->acceptance_done,
+                    'acceptance_date' => $obj->acceptance_date,
+                    'acceptance_defect_free' => (int)$obj->acceptance_defect_free,
+                    'acceptance_note' => $obj->acceptance_note,
+                    'instruction_done' => (int)$obj->instruction_done,
+                    'testbook_handed' => (int)$obj->testbook_handed
                 ];
             }
 
@@ -833,7 +845,16 @@ function handleDetail($method, $parts, $input) {
                 'work_date' => $entry->work_date ? dol_print_date($entry->work_date, 'dayrfc') : null,
                 'work_duration' => (int)$entry->work_duration,
                 'photo' => $entry->photo,
-                'materials' => $materialsData
+                'materials' => $materialsData,
+                'commissioning_done' => (int)$entry->commissioning_done,
+                'commissioning_date' => $entry->commissioning_date ? dol_print_date($entry->commissioning_date, 'dayrfc') : null,
+                'commissioning_note' => $entry->commissioning_note,
+                'acceptance_done' => (int)$entry->acceptance_done,
+                'acceptance_date' => $entry->acceptance_date ? dol_print_date($entry->acceptance_date, 'dayrfc') : null,
+                'acceptance_defect_free' => (int)$entry->acceptance_defect_free,
+                'acceptance_note' => $entry->acceptance_note,
+                'instruction_done' => (int)$entry->instruction_done,
+                'testbook_handed' => (int)$entry->testbook_handed
             ];
             // Get recommendations/notes from any entry that has them
             if (!empty($entry->recommendations)) $recommendations = $entry->recommendations;
@@ -897,6 +918,17 @@ function handleDetail($method, $parts, $input) {
         $detail->notes = $input['notes'] ?? '';
         $detail->work_date = !empty($input['work_date']) ? strtotime($input['work_date']) : null;
         $detail->work_duration = (int)($input['work_duration'] ?? 0);
+
+        // Commissioning and acceptance fields (v4.5)
+        $detail->commissioning_done = (int)($input['commissioning_done'] ?? 0);
+        $detail->commissioning_date = !empty($input['commissioning_date']) ? strtotime($input['commissioning_date']) : null;
+        $detail->commissioning_note = $input['commissioning_note'] ?? '';
+        $detail->acceptance_done = (int)($input['acceptance_done'] ?? 0);
+        $detail->acceptance_date = !empty($input['acceptance_date']) ? strtotime($input['acceptance_date']) : null;
+        $detail->acceptance_defect_free = (int)($input['acceptance_defect_free'] ?? 1);
+        $detail->acceptance_note = $input['acceptance_note'] ?? '';
+        $detail->instruction_done = (int)($input['instruction_done'] ?? 0);
+        $detail->testbook_handed = (int)($input['testbook_handed'] ?? 0);
 
         // Get intervention ref for photo directory
         dol_include_once('/fichinter/class/fichinter.class.php');
@@ -1629,6 +1661,403 @@ function getInterventionDocuments($fichinter) {
 }
 
 /**
+ * Generate Acceptance Protocol PDF for an intervention
+ * Creates Abnahmeprotokoll_REF.pdf in the intervention documents folder
+ *
+ * @param Fichinter $fichinter Intervention object (already fetched with thirdparty)
+ * @param User $user Current user
+ * @return string|false PDF filename on success, false on failure
+ */
+function generateAcceptanceProtocol($fichinter, $user) {
+    global $db, $conf, $langs, $mysoc;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+    require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+
+    $outputlangs = $langs;
+    $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
+
+    // Check if there are service equipment
+    $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
+    $sql .= " e.location_note, e.manufacturer,";
+    $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
+    $sql .= " d.acceptance_done, d.acceptance_date, d.acceptance_defect_free, d.acceptance_note,";
+    $sql .= " d.instruction_done, d.testbook_handed";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
+    $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
+    $sql .= " WHERE l.fk_intervention = ".(int)$fichinter->id;
+    $sql .= " AND l.link_type = 'service'";
+    $sql .= " ORDER BY e.equipment_number";
+
+    $resql = $db->query($sql);
+    $equipmentList = [];
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $equipmentList[] = $obj;
+        }
+    }
+
+    if (empty($equipmentList)) {
+        return false;
+    }
+
+    // Get object address contact
+    $objectAddress = null;
+    $contacts = $fichinter->liste_contact(-1, 'external');
+    if (is_array($contacts)) {
+        foreach ($contacts as $contact) {
+            if ($contact['code'] == 'OBJ') {
+                $contactObj = new Contact($db);
+                $contactObj->fetch($contact['id']);
+                $objectAddress = $contactObj;
+                break;
+            }
+        }
+    }
+
+    // Get equipment type labels
+    $typeLabels = Equipment::getEquipmentTypesTranslated($db, $langs);
+
+    // Create PDF
+    $pdf = pdf_getInstance();
+    if (class_exists('TCPDF')) {
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+    }
+    $pdf->SetCreator("Dolibarr ".DOL_VERSION);
+    $pdf->SetAuthor($mysoc->name);
+    $pdf->SetTitle("Abnahmeprotokoll ".$fichinter->ref);
+    $pdf->SetMargins(15, 15, 15);
+    $pdf->SetAutoPageBreak(true, 25);
+    $pdf->AddPage();
+
+    $default_font_size = 9;
+    $pageWidth = $pdf->getPageWidth();
+    $contentWidth = $pageWidth - 30;
+    $leftMargin = 15;
+
+    // Logo
+    $posy = 15;
+    $logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
+    if ($mysoc->logo && file_exists($logo)) {
+        $height = pdf_getHeightForLogo($logo);
+        $pdf->Image($logo, $leftMargin, $posy, 0, $height);
+        $posy += $height + 5;
+    } else {
+        $posy += 5;
+    }
+
+    // Company name
+    $pdf->SetFont('', 'B', $default_font_size + 2);
+    $pdf->SetXY($leftMargin, $posy);
+    $pdf->Cell(0, 6, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
+    $posy += 8;
+
+    // Header (gray box like checklist)
+    $pdf->SetFont('', 'B', $default_font_size + 4);
+    $pdf->SetXY($leftMargin, $posy);
+    $pdf->SetFillColor(240, 240, 240);
+    $pdf->Cell($contentWidth, 10, "Inbetriebnahme- und Abnahmeprotokoll", 1, 1, 'C', true);
+    $posy += 12;
+
+    // Intervention ref (left) and Date (right)
+    $pdf->SetFont('', '', $default_font_size - 1);
+    $pdf->SetXY($leftMargin, $posy);
+    $pdf->Cell(50, 5, "Serviceauftrag: ".$fichinter->ref, 0, 0, 'L');
+    $pdf->Cell(0, 5, "Datum: ".dol_print_date(dol_now(), 'day'), 0, 1, 'R');
+    $posy += 9;
+
+    // Customer / Object Address columns with box
+    $colWidth = ($contentWidth / 2) - 3;
+    $boxStartY = $posy;
+
+    // Draw background box for addresses
+    $addressBoxHeight = 28;
+    $pdf->SetDrawColor(200, 200, 200);
+    $pdf->SetFillColor(250, 250, 250);
+    $pdf->Rect($leftMargin, $boxStartY, $contentWidth, $addressBoxHeight, 'DF');
+
+    $posy += 3;
+
+    // Headers inside box
+    $pdf->SetFont('', 'B', $default_font_size);
+    $pdf->SetXY($leftMargin + 3, $posy);
+    $pdf->Cell($colWidth - 6, 5, "Auftraggeber:", 0, 0, 'L');
+    $pdf->SetX($leftMargin + $colWidth + 3);
+    $pdf->Cell($colWidth - 6, 5, "Objektadresse:", 0, 1, 'L');
+    $posy += 6;
+
+    $pdf->SetFont('', '', $default_font_size - 1);
+
+    // Customer details (left)
+    $pdf->SetXY($leftMargin + 3, $posy);
+    if ($fichinter->thirdparty) {
+        $pdf->Cell($colWidth - 6, 4, $fichinter->thirdparty->name, 0, 1, 'L');
+        if ($fichinter->thirdparty->address) {
+            $pdf->SetX($leftMargin + 3);
+            $pdf->Cell($colWidth - 6, 4, $fichinter->thirdparty->address, 0, 1, 'L');
+        }
+        if ($fichinter->thirdparty->zip || $fichinter->thirdparty->town) {
+            $pdf->SetX($leftMargin + 3);
+            $pdf->Cell($colWidth - 6, 4, trim($fichinter->thirdparty->zip.' '.$fichinter->thirdparty->town), 0, 1, 'L');
+        }
+    }
+
+    // Object address (right)
+    $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
+    if ($objectAddress) {
+        // Name
+        $objName = trim($objectAddress->firstname.' '.$objectAddress->lastname);
+        if (!empty($objName)) {
+            $pdf->Cell($colWidth - 6, 4, $objName, 0, 1, 'L');
+            $pdf->SetX($leftMargin + $colWidth + 3);
+        }
+        if ($objectAddress->address) {
+            $pdf->Cell($colWidth - 6, 4, $objectAddress->address, 0, 1, 'L');
+            $pdf->SetX($leftMargin + $colWidth + 3);
+        }
+        if ($objectAddress->zip || $objectAddress->town) {
+            $pdf->Cell($colWidth - 6, 4, trim($objectAddress->zip.' '.$objectAddress->town), 0, 1, 'L');
+        }
+    } else {
+        $pdf->Cell($colWidth - 6, 4, "-", 0, 1, 'L');
+    }
+
+    $pdf->SetY($boxStartY + $addressBoxHeight + 5);
+
+    // Equipment list
+    $equipmentCount = count($equipmentList);
+    $equipmentIndex = 0;
+    $rowHeight = 5;
+    $headerHeight = 6;
+    $fixedBoxHeight = $headerHeight + ($rowHeight * 4);
+    $halfWidth = ($contentWidth / 2) - 2;
+
+    foreach ($equipmentList as $eq) {
+        $equipmentIndex++;
+
+        if ($pdf->GetY() > 190) {
+            $pdf->AddPage();
+        }
+
+        $typeLabel = isset($typeLabels[$eq->equipment_type]) ? $typeLabels[$eq->equipment_type] : $eq->equipment_type;
+
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetLineWidth(0.3);
+        $pdf->SetFillColor(230, 230, 230);
+        $pdf->SetFont('', 'B', $default_font_size);
+        $pdf->Cell(0, 6, $eq->equipment_number." - ".$eq->label, 1, 1, 'L', true);
+
+        $pdf->SetFillColor(245, 245, 245);
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $details = "Typ: ".$typeLabel;
+        if (!empty($eq->serial_number)) $details .= "  |  S/N: ".$eq->serial_number;
+        if (!empty($eq->manufacturer)) $details .= "  |  Hersteller: ".$eq->manufacturer;
+        if (!empty($eq->location_note)) $details .= "  |  Standort: ".$eq->location_note;
+        $pdf->Cell(0, 5, $details, 'LRB', 1, 'L', true);
+        $pdf->SetLineWidth(0.2);
+        $pdf->Ln(1);
+
+        $boxStartY = $pdf->GetY();
+
+        // LEFT: Inbetriebnahme
+        $pdf->SetXY($leftMargin, $boxStartY);
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell($halfWidth, $headerHeight, "Inbetriebnahme", 1, 1, 'L');
+
+        $pdf->SetX($leftMargin);
+        $erfolgtIBN = $eq->commissioning_done ? "Ja" : "Nein";
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell(18, $rowHeight, "Erfolgt:", 'L', 0, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->Cell($halfWidth - 18, $rowHeight, $erfolgtIBN, 'R', 1, 'L');
+
+        $pdf->SetX($leftMargin);
+        if ($eq->commissioning_done) {
+            $dateStr = $eq->commissioning_date ? dol_print_date($db->jdate($eq->commissioning_date), 'day') : '-';
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->Cell(18, $rowHeight, "Datum:", 'L', 0, 'L');
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->Cell($halfWidth - 18, $rowHeight, $dateStr, 'R', 1, 'L');
+        } else {
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->Cell(22, $rowHeight, "Bemerkung:", 'L', 0, 'L');
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->Cell($halfWidth - 22, $rowHeight, "", 'R', 1, 'L');
+        }
+
+        $pdf->SetX($leftMargin);
+        $pdf->SetFont('', '', $default_font_size - 1);
+        if ($eq->commissioning_done) {
+            $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
+        } else {
+            $note = $eq->commissioning_note ?: '-';
+            $pdf->Cell($halfWidth, $rowHeight, $note, 'LR', 1, 'L');
+        }
+
+        $pdf->SetX($leftMargin);
+        $pdf->Cell($halfWidth, $rowHeight, "", 'LRB', 1, 'L');
+
+        // RIGHT: Abnahme
+        $pdf->SetXY($leftMargin + $halfWidth + 4, $boxStartY);
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell($halfWidth, $headerHeight, "Abnahme", 1, 1, 'L');
+
+        $pdf->SetX($leftMargin + $halfWidth + 4);
+        $erfolgtAbn = $eq->acceptance_done ? "Ja" : "Nein";
+        $pdf->SetFont('', 'B', $default_font_size - 1);
+        $pdf->Cell(18, $rowHeight, "Erfolgt:", 'L', 0, 'L');
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->Cell($halfWidth - 18, $rowHeight, $erfolgtAbn, 'R', 1, 'L');
+
+        $pdf->SetX($leftMargin + $halfWidth + 4);
+        if ($eq->acceptance_done) {
+            $dateStr = $eq->acceptance_date ? dol_print_date($db->jdate($eq->acceptance_date), 'day') : '-';
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->Cell(18, $rowHeight, "Datum:", 'L', 0, 'L');
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->Cell($halfWidth - 18, $rowHeight, $dateStr, 'R', 1, 'L');
+        } else {
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->Cell($halfWidth, $rowHeight, "Wesentliche Mängel:", 'LR', 1, 'L');
+            $pdf->SetFont('', '', $default_font_size - 1);
+        }
+
+        $pdf->SetX($leftMargin + $halfWidth + 4);
+        if ($eq->acceptance_done) {
+            if (!empty($eq->acceptance_note)) {
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->Cell(22, $rowHeight, "Bemerkung:", 'L', 0, 'L');
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->Cell($halfWidth - 22, $rowHeight, $eq->acceptance_note, 'R', 1, 'L');
+            } else {
+                $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
+            }
+        } else {
+            $maengel = $eq->acceptance_note ?: '-';
+            $pdf->Cell($halfWidth, $rowHeight, $maengel, 'LR', 1, 'L');
+        }
+
+        $pdf->SetX($leftMargin + $halfWidth + 4);
+        $pdf->Cell($halfWidth, $rowHeight, "", 'LRB', 1, 'L');
+
+        $pdf->SetY($boxStartY + $fixedBoxHeight + 1);
+
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $checkYes = "[X]";
+        $checkNo = "[  ]";
+        $instruction = $eq->instruction_done ? $checkYes : $checkNo;
+        $testbook = $eq->testbook_handed ? $checkYes : $checkNo;
+        $pdf->Cell($halfWidth, 5, $instruction." Einweisung erfolgt", 1, 0, 'L');
+        $pdf->Cell(4, 5, "", 0, 0);
+        $pdf->Cell($halfWidth, 5, $testbook." Prüfbuch übergeben", 1, 1, 'L');
+
+        if ($equipmentIndex < $equipmentCount) {
+            $pdf->Ln(4);
+            $pdf->SetDrawColor(180, 180, 180);
+            $pdf->SetLineWidth(0.3);
+            $pdf->Line($leftMargin, $pdf->GetY(), $leftMargin + $contentWidth, $pdf->GetY());
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->SetLineWidth(0.2);
+            $pdf->Ln(4);
+        } else {
+            $pdf->Ln(2);
+        }
+    }
+
+    // Signature section
+    $pdf->SetAutoPageBreak(false);
+    $signatureStartY = 240;
+
+    if ($pdf->GetY() > $signatureStartY - 5) {
+        $pdf->AddPage();
+    }
+
+    $pdf->SetY($signatureStartY);
+
+    $signatureFile = null;
+    $signatureDir = $conf->ficheinter->dir_output.'/'.$fichinter->ref.'/signatures';
+    if (is_dir($signatureDir)) {
+        $files = scandir($signatureDir);
+        foreach ($files as $file) {
+            if (preg_match('/_signature\.png$/', $file)) {
+                $signatureFile = $signatureDir.'/'.$file;
+                break;
+            }
+        }
+    }
+
+    $techSignatureFile = null;
+    $techFile = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+    if (file_exists($techFile)) {
+        $techSignatureFile = $techFile;
+    }
+
+    $boxWidth = ($contentWidth / 2) - 5;
+    $boxHeight = 25;
+    $curY = $pdf->GetY();
+
+    $pdf->SetFont('', 'B', $default_font_size - 1);
+    $pdf->SetXY($leftMargin, $curY);
+    $pdf->Cell($boxWidth, 5, "Techniker: ".$user->getFullName($langs), 0, 1);
+    $pdf->SetLineWidth(0.3);
+    $pdf->Rect($leftMargin, $curY + 5, $boxWidth, $boxHeight);
+
+    if ($techSignatureFile) {
+        $pdf->Image($techSignatureFile, $leftMargin + 2, $curY + 7, $boxWidth - 4, $boxHeight - 6, '', '', '', false, 300, '', false, false, 0, 'CM');
+    }
+
+    $signerName = '';
+    $sqlSigner = "SELECT online_sign_name FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$fichinter->id;
+    $resSigner = $db->query($sqlSigner);
+    if ($resSigner && $objSigner = $db->fetch_object($resSigner)) {
+        $signerName = $objSigner->online_sign_name;
+    }
+
+    $pdf->SetFont('', 'B', $default_font_size - 1);
+    $pdf->SetXY($leftMargin + $boxWidth + 10, $curY);
+    $customerLabel = "Auftraggeber:";
+    if (!empty($signerName)) {
+        $customerLabel .= " ".$signerName;
+    }
+    $pdf->Cell($boxWidth, 5, $customerLabel, 0, 1);
+    $pdf->Rect($leftMargin + $boxWidth + 10, $curY + 5, $boxWidth, $boxHeight);
+
+    if ($signatureFile && file_exists($signatureFile)) {
+        $pdf->Image($signatureFile, $leftMargin + $boxWidth + 12, $curY + 7, $boxWidth - 4, $boxHeight - 6, '', '', '', false, 300, '', false, false, 0, 'CM');
+    }
+
+    $ortText = '';
+    if ($objectAddress && !empty($objectAddress->town)) {
+        $ortText = $objectAddress->town;
+    } elseif ($fichinter->thirdparty && !empty($fichinter->thirdparty->town)) {
+        $ortText = $fichinter->thirdparty->town;
+    }
+    $pdf->SetY($curY + $boxHeight + 6);
+    $pdf->SetFont('', '', $default_font_size - 1);
+    $pdf->Cell(0, 5, $ortText.", ".dol_print_date(dol_now(), 'day'), 0, 1);
+
+    // Save PDF
+    $pdfFilename = "Abnahmeprotokoll_".$fichinter->ref.".pdf";
+    $docDir = $conf->ficheinter->dir_output.'/'.$fichinter->ref;
+    if (!is_dir($docDir)) {
+        dol_mkdir($docDir);
+    }
+    $pdfPath = $docDir.'/'.$pdfFilename;
+
+    $pdfContent = $pdf->Output($pdfFilename, 'S');
+    file_put_contents($pdfPath, $pdfContent);
+
+    if (file_exists($pdfPath)) {
+        return $pdfFilename;
+    }
+    return false;
+}
+
+/**
  * Process signature for intervention (shared logic for sync and direct signature endpoint)
  * Uses EquipmentManager PDF template with technician signature and adds customer signature
  *
@@ -1802,6 +2231,12 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     // Use Fichinter's setSignedStatus if available
     if (method_exists($fichinter, 'setSignedStatus')) {
         $result = $fichinter->setSignedStatus($tmpUser, Fichinter::$SIGNED_STATUSES['STATUS_SIGNED_RECEIVER_ONLINE'], 0, 'FICHINTER_MODIFY');
+        // Also update online_sign_name and online_sign_ip (setSignedStatus doesn't set these)
+        $sqlSignerInfo = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
+        $sqlSignerInfo .= "online_sign_ip = '".$db->escape($signerIp)."',";
+        $sqlSignerInfo .= "online_sign_name = '".$db->escape($signerName)."'";
+        $sqlSignerInfo .= " WHERE rowid = ".(int)$intervention_id;
+        $db->query($sqlSignerInfo);
     } else {
         // Fallback to direct SQL update
         $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET ";
@@ -1817,10 +2252,36 @@ function processSignature($intervention_id, $signatureData, $signerName) {
         // The intervention stays at "validated/released" status (fk_statut = 1)
         // Closing (fk_statut = 3) should happen separately
 
+        // Generate combined checklists PDF if there are completed checklists
+        $checklistsPdfFile = null;
+        try {
+            dol_include_once('/equipmentmanager/class/pdf_checklist.class.php');
+            $pdfChecklist = new pdf_checklist($db);
+            $checklistFile = $pdfChecklist->write_combined_file($fichinter, $user, $langs, false);
+            if ($checklistFile && $checklistFile !== false) {
+                $checklistsPdfFile = basename($checklistFile);
+            }
+        } catch (Exception $e) {
+            // Continue without checklists PDF
+        }
+
+        // Generate acceptance protocol PDF if there are service equipment
+        $acceptanceProtocolFile = null;
+        try {
+            $acceptanceFile = generateAcceptanceProtocol($fichinter, $user);
+            if ($acceptanceFile && $acceptanceFile !== false) {
+                $acceptanceProtocolFile = $acceptanceFile;
+            }
+        } catch (Exception $e) {
+            // Continue without acceptance protocol PDF
+        }
+
         return [
             'success' => true,
             'signed_pdf' => $signedPdfFile,
-            'signature_file' => $filename
+            'signature_file' => $filename,
+            'checklists_pdf' => $checklistsPdfFile,
+            'acceptance_protocol' => $acceptanceProtocolFile
         ];
     } else {
         return [
@@ -2304,7 +2765,7 @@ function handleEquipment($method, $parts, $input) {
 
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Update equipment - only specific fields allowed from PWA
-        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings'];
+        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number'];
 
         foreach ($allowed_fields as $field) {
             if (isset($input[$field])) {
@@ -2319,6 +2780,8 @@ function handleEquipment($method, $parts, $input) {
                     $equipment->manufacturer = $input[$field];
                 } elseif ($field === 'door_wings') {
                     $equipment->door_wings = $input[$field];
+                } elseif ($field === 'serial_number') {
+                    $equipment->serial_number = $input[$field];
                 }
             }
         }

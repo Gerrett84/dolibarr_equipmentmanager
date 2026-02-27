@@ -392,6 +392,12 @@ class ServiceReportApp {
         document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
         document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
 
+        // PDF Preview button
+        document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
+
+        // Acceptance Protocol button (v4.5)
+        document.getElementById('navAcceptanceProtocol').addEventListener('click', () => this.showAcceptanceProtocol());
+
         // Defect material section visibility (v4.2) - show after saving entry with issues
         document.getElementById('entryIssuesFound').addEventListener('input', () => {
             // Only show if editing existing entry (new entries must be saved first)
@@ -399,6 +405,73 @@ class ServiceReportApp {
                 this.updateDefectMaterialVisibility();
             }
         });
+
+        // Commissioning/Acceptance checkbox handlers (v4.5)
+        document.getElementById('entryCommissioningDone').addEventListener('change', (e) => {
+            this.updateCommissioningUI(e.target.checked);
+        });
+        // Parent checkbox: "Abnahme durchführen"
+        document.getElementById('entryDoingAcceptance').addEventListener('change', (e) => {
+            this.updateDoingAcceptanceUI(e.target.checked);
+        });
+        // Success checkbox: "Abnahme erfolgreich"
+        document.getElementById('entryAcceptanceDone').addEventListener('change', (e) => {
+            this.updateAcceptanceSuccessUI(e.target.checked);
+        });
+    }
+
+    // Toggle commissioning date vs note visibility (v4.5)
+    updateCommissioningUI(isDone) {
+        const dateRow = document.getElementById('commissioningDateRow');
+        const noteRow = document.getElementById('commissioningNoteRow');
+        const dateInput = document.getElementById('entryCommissioningDate');
+
+        if (isDone) {
+            dateRow.style.display = 'block';
+            noteRow.style.display = 'none';
+            if (!dateInput.value) {
+                dateInput.value = this.formatDateInput(new Date());
+            }
+        } else {
+            dateRow.style.display = 'none';
+            noteRow.style.display = 'block';
+        }
+    }
+
+    // Toggle acceptance section visibility when "Abnahme durchführen" is clicked (v4.5.2)
+    updateDoingAcceptanceUI(isDoing) {
+        const detailsRow = document.getElementById('acceptanceDetailsRow');
+        const successRow = document.getElementById('acceptanceSuccessRow');
+        const failedRow = document.getElementById('acceptanceFailedRow');
+        const successCheckbox = document.getElementById('entryAcceptanceDone');
+
+        if (isDoing) {
+            detailsRow.style.display = 'block';
+            // Default: show failed row (defects), hide success row
+            // User must explicitly check "Abnahme erfolgreich"
+            this.updateAcceptanceSuccessUI(successCheckbox.checked);
+        } else {
+            detailsRow.style.display = 'none';
+            successCheckbox.checked = false;
+        }
+    }
+
+    // Toggle success vs failed display when "Abnahme erfolgreich" is clicked (v4.5.2)
+    updateAcceptanceSuccessUI(isSuccess) {
+        const successRow = document.getElementById('acceptanceSuccessRow');
+        const failedRow = document.getElementById('acceptanceFailedRow');
+        const dateInput = document.getElementById('entryAcceptanceDate');
+
+        if (isSuccess) {
+            successRow.style.display = 'block';
+            failedRow.style.display = 'none';
+            if (!dateInput.value) {
+                dateInput.value = this.formatDateInput(new Date());
+            }
+        } else {
+            successRow.style.display = 'none';
+            failedRow.style.display = 'block';
+        }
     }
 
     updateOnlineStatus() {
@@ -434,6 +507,8 @@ class ServiceReportApp {
             document.getElementById('navRelease').style.display = 'none';
             document.getElementById('navInfo').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
+            document.getElementById('navPdfPreview').style.display = 'none';
+            document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
         } else {
             backBtn.style.display = 'block';
@@ -1039,6 +1114,9 @@ class ServiceReportApp {
             const docsBtn = document.getElementById('navDocuments');
             docsBtn.style.display = 'flex';
 
+            // Show PDF preview button
+            document.getElementById('navPdfPreview').style.display = 'flex';
+
             // console.log('Equipment loaded, signedStatus:', signedStatus);
 
             if (signedStatus >= 1) {
@@ -1062,6 +1140,15 @@ class ServiceReportApp {
                 // Not released - hide signature button
                 sigBtn.style.display = 'none';
             }
+
+            // Show acceptance protocol button if has acceptance data (v4.5)
+            // Available even before signing so user can preview
+            const accBtn = document.getElementById('navAcceptanceProtocol');
+            const hasAcceptanceData = equipment.some(eq =>
+                eq.link_type === 'service' && eq.detail &&
+                (eq.detail.commissioning_done || eq.detail.acceptance_done)
+            );
+            accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
 
             // Button container for action buttons
             const btnContainer = document.createElement('div');
@@ -1338,8 +1425,64 @@ class ServiceReportApp {
             document.getElementById('defectMaterialSection').style.display = 'none';
         }
 
+        // Commissioning/Acceptance section (v4.5) - only for service entries
+        this.loadCommissioningAcceptanceFields(entry);
+
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
+    }
+
+    // Load commissioning and acceptance fields (v4.5)
+    loadCommissioningAcceptanceFields(entry) {
+        const section = document.getElementById('commissioningAcceptanceSection');
+        if (!section) return; // Safety check
+
+        // Hide for maintenance entries, show for everything else (service, general)
+        if (this.currentEquipment && this.currentEquipment.link_type === 'maintenance') {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+
+        // Commissioning
+        const commDone = document.getElementById('entryCommissioningDone');
+        const commDate = document.getElementById('entryCommissioningDate');
+        const commNote = document.getElementById('entryCommissioningNote');
+
+        commDone.checked = !!entry?.commissioning_done;
+        commDate.value = entry?.commissioning_date || '';
+        commNote.value = entry?.commissioning_note || '';
+        this.updateCommissioningUI(commDone.checked);
+
+        // Acceptance (v4.5.2 - new logic)
+        const doingAcc = document.getElementById('entryDoingAcceptance');
+        const accDone = document.getElementById('entryAcceptanceDone');
+        const accDate = document.getElementById('entryAcceptanceDate');
+        const accDefects = document.getElementById('entryAcceptanceDefects');
+        const accNote = document.getElementById('entryAcceptanceNote');
+
+        // Determine if user was doing acceptance:
+        // - acceptance_done = 1 → doing acceptance, successful
+        // - acceptance_done = 0 AND acceptance_note has content → doing acceptance, failed
+        // - acceptance_done = 0 AND acceptance_note empty → not doing acceptance
+        const wasDoingAcceptance = !!entry?.acceptance_done || !!(entry?.acceptance_note);
+        const wasSuccessful = !!entry?.acceptance_done;
+
+        doingAcc.checked = wasDoingAcceptance;
+        accDone.checked = wasSuccessful;
+        accDate.value = entry?.acceptance_date || '';
+        accNote.value = wasSuccessful ? (entry?.acceptance_note || '') : '';
+        accDefects.value = !wasSuccessful && wasDoingAcceptance ? (entry?.acceptance_note || '') : '';
+
+        this.updateDoingAcceptanceUI(doingAcc.checked);
+        if (doingAcc.checked) {
+            this.updateAcceptanceSuccessUI(accDone.checked);
+        }
+
+        // Instruction & Testbook
+        document.getElementById('entryInstructionDone').checked = !!entry?.instruction_done;
+        document.getElementById('entryTestbookHanded').checked = !!entry?.testbook_handed;
     }
 
     // Add new entry (v1.7)
@@ -1366,6 +1509,9 @@ class ServiceReportApp {
         this.currentEntryPhotoData = null;
         this.updateEntryPhotoUI();
 
+        // Clear commissioning/acceptance fields (v4.5)
+        this.loadCommissioningAcceptanceFields(null);
+
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
     }
@@ -1384,6 +1530,41 @@ class ServiceReportApp {
             work_done: document.getElementById('entryWorkDone').value,
             issues_found: document.getElementById('entryIssuesFound').value
         };
+
+        // Add commissioning/acceptance fields for non-maintenance entries (v4.5.2)
+        if (this.currentEquipment?.link_type !== 'maintenance') {
+            const commDone = document.getElementById('entryCommissioningDone').checked;
+            entryData.commissioning_done = commDone ? 1 : 0;
+            entryData.commissioning_date = commDone ? document.getElementById('entryCommissioningDate').value : null;
+            entryData.commissioning_note = !commDone ? document.getElementById('entryCommissioningNote').value : null;
+
+            // Acceptance: new logic (v4.5.2)
+            const doingAcceptance = document.getElementById('entryDoingAcceptance').checked;
+            const accSuccessful = document.getElementById('entryAcceptanceDone').checked;
+
+            if (doingAcceptance && accSuccessful) {
+                // Abnahme erfolgreich durchgeführt
+                entryData.acceptance_done = 1;
+                entryData.acceptance_date = document.getElementById('entryAcceptanceDate').value || null;
+                entryData.acceptance_note = document.getElementById('entryAcceptanceNote').value || null;
+            } else if (doingAcceptance && !accSuccessful) {
+                // Abnahme durchgeführt aber fehlgeschlagen (Mängel)
+                entryData.acceptance_done = 0;
+                entryData.acceptance_date = null;
+                entryData.acceptance_note = document.getElementById('entryAcceptanceDefects').value || null;
+            } else {
+                // Keine Abnahme durchgeführt (andere Arbeiten)
+                entryData.acceptance_done = 0;
+                entryData.acceptance_date = null;
+                entryData.acceptance_note = null;
+            }
+
+            // acceptance_defect_free is no longer used in new logic, but keep for backwards compat
+            entryData.acceptance_defect_free = accSuccessful ? 1 : 0;
+
+            entryData.instruction_done = document.getElementById('entryInstructionDone').checked ? 1 : 0;
+            entryData.testbook_handed = document.getElementById('entryTestbookHanded').checked ? 1 : 0;
+        }
 
         // Add entry_id if editing existing entry
         if (this.currentEntry && this.currentEntry.id) {
@@ -3243,6 +3424,40 @@ class ServiceReportApp {
         document.getElementById('documentsModal').classList.remove('show');
     }
 
+    // Show PDF preview in new tab
+    showPdfPreview() {
+        if (!this.currentIntervention) {
+            this.showToast('Keine Intervention ausgewählt');
+            return;
+        }
+
+        if (!this.isOnline) {
+            this.showToast('PDF-Vorschau nur online verfügbar');
+            return;
+        }
+
+        // Open PDF preview in new tab
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
+        window.open(previewUrl, '_blank');
+    }
+
+    // Show acceptance protocol PDF in new tab (v4.5)
+    showAcceptanceProtocol() {
+        if (!this.currentIntervention) {
+            this.showToast('Keine Intervention ausgewählt');
+            return;
+        }
+
+        if (!this.isOnline) {
+            this.showToast('Abnahmeprotokoll nur online verfügbar');
+            return;
+        }
+
+        // Open acceptance protocol in new tab
+        const protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        window.open(protocolUrl, '_blank');
+    }
+
     async showInfo() {
         document.getElementById('infoModal').classList.add('show');
 
@@ -3363,13 +3578,19 @@ class ServiceReportApp {
         document.getElementById('eqDetailType').textContent = typeLabel;
         document.getElementById('eqDetailManufacturer').textContent = equipment.manufacturer || '-';
 
+        // Show serial number (editable, so always show row)
+        const serialRow = document.getElementById('eqDetailSerialRow');
+        const serialEl = document.getElementById('eqDetailSerial');
+        serialEl.textContent = equipment.serial_number || '-';
+        serialRow.style.display = 'block';
+
         // Add click handlers for editable fields
         const labelEl = document.getElementById('eqDetailLabel');
         const locationEl = document.getElementById('eqDetailLocation');
         const manufacturerEl = document.getElementById('eqDetailManufacturer');
 
         // Style editable fields
-        [labelEl, locationEl, manufacturerEl].forEach(el => {
+        [labelEl, locationEl, manufacturerEl, serialEl].forEach(el => {
             el.style.background = 'var(--input-bg)';
             el.style.border = '1px dashed var(--border-color)';
         });
@@ -3378,6 +3599,7 @@ class ServiceReportApp {
         labelEl.onclick = () => this.editEquipmentField('label', 'Bezeichnung', equipment.label || '');
         locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
         manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
+        serialEl.onclick = () => this.editEquipmentField('serial_number', 'Seriennummer', equipment.serial_number || '');
     }
 
     // Edit equipment field via prompt
@@ -3400,6 +3622,8 @@ class ServiceReportApp {
                     this.currentEquipment.location = newValue;
                 } else if (field === 'manufacturer') {
                     this.currentEquipment.manufacturer = newValue;
+                } else if (field === 'serial_number') {
+                    this.currentEquipment.serial_number = newValue;
                 }
 
                 // Re-render details

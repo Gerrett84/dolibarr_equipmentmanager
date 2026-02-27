@@ -691,3 +691,13 @@ CommandeHasEquipment=Der verknüpfte Auftrag enthält Anlagen:
 ImportEquipment=Anlagen importieren
 EquipmentImported=%s Anlagen importiert
 NoEquipmentToImport=Keine Anlagen zum Importieren gefunden
+
+# v4.5 - Commissioning & Acceptance Protocol
+CommissioningDone=Inbetriebnahme durchgeführt
+CommissioningDate=Datum der Inbetriebnahme
+CommissioningNote=Bemerkung zur Inbetriebnahme
+AcceptanceDone=Abnahme durchgeführt
+AcceptanceDate=Datum der Abnahme
+AcceptanceNote=Bemerkung zur Abnahme
+AcceptanceProtocol=Abnahmeprotokoll
+NoAcceptanceData=Keine Anlagen mit Inbetriebnahme/Abnahme gefunden

@@ -1891,6 +1891,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                             <span style="color:var(--text-muted);">Hersteller:</span>
                             <div id="eqDetailManufacturer" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
+                        <div id="eqDetailSerialRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Seriennummer:</span>
+                            <div id="eqDetailSerial" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body" style="padding:0;">
@@ -2013,6 +2017,73 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                                 + Material hinzufügen
                             </button>
                         </div>
+
+                        <!-- Commissioning & Acceptance Section (v4.5) - hidden for maintenance entries -->
+                        <div id="commissioningAcceptanceSection" style="margin-top:16px; padding:12px; background:var(--bg-secondary); border-radius:8px;">
+                            <h4 style="margin:0 0 12px 0; font-size:14px; color:var(--text-muted);">Inbetriebnahme & Abnahme</h4>
+
+                            <!-- Commissioning (Inbetriebnahme) -->
+                            <div class="form-group" style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold;">
+                                    <input type="checkbox" id="entryCommissioningDone" style="width:20px; height:20px;">
+                                    <span>Inbetriebnahme erfolgt</span>
+                                </label>
+                                <div id="commissioningDateRow" style="display:none; margin-top:8px;">
+                                    <label class="form-label" style="font-size:12px;">Erfolgt am:</label>
+                                    <input type="date" class="form-input" id="entryCommissioningDate" style="width:100%;">
+                                </div>
+                                <div id="commissioningNoteRow" style="display:none; margin-top:8px;">
+                                    <label class="form-label" style="font-size:12px;">Bemerkung:</label>
+                                    <textarea class="form-textarea" id="entryCommissioningNote" rows="2" placeholder="Grund warum nicht durchgeführt"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Acceptance (Abnahme) -->
+                            <div class="form-group" style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+                                <!-- Parent: Doing acceptance at all? -->
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold;">
+                                    <input type="checkbox" id="entryDoingAcceptance" style="width:20px; height:20px;">
+                                    <span>Abnahme durchführen</span>
+                                </label>
+
+                                <!-- Sub-section: Acceptance details (shown when doing acceptance) -->
+                                <div id="acceptanceDetailsRow" style="display:none; margin-top:12px; margin-left:28px; padding:10px; background:var(--bg-tertiary); border-radius:6px;">
+                                    <!-- Success checkbox -->
+                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:#2e7d32;">
+                                        <input type="checkbox" id="entryAcceptanceDone" style="width:20px; height:20px;">
+                                        <span>Abnahme erfolgreich</span>
+                                    </label>
+
+                                    <!-- Success: Date + optional note -->
+                                    <div id="acceptanceSuccessRow" style="display:none; margin-top:10px;">
+                                        <label class="form-label" style="font-size:12px;">Abnahme am:</label>
+                                        <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%; margin-bottom:8px;">
+                                        <label class="form-label" style="font-size:12px;">Bemerkung (optional):</label>
+                                        <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Zusätzliche Bemerkungen"></textarea>
+                                    </div>
+
+                                    <!-- Failed: Mandatory defect description -->
+                                    <div id="acceptanceFailedRow" style="margin-top:10px;">
+                                        <label class="form-label" style="font-size:12px; color:#d32f2f; font-weight:bold;">
+                                            Abnahme konnte nicht erfolgen - wesentliche Mängel:
+                                        </label>
+                                        <textarea class="form-textarea" id="entryAcceptanceDefects" rows="3" placeholder="Mängelbeschreibung (Pflichtfeld bei nicht erfolgter Abnahme)" style="border-color:#d32f2f;"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Instruction & Testbook -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
+                                    <input type="checkbox" id="entryInstructionDone" style="width:20px; height:20px;">
+                                    <span>Einweisung erfolgt</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="entryTestbookHanded" style="width:20px; height:20px;">
+                                    <span>Prüfbuch übergeben</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -2068,6 +2139,14 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         <button class="nav-item" id="navDocuments" style="display:none;">
             <span class="nav-icon">📄</span>
             <span>Dokumente</span>
+        </button>
+        <button class="nav-item" id="navPdfPreview" style="display:none;">
+            <span class="nav-icon">👁️</span>
+            <span>Vorschau</span>
+        </button>
+        <button class="nav-item" id="navAcceptanceProtocol" style="display:none;">
+            <span class="nav-icon">📋</span>
+            <span>Abnahme</span>
         </button>
         <button class="nav-item" data-view="viewSignature" id="navSignature" style="display:none;">
             <span class="nav-icon">✍️</span>

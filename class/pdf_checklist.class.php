@@ -264,10 +264,10 @@ class pdf_checklist
         $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $title, 1, 1, 'C', true);
         $posy += 12;
 
-        // Reference and date
+        // Intervention ref (left) and Date (right)
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(50, 5, $this->pdfStr($outputlangs->transnoentities('Ref')).': '.$checklist->ref, 0, 0, 'L');
+        $pdf->Cell(50, 5, 'Serviceauftrag: '.$intervention->ref, 0, 0, 'L');
         $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Date')).': '.dol_print_date($checklist->date_completion, 'day'), 0, 1, 'R');
         $posy += 7;
 

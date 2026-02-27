@@ -135,3 +135,31 @@ CREATE TABLE IF NOT EXISTS llx_equipmentmanager_commande_equipment (
     INDEX idx_commande_equipment_equipment (fk_equipment),
     UNIQUE KEY uk_commande_equipment (fk_commande, fk_equipment)
 ) ENGINE=innodb;
+
+-- v4.5: Add commissioning (Inbetriebnahme) and acceptance (Abnahme) fields
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS commissioning_done TINYINT(1) DEFAULT 0 AFTER photo;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS commissioning_date DATE DEFAULT NULL AFTER commissioning_done;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS commissioning_note TEXT DEFAULT NULL AFTER commissioning_date;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS acceptance_done TINYINT(1) DEFAULT 0 AFTER commissioning_note;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS acceptance_date DATE DEFAULT NULL AFTER acceptance_done;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS acceptance_defect_free TINYINT(1) DEFAULT 1 AFTER acceptance_date;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS acceptance_note TEXT DEFAULT NULL AFTER acceptance_defect_free;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS instruction_done TINYINT(1) DEFAULT 0 AFTER acceptance_note;
+
+ALTER TABLE llx_equipmentmanager_intervention_detail
+ADD COLUMN IF NOT EXISTS testbook_handed TINYINT(1) DEFAULT 0 AFTER instruction_done;
