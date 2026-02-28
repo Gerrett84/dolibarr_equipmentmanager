@@ -2534,6 +2534,24 @@ class ServiceReportApp {
                         }
                     }
 
+                    // 3b. Also fetch general entries (Allgemeine Arbeiten, equipment_id=0)
+                    try {
+                        const generalData = await this.apiCall(`detail/${intervention.id}/0`);
+                        const generalDetail = {
+                            intervention_id: intervention.id,
+                            equipment_id: 0,
+                            entries: generalData.entries || [],
+                            recommendations: generalData.recommendations || '',
+                            notes: generalData.notes || '',
+                            total_duration: generalData.total_duration || 0,
+                            materials: [],
+                            synced: true
+                        };
+                        await offlineDB.put('details', generalDetail);
+                    } catch (generalErr) {
+                        console.warn(`Failed to fetch general entries for intervention ${intervention.id}:`, generalErr);
+                    }
+
                     // 4. Fetch available equipment (all customer equipment not yet linked)
                     try {
                         const availData = await this.apiCall(`available-equipment/${intervention.id}`);

@@ -4,18 +4,21 @@
  * REST-like endpoints for offline sync
  */
 
-// Disable CSRF check for API endpoints
+// Disable CSRF check and login redirect for API endpoints
 if (!defined('NOTOKENRENEWAL')) define('NOTOKENRENEWAL', '1');
 if (!defined('NOREQUIREMENU')) define('NOREQUIREMENU', '1');
 if (!defined('NOREQUIREHTML')) define('NOREQUIREHTML', '1');
 if (!defined('NOREQUIREAJAX')) define('NOREQUIREAJAX', '1');
 if (!defined('NOCSRFCHECK')) define('NOCSRFCHECK', '1');
+// NOLOGIN prevents main.inc.php from rendering the login page when no session exists.
+// Without this, PWA token authentication never runs because Dolibarr redirects first.
+if (!defined('NOLOGIN')) define('NOLOGIN', '1');
 
 // Prevent direct browser access without proper headers
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-PWA-Token');
 
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -23,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Load Dolibarr environment
+// Load Dolibarr environment (NOLOGIN prevents login redirect)
 $res = 0;
 if (!$res && file_exists("../../../main.inc.php")) {
     $res = include "../../../main.inc.php";
@@ -46,15 +49,24 @@ dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
 dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
-// Check authentication - support both session and PWA token
+// Check authentication - support both session and PWA token.
+// With NOLOGIN, main.inc.php does NOT load the user from session automatically,
+// so we must do it ourselves here.
 $authenticated = false;
 
-// First check Dolibarr session
-if ($user->id > 0) {
-    $authenticated = true;
+// First: try to load user from Dolibarr session (browser-based access)
+if (!$authenticated && !empty($_SESSION['dol_login'])) {
+    require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+    $sessionUser = new User($db);
+    $entity = isset($_SESSION['dol_entity']) ? (int)$_SESSION['dol_entity'] : 1;
+    $result = $sessionUser->fetch(0, $_SESSION['dol_login'], '', 1, ($entity > 0 ? $entity : -1));
+    if ($result > 0 && $sessionUser->id > 0) {
+        $user = $sessionUser;
+        $authenticated = true;
+    }
 }
 
-// If no session, check for PWA token
+// Second: try PWA token (standalone PWA without active browser session)
 if (!$authenticated) {
     $pwaToken = $_SERVER['HTTP_X_PWA_TOKEN'] ?? '';
     if ($pwaToken) {
