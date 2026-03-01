@@ -567,7 +567,7 @@ if ($object->id > 0) {
 
     // Allow page even without equipment (for general entries)
     // equipment_id = 0 means "general entries"
-    $isGeneralEntries = (GETPOSTISSET('equipment_id') && GETPOST('equipment_id', 'int') === 0);
+    $isGeneralEntries = (GETPOSTISSET('equipment_id') && (int)GETPOST('equipment_id', 'int') === 0);
 
     if (count($linked_equipment) == 0 && !$isGeneralEntries) {
         // Show info but also offer "Allgemeine Arbeiten" option

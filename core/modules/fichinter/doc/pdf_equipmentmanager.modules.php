@@ -386,7 +386,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     }
 
                     // Render general entries section
-                    $curY = $this->_renderGeneralEntriesSection($pdf, $generalEntries, $generalMaterials, $generalMaterialTotal, $curY, $outputlangs, $default_font_size, $is_first_section, $object);
+                    $curY = $this->_renderGeneralEntriesSection($pdf, $generalEntries, $generalMaterials, $generalMaterialTotal, $curY, $outputlangs, $default_font_size, (count($equipment_list) === 0), $object);
                 }
 
                 // Add summary table after all equipment sections
