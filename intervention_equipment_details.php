@@ -36,7 +36,7 @@ $langs->loadLangs(array('interventions', 'equipmentmanager@equipmentmanager', 'p
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
-$equipment_id = GETPOST('equipment_id', 'int');
+$equipment_id = (int)GETPOST('equipment_id', 'int');
 $material_id = GETPOST('material_id', 'int');
 $entry_id = GETPOST('entry_id', 'int');
 
