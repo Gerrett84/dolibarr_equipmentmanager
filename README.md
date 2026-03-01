@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.6.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -189,6 +189,15 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.6.0 (2026-03-01)
+
+- **Fix: Allgemeine Arbeiten (PHP 8)** - `equipment_id` wird jetzt korrekt zu int gecastet; in PHP 8 ist `"" >= 0` false (String-Vergleich), wodurch Speichern lautlos fehlschlug
+- **Fix: Objektadresse – Kontaktrolle OBJ** - Kontakt mit Rolle „Objektadresse" (Code `OBJ`) ist jetzt primäre Quelle für Objektadresse in PDF und PWA; Anlagen-`fk_address` dient als Fallback
+- **Fix: Objektadresse auch ohne Anlage** - Interventionen ohne verknüpfte Anlage (Service/Wartung) zeigen Objektadresse korrekt an
+- **Fix: `elementtype` → `element`** - Falscher Spaltenname in PDF-Fallback-Abfragen korrigiert; alte Fallbacks schlugen immer lautlos fehl
+- **Fix: Allgemeine Arbeiten Offline-Sync** - PWA holt General-Einträge korrekt vor (detail/X/0)
+- **Fix: API-Authentifizierung** - NOLOGIN-Flag verhindert HTML-Login-Seite vor PWA-Token-Check
 
 ### v4.5.0 (2025-02-22)
 
@@ -427,6 +436,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.5.0
-**Released:** February 2025
+**Current Version:** 4.6.0
+**Released:** March 2026
 **Compatibility:** Dolibarr 16.0+

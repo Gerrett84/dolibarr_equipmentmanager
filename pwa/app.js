@@ -694,11 +694,10 @@ class ServiceReportApp {
         const signedStatus = intervention.signed_status || 0;
         const baseStatus = intervention.status || 0;
 
-        // Erledigt: signed (3) AND validated/closed (status >= 1)
-        if (signedStatus >= 3 && baseStatus >= 1) return 'signed';
+        // Erledigt: closed in Dolibarr (status=3), OR digitally signed (signed_status>=3) and validated
+        if (baseStatus >= 3 || (signedStatus >= 3 && baseStatus >= 1)) return 'signed';
 
-        // Freigegeben: released for signature (1 or 2) but NOT yet signed
-        // If signed (3) but still draft (0), it goes to 'open' below
+        // Freigegeben: released for signature (1 or 2) but NOT yet signed/closed
         if (signedStatus >= 1 && signedStatus < 3) return 'released';
 
         // Offen: everything else including:
@@ -966,7 +965,7 @@ class ServiceReportApp {
         if (intervention.status === 0) {
             statusClass = 'open';
             statusText = 'Offen';
-        } else if (signedStatus >= 3) {
+        } else if (signedStatus >= 3 || intervention.status >= 3) {
             statusClass = 'signed';
             statusText = 'Unterschrieben';
         } else if (signedStatus >= 1) {
@@ -1176,12 +1175,10 @@ class ServiceReportApp {
             listEl.appendChild(btnContainer);
 
             if (equipment.length === 0) {
-                listEl.innerHTML += `
-                    <div class="empty-state">
-                        <div class="empty-icon">🔧</div>
-                        <p>Kein Equipment verknüpft</p>
-                    </div>
-                `;
+                const emptyState = document.createElement('div');
+                emptyState.className = 'empty-state';
+                emptyState.innerHTML = '<div class="empty-icon">🔧</div><p>Kein Equipment verknüpft</p>';
+                listEl.appendChild(emptyState);
                 return;
             }
 
@@ -2535,6 +2532,24 @@ class ServiceReportApp {
                         } catch (detailErr) {
                             console.warn(`Failed to fetch detail for equipment ${eq.id}:`, detailErr);
                         }
+                    }
+
+                    // 3b. Also fetch general entries (Allgemeine Arbeiten, equipment_id=0)
+                    try {
+                        const generalData = await this.apiCall(`detail/${intervention.id}/0`);
+                        const generalDetail = {
+                            intervention_id: intervention.id,
+                            equipment_id: 0,
+                            entries: generalData.entries || [],
+                            recommendations: generalData.recommendations || '',
+                            notes: generalData.notes || '',
+                            total_duration: generalData.total_duration || 0,
+                            materials: [],
+                            synced: true
+                        };
+                        await offlineDB.put('details', generalDetail);
+                    } catch (generalErr) {
+                        console.warn(`Failed to fetch general entries for intervention ${intervention.id}:`, generalErr);
                     }
 
                     // 4. Fetch available equipment (all customer equipment not yet linked)

@@ -4,18 +4,21 @@
  * REST-like endpoints for offline sync
  */
 
-// Disable CSRF check for API endpoints
+// Disable CSRF check and login redirect for API endpoints
 if (!defined('NOTOKENRENEWAL')) define('NOTOKENRENEWAL', '1');
 if (!defined('NOREQUIREMENU')) define('NOREQUIREMENU', '1');
 if (!defined('NOREQUIREHTML')) define('NOREQUIREHTML', '1');
 if (!defined('NOREQUIREAJAX')) define('NOREQUIREAJAX', '1');
 if (!defined('NOCSRFCHECK')) define('NOCSRFCHECK', '1');
+// NOLOGIN prevents main.inc.php from rendering the login page when no session exists.
+// Without this, PWA token authentication never runs because Dolibarr redirects first.
+if (!defined('NOLOGIN')) define('NOLOGIN', '1');
 
 // Prevent direct browser access without proper headers
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-PWA-Token');
 
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -23,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Load Dolibarr environment
+// Load Dolibarr environment (NOLOGIN prevents login redirect)
 $res = 0;
 if (!$res && file_exists("../../../main.inc.php")) {
     $res = include "../../../main.inc.php";
@@ -46,15 +49,24 @@ dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
 dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
-// Check authentication - support both session and PWA token
+// Check authentication - support both session and PWA token.
+// With NOLOGIN, main.inc.php does NOT load the user from session automatically,
+// so we must do it ourselves here.
 $authenticated = false;
 
-// First check Dolibarr session
-if ($user->id > 0) {
-    $authenticated = true;
+// First: try to load user from Dolibarr session (browser-based access)
+if (!$authenticated && !empty($_SESSION['dol_login'])) {
+    require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+    $sessionUser = new User($db);
+    $entity = isset($_SESSION['dol_entity']) ? (int)$_SESSION['dol_entity'] : 1;
+    $result = $sessionUser->fetch(0, $_SESSION['dol_login'], '', 1, ($entity > 0 ? $entity : -1));
+    if ($result > 0 && $sessionUser->id > 0) {
+        $user = $sessionUser;
+        $authenticated = true;
+    }
 }
 
-// If no session, check for PWA token
+// Second: try PWA token (standalone PWA without active browser session)
 if (!$authenticated) {
     $pwaToken = $_SERVER['HTTP_X_PWA_TOKEN'] ?? '';
     if ($pwaToken) {
@@ -501,7 +513,7 @@ function handleIntervention($method, $parts, $input) {
 
             // Validate file
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-            $maxSize = 10 * 1024 * 1024; // 10MB
+            $maxSize = 2 * 1024 * 1024 * 1024; // 2GB
 
             if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
                 // Provide specific error messages for PHP upload errors
@@ -531,7 +543,7 @@ function handleIntervention($method, $parts, $input) {
 
             if ($uploadedFile['size'] > $maxSize) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Datei zu groß (max 10MB, Datei: ' . round($uploadedFile['size']/1024/1024, 2) . 'MB)']);
+                echo json_encode(['error' => 'Datei zu groß (max 2GB, Datei: ' . round($uploadedFile['size']/1024/1024, 2) . 'MB)']);
                 return;
             }
 
@@ -761,10 +773,39 @@ function getEquipmentMaterials($intervention_id, $equipment_id) {
 
 /**
  * Get unique object addresses for intervention
+ * Primary: contact with OBJ role linked to intervention
+ * Fallback: fk_address from linked equipment
  */
 function getInterventionObjectAddresses($intervention_id) {
     global $db;
 
+    $addresses = [];
+
+    // Primary: contact with OBJ role linked to intervention
+    $sql = "SELECT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql .= " FROM ".MAIN_DB_PREFIX."element_contact ec";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople";
+    $sql .= " WHERE ec.element_id = ".(int)$intervention_id;
+    $sql .= " AND ec.fk_c_type_contact IN (";
+    $sql .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
+    $sql .= "  WHERE element = 'fichinter' AND code = 'OBJ'";
+    $sql .= " ) LIMIT 1";
+
+    $resql = $db->query($sql);
+    if ($resql && $db->num_rows($resql) > 0) {
+        $obj = $db->fetch_object($resql);
+        $addresses[] = [
+            'id' => (int)$obj->rowid,
+            'name' => trim($obj->lastname . ' ' . $obj->firstname),
+            'address' => $obj->address,
+            'zip' => $obj->zip,
+            'town' => $obj->town
+        ];
+        $db->free($resql);
+        return $addresses;
+    }
+
+    // Fallback: fk_address from linked equipment
     $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
@@ -773,19 +814,17 @@ function getInterventionObjectAddresses($intervention_id) {
     $sql .= " AND e.fk_address > 0";
 
     $resql = $db->query($sql);
-    $addresses = [];
-
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
-            $name = trim($obj->lastname . ' ' . $obj->firstname);
             $addresses[] = [
                 'id' => (int)$obj->rowid,
-                'name' => $name,
+                'name' => trim($obj->lastname . ' ' . $obj->firstname),
                 'address' => $obj->address,
                 'zip' => $obj->zip,
                 'town' => $obj->town
             ];
         }
+        $db->free($resql);
     }
 
     return $addresses;

@@ -192,9 +192,9 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Check if object is a Propal or Commande
+        // Check if object is a Propal, Commande or Facture
         $className = is_object($object) ? get_class($object) : '';
-        if (!in_array($className, array('Propal', 'Commande'))) {
+        if (!in_array($className, array('Propal', 'Commande', 'Facture'))) {
             return 0;
         }
 

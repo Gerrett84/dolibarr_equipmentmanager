@@ -36,7 +36,7 @@ $langs->loadLangs(array('interventions', 'equipmentmanager@equipmentmanager', 'p
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
-$equipment_id = GETPOST('equipment_id', 'int');
+$equipment_id = (int)GETPOST('equipment_id', 'int');
 $material_id = GETPOST('material_id', 'int');
 $entry_id = GETPOST('entry_id', 'int');
 
@@ -567,7 +567,7 @@ if ($object->id > 0) {
 
     // Allow page even without equipment (for general entries)
     // equipment_id = 0 means "general entries"
-    $isGeneralEntries = (GETPOSTISSET('equipment_id') && GETPOST('equipment_id', 'int') === 0);
+    $isGeneralEntries = (GETPOSTISSET('equipment_id') && (int)GETPOST('equipment_id', 'int') === 0);
 
     if (count($linked_equipment) == 0 && !$isGeneralEntries) {
         // Show info but also offer "Allgemeine Arbeiten" option
