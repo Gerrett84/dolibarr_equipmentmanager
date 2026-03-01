@@ -773,10 +773,39 @@ function getEquipmentMaterials($intervention_id, $equipment_id) {
 
 /**
  * Get unique object addresses for intervention
+ * Primary: contact with OBJ role linked to intervention
+ * Fallback: fk_address from linked equipment
  */
 function getInterventionObjectAddresses($intervention_id) {
     global $db;
 
+    $addresses = [];
+
+    // Primary: contact with OBJ role linked to intervention
+    $sql = "SELECT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql .= " FROM ".MAIN_DB_PREFIX."element_contact ec";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople";
+    $sql .= " WHERE ec.element_id = ".(int)$intervention_id;
+    $sql .= " AND ec.fk_c_type_contact IN (";
+    $sql .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
+    $sql .= "  WHERE element = 'fichinter' AND code = 'OBJ'";
+    $sql .= " ) LIMIT 1";
+
+    $resql = $db->query($sql);
+    if ($resql && $db->num_rows($resql) > 0) {
+        $obj = $db->fetch_object($resql);
+        $addresses[] = [
+            'id' => (int)$obj->rowid,
+            'name' => trim($obj->lastname . ' ' . $obj->firstname),
+            'address' => $obj->address,
+            'zip' => $obj->zip,
+            'town' => $obj->town
+        ];
+        $db->free($resql);
+        return $addresses;
+    }
+
+    // Fallback: fk_address from linked equipment
     $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
@@ -785,19 +814,17 @@ function getInterventionObjectAddresses($intervention_id) {
     $sql .= " AND e.fk_address > 0";
 
     $resql = $db->query($sql);
-    $addresses = [];
-
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
-            $name = trim($obj->lastname . ' ' . $obj->firstname);
             $addresses[] = [
                 'id' => (int)$obj->rowid,
-                'name' => $name,
+                'name' => trim($obj->lastname . ' ' . $obj->firstname),
                 'address' => $obj->address,
                 'zip' => $obj->zip,
                 'town' => $obj->town
             ];
         }
+        $db->free($resql);
     }
 
     return $addresses;

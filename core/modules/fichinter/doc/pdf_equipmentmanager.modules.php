@@ -597,26 +597,50 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY = $pdf->GetY();
                 }
 
-                // Object/Site address - get from equipment's fk_address (contact/socpeople)
+                // Object/Site address - primary: OBJ contact role, fallback: equipment fk_address
                 $pdf->SetFont('', '', $default_font_size - 2);
                 $objectAddr = '';
 
-                // Get object address from first equipment's fk_address
-                $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-                $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
-                $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
-                $sql_addr .= " AND e.fk_address IS NOT NULL";
-                $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
-
                 require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-                $resql_addr = $this->db->query($sql_addr);
-                if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
-                    $obj_addr = $this->db->fetch_object($resql_addr);
-                    if ($obj_addr->fk_address > 0) {
-                        // Load contact details from socpeople
+
+                // Primary: contact with OBJ role linked to intervention
+                $sql_obj = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
+                $sql_obj .= " WHERE ec.element_id = ".(int)$object->id;
+                $sql_obj .= " AND ec.fk_c_type_contact IN (";
+                $sql_obj .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
+                $sql_obj .= "  WHERE element = 'fichinter' AND code = 'OBJ'";
+                $sql_obj .= " ) LIMIT 1";
+                $resql_obj = $this->db->query($sql_obj);
+                if ($resql_obj && $this->db->num_rows($resql_obj) > 0) {
+                    $obj_row = $this->db->fetch_object($resql_obj);
+                    $contact = new Contact($this->db);
+                    if ($contact->fetch($obj_row->fk_socpeople) > 0) {
+                        if ($contact->lastname || $contact->firstname) {
+                            $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
+                        }
+                        if ($contact->address) {
+                            $objectAddr .= $contact->address."\n";
+                        }
+                        if ($contact->zip || $contact->town) {
+                            $objectAddr .= trim($contact->zip.' '.$contact->town);
+                        }
+                        $objectAddr = trim($objectAddr);
+                    }
+                    $this->db->free($resql_obj);
+                }
+
+                // Fallback: first linked equipment's fk_address
+                if (empty($objectAddr)) {
+                    $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+                    $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
+                    $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
+                    $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+                    $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
+                    $resql_addr = $this->db->query($sql_addr);
+                    if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
+                        $obj_addr = $this->db->fetch_object($resql_addr);
                         $contact = new Contact($this->db);
                         if ($contact->fetch($obj_addr->fk_address) > 0) {
-                            $objectAddr = '';
                             if ($contact->lastname || $contact->firstname) {
                                 $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
                             }
@@ -628,68 +652,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                             }
                             $objectAddr = trim($objectAddr);
                         }
-                    }
-                    $this->db->free($resql_addr);
-                }
-
-                // Fallback 1: check contacts with LOCATIONOFJOB role linked to the intervention
-                if (empty($objectAddr)) {
-                    $sql_contact = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
-                    $sql_contact .= " WHERE ec.element_id = ".(int)$object->id;
-                    $sql_contact .= " AND ec.fk_c_type_contact IN (";
-                    $sql_contact .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
-                    $sql_contact .= "  WHERE elementtype = 'fichinter' AND code = 'LOCATIONOFJOB'";
-                    $sql_contact .= " ) LIMIT 1";
-                    $resql_contact = $this->db->query($sql_contact);
-                    if ($resql_contact && $this->db->num_rows($resql_contact) > 0) {
-                        $obj_contact = $this->db->fetch_object($resql_contact);
-                        $contact = new Contact($this->db);
-                        if ($contact->fetch($obj_contact->fk_socpeople) > 0) {
-                            $objectAddr = '';
-                            if ($contact->lastname || $contact->firstname) {
-                                $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
-                            }
-                            if ($contact->address) {
-                                $objectAddr .= $contact->address."\n";
-                            }
-                            if ($contact->zip || $contact->town) {
-                                $objectAddr .= trim($contact->zip.' '.$contact->town);
-                            }
-                            $objectAddr = trim($objectAddr);
-                        }
-                        $this->db->free($resql_contact);
-                    }
-                }
-
-                // Fallback 2: use any external contact linked to the intervention that has an address
-                if (empty($objectAddr)) {
-                    $sql_any = "SELECT DISTINCT sp.rowid FROM ".MAIN_DB_PREFIX."element_contact ec";
-                    $sql_any .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople";
-                    $sql_any .= " WHERE ec.element_id = ".(int)$object->id;
-                    $sql_any .= " AND ec.fk_c_type_contact IN (";
-                    $sql_any .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
-                    $sql_any .= "  WHERE elementtype = 'fichinter' AND source = 'external'";
-                    $sql_any .= " )";
-                    $sql_any .= " AND (sp.address IS NOT NULL AND sp.address != '')";
-                    $sql_any .= " LIMIT 1";
-                    $resql_any = $this->db->query($sql_any);
-                    if ($resql_any && $this->db->num_rows($resql_any) > 0) {
-                        $obj_any = $this->db->fetch_object($resql_any);
-                        $contact = new Contact($this->db);
-                        if ($contact->fetch($obj_any->rowid) > 0) {
-                            $objectAddr = '';
-                            if ($contact->lastname || $contact->firstname) {
-                                $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
-                            }
-                            if ($contact->address) {
-                                $objectAddr .= $contact->address."\n";
-                            }
-                            if ($contact->zip || $contact->town) {
-                                $objectAddr .= trim($contact->zip.' '.$contact->town);
-                            }
-                            $objectAddr = trim($objectAddr);
-                        }
-                        $this->db->free($resql_any);
+                        $this->db->free($resql_addr);
                     }
                 }
 
@@ -1495,36 +1458,61 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $curY += 5;
         }
 
-        // Object address in header (from first equipment's fk_address)
-        $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-        $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
-        $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
-        $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-        $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
+        // Object address in header (primary: OBJ contact role, fallback: equipment fk_address)
+        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+        $objAddrContact = null;
 
-        $resql_addr = $this->db->query($sql_addr);
-        if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
-            $obj_addr = $this->db->fetch_object($resql_addr);
-            require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+        // Primary: OBJ contact role
+        $sql_obj = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
+        $sql_obj .= " WHERE ec.element_id = ".(int)$object->id;
+        $sql_obj .= " AND ec.fk_c_type_contact IN (";
+        $sql_obj .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
+        $sql_obj .= "  WHERE element = 'fichinter' AND code = 'OBJ'";
+        $sql_obj .= " ) LIMIT 1";
+        $resql_obj = $this->db->query($sql_obj);
+        if ($resql_obj && $this->db->num_rows($resql_obj) > 0) {
+            $obj_row = $this->db->fetch_object($resql_obj);
             $contact = new Contact($this->db);
-            if ($contact->fetch($obj_addr->fk_address) > 0) {
-                $addrParts = array();
-                // Add name
-                $contactName = trim($contact->firstname.' '.$contact->lastname);
-                if (!empty($contactName)) {
-                    $addrParts[] = $contactName;
+            if ($contact->fetch($obj_row->fk_socpeople) > 0) {
+                $objAddrContact = $contact;
+            }
+            $this->db->free($resql_obj);
+        }
+
+        // Fallback: first linked equipment's fk_address
+        if ($objAddrContact === null) {
+            $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+            $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
+            $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
+            $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+            $sql_addr .= " ORDER BY l.rowid ASC LIMIT 1";
+            $resql_addr = $this->db->query($sql_addr);
+            if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
+                $obj_addr = $this->db->fetch_object($resql_addr);
+                $contact = new Contact($this->db);
+                if ($contact->fetch($obj_addr->fk_address) > 0) {
+                    $objAddrContact = $contact;
                 }
-                if ($contact->address) {
-                    $addrParts[] = str_replace("\n", ", ", $contact->address);
-                }
-                if ($contact->zip || $contact->town) {
-                    $addrParts[] = trim($contact->zip.' '.$contact->town);
-                }
-                if (!empty($addrParts)) {
-                    $pdf->SetXY($this->marge_gauche, $curY);
-                    $pdf->Cell(0, 5, "Objekt: ".implode(", ", $addrParts), 0, 1, 'L');
-                    $curY += 5;
-                }
+                $this->db->free($resql_addr);
+            }
+        }
+
+        if ($objAddrContact !== null) {
+            $addrParts = array();
+            $contactName = trim($objAddrContact->firstname.' '.$objAddrContact->lastname);
+            if (!empty($contactName)) {
+                $addrParts[] = $contactName;
+            }
+            if ($objAddrContact->address) {
+                $addrParts[] = str_replace("\n", ", ", $objAddrContact->address);
+            }
+            if ($objAddrContact->zip || $objAddrContact->town) {
+                $addrParts[] = trim($objAddrContact->zip.' '.$objAddrContact->town);
+            }
+            if (!empty($addrParts)) {
+                $pdf->SetXY($this->marge_gauche, $curY);
+                $pdf->Cell(0, 5, "Objekt: ".implode(", ", $addrParts), 0, 1, 'L');
+                $curY += 5;
             }
         }
 
