@@ -757,7 +757,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         $type_label = isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : $equipment->equipment_type;
 
         $pdf->SetXY($leftMargin + $textPadding, $curY);
-        $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$type_label, 0, 'L');
+        $pdf->MultiCell(90, 4, $outputlangs->transnoentities("Type").": ".$outputlangs->convToOutputCharset($type_label), 0, 'L');
 
         if ($equipment->location_note) {
             $pdf->SetXY(110, $curY);
@@ -1623,7 +1623,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 $pdf->SetFont('', '', $default_font_size - 1);
                 foreach ($defectMaterials as $mat) {
                     $pdf->SetXY($this->marge_gauche + 10, $curY);
-                    $matText = "- ".intval($mat->qty)."x [".$mat->product_ref."] ".$mat->product_label;
+                    $matText = "- ".intval($mat->qty)."x [".$outputlangs->convToOutputCharset($mat->product_ref)."] ".$outputlangs->convToOutputCharset($mat->product_label);
                     $pdf->Cell(0, 4, $matText, 0, 1, 'L');
                     $curY += 4;
                 }
