@@ -1,8 +1,8 @@
 -- Equipment Manager v4.6 Update And Fix
--- Copyright (C) 2024-2025 Equipment Manager Module
+-- Copyright (C) 2026 Equipment Manager Module
 
 -- ============================================
--- EQUIPMENT - Add contract link (v4.6.1)
+-- EQUIPMENT - Add col for Fix (v4.6.1)
 -- ============================================
 
 ALTER TABLE llx_equipmentmanager_equipment
