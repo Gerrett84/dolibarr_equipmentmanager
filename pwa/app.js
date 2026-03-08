@@ -323,15 +323,21 @@ class ServiceReportApp {
     setupEventListeners() {
         // Online/Offline events
         window.addEventListener('online', () => {
-            this.isOnline = true;
-            this.updateOnlineStatus();
-            this.syncData();
+            // Browser reports network — verify server is actually reachable
+            this.checkConnectivity();
         });
 
         window.addEventListener('offline', () => {
             this.isOnline = false;
             this.updateOnlineStatus();
         });
+
+        // Periodic connectivity check every 30s to recover from stuck offline state
+        setInterval(() => {
+            if (!this.isOnline) {
+                this.checkConnectivity(true); // silent = true (no toast on failure)
+            }
+        }, 30000);
 
         // Navigation
         document.querySelectorAll('.nav-item').forEach(btn => {
@@ -485,6 +491,27 @@ class ServiceReportApp {
         }
     }
 
+    async checkConnectivity(silent = false) {
+        try {
+            const response = await fetch(CONFIG.apiBase + '?route=ping', {
+                credentials: 'same-origin',
+                headers: this.pwaToken ? { 'X-PWA-Token': this.pwaToken } : {},
+                signal: AbortSignal.timeout(5000)
+            });
+            if (response.ok || response.status === 401) {
+                // Server reachable (401 = auth issue but server is up)
+                if (!this.isOnline) {
+                    this.isOnline = true;
+                    this.updateOnlineStatus();
+                    if (!silent) this.showToast('Verbindung wiederhergestellt');
+                    this.syncData();
+                }
+            }
+        } catch (e) {
+            // Still offline — keep current state
+        }
+    }
+
     showView(viewId, title = null) {
         // Hide all views
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -618,6 +645,7 @@ class ServiceReportApp {
         switch (this.currentView) {
             case 'viewEquipment':
                 this.showView('viewInterventions');
+                this.loadInterventions(); // Refresh list to reflect any status changes
                 break;
             case 'viewEntries':
                 this.loadEquipment(this.currentIntervention);
