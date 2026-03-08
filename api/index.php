@@ -137,6 +137,10 @@ try {
             ]);
             break;
 
+        case 'ping':
+            echo json_encode(['status' => 'ok']);
+            break;
+
         case 'interventions':
             handleInterventions($method, $parts, $input);
             break;
