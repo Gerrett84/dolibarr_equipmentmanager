@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.6.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.6.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -189,6 +189,14 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.6.1 (2026-03-08)
+
+- **Fix: PWA Offline-Recovery** – Zuverlässige Verbindungsprüfung via echtem API-Ping statt unzuverlässigem Browser-`online`-Event; automatischer Retry alle 30 Sekunden
+- **Fix: PWA Statusanzeige** – Statusänderungen (Freigeben) werden sofort beim Zurücknavigieren sichtbar, kein Neustart der PWA mehr nötig
+- **Fix: Umlaute im PDF** – Anlagentypen (z.B. Drehtürantrieb) und Produktbezeichnungen wurden ohne `convToOutputCharset()` in die PDF geschrieben
+- **Fix: Fehlende DB-Spalten** – `maintenance_month`, `last_maintenance_date`, `next_maintenance_date` fehlten in den SQL-Migrationsdateien; SQL-Migration v4.6.1 ergänzt
+- **Fix: Admin-Seiten** – `../../../main.inc.php` Fallback für alternative Dolibarr-Installationsstrukturen ergänzt; dreifaches Duplikat in setup.php bereinigt
 
 ### v4.6.0 (2026-03-01)
 
@@ -436,6 +444,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.6.0
+**Current Version:** 4.6.1
 **Released:** March 2026
 **Compatibility:** Dolibarr 16.0+
