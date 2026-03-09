@@ -394,10 +394,6 @@ class ServiceReportApp {
         document.getElementById('navDocuments').addEventListener('click', () => this.showDocuments());
         document.getElementById('btnCloseDocuments').addEventListener('click', () => this.closeDocumentsModal());
 
-        // Info button
-        document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
-        document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
-
         // PDF Preview button
         document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
 
@@ -532,7 +528,6 @@ class ServiceReportApp {
             backBtn.style.display = 'none';
             headerTitle.textContent = 'Serviceberichte';
             document.getElementById('navRelease').style.display = 'none';
-            document.getElementById('navInfo').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navPdfPreview').style.display = 'none';
             document.getElementById('navAcceptanceProtocol').style.display = 'none';
@@ -1134,9 +1129,6 @@ class ServiceReportApp {
             const releaseText = document.getElementById('releaseText');
             releaseBtn.style.display = 'flex';
 
-            // Show info button
-            document.getElementById('navInfo').style.display = 'flex';
-
             // Show/hide documents button
             const docsBtn = document.getElementById('navDocuments');
             docsBtn.style.display = 'flex';
@@ -1176,6 +1168,9 @@ class ServiceReportApp {
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
             accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
+
+            // Collapsible info header
+            listEl.appendChild(this.buildInfoHeader(intervention));
 
             // Button container for action buttons
             const btnContainer = document.createElement('div');
@@ -3501,106 +3496,166 @@ class ServiceReportApp {
         window.open(protocolUrl, '_blank');
     }
 
-    async showInfo() {
-        document.getElementById('infoModal').classList.add('show');
+    buildInfoHeader(intervention) {
+        const card = document.createElement('div');
+        card.className = 'info-collapse-card';
 
-        const contentEl = document.getElementById('infoContent');
+        // Summary row (always visible)
+        const summary = document.createElement('div');
+        summary.className = 'info-collapse-summary';
 
-        if (!this.currentIntervention) {
-            contentEl.innerHTML = '<p>Keine Intervention ausgewählt</p>';
-            return;
+        const textWrap = document.createElement('div');
+        textWrap.style.cssText = 'flex:1;min-width:0;';
+
+        const customerName = document.createElement('div');
+        customerName.className = 'info-collapse-customer';
+        customerName.textContent = intervention.customer?.name || '—';
+
+        // Preview: first object address or customer address
+        const addrPreview = document.createElement('div');
+        addrPreview.className = 'info-collapse-addr-preview';
+        const firstObj = intervention.object_addresses?.[0];
+        if (firstObj) {
+            const parts = [firstObj.address, [firstObj.zip, firstObj.town].filter(Boolean).join(' ')].filter(Boolean);
+            addrPreview.textContent = parts.join(', ') || firstObj.name || '';
+        } else if (intervention.customer?.address) {
+            const parts = [intervention.customer.address, [intervention.customer.zip, intervention.customer.town].filter(Boolean).join(' ')].filter(Boolean);
+            addrPreview.textContent = parts.join(', ');
         }
 
-        const intervention = this.currentIntervention;
+        textWrap.appendChild(customerName);
+        if (addrPreview.textContent) textWrap.appendChild(addrPreview);
 
-        // Build info content
-        let html = '';
+        const chevron = document.createElement('span');
+        chevron.className = 'info-collapse-chevron';
+        chevron.textContent = '▾';
 
-        // Customer info first (most important)
+        summary.appendChild(textWrap);
+        summary.appendChild(chevron);
+
+        // Detail body (hidden by default)
+        const body = document.createElement('div');
+        body.className = 'info-collapse-body';
+
+        // Kunde
         if (intervention.customer) {
-            html += '<div class="info-section">';
-            html += '<h4 class="info-heading">Kunde</h4>';
-            html += `<div class="info-text">`;
-            html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
-            const customerMapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
-            if (customerMapsUrl) {
-                html += `<a href="${customerMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
-            }
-            if (intervention.customer.address) {
-                html += `${this.escapeHtml(intervention.customer.address)}<br>`;
-            }
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Kunde';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            const mapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
+            let addrHtml = '';
+            if (intervention.customer.address) addrHtml += this.escapeHtml(intervention.customer.address) + '<br>';
             if (intervention.customer.zip || intervention.customer.town) {
-                html += `${this.escapeHtml(intervention.customer.zip || '')} ${this.escapeHtml(intervention.customer.town || '')}`;
+                addrHtml += this.escapeHtml((intervention.customer.zip || '') + ' ' + (intervention.customer.town || '')).trim();
             }
-            if (customerMapsUrl) {
-                html += `</a>`;
+            if (mapsUrl && addrHtml) {
+                val.innerHTML = `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
+            } else {
+                val.innerHTML = addrHtml || '—';
             }
-            html += `</div>`;
-            html += '</div>';
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
 
-        // Object addresses (from socpeople linked to equipment)
-        html += '<div class="info-section info-section-divider">';
-        html += '<h4 class="info-heading">Objektadresse</h4>';
-
-        // Use object_addresses from intervention data (linked via equipment -> socpeople)
-        if (intervention.object_addresses && intervention.object_addresses.length > 0) {
-            intervention.object_addresses.forEach(addr => {
-                html += `<div class="info-text" style="margin-bottom:8px;">`;
-                if (addr.name) {
-                    html += `<strong>${this.escapeHtml(addr.name)}</strong><br>`;
+        // Objektadresse(n)
+        const objSec = document.createElement('div');
+        objSec.className = 'info-collapse-section';
+        const objLbl = document.createElement('div');
+        objLbl.className = 'info-collapse-label';
+        objLbl.textContent = 'Objektadresse';
+        objSec.appendChild(objLbl);
+        if (intervention.object_addresses?.length > 0) {
+            intervention.object_addresses.forEach((addr, i) => {
+                const val = document.createElement('div');
+                val.className = 'info-collapse-value';
+                if (i > 0) val.style.marginTop = '8px';
+                const mapsUrl = this.getMapsUrl(addr.address, addr.zip, addr.town);
+                let html = addr.name ? `<strong>${this.escapeHtml(addr.name)}</strong><br>` : '';
+                let addrHtml = '';
+                if (addr.address) addrHtml += this.escapeHtml(addr.address) + '<br>';
+                if (addr.zip || addr.town) addrHtml += this.escapeHtml((addr.zip || '') + ' ' + (addr.town || '')).trim();
+                if (mapsUrl && addrHtml) {
+                    html += `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
+                } else {
+                    html += addrHtml;
                 }
-                const addrMapsUrl = this.getMapsUrl(addr.address, addr.zip, addr.town);
-                if (addrMapsUrl) {
-                    html += `<a href="${addrMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
-                }
-                if (addr.address) {
-                    html += `${this.escapeHtml(addr.address)}<br>`;
-                }
-                if (addr.zip || addr.town) {
-                    html += `${this.escapeHtml(addr.zip || '')} ${this.escapeHtml(addr.town || '')}`;
-                }
-                if (addrMapsUrl) {
-                    html += `</a>`;
-                }
-                html += `</div>`;
+                val.innerHTML = html;
+                objSec.appendChild(val);
             });
         } else {
-            html += '<p class="info-text-muted">Keine Objektadresse hinterlegt</p>';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.style.color = 'var(--text-muted)';
+            val.style.fontStyle = 'italic';
+            val.textContent = 'Keine Objektadresse hinterlegt';
+            objSec.appendChild(val);
         }
-        html += '</div>';
+        body.appendChild(objSec);
 
-        // Description (Auftragsbeschreibung)
-        html += '<div class="info-section info-section-divider">';
-        html += '<h4 class="info-heading">Auftragsbeschreibung</h4>';
+        // Beschreibung
         if (intervention.description) {
-            html += `<div class="info-text">${this.escapeHtml(intervention.description).replace(/\n/g, '<br>')}</div>`;
-        } else {
-            html += '<p class="info-text-muted">Keine Beschreibung vorhanden</p>';
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Auftragsbeschreibung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.description).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
-        html += '</div>';
 
-        // Public Note
+        // Öffentliche Anmerkung
         if (intervention.note_public) {
-            html += '<div class="info-section info-section-divider">';
-            html += '<h4 class="info-heading">Öffentliche Anmerkung</h4>';
-            html += `<div class="info-text">${this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>')}</div>`;
-            html += '</div>';
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Öffentliche Anmerkung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
 
-        // Private Note
+        // Private Anmerkung
         if (intervention.note_private) {
-            html += '<div class="info-section info-section-divider">';
-            html += '<h4 class="info-heading">Private Anmerkung</h4>';
-            html += `<div class="info-text">${this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>')}</div>`;
-            html += '</div>';
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Private Anmerkung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
 
-        contentEl.innerHTML = html;
+        // Toggle logic
+        summary.addEventListener('click', () => {
+            const isOpen = body.classList.toggle('open');
+            chevron.classList.toggle('open', isOpen);
+        });
+
+        card.appendChild(summary);
+        card.appendChild(body);
+        return card;
     }
 
     closeInfoModal() {
-        document.getElementById('infoModal').classList.remove('show');
+        // kept for compatibility, no longer used
+        return;
     }
 
     escapeHtml(text) {

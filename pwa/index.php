@@ -1211,6 +1211,91 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: inherit;
         }
 
+        /* Collapsible Info Header */
+        .info-collapse-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .info-collapse-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+            gap: 8px;
+        }
+
+        .info-collapse-summary:active {
+            background: var(--border-color);
+        }
+
+        .info-collapse-customer {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .info-collapse-addr-preview {
+            font-size: 11px;
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        .info-collapse-chevron {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .info-collapse-chevron.open {
+            transform: rotate(180deg);
+        }
+
+        .info-collapse-body {
+            display: none;
+            padding: 0 12px 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .info-collapse-body.open {
+            display: block;
+        }
+
+        .info-collapse-section {
+            margin-top: 12px;
+        }
+
+        .info-collapse-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-collapse-value {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
         .object-address-divider {
             margin-top: 12px;
             padding-top: 12px;
@@ -2132,10 +2217,6 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <span class="nav-icon" id="releaseIcon">✅</span>
             <span id="releaseText">Freigeben</span>
         </button>
-        <button class="nav-item" id="navInfo" style="display:none;">
-            <span class="nav-icon">ℹ️</span>
-            <span>Info</span>
-        </button>
         <button class="nav-item" id="navDocuments" style="display:none;">
             <span class="nav-icon">📄</span>
             <span>Dokumente</span>
@@ -2301,22 +2382,6 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Lade Dokumente...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Info Modal -->
-    <div class="modal" id="infoModal">
-        <div class="modal-content" style="max-height:85vh;">
-            <div class="modal-header">
-                <h3>Auftragsdetails</h3>
-                <button type="button" class="modal-close" id="btnCloseInfo">&times;</button>
-            </div>
-            <div class="modal-body" id="infoContent" style="overflow-y:auto;">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Lade...</p>
                 </div>
             </div>
         </div>
