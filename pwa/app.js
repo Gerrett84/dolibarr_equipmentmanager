@@ -3507,23 +3507,28 @@ class ServiceReportApp {
         const textWrap = document.createElement('div');
         textWrap.style.cssText = 'flex:1;min-width:0;';
 
-        const customerName = document.createElement('div');
-        customerName.className = 'info-collapse-customer';
-        customerName.textContent = intervention.customer?.name || '—';
+        const primaryLabel = document.createElement('div');
+        primaryLabel.className = 'info-collapse-customer';
 
-        // Preview: first object address or customer address
         const addrPreview = document.createElement('div');
         addrPreview.className = 'info-collapse-addr-preview';
+
         const firstObj = intervention.object_addresses?.[0];
         if (firstObj) {
-            const parts = [firstObj.address, [firstObj.zip, firstObj.town].filter(Boolean).join(' ')].filter(Boolean);
-            addrPreview.textContent = parts.join(', ') || firstObj.name || '';
-        } else if (intervention.customer?.address) {
-            const parts = [intervention.customer.address, [intervention.customer.zip, intervention.customer.town].filter(Boolean).join(' ')].filter(Boolean);
-            addrPreview.textContent = parts.join(', ');
+            // Primary: object name, secondary: object address
+            primaryLabel.textContent = firstObj.name || '—';
+            const addrParts = [firstObj.address, [firstObj.zip, firstObj.town].filter(Boolean).join(' ')].filter(Boolean);
+            addrPreview.textContent = addrParts.join(', ');
+        } else {
+            // Fallback: customer name + customer address
+            primaryLabel.textContent = intervention.customer?.name || '—';
+            if (intervention.customer?.address) {
+                const addrParts = [intervention.customer.address, [intervention.customer.zip, intervention.customer.town].filter(Boolean).join(' ')].filter(Boolean);
+                addrPreview.textContent = addrParts.join(', ');
+            }
         }
 
-        textWrap.appendChild(customerName);
+        textWrap.appendChild(primaryLabel);
         if (addrPreview.textContent) textWrap.appendChild(addrPreview);
 
         const chevron = document.createElement('span');
