@@ -200,18 +200,16 @@ jQuery(document).ready(function() {
 
             // Load addresses
             jQuery.ajax({
-                url: "<?php echo DOL_URL_ROOT; ?>/core/ajax/contacts.php",
-                data: {
-                    action: "fetch",
-                    htmlname: "fk_address",
-                    socid: socid
-                },
+                url: "<?php echo DOL_URL_ROOT; ?>/custom/equipmentmanager/ajax/get_addresses.php",
+                data: { socid: socid },
                 type: "GET",
+                dataType: "json",
                 success: function(data) {
-                    if (data) {
-                        addressSelect.html(data);
-                    } else {
-                        addressSelect.html("<option value=''>---</option>");
+                    addressSelect.html("<option value=''>---</option>");
+                    if (data && data.length > 0) {
+                        jQuery.each(data, function(i, addr) {
+                            addressSelect.append("<option value='" + addr.id + "'>" + addr.label + "</option>");
+                        });
                     }
                 },
                 error: function() {
