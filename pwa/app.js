@@ -3545,9 +3545,12 @@ class ServiceReportApp {
                 contactRow.appendChild(telLink);
             }
             if (firstObj.email) {
-                const emailSpan = document.createElement('span');
-                emailSpan.textContent = `✉ ${firstObj.email}`;
-                contactRow.appendChild(emailSpan);
+                const mailLink = document.createElement('a');
+                mailLink.href = `mailto:${firstObj.email}`;
+                mailLink.textContent = `✉ ${firstObj.email}`;
+                mailLink.style.cssText = 'color:inherit;text-decoration:none;';
+                mailLink.addEventListener('click', e => e.stopPropagation());
+                contactRow.appendChild(mailLink);
             }
             textWrap.appendChild(contactRow);
         }
