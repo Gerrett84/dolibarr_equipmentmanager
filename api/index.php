@@ -786,7 +786,7 @@ function getInterventionObjectAddresses($intervention_id) {
     $addresses = [];
 
     // Primary: contact with OBJ role linked to intervention
-    $sql = "SELECT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql = "SELECT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone, sp.email";
     $sql .= " FROM ".MAIN_DB_PREFIX."element_contact ec";
     $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople";
     $sql .= " WHERE ec.element_id = ".(int)$intervention_id;
@@ -803,14 +803,16 @@ function getInterventionObjectAddresses($intervention_id) {
             'name' => trim($obj->lastname . ' ' . $obj->firstname),
             'address' => $obj->address,
             'zip' => $obj->zip,
-            'town' => $obj->town
+            'town' => $obj->town,
+            'phone' => $obj->phone,
+            'email' => $obj->email,
         ];
         $db->free($resql);
         return $addresses;
     }
 
     // Fallback: fk_address from linked equipment
-    $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone, sp.email";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
     $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
@@ -825,7 +827,9 @@ function getInterventionObjectAddresses($intervention_id) {
                 'name' => trim($obj->lastname . ' ' . $obj->firstname),
                 'address' => $obj->address,
                 'zip' => $obj->zip,
-                'town' => $obj->town
+                'town' => $obj->town,
+                'phone' => $obj->phone,
+                'email' => $obj->email,
             ];
         }
         $db->free($resql);

@@ -3515,7 +3515,7 @@ class ServiceReportApp {
 
         const firstObj = intervention.object_addresses?.[0];
         if (firstObj) {
-            // Primary: object name, secondary: object address
+            // Primary: object name, secondary: object address + phone/email
             primaryLabel.textContent = firstObj.name || '—';
             const addrParts = [firstObj.address, [firstObj.zip, firstObj.town].filter(Boolean).join(' ')].filter(Boolean);
             addrPreview.textContent = addrParts.join(', ');
@@ -3530,6 +3530,37 @@ class ServiceReportApp {
 
         textWrap.appendChild(primaryLabel);
         if (addrPreview.textContent) textWrap.appendChild(addrPreview);
+
+        // Phone + email row (only for object address)
+        if (firstObj && (firstObj.phone || firstObj.email)) {
+            const contactRow = document.createElement('div');
+            contactRow.className = 'info-collapse-addr-preview';
+            contactRow.style.marginTop = '2px';
+            if (firstObj.phone) {
+                const telLink = document.createElement('a');
+                telLink.href = `tel:${firstObj.phone.replace(/\s/g, '')}`;
+                telLink.textContent = `📞 ${firstObj.phone}`;
+                telLink.style.cssText = 'color:inherit;text-decoration:none;margin-right:8px;';
+                telLink.addEventListener('click', e => e.stopPropagation());
+                contactRow.appendChild(telLink);
+            }
+            if (firstObj.email) {
+                const emailSpan = document.createElement('span');
+                emailSpan.textContent = `✉ ${firstObj.email}`;
+                contactRow.appendChild(emailSpan);
+            }
+            textWrap.appendChild(contactRow);
+        }
+
+        // Public note preview (first line only)
+        if (intervention.note_public) {
+            const noteRow = document.createElement('div');
+            noteRow.className = 'info-collapse-addr-preview';
+            noteRow.style.marginTop = '2px';
+            noteRow.style.fontStyle = 'italic';
+            noteRow.textContent = intervention.note_public.split('\n')[0];
+            textWrap.appendChild(noteRow);
+        }
 
         const chevron = document.createElement('span');
         chevron.className = 'info-collapse-chevron';
