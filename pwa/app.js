@@ -3555,15 +3555,6 @@ class ServiceReportApp {
             textWrap.appendChild(contactRow);
         }
 
-        // Public note preview (first line only)
-        if (intervention.note_public) {
-            const noteRow = document.createElement('div');
-            noteRow.className = 'info-collapse-addr-preview';
-            noteRow.style.marginTop = '2px';
-            noteRow.style.fontStyle = 'italic';
-            noteRow.textContent = intervention.note_public.split('\n')[0];
-            textWrap.appendChild(noteRow);
-        }
 
         const chevron = document.createElement('span');
         chevron.className = 'info-collapse-chevron';
@@ -3623,6 +3614,8 @@ class ServiceReportApp {
                 } else {
                     html += addrHtml;
                 }
+                if (addr.phone) html += `<br><a href="tel:${this.escapeHtml(addr.phone.replace(/\s/g,''))}" class="address-link">📞 ${this.escapeHtml(addr.phone)}</a>`;
+                if (addr.email) html += `<br><a href="mailto:${this.escapeHtml(addr.email)}" class="address-link">✉ ${this.escapeHtml(addr.email)}</a>`;
                 val.innerHTML = html;
                 objSec.appendChild(val);
             });
