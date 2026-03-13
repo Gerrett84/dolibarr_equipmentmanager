@@ -3698,6 +3698,13 @@ class ServiceReportApp {
 
         // Init Leaflet map only once
         if (!this.leafletMap) {
+            // Fix marker icon paths for local hosting
+            delete L.Icon.Default.prototype._getIconUrl;
+            L.Icon.Default.mergeOptions({
+                iconUrl: CONFIG.moduleUrl + 'pwa/leaflet/marker-icon.png',
+                iconRetinaUrl: CONFIG.moduleUrl + 'pwa/leaflet/marker-icon-2x.png',
+                shadowUrl: CONFIG.moduleUrl + 'pwa/leaflet/marker-shadow.png',
+            });
             this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',

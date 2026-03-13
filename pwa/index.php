@@ -1214,14 +1214,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         /* Map View */
         #viewMap {
             padding: 0 !important;
+            position: fixed !important;
+            top: 56px;
+            left: 0;
+            right: 0;
+            bottom: 60px;
+            overflow: hidden;
         }
 
         #interventionMap {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            width: 100%;
+            height: 100%;
         }
 
         .map-popup-ref {
@@ -2437,9 +2440,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         </div>
     </div>
 
-    <!-- Leaflet Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPvE=" crossorigin=""></script>
+    <!-- Leaflet Map (local) -->
+    <link rel="stylesheet" href="leaflet/leaflet.css"/>
+    <script src="leaflet/leaflet.js"></script>
 
     <!-- Scripts -->
     <script src="<?php echo DOL_URL_ROOT; ?>/includes/jquery/js/jquery.min.js"></script>
