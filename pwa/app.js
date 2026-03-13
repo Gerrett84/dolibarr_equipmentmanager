@@ -3609,6 +3609,7 @@ class ServiceReportApp {
                 }
                 if (addr.phone) html += `<br><a href="tel:${this.escapeHtml(addr.phone.replace(/\s/g,''))}" class="address-link">📞 ${this.escapeHtml(addr.phone)}</a>`;
                 if (addr.email) html += `<br><a href="mailto:${this.escapeHtml(addr.email)}" class="address-link">✉ ${this.escapeHtml(addr.email)}</a>`;
+                if (addr.note) html += `<br><span style="color:var(--text-muted);font-style:italic;">${this.escapeHtml(addr.note).replace(/\n/g, '<br>')}</span>`;
                 val.innerHTML = html;
                 objSec.appendChild(val);
             });
