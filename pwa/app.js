@@ -387,6 +387,9 @@ class ServiceReportApp {
         // Equipment modal buttons
         document.getElementById('btnCloseEquipment').addEventListener('click', () => this.closeEquipmentModal());
 
+        // Map button
+        document.getElementById('navMap').addEventListener('click', () => this.showMap());
+
         // Release button
         document.getElementById('navRelease').addEventListener('click', () => this.toggleRelease());
 
@@ -524,14 +527,20 @@ class ServiceReportApp {
         const backBtn = document.getElementById('btnBack');
         const headerTitle = document.getElementById('headerTitle');
 
-        if (viewId === 'viewInterventions') {
+        if (viewId === 'viewInterventions' || viewId === 'viewMap') {
             backBtn.style.display = 'none';
-            headerTitle.textContent = 'Serviceberichte';
+            headerTitle.textContent = viewId === 'viewMap' ? 'Karte' : 'Serviceberichte';
             document.getElementById('navRelease').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navPdfPreview').style.display = 'none';
             document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
+            // Set correct nav item active
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const activeBtn = viewId === 'viewMap'
+                ? document.getElementById('navMap')
+                : document.querySelector('[data-view="viewInterventions"]');
+            if (activeBtn) activeBtn.classList.add('active');
         } else {
             backBtn.style.display = 'block';
             if (title) headerTitle.textContent = title;
@@ -3682,6 +3691,93 @@ class ServiceReportApp {
     closeInfoModal() {
         // kept for compatibility, no longer used
         return;
+    }
+
+    async showMap() {
+        this.showView('viewMap');
+
+        // Init Leaflet map only once
+        if (!this.leafletMap) {
+            this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(this.leafletMap);
+        }
+
+        // Clear existing markers
+        if (this.mapMarkers) {
+            this.mapMarkers.forEach(m => m.remove());
+        }
+        this.mapMarkers = [];
+
+        // Get open interventions (status 0 or 1)
+        const interventions = (this.allInterventions || []).filter(i => i.status === 0 || i.status === 1);
+
+        if (interventions.length === 0) {
+            this.showToast('Keine offenen Aufträge');
+            return;
+        }
+
+        const bounds = [];
+
+        for (const intervention of interventions) {
+            // Use object address if available, otherwise customer address
+            const addr = intervention.object_addresses?.[0];
+            const street = addr?.address || intervention.customer?.address;
+            const zip    = addr?.zip    || intervention.customer?.zip;
+            const town   = addr?.town   || intervention.customer?.town;
+
+            if (!street && !zip && !town) continue;
+
+            const query = [street, zip, town].filter(Boolean).join(', ');
+
+            try {
+                const geo = await this.geocodeAddress(query);
+                if (!geo) continue;
+
+                const statusLabel = intervention.status === 0 ? 'Entwurf' : 'Offen';
+                const addrLine = [street, [zip, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+
+                const marker = L.marker([geo.lat, geo.lon]).addTo(this.leafletMap);
+                marker.bindPopup(`
+                    <div class="map-popup-ref">${this.escapeHtml(intervention.ref)}</div>
+                    <div class="map-popup-customer">${this.escapeHtml(intervention.customer?.name || '')}</div>
+                    <div class="map-popup-addr">${this.escapeHtml(addrLine)}</div>
+                    <a class="map-popup-link" onclick="app.openInterventionFromMap(${intervention.id})">Auftrag öffnen →</a>
+                `);
+
+                this.mapMarkers.push(marker);
+                bounds.push([geo.lat, geo.lon]);
+
+                // Small delay to respect Nominatim rate limit (1 req/s)
+                await new Promise(r => setTimeout(r, 1100));
+            } catch (e) {
+                console.warn('Geocoding failed for', query, e);
+            }
+        }
+
+        if (bounds.length > 0) {
+            this.leafletMap.fitBounds(bounds, { padding: [40, 40] });
+        }
+
+        // Invalidate size in case map was hidden during init
+        setTimeout(() => this.leafletMap.invalidateSize(), 100);
+    }
+
+    async geocodeAddress(query) {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+        const data = await res.json();
+        return data?.[0] || null;
+    }
+
+    openInterventionFromMap(interventionId) {
+        const intervention = (this.interventions || []).find(i => i.id === interventionId);
+        if (intervention) {
+            this.leafletMap.closePopup();
+            this.loadEquipment(intervention);
+        }
     }
 
     escapeHtml(text) {

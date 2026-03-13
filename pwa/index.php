@@ -1211,6 +1211,47 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: inherit;
         }
 
+        /* Map View */
+        #viewMap {
+            padding: 0 !important;
+        }
+
+        #interventionMap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        .map-popup-ref {
+            font-weight: 600;
+            font-size: 13px;
+            color: #263c5c;
+        }
+
+        .map-popup-customer {
+            font-size: 12px;
+            color: #555;
+            margin-top: 2px;
+        }
+
+        .map-popup-addr {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .map-popup-link {
+            display: inline-block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #263c5c;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
         /* Collapsible Info Header */
         .info-collapse-card {
             background: var(--bg-secondary);
@@ -1939,6 +1980,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
     </div>
 
     <!-- Equipment List View -->
+    <!-- Map View -->
+    <div class="view" id="viewMap">
+        <div id="interventionMap" style="width:100%;height:100%;"></div>
+    </div>
+
     <div class="view" id="viewEquipment">
         <div class="content">
             <div class="loading" id="equipmentLoading" style="display:none;">
@@ -2213,6 +2259,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <span class="nav-icon">📋</span>
             <span>Aufträge</span>
         </button>
+        <button class="nav-item" id="navMap">
+            <span class="nav-icon">🗺️</span>
+            <span>Karte</span>
+        </button>
         <button class="nav-item" id="navRelease" style="display:none;">
             <span class="nav-icon" id="releaseIcon">✅</span>
             <span id="releaseText">Freigeben</span>
@@ -2386,6 +2436,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             </div>
         </div>
     </div>
+
+    <!-- Leaflet Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPvE=" crossorigin=""></script>
 
     <!-- Scripts -->
     <script src="<?php echo DOL_URL_ROOT; ?>/includes/jquery/js/jquery.min.js"></script>
