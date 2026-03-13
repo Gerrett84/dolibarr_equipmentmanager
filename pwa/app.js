@@ -1090,6 +1090,9 @@ class ServiceReportApp {
                         // Update currentIntervention with fresh data
                         this.currentIntervention.signed_status = signedStatus;
                         this.currentIntervention.status = fullData.intervention.status;
+                        this.currentIntervention.note_public = fullData.intervention.note_public;
+                        this.currentIntervention.note_private = fullData.intervention.note_private;
+                        this.currentIntervention.description = fullData.intervention.description;
                     }
                     equipment = fullData.equipment || [];
                     await offlineDB.saveEquipment(intervention.id, equipment);
@@ -3531,27 +3534,17 @@ class ServiceReportApp {
         textWrap.appendChild(primaryLabel);
         if (addrPreview.textContent) textWrap.appendChild(addrPreview);
 
-        // Phone + email row (only for object address)
-        if (firstObj && (firstObj.phone || firstObj.email)) {
+        // Phone only in summary (email only in expanded body)
+        if (firstObj?.phone) {
             const contactRow = document.createElement('div');
             contactRow.className = 'info-collapse-addr-preview';
             contactRow.style.marginTop = '2px';
-            if (firstObj.phone) {
-                const telLink = document.createElement('a');
-                telLink.href = `tel:${firstObj.phone.replace(/\s/g, '')}`;
-                telLink.textContent = `📞 ${firstObj.phone}`;
-                telLink.style.cssText = 'color:inherit;text-decoration:none;margin-right:8px;';
-                telLink.addEventListener('click', e => e.stopPropagation());
-                contactRow.appendChild(telLink);
-            }
-            if (firstObj.email) {
-                const mailLink = document.createElement('a');
-                mailLink.href = `mailto:${firstObj.email}`;
-                mailLink.textContent = `✉ ${firstObj.email}`;
-                mailLink.style.cssText = 'color:inherit;text-decoration:none;';
-                mailLink.addEventListener('click', e => e.stopPropagation());
-                contactRow.appendChild(mailLink);
-            }
+            const telLink = document.createElement('a');
+            telLink.href = `tel:${firstObj.phone.replace(/\s/g, '')}`;
+            telLink.textContent = `📞 ${firstObj.phone}`;
+            telLink.style.cssText = 'color:inherit;text-decoration:none;';
+            telLink.addEventListener('click', e => e.stopPropagation());
+            contactRow.appendChild(telLink);
             textWrap.appendChild(contactRow);
         }
 
