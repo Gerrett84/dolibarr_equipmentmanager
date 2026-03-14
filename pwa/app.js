@@ -3694,7 +3694,7 @@ class ServiceReportApp {
     }
 
     makeMapMarkerIcon(type) {
-        const color = type === 'maintenance' ? '#2e7d32' : '#e65100';
+        const color = type === 'maintenance' ? '#ff9800' : '#2196f3';
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">
             <path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 22 12.5 41 12.5 41S25 22 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${color}" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
             <circle cx="12.5" cy="12.5" r="5" fill="white"/>
@@ -3774,7 +3774,7 @@ class ServiceReportApp {
 
                 const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);
                 marker.bindPopup(`
-                    <div class="map-popup-ref">${this.escapeHtml(intervention.ref)} <span style="font-size:10px;color:${intervention.primary_type === 'maintenance' ? '#2e7d32' : '#e65100'}">${typeLabel}</span></div>
+                    <div class="map-popup-ref">${this.escapeHtml(intervention.ref)} <span style="font-size:10px;color:${intervention.primary_type === 'maintenance' ? '#ff9800' : '#2196f3'}">${typeLabel}</span></div>
                     <div class="map-popup-customer">${this.escapeHtml(intervention.customer?.name || '')}</div>
                     <div class="map-popup-addr">${this.escapeHtml(addrLine)}</div>
                     <a class="map-popup-link" onclick="app.openInterventionFromMap(${intervention.id})">Auftrag öffnen →</a>
