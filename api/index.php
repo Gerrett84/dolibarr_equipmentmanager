@@ -227,7 +227,8 @@ function handleInterventions($method, $parts, $input) {
     $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status,";
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
-    $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town";
+    $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town,";
+    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' ELSE 'service' END) as primary_type";
     $sql .= " FROM ".MAIN_DB_PREFIX."fichinter f";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
     $sql .= " WHERE 1=1"; // Remove entity filter temporarily
@@ -276,6 +277,7 @@ function handleInterventions($method, $parts, $input) {
             'signed_status' => (int)$obj->signed_status,
             'description' => $obj->description,
             'note_public' => $obj->note_public,
+            'primary_type' => $obj->primary_type,
             'customer' => [
                 'id' => (int)$obj->socid,
                 'name' => $obj->customer_name,

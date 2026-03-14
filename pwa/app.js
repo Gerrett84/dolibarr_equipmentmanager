@@ -3693,18 +3693,26 @@ class ServiceReportApp {
         return;
     }
 
+    makeMapMarkerIcon(type) {
+        const color = type === 'maintenance' ? '#2e7d32' : '#e65100';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">
+            <path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 22 12.5 41 12.5 41S25 22 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${color}" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
+            <circle cx="12.5" cy="12.5" r="5" fill="white"/>
+        </svg>`;
+        return L.divIcon({
+            html: svg,
+            className: '',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [0, -41]
+        });
+    }
+
     async showMap() {
         this.showView('viewMap');
 
         // Init Leaflet map only once
         if (!this.leafletMap) {
-            // Fix marker icon paths for local hosting
-            delete L.Icon.Default.prototype._getIconUrl;
-            L.Icon.Default.mergeOptions({
-                iconUrl: CONFIG.moduleUrl + 'pwa/leaflet/marker-icon.png',
-                iconRetinaUrl: CONFIG.moduleUrl + 'pwa/leaflet/marker-icon-2x.png',
-                shadowUrl: CONFIG.moduleUrl + 'pwa/leaflet/marker-shadow.png',
-            });
             this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
@@ -3718,18 +3726,20 @@ class ServiceReportApp {
         }
         this.mapMarkers = [];
 
-        // Get open interventions (status 0 or 1)
+        // Only open interventions (status 0 or 1)
         const interventions = (this.allInterventions || []).filter(i => i.status === 0 || i.status === 1);
 
         if (interventions.length === 0) {
             this.showToast('Keine offenen Aufträge');
+            setTimeout(() => this.leafletMap.invalidateSize(), 100);
             return;
         }
 
+        // Collect all needed address strings for cache cleanup
+        const neededAddresses = [];
         const bounds = [];
 
         for (const intervention of interventions) {
-            // Use object address if available, otherwise customer address
             const addr = intervention.object_addresses?.[0];
             const street = addr?.address || intervention.customer?.address;
             const zip    = addr?.zip    || intervention.customer?.zip;
@@ -3738,37 +3748,52 @@ class ServiceReportApp {
             if (!street && !zip && !town) continue;
 
             const query = [street, zip, town].filter(Boolean).join(', ');
+            neededAddresses.push(query);
 
             try {
-                const geo = await this.geocodeAddress(query);
-                if (!geo) continue;
+                // Check geocache first
+                let cached = await offlineDB.getGeoCache(query);
+                let lat, lon;
 
-                const statusLabel = intervention.status === 0 ? 'Entwurf' : 'Offen';
+                if (cached) {
+                    lat = cached.lat;
+                    lon = cached.lon;
+                } else {
+                    const geo = await this.geocodeAddress(query);
+                    if (!geo) continue;
+                    lat = parseFloat(geo.lat);
+                    lon = parseFloat(geo.lon);
+                    await offlineDB.setGeoCache(query, lat, lon);
+                    // Respect Nominatim rate limit only when actually geocoding
+                    await new Promise(r => setTimeout(r, 1100));
+                }
+
                 const addrLine = [street, [zip, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+                const typeLabel = intervention.primary_type === 'maintenance' ? 'Wartung' : 'Service';
+                const icon = this.makeMapMarkerIcon(intervention.primary_type);
 
-                const marker = L.marker([geo.lat, geo.lon]).addTo(this.leafletMap);
+                const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);
                 marker.bindPopup(`
-                    <div class="map-popup-ref">${this.escapeHtml(intervention.ref)}</div>
+                    <div class="map-popup-ref">${this.escapeHtml(intervention.ref)} <span style="font-size:10px;color:${intervention.primary_type === 'maintenance' ? '#2e7d32' : '#e65100'}">${typeLabel}</span></div>
                     <div class="map-popup-customer">${this.escapeHtml(intervention.customer?.name || '')}</div>
                     <div class="map-popup-addr">${this.escapeHtml(addrLine)}</div>
                     <a class="map-popup-link" onclick="app.openInterventionFromMap(${intervention.id})">Auftrag öffnen →</a>
                 `);
 
                 this.mapMarkers.push(marker);
-                bounds.push([geo.lat, geo.lon]);
-
-                // Small delay to respect Nominatim rate limit (1 req/s)
-                await new Promise(r => setTimeout(r, 1100));
+                bounds.push([lat, lon]);
             } catch (e) {
                 console.warn('Geocoding failed for', query, e);
             }
         }
 
+        // Clean up cache entries no longer needed
+        try { await offlineDB.cleanGeoCache(neededAddresses); } catch (e) {}
+
         if (bounds.length > 0) {
             this.leafletMap.fitBounds(bounds, { padding: [40, 40] });
         }
 
-        // Invalidate size in case map was hidden during init
         setTimeout(() => this.leafletMap.invalidateSize(), 100);
     }
 
@@ -3780,7 +3805,7 @@ class ServiceReportApp {
     }
 
     openInterventionFromMap(interventionId) {
-        const intervention = (this.interventions || []).find(i => i.id === interventionId);
+        const intervention = (this.allInterventions || []).find(i => i.id === interventionId);
         if (intervention) {
             this.leafletMap.closePopup();
             this.loadEquipment(intervention);
