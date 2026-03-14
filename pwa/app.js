@@ -1034,14 +1034,19 @@ class ServiceReportApp {
             ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
             : '';
 
-        // Type badge (only when equipment is linked)
+        // Type badge (only when equipment is linked) — same style as status badges
         let typeBadgeHtml = '';
         if (intervention.primary_type === 'maintenance') {
-            const maintColors = { overdue: '#f44336', soon: '#ff9800', ok: '#4caf50', none: '#ff9800' };
-            const color = maintColors[intervention.maintenance_status] || '#ff9800';
-            typeBadgeHtml = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:' + color + ';color:#fff;margin-left:6px;">Wartung</span>';
+            const maintStyles = {
+                overdue: 'background:#ffcdd2;color:#c62828',
+                soon:    'background:#ffe0b2;color:#e65100',
+                ok:      'background:#c8e6c9;color:#2e7d32',
+                none:    'background:#ffe0b2;color:#e65100'
+            };
+            const style = maintStyles[intervention.maintenance_status] || maintStyles.none;
+            typeBadgeHtml = '<span class="badge" style="' + style + '">Wartung</span>';
         } else if (intervention.primary_type === 'service') {
-            typeBadgeHtml = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:#2196f3;color:#fff;margin-left:6px;">Service</span>';
+            typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
         }
 
         card.innerHTML = `
