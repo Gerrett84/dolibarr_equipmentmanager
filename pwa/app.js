@@ -1053,11 +1053,9 @@ class ServiceReportApp {
             <div class="card-header">
                 <div>
                     <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
+                    ${typeBadgeHtml ? '<div style="margin-top:4px;">' + typeBadgeHtml + '</div>' : ''}
                 </div>
-                <div style="display:flex;align-items:center;gap:4px;">
-                    ${typeBadgeHtml}
-                    <span class="badge badge-${statusClass}">${statusText}</span>
-                </div>
+                <span class="badge badge-${statusClass}">${statusText}</span>
             </div>
             <div class="card-body">
                 <p class="customer-name">
