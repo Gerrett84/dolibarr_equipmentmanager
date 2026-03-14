@@ -1034,12 +1034,25 @@ class ServiceReportApp {
             ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
             : '';
 
+        // Type badge (only when equipment is linked)
+        let typeBadgeHtml = '';
+        if (intervention.primary_type === 'maintenance') {
+            const maintColors = { overdue: '#f44336', soon: '#ff9800', ok: '#4caf50', none: '#ff9800' };
+            const color = maintColors[intervention.maintenance_status] || '#ff9800';
+            typeBadgeHtml = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:' + color + ';color:#fff;margin-left:6px;">Wartung</span>';
+        } else if (intervention.primary_type === 'service') {
+            typeBadgeHtml = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:#2196f3;color:#fff;margin-left:6px;">Service</span>';
+        }
+
         card.innerHTML = `
             <div class="card-header">
                 <div>
                     <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
                 </div>
-                <span class="badge badge-${statusClass}">${statusText}</span>
+                <div style="display:flex;align-items:center;gap:4px;">
+                    ${typeBadgeHtml}
+                    <span class="badge badge-${statusClass}">${statusText}</span>
+                </div>
             </div>
             <div class="card-body">
                 <p class="customer-name">
