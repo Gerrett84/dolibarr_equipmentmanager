@@ -228,7 +228,15 @@ function handleInterventions($method, $parts, $input) {
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town,";
-    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' ELSE 'service' END) as primary_type";
+    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' ELSE 'service' END) as primary_type,";
+    $sql .= " (SELECT CASE";
+    $sql .= "   WHEN MIN(e.next_maintenance_date) IS NULL THEN 'none'";
+    $sql .= "   WHEN MIN(e.next_maintenance_date) < CURDATE() THEN 'overdue'";
+    $sql .= "   WHEN MIN(e.next_maintenance_date) <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'soon'";
+    $sql .= "   ELSE 'ok' END";
+    $sql .= "  FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il2";
+    $sql .= "  JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = il2.fk_equipment";
+    $sql .= "  WHERE il2.fk_intervention = f.rowid AND il2.link_type = 'maintenance') as maintenance_status";
     $sql .= " FROM ".MAIN_DB_PREFIX."fichinter f";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
     $sql .= " WHERE 1=1"; // Remove entity filter temporarily
@@ -278,6 +286,7 @@ function handleInterventions($method, $parts, $input) {
             'description' => $obj->description,
             'note_public' => $obj->note_public,
             'primary_type' => $obj->primary_type,
+            'maintenance_status' => $obj->maintenance_status,
             'customer' => [
                 'id' => (int)$obj->socid,
                 'name' => $obj->customer_name,
