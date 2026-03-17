@@ -3845,8 +3845,8 @@ class ServiceReportApp {
         const loadingEl = document.getElementById('maintenanceLoading');
         const listEl = document.getElementById('maintenanceList');
 
-        // Init filter state
-        if (this.maintenanceMonthsAhead === undefined) this.maintenanceMonthsAhead = 0;
+        // Init filter state: default +3 months
+        if (this.maintenanceMonthsAhead === undefined) this.maintenanceMonthsAhead = 3;
 
         loadingEl.style.display = 'flex';
         listEl.innerHTML = '';
@@ -3871,7 +3871,7 @@ class ServiceReportApp {
 
     renderMaintenanceView(container) {
         const groups = this.maintenanceData || [];
-        const monthsAhead = this.maintenanceMonthsAhead || 0;
+        const monthsAhead = this.maintenanceMonthsAhead !== undefined ? this.maintenanceMonthsAhead : 3;
         container = container || document.getElementById('maintenanceList');
         container.innerHTML = '';
 
@@ -3888,43 +3888,44 @@ class ServiceReportApp {
             none:    'Kein Datum'
         };
 
-        // Filter bar
-        const filterBar = document.createElement('div');
-        filterBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;';
+        // Filter bar — same style as intervention filter tabs
+        const filterWrap = document.createElement('div');
+        filterWrap.className = 'filter-tabs';
+        filterWrap.style.cssText = 'position:sticky;top:56px;z-index:10;';
         const filterOptions = [
-            { label: 'Überfällig+Bald', value: 0 },
-            { label: '+3 Monate',        value: 3 },
-            { label: '+6 Monate',        value: 6 },
-            { label: '+9 Monate',        value: 9 },
-            { label: '+12 Monate',       value: 12 }
+            { label: '+3 Monate',  value: 3 },
+            { label: '+6 Monate',  value: 6 },
+            { label: '+9 Monate',  value: 9 },
+            { label: '+12 Monate', value: 12 },
+            { label: 'Alle',       value: 999 }
         ];
         filterOptions.forEach(opt => {
             const btn = document.createElement('button');
+            btn.className = 'filter-tab' + (monthsAhead === opt.value ? ' active' : '');
             btn.textContent = opt.label;
-            btn.style.cssText = 'padding:5px 10px;border-radius:14px;border:1px solid #90a4ae;background:' +
-                (monthsAhead === opt.value ? '#263c5c' : 'transparent') +
-                ';color:' + (monthsAhead === opt.value ? '#fff' : 'var(--text-primary)') +
-                ';font-size:12px;cursor:pointer;';
             btn.addEventListener('click', () => {
                 this.maintenanceMonthsAhead = opt.value;
                 this.renderMaintenanceView();
             });
-            filterBar.appendChild(btn);
+            filterWrap.appendChild(btn);
         });
-        container.appendChild(filterBar);
+        container.appendChild(filterWrap);
 
-        // Cut-off date for filtering
+        // Cut-off date: overdue+soon always shown; add equipment up to cutoff on top
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const cutoff = monthsAhead > 0 ? new Date(today) : null;
-        if (cutoff) cutoff.setMonth(cutoff.getMonth() + monthsAhead);
+        const cutoff = new Date(today);
+        if (monthsAhead < 999) {
+            cutoff.setMonth(cutoff.getMonth() + monthsAhead);
+        } else {
+            cutoff.setFullYear(cutoff.getFullYear() + 100); // "all"
+        }
 
-        // Filter equipment per group and hide empty groups
+        // Filter equipment per group — always include overdue+soon, add future up to cutoff
         const filteredGroups = groups.map(group => {
             const equipment = group.equipment.filter(eq => {
                 if (eq.maint_status === 'overdue' || eq.maint_status === 'soon') return true;
-                if (!eq.next_maintenance_date) return false; // 'none' — only show if explicitly included? Skip for now
-                if (!cutoff) return false; // no extra months selected
+                if (!eq.next_maintenance_date) return false;
                 const d = new Date(eq.next_maintenance_date);
                 return d <= cutoff;
             });
