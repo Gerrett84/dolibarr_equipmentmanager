@@ -19,6 +19,19 @@ class ServiceReportApp {
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
         this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
+        this.equipmentTypeLabels = {
+            'door_swing':    'Drehtür',
+            'door_sliding':  'Schiebetür',
+            'fire_door':     'Brandschutztür',
+            'fire_door_fsa': 'Brandschutztür (FSA)',
+            'fire_gate':     'Brandschutztor',
+            'door_closer':   'Türschließer',
+            'hold_open':     'Feststellanlage',
+            'rws':           'RWS',
+            'rwa':           'RWA',
+            'other':         'Sonstige'
+        };
+
         this.init();
     }
 
