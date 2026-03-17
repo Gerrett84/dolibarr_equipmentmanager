@@ -552,6 +552,8 @@ class ServiceReportApp {
             document.getElementById('navPdfPreview').style.display = 'none';
             document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
+            document.getElementById('navMap').style.display = 'flex';
+            document.getElementById('navMaintenance').style.display = 'flex';
             // Set correct nav item active
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             const navIds = { viewMap: 'navMap', viewMaintenance: 'navMaintenance' };
@@ -562,6 +564,8 @@ class ServiceReportApp {
         } else {
             backBtn.style.display = 'block';
             if (title) headerTitle.textContent = title;
+            document.getElementById('navMap').style.display = 'none';
+            document.getElementById('navMaintenance').style.display = 'none';
         }
 
         this.currentView = viewId;
@@ -3841,6 +3845,9 @@ class ServiceReportApp {
         const loadingEl = document.getElementById('maintenanceLoading');
         const listEl = document.getElementById('maintenanceList');
 
+        // Init filter state
+        if (this.maintenanceMonthsAhead === undefined) this.maintenanceMonthsAhead = 0;
+
         loadingEl.style.display = 'flex';
         listEl.innerHTML = '';
 
@@ -3853,7 +3860,8 @@ class ServiceReportApp {
                 return;
             }
 
-            this.renderMaintenanceView(data.groups, listEl);
+            this.maintenanceData = data.groups;
+            this.renderMaintenanceView(listEl);
         } catch (e) {
             loadingEl.style.display = 'none';
             listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Fehler beim Laden der Wartungsübersicht.</p></div>';
@@ -3861,7 +3869,12 @@ class ServiceReportApp {
         }
     }
 
-    renderMaintenanceView(groups, container) {
+    renderMaintenanceView(container) {
+        const groups = this.maintenanceData || [];
+        const monthsAhead = this.maintenanceMonthsAhead || 0;
+        container = container || document.getElementById('maintenanceList');
+        container.innerHTML = '';
+
         const statusColors = {
             overdue: '#f44336',
             soon:    '#ff9800',
@@ -3875,7 +3888,66 @@ class ServiceReportApp {
             none:    'Kein Datum'
         };
 
-        groups.forEach((group, idx) => {
+        // Filter bar
+        const filterBar = document.createElement('div');
+        filterBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;';
+        const filterOptions = [
+            { label: 'Überfällig+Bald', value: 0 },
+            { label: '+3 Monate',        value: 3 },
+            { label: '+6 Monate',        value: 6 },
+            { label: '+9 Monate',        value: 9 },
+            { label: '+12 Monate',       value: 12 }
+        ];
+        filterOptions.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.textContent = opt.label;
+            btn.style.cssText = 'padding:5px 10px;border-radius:14px;border:1px solid #90a4ae;background:' +
+                (monthsAhead === opt.value ? '#263c5c' : 'transparent') +
+                ';color:' + (monthsAhead === opt.value ? '#fff' : 'var(--text-primary)') +
+                ';font-size:12px;cursor:pointer;';
+            btn.addEventListener('click', () => {
+                this.maintenanceMonthsAhead = opt.value;
+                this.renderMaintenanceView();
+            });
+            filterBar.appendChild(btn);
+        });
+        container.appendChild(filterBar);
+
+        // Cut-off date for filtering
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const cutoff = monthsAhead > 0 ? new Date(today) : null;
+        if (cutoff) cutoff.setMonth(cutoff.getMonth() + monthsAhead);
+
+        // Filter equipment per group and hide empty groups
+        const filteredGroups = groups.map(group => {
+            const equipment = group.equipment.filter(eq => {
+                if (eq.maint_status === 'overdue' || eq.maint_status === 'soon') return true;
+                if (!eq.next_maintenance_date) return false; // 'none' — only show if explicitly included? Skip for now
+                if (!cutoff) return false; // no extra months selected
+                const d = new Date(eq.next_maintenance_date);
+                return d <= cutoff;
+            });
+            return { ...group, equipment };
+        }).filter(g => g.equipment.length > 0);
+
+        if (filteredGroups.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.innerHTML = '<div class="empty-icon">✅</div><p>Keine Anlagen in diesem Zeitraum fällig.</p>';
+            container.appendChild(empty);
+            return;
+        }
+
+        // Recalculate worst_status per filtered group
+        const statusRank = { overdue: 1, soon: 2, ok: 3, none: 4 };
+        filteredGroups.forEach(group => {
+            group.worst_status = group.equipment.reduce((worst, eq) => {
+                return (statusRank[eq.maint_status] || 4) < (statusRank[worst] || 4) ? eq.maint_status : worst;
+            }, 'none');
+        });
+
+        filteredGroups.forEach((group, idx) => {
             const worstColor = statusColors[group.worst_status] || '#9e9e9e';
             const groupEl = document.createElement('div');
             groupEl.className = 'maint-group';
@@ -3894,10 +3966,10 @@ class ServiceReportApp {
                 groupEl.classList.toggle('open');
             });
 
-            const bodyEl = document.createElement('div');
+                const bodyEl = document.createElement('div');
             bodyEl.className = 'maint-group-body';
 
-        const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+            const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
             group.equipment.forEach(eq => {
                 const color = statusColors[eq.maint_status] || '#9e9e9e';
