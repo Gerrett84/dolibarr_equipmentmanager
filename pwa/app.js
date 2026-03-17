@@ -3933,6 +3933,7 @@ class ServiceReportApp {
                         e.preventDefault();
                         const intervention = (this.allInterventions || []).find(i => i.id === eq.open_intervention_id);
                         if (intervention) {
+                            this.currentIntervention = intervention;
                             this.loadEquipment(intervention);
                         } else {
                             this.showToast('Auftrag nicht in der Liste — bitte synchronisieren');
