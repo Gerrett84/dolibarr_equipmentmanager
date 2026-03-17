@@ -1211,6 +1211,247 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: inherit;
         }
 
+        /* Maintenance Overview */
+        .maint-group {
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .maint-group-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            cursor: pointer;
+            gap: 10px;
+            user-select: none;
+        }
+
+        .maint-group-header:active {
+            background: rgba(0,0,0,0.04);
+        }
+
+        .maint-status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .maint-group-label {
+            flex: 1;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .maint-group-addr {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 1px;
+        }
+
+        .maint-group-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .maint-group-chevron {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .maint-group.open .maint-group-chevron {
+            transform: rotate(180deg);
+        }
+
+        .maint-group-body {
+            display: none;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .maint-group.open .maint-group-body {
+            display: block;
+        }
+
+        .maint-eq-item {
+            display: flex;
+            align-items: center;
+            padding: 9px 14px 9px 36px;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .maint-eq-item:last-child {
+            border-bottom: none;
+        }
+
+        .maint-eq-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .maint-eq-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .maint-eq-date {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .maint-eq-link {
+            font-size: 12px;
+            color: #1976d2;
+            text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        [data-theme="dark"] .maint-eq-link {
+            color: #64b5f6;
+        }
+
+        /* Map View */
+        #viewMap {
+            padding: 0 !important;
+            position: fixed !important;
+            top: 56px;
+            left: 0;
+            right: 0;
+            bottom: 60px;
+            overflow: hidden;
+        }
+
+        #interventionMap {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-popup-ref {
+            font-weight: 600;
+            font-size: 13px;
+            color: #263c5c;
+        }
+
+        .map-popup-customer {
+            font-size: 12px;
+            color: #555;
+            margin-top: 2px;
+        }
+
+        .map-popup-addr {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .map-popup-link {
+            display: inline-block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #263c5c;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Collapsible Info Header */
+        .info-collapse-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .info-collapse-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+            gap: 8px;
+        }
+
+        .info-collapse-summary:active {
+            background: var(--border-color);
+        }
+
+        .info-collapse-customer {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .info-collapse-addr-preview {
+            font-size: 11px;
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        .info-collapse-chevron {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .info-collapse-chevron.open {
+            transform: rotate(180deg);
+        }
+
+        .info-collapse-body {
+            display: none;
+            padding: 0 12px 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .info-collapse-body.open {
+            display: block;
+        }
+
+        .info-collapse-section {
+            margin-top: 12px;
+        }
+
+        .info-collapse-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-collapse-value {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
         .object-address-divider {
             margin-top: 12px;
             padding-top: 12px;
@@ -1853,7 +2094,23 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         </div>
     </div>
 
+    <!-- Maintenance Overview View -->
+    <div class="view" id="viewMaintenance">
+        <div class="content">
+            <div class="loading" id="maintenanceLoading" style="display:none;">
+                <div class="spinner"></div>
+                <p>Lade Wartungsübersicht...</p>
+            </div>
+            <div id="maintenanceList"></div>
+        </div>
+    </div>
+
     <!-- Equipment List View -->
+    <!-- Map View -->
+    <div class="view" id="viewMap">
+        <div id="interventionMap" style="width:100%;height:100%;"></div>
+    </div>
+
     <div class="view" id="viewEquipment">
         <div class="content">
             <div class="loading" id="equipmentLoading" style="display:none;">
@@ -2128,13 +2385,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <span class="nav-icon">📋</span>
             <span>Aufträge</span>
         </button>
+        <button class="nav-item" id="navMaintenance">
+            <span class="nav-icon">📅</span>
+            <span>Wartung</span>
+        </button>
+        <button class="nav-item" id="navMap">
+            <span class="nav-icon">🗺️</span>
+            <span>Karte</span>
+        </button>
         <button class="nav-item" id="navRelease" style="display:none;">
             <span class="nav-icon" id="releaseIcon">✅</span>
             <span id="releaseText">Freigeben</span>
-        </button>
-        <button class="nav-item" id="navInfo" style="display:none;">
-            <span class="nav-icon">ℹ️</span>
-            <span>Info</span>
         </button>
         <button class="nav-item" id="navDocuments" style="display:none;">
             <span class="nav-icon">📄</span>
@@ -2306,21 +2567,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         </div>
     </div>
 
-    <!-- Info Modal -->
-    <div class="modal" id="infoModal">
-        <div class="modal-content" style="max-height:85vh;">
-            <div class="modal-header">
-                <h3>Auftragsdetails</h3>
-                <button type="button" class="modal-close" id="btnCloseInfo">&times;</button>
-            </div>
-            <div class="modal-body" id="infoContent" style="overflow-y:auto;">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Lade...</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Leaflet Map (local) -->
+    <link rel="stylesheet" href="leaflet/leaflet.css"/>
+    <script src="leaflet/leaflet.js"></script>
 
     <!-- Scripts -->
     <script src="<?php echo DOL_URL_ROOT; ?>/includes/jquery/js/jquery.min.js"></script>

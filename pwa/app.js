@@ -19,6 +19,19 @@ class ServiceReportApp {
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
         this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
+        this.equipmentTypeLabels = {
+            'door_swing':    'Drehtür',
+            'door_sliding':  'Schiebetür',
+            'fire_door':     'Brandschutztür',
+            'fire_door_fsa': 'Brandschutztür (FSA)',
+            'fire_gate':     'Brandschutztor',
+            'door_closer':   'Türschließer',
+            'hold_open':     'Feststellanlage',
+            'rws':           'RWS',
+            'rwa':           'RWA',
+            'other':         'Sonstige'
+        };
+
         this.init();
     }
 
@@ -387,16 +400,18 @@ class ServiceReportApp {
         // Equipment modal buttons
         document.getElementById('btnCloseEquipment').addEventListener('click', () => this.closeEquipmentModal());
 
+        // Maintenance overview button
+        document.getElementById('navMaintenance').addEventListener('click', () => this.showMaintenance());
+
+        // Map button
+        document.getElementById('navMap').addEventListener('click', () => this.showMap());
+
         // Release button
         document.getElementById('navRelease').addEventListener('click', () => this.toggleRelease());
 
         // Documents button
         document.getElementById('navDocuments').addEventListener('click', () => this.showDocuments());
         document.getElementById('btnCloseDocuments').addEventListener('click', () => this.closeDocumentsModal());
-
-        // Info button
-        document.getElementById('navInfo').addEventListener('click', () => this.showInfo());
-        document.getElementById('btnCloseInfo').addEventListener('click', () => this.closeInfoModal());
 
         // PDF Preview button
         document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
@@ -528,18 +543,29 @@ class ServiceReportApp {
         const backBtn = document.getElementById('btnBack');
         const headerTitle = document.getElementById('headerTitle');
 
-        if (viewId === 'viewInterventions') {
+        if (viewId === 'viewInterventions' || viewId === 'viewMap' || viewId === 'viewMaintenance') {
             backBtn.style.display = 'none';
-            headerTitle.textContent = 'Serviceberichte';
+            const titles = { viewMap: 'Karte', viewMaintenance: 'Wartungsübersicht', viewInterventions: 'Serviceberichte' };
+            headerTitle.textContent = titles[viewId] || 'Serviceberichte';
             document.getElementById('navRelease').style.display = 'none';
-            document.getElementById('navInfo').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navPdfPreview').style.display = 'none';
             document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
+            document.getElementById('navMap').style.display = 'flex';
+            document.getElementById('navMaintenance').style.display = 'flex';
+            // Set correct nav item active
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const navIds = { viewMap: 'navMap', viewMaintenance: 'navMaintenance' };
+            const activeBtn = navIds[viewId]
+                ? document.getElementById(navIds[viewId])
+                : document.querySelector('[data-view="viewInterventions"]');
+            if (activeBtn) activeBtn.classList.add('active');
         } else {
             backBtn.style.display = 'block';
             if (title) headerTitle.textContent = title;
+            document.getElementById('navMap').style.display = 'none';
+            document.getElementById('navMaintenance').style.display = 'none';
         }
 
         this.currentView = viewId;
@@ -1030,10 +1056,26 @@ class ServiceReportApp {
             ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
             : '';
 
+        // Type badge (only when equipment is linked) — same style as status badges
+        let typeBadgeHtml = '';
+        if (intervention.primary_type === 'maintenance') {
+            const maintStyles = {
+                overdue: 'background:#ffcdd2;color:#c62828',
+                soon:    'background:#ffe0b2;color:#e65100',
+                ok:      'background:#c8e6c9;color:#2e7d32',
+                none:    'background:#ffe0b2;color:#e65100'
+            };
+            const style = maintStyles[intervention.maintenance_status] || maintStyles.none;
+            typeBadgeHtml = '<span class="badge" style="' + style + '">Wartung</span>';
+        } else if (intervention.primary_type === 'service') {
+            typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
+        }
+
         card.innerHTML = `
             <div class="card-header">
                 <div>
                     <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
+                    ${typeBadgeHtml ? '<div style="margin-top:4px;">' + typeBadgeHtml + '</div>' : ''}
                 </div>
                 <span class="badge badge-${statusClass}">${statusText}</span>
             </div>
@@ -1095,6 +1137,9 @@ class ServiceReportApp {
                         // Update currentIntervention with fresh data
                         this.currentIntervention.signed_status = signedStatus;
                         this.currentIntervention.status = fullData.intervention.status;
+                        this.currentIntervention.note_public = fullData.intervention.note_public;
+                        this.currentIntervention.note_private = fullData.intervention.note_private;
+                        this.currentIntervention.description = fullData.intervention.description;
                     }
                     equipment = fullData.equipment || [];
                     await offlineDB.saveEquipment(intervention.id, equipment);
@@ -1133,9 +1178,6 @@ class ServiceReportApp {
             const releaseIcon = document.getElementById('releaseIcon');
             const releaseText = document.getElementById('releaseText');
             releaseBtn.style.display = 'flex';
-
-            // Show info button
-            document.getElementById('navInfo').style.display = 'flex';
 
             // Show/hide documents button
             const docsBtn = document.getElementById('navDocuments');
@@ -1176,6 +1218,9 @@ class ServiceReportApp {
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
             accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
+
+            // Collapsible info header
+            listEl.appendChild(this.buildInfoHeader(intervention));
 
             // Button container for action buttons
             const btnContainer = document.createElement('div');
@@ -3501,106 +3546,487 @@ class ServiceReportApp {
         window.open(protocolUrl, '_blank');
     }
 
-    async showInfo() {
-        document.getElementById('infoModal').classList.add('show');
+    buildInfoHeader(intervention) {
+        const card = document.createElement('div');
+        card.className = 'info-collapse-card';
 
-        const contentEl = document.getElementById('infoContent');
+        // Summary row (always visible)
+        const summary = document.createElement('div');
+        summary.className = 'info-collapse-summary';
 
-        if (!this.currentIntervention) {
-            contentEl.innerHTML = '<p>Keine Intervention ausgewählt</p>';
-            return;
+        const textWrap = document.createElement('div');
+        textWrap.style.cssText = 'flex:1;min-width:0;';
+
+        const primaryLabel = document.createElement('div');
+        primaryLabel.className = 'info-collapse-customer';
+
+        const addrPreview = document.createElement('div');
+        addrPreview.className = 'info-collapse-addr-preview';
+
+        const firstObj = intervention.object_addresses?.[0];
+        if (firstObj) {
+            // Primary: object name, secondary: object address + phone/email
+            primaryLabel.textContent = firstObj.name || '—';
+            const addrParts = [firstObj.address, [firstObj.zip, firstObj.town].filter(Boolean).join(' ')].filter(Boolean);
+            addrPreview.textContent = addrParts.join(', ');
+        } else {
+            // Fallback: customer name + customer address
+            primaryLabel.textContent = intervention.customer?.name || '—';
+            if (intervention.customer?.address) {
+                const addrParts = [intervention.customer.address, [intervention.customer.zip, intervention.customer.town].filter(Boolean).join(' ')].filter(Boolean);
+                addrPreview.textContent = addrParts.join(', ');
+            }
         }
 
-        const intervention = this.currentIntervention;
+        textWrap.appendChild(primaryLabel);
+        if (addrPreview.textContent) textWrap.appendChild(addrPreview);
 
-        // Build info content
-        let html = '';
+        // Phone only in summary (email only in expanded body)
+        if (firstObj?.phone) {
+            const contactRow = document.createElement('div');
+            contactRow.className = 'info-collapse-addr-preview';
+            contactRow.style.marginTop = '2px';
+            const telLink = document.createElement('a');
+            telLink.href = `tel:${firstObj.phone.replace(/\s/g, '')}`;
+            telLink.textContent = `📞 ${firstObj.phone}`;
+            telLink.style.cssText = 'color:inherit;text-decoration:none;';
+            telLink.addEventListener('click', e => e.stopPropagation());
+            contactRow.appendChild(telLink);
+            textWrap.appendChild(contactRow);
+        }
 
-        // Customer info first (most important)
+
+        const chevron = document.createElement('span');
+        chevron.className = 'info-collapse-chevron';
+        chevron.textContent = '▾';
+
+        summary.appendChild(textWrap);
+        summary.appendChild(chevron);
+
+        // Detail body (hidden by default)
+        const body = document.createElement('div');
+        body.className = 'info-collapse-body';
+
+        // Kunde
         if (intervention.customer) {
-            html += '<div class="info-section">';
-            html += '<h4 class="info-heading">Kunde</h4>';
-            html += `<div class="info-text">`;
-            html += `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>`;
-            const customerMapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
-            if (customerMapsUrl) {
-                html += `<a href="${customerMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
-            }
-            if (intervention.customer.address) {
-                html += `${this.escapeHtml(intervention.customer.address)}<br>`;
-            }
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Kunde';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            const mapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
+            let addrHtml = '';
+            if (intervention.customer.address) addrHtml += this.escapeHtml(intervention.customer.address) + '<br>';
             if (intervention.customer.zip || intervention.customer.town) {
-                html += `${this.escapeHtml(intervention.customer.zip || '')} ${this.escapeHtml(intervention.customer.town || '')}`;
+                addrHtml += this.escapeHtml((intervention.customer.zip || '') + ' ' + (intervention.customer.town || '')).trim();
             }
-            if (customerMapsUrl) {
-                html += `</a>`;
+            if (mapsUrl && addrHtml) {
+                val.innerHTML = `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
+            } else {
+                val.innerHTML = addrHtml || '—';
             }
-            html += `</div>`;
-            html += '</div>';
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
 
-        // Object addresses (from socpeople linked to equipment)
-        html += '<div class="info-section info-section-divider">';
-        html += '<h4 class="info-heading">Objektadresse</h4>';
-
-        // Use object_addresses from intervention data (linked via equipment -> socpeople)
-        if (intervention.object_addresses && intervention.object_addresses.length > 0) {
-            intervention.object_addresses.forEach(addr => {
-                html += `<div class="info-text" style="margin-bottom:8px;">`;
-                if (addr.name) {
-                    html += `<strong>${this.escapeHtml(addr.name)}</strong><br>`;
+        // Objektadresse(n)
+        const objSec = document.createElement('div');
+        objSec.className = 'info-collapse-section';
+        const objLbl = document.createElement('div');
+        objLbl.className = 'info-collapse-label';
+        objLbl.textContent = 'Objektadresse';
+        objSec.appendChild(objLbl);
+        if (intervention.object_addresses?.length > 0) {
+            intervention.object_addresses.forEach((addr, i) => {
+                const val = document.createElement('div');
+                val.className = 'info-collapse-value';
+                if (i > 0) val.style.marginTop = '8px';
+                const mapsUrl = this.getMapsUrl(addr.address, addr.zip, addr.town);
+                let html = addr.name ? `<strong>${this.escapeHtml(addr.name)}</strong><br>` : '';
+                let addrHtml = '';
+                if (addr.address) addrHtml += this.escapeHtml(addr.address) + '<br>';
+                if (addr.zip || addr.town) addrHtml += this.escapeHtml((addr.zip || '') + ' ' + (addr.town || '')).trim();
+                if (mapsUrl && addrHtml) {
+                    html += `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
+                } else {
+                    html += addrHtml;
                 }
-                const addrMapsUrl = this.getMapsUrl(addr.address, addr.zip, addr.town);
-                if (addrMapsUrl) {
-                    html += `<a href="${addrMapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">`;
-                }
-                if (addr.address) {
-                    html += `${this.escapeHtml(addr.address)}<br>`;
-                }
-                if (addr.zip || addr.town) {
-                    html += `${this.escapeHtml(addr.zip || '')} ${this.escapeHtml(addr.town || '')}`;
-                }
-                if (addrMapsUrl) {
-                    html += `</a>`;
-                }
-                html += `</div>`;
+                if (addr.phone) html += `<br><a href="tel:${this.escapeHtml(addr.phone.replace(/\s/g,''))}" class="address-link">📞 ${this.escapeHtml(addr.phone)}</a>`;
+                if (addr.email) html += `<br><a href="mailto:${this.escapeHtml(addr.email)}" class="address-link">✉ ${this.escapeHtml(addr.email)}</a>`;
+                if (addr.note) html += `<br><span style="color:var(--text-muted);font-style:italic;">${this.escapeHtml(addr.note).replace(/\n/g, '<br>')}</span>`;
+                val.innerHTML = html;
+                objSec.appendChild(val);
             });
         } else {
-            html += '<p class="info-text-muted">Keine Objektadresse hinterlegt</p>';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.style.color = 'var(--text-muted)';
+            val.style.fontStyle = 'italic';
+            val.textContent = 'Keine Objektadresse hinterlegt';
+            objSec.appendChild(val);
         }
-        html += '</div>';
+        body.appendChild(objSec);
 
-        // Description (Auftragsbeschreibung)
-        html += '<div class="info-section info-section-divider">';
-        html += '<h4 class="info-heading">Auftragsbeschreibung</h4>';
+        // Beschreibung
         if (intervention.description) {
-            html += `<div class="info-text">${this.escapeHtml(intervention.description).replace(/\n/g, '<br>')}</div>`;
-        } else {
-            html += '<p class="info-text-muted">Keine Beschreibung vorhanden</p>';
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Auftragsbeschreibung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.description).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
-        html += '</div>';
 
-        // Public Note
+        // Öffentliche Anmerkung
         if (intervention.note_public) {
-            html += '<div class="info-section info-section-divider">';
-            html += '<h4 class="info-heading">Öffentliche Anmerkung</h4>';
-            html += `<div class="info-text">${this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>')}</div>`;
-            html += '</div>';
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Öffentliche Anmerkung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
 
-        // Private Note
+        // Private Anmerkung
         if (intervention.note_private) {
-            html += '<div class="info-section info-section-divider">';
-            html += '<h4 class="info-heading">Private Anmerkung</h4>';
-            html += `<div class="info-text">${this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>')}</div>`;
-            html += '</div>';
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Private Anmerkung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
         }
 
-        contentEl.innerHTML = html;
+        // Toggle logic
+        summary.addEventListener('click', () => {
+            const isOpen = body.classList.toggle('open');
+            chevron.classList.toggle('open', isOpen);
+        });
+
+        card.appendChild(summary);
+        card.appendChild(body);
+        return card;
     }
 
     closeInfoModal() {
-        document.getElementById('infoModal').classList.remove('show');
+        // kept for compatibility, no longer used
+        return;
+    }
+
+    makeMapMarkerIcon(type, intervention) {
+        let color;
+        if (type === 'maintenance') {
+            const statusColors = { overdue: '#f44336', soon: '#ff9800', ok: '#4caf50', none: '#ff9800' };
+            color = statusColors[intervention && intervention.maintenance_status] || '#ff9800';
+        } else {
+            color = '#2196f3';
+        }
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">' +
+            '<path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 22 12.5 41 12.5 41S25 22 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="' + color + '" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>' +
+            '<circle cx="12.5" cy="12.5" r="5" fill="white"/>' +
+            '</svg>';
+        const icon = L.divIcon({ html: svg, className: '', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [0, -41] });
+        icon._color = color;
+        return icon;
+    }
+
+    async showMap() {
+        this.showView('viewMap');
+
+        // Init Leaflet map only once
+        if (!this.leafletMap) {
+            this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(this.leafletMap);
+        }
+
+        // Clear existing markers
+        if (this.mapMarkers) {
+            this.mapMarkers.forEach(m => m.remove());
+        }
+        this.mapMarkers = [];
+
+        // Only open interventions (status 0 or 1)
+        const interventions = (this.allInterventions || []).filter(i => i.status === 0 || i.status === 1);
+
+        if (interventions.length === 0) {
+            this.showToast('Keine offenen Aufträge');
+            setTimeout(() => this.leafletMap.invalidateSize(), 100);
+            return;
+        }
+
+        // Collect all needed address strings for cache cleanup
+        const neededAddresses = [];
+        const bounds = [];
+
+        for (const intervention of interventions) {
+            const addr = intervention.object_addresses?.[0];
+            const street = addr?.address || intervention.customer?.address;
+            const zip    = addr?.zip    || intervention.customer?.zip;
+            const town   = addr?.town   || intervention.customer?.town;
+
+            if (!street && !zip && !town) continue;
+
+            const query = [street, zip, town].filter(Boolean).join(', ');
+            neededAddresses.push(query);
+
+            try {
+                // Check geocache first
+                let cached = await offlineDB.getGeoCache(query);
+                let lat, lon;
+
+                if (cached) {
+                    lat = cached.lat;
+                    lon = cached.lon;
+                } else {
+                    const geo = await this.geocodeAddress(query);
+                    if (!geo) continue;
+                    lat = parseFloat(geo.lat);
+                    lon = parseFloat(geo.lon);
+                    await offlineDB.setGeoCache(query, lat, lon);
+                    // Respect Nominatim rate limit only when actually geocoding
+                    await new Promise(r => setTimeout(r, 1100));
+                }
+
+                const addrLine = [street, [zip, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+                const icon = this.makeMapMarkerIcon(intervention.primary_type, intervention);
+                const markerColor = icon._color;
+                const typeLabel = intervention.primary_type === 'maintenance' ? 'Wartung' : 'Service';
+
+                const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);
+                marker.bindPopup(
+                    '<div class="map-popup-ref">' + this.escapeHtml(intervention.ref) +
+                    ' <span style="font-size:10px;color:' + markerColor + '">' + typeLabel + '</span></div>' +
+                    '<div class="map-popup-customer">' + this.escapeHtml(intervention.customer?.name || '') + '</div>' +
+                    '<div class="map-popup-addr">' + this.escapeHtml(addrLine) + '</div>' +
+                    '<a class="map-popup-link" onclick="app.openInterventionFromMap(' + intervention.id + ')">Auftrag öffnen →</a>'
+                );
+
+                this.mapMarkers.push(marker);
+                bounds.push([lat, lon]);
+            } catch (e) {
+                console.warn('Geocoding failed for', query, e);
+            }
+        }
+
+        // Clean up cache entries no longer needed
+        try { await offlineDB.cleanGeoCache(neededAddresses); } catch (e) {}
+
+        if (bounds.length > 0) {
+            this.leafletMap.fitBounds(bounds, { padding: [40, 40] });
+        }
+
+        setTimeout(() => this.leafletMap.invalidateSize(), 100);
+    }
+
+    async showMaintenance() {
+        this.showView('viewMaintenance');
+
+        const loadingEl = document.getElementById('maintenanceLoading');
+        const listEl = document.getElementById('maintenanceList');
+
+        // Init filter state: default +3 months
+        if (this.maintenanceMonthsAhead === undefined) this.maintenanceMonthsAhead = 3;
+
+        loadingEl.style.display = 'flex';
+        listEl.innerHTML = '';
+
+        try {
+            const data = await this.apiCall('maintenance-overview');
+            loadingEl.style.display = 'none';
+
+            if (!data || !data.groups || data.groups.length === 0) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><p>Keine Anlagen mit Wartungsplan gefunden.</p></div>';
+                return;
+            }
+
+            this.maintenanceData = data.groups;
+            this.renderMaintenanceView(listEl);
+        } catch (e) {
+            loadingEl.style.display = 'none';
+            listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Fehler beim Laden der Wartungsübersicht.</p></div>';
+            console.error('Maintenance overview error:', e);
+        }
+    }
+
+    renderMaintenanceView(container) {
+        const groups = this.maintenanceData || [];
+        const monthsAhead = this.maintenanceMonthsAhead !== undefined ? this.maintenanceMonthsAhead : 3;
+        container = container || document.getElementById('maintenanceList');
+        container.innerHTML = '';
+
+        const statusColors = {
+            overdue: '#f44336',
+            soon:    '#ff9800',
+            ok:      '#4caf50',
+            none:    '#9e9e9e'
+        };
+        const statusLabels = {
+            overdue: 'Überfällig',
+            soon:    'Bald fällig',
+            ok:      'OK',
+            none:    'Kein Datum'
+        };
+
+        // Filter dropdown — same style as signed time-range selector
+        const filterWrap = document.createElement('div');
+        filterWrap.className = 'time-range-selector';
+        filterWrap.innerHTML =
+            '<span class="time-range-label">Zusätzlich fällig in:</span>' +
+            '<select class="time-range-select" id="maintenanceRangeSelect">' +
+            '<option value="3"'  + (monthsAhead === 3  ? ' selected' : '') + '>3 Monate</option>' +
+            '<option value="6"'  + (monthsAhead === 6  ? ' selected' : '') + '>6 Monate</option>' +
+            '<option value="9"'  + (monthsAhead === 9  ? ' selected' : '') + '>9 Monate</option>' +
+            '<option value="12"' + (monthsAhead === 12 ? ' selected' : '') + '>12 Monate</option>' +
+            '</select>';
+        container.appendChild(filterWrap);
+        filterWrap.querySelector('select').addEventListener('change', (e) => {
+            this.maintenanceMonthsAhead = parseInt(e.target.value, 10);
+            this.renderMaintenanceView();
+        });
+
+        // Cut-off date: overdue+soon always shown; add equipment up to cutoff on top
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const cutoff = new Date(today);
+        cutoff.setMonth(cutoff.getMonth() + monthsAhead);
+
+        // Filter equipment per group — always include overdue+soon, add future up to cutoff
+        const filteredGroups = groups.map(group => {
+            const equipment = group.equipment.filter(eq => {
+                if (eq.maint_status === 'overdue' || eq.maint_status === 'soon') return true;
+                if (!eq.next_maintenance_date) return false;
+                const d = new Date(eq.next_maintenance_date);
+                return d <= cutoff;
+            });
+            return { ...group, equipment };
+        }).filter(g => g.equipment.length > 0);
+
+        if (filteredGroups.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.innerHTML = '<div class="empty-icon">✅</div><p>Keine Anlagen in diesem Zeitraum fällig.</p>';
+            container.appendChild(empty);
+            return;
+        }
+
+        // Recalculate worst_status per filtered group
+        const statusRank = { overdue: 1, soon: 2, ok: 3, none: 4 };
+        filteredGroups.forEach(group => {
+            group.worst_status = group.equipment.reduce((worst, eq) => {
+                return (statusRank[eq.maint_status] || 4) < (statusRank[worst] || 4) ? eq.maint_status : worst;
+            }, 'none');
+        });
+
+        filteredGroups.forEach((group, idx) => {
+            const worstColor = statusColors[group.worst_status] || '#9e9e9e';
+            const groupEl = document.createElement('div');
+            groupEl.className = 'maint-group';
+
+            const headerEl = document.createElement('div');
+            headerEl.className = 'maint-group-header';
+            headerEl.innerHTML =
+                '<div class="maint-status-dot" style="background:' + worstColor + '"></div>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div class="maint-group-label">' + this.escapeHtml(group.label) + '</div>' +
+                '</div>' +
+                '<span class="maint-group-count">' + group.equipment.length + ' Anlagen</span>' +
+                '<span class="maint-group-chevron">▼</span>';
+
+            headerEl.addEventListener('click', () => {
+                groupEl.classList.toggle('open');
+            });
+
+                const bodyEl = document.createElement('div');
+            bodyEl.className = 'maint-group-body';
+
+            const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+            group.equipment.forEach(eq => {
+                const color = statusColors[eq.maint_status] || '#9e9e9e';
+                const statusLabel = statusLabels[eq.maint_status] || '';
+                let dateText = '';
+                if (eq.next_maintenance_date) {
+                    const d = new Date(eq.next_maintenance_date);
+                    dateText = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    dateText = statusLabel + ': ' + dateText;
+                } else {
+                    dateText = statusLabel;
+                }
+                const monthText = eq.maintenance_month ? 'Monat: ' + (monthNames[eq.maintenance_month - 1] || eq.maintenance_month) : '';
+
+                const itemEl = document.createElement('div');
+                itemEl.className = 'maint-eq-item';
+                const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
+                itemEl.innerHTML =
+                    '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
+                    '<div class="maint-eq-info">' +
+                      '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
+                      (typeLabel ? '<div class="maint-eq-date">' + this.escapeHtml(typeLabel) + '</div>' : '') +
+                      (dateText ? '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' : '') +
+                      (monthText ? '<div class="maint-eq-date">' + this.escapeHtml(monthText) + '</div>' : '') +
+                    '</div>';
+
+                if (eq.open_intervention_id) {
+                    const linkEl = document.createElement('a');
+                    linkEl.className = 'maint-eq-link';
+                    linkEl.textContent = eq.open_intervention_ref + ' →';
+                    linkEl.href = '#';
+                    linkEl.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const intervention = (this.allInterventions || []).find(i => i.id === eq.open_intervention_id);
+                        if (intervention) {
+                            this.currentIntervention = intervention;
+                            this.loadEquipment(intervention);
+                        } else {
+                            this.showToast('Auftrag nicht in der Liste — bitte synchronisieren');
+                        }
+                    });
+                    itemEl.appendChild(linkEl);
+                }
+
+                bodyEl.appendChild(itemEl);
+            });
+
+            groupEl.appendChild(headerEl);
+            groupEl.appendChild(bodyEl);
+            container.appendChild(groupEl);
+        });
+    }
+
+    async geocodeAddress(query) {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+        const data = await res.json();
+        return data?.[0] || null;
+    }
+
+    openInterventionFromMap(interventionId) {
+        const intervention = (this.allInterventions || []).find(i => i.id === interventionId);
+        if (intervention) {
+            this.leafletMap.closePopup();
+            this.loadEquipment(intervention);
+        }
     }
 
     escapeHtml(text) {

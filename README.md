@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.6.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.7.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -189,6 +189,16 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.7.0 (2026-03-17)
+
+- **NEU: Wartungsübersicht in PWA** – Neue "Wartung 📅" Ansicht zeigt alle Anlagen mit aktivem Vertrag, gruppiert nach Objektadresse; Farbkodierung (rot/orange/grün) nach Fälligkeit; Zeitraum-Filter (3/6/9/12 Monate zusätzlich zu Überfällig+Bald); verlinkter Auftrag direkt aufrufbar
+- **NEU: Kartenansicht in PWA** – "Karte 🗺️" Ansicht zeigt offene Aufträge via Leaflet/OpenStreetMap; farbige Marker nach Typ (Service=blau, Wartung=Wartungsfarbe); Geocaching in IndexedDB
+- **NEU: Info-Header in Aufträgen** – Klappbarer Header mit Objektname, Adresse, Telefon (klickbar), E-Mail und Anmerkung aus der Objektadresse; ersetzt den Info-Button in der Navigationsleiste
+- **NEU: Typ-Badge auf Auftragskarten** – "Service" oder "Wartung" Badge mit passender Farbe unterhalb des Titels
+- **NEU: Dynamische Objektadresse** – Beim Anlegen einer neuen Anlage werden Objektadressen direkt nach Kundenauswahl geladen, ohne erst zu speichern
+- **Fix: Bottom-Navigation** – Karte- und Wartungs-Buttons werden innerhalb eines Auftrags ausgeblendet; mehr Platz für Auftrag-spezifische Aktionen
+- **Fix: equipmentTypeLabels** – Typenbezeichnungen (z.B. "Feststellanlage") stehen jetzt beim App-Start zur Verfügung, nicht erst nach Öffnen eines Auftrags
 
 ### v4.6.1 (2026-03-08)
 
@@ -444,6 +454,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.6.1
+**Current Version:** 4.7.0
 **Released:** March 2026
 **Compatibility:** Dolibarr 16.0+

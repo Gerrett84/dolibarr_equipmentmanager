@@ -3,7 +3,7 @@
  */
 
 const DB_NAME = 'equipmentmanager_pwa';
-const DB_VERSION = 5; // v5: Add defect_materials store for offline support
+const DB_VERSION = 6; // v6: Add geocache store for map coordinates
 
 class OfflineDB {
     constructor() {
@@ -100,6 +100,11 @@ class OfflineDB {
                     const defectMats = db.createObjectStore('defect_materials', { keyPath: 'local_id', autoIncrement: true });
                     defectMats.createIndex('entry_id', 'entry_id', { unique: false });
                     defectMats.createIndex('synced', 'synced', { unique: false });
+                }
+
+                // v6: Geocache — stores geocoded coordinates keyed by address string
+                if (!db.objectStoreNames.contains('geocache')) {
+                    db.createObjectStore('geocache', { keyPath: 'address' });
                 }
             };
         });
@@ -387,6 +392,25 @@ class OfflineDB {
     // v5: Get unsynced defect materials
     async getUnsyncedDefectMaterials() {
         return await this.getByIndex('defect_materials', 'synced', false);
+    }
+
+    // v6: Geocache
+    async getGeoCache(address) {
+        return await this.get('geocache', address);
+    }
+
+    async setGeoCache(address, lat, lon) {
+        await this.put('geocache', { address, lat, lon, cached_at: Date.now() });
+    }
+
+    // Remove geocache entries whose address is no longer needed
+    async cleanGeoCache(neededAddresses) {
+        const all = await this.getAll('geocache');
+        for (const entry of all) {
+            if (!neededAddresses.includes(entry.address)) {
+                await this.delete('geocache', entry.address);
+            }
+        }
     }
 }
 
