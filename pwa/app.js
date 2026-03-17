@@ -387,6 +387,9 @@ class ServiceReportApp {
         // Equipment modal buttons
         document.getElementById('btnCloseEquipment').addEventListener('click', () => this.closeEquipmentModal());
 
+        // Maintenance overview button
+        document.getElementById('navMaintenance').addEventListener('click', () => this.showMaintenance());
+
         // Map button
         document.getElementById('navMap').addEventListener('click', () => this.showMap());
 
@@ -527,9 +530,10 @@ class ServiceReportApp {
         const backBtn = document.getElementById('btnBack');
         const headerTitle = document.getElementById('headerTitle');
 
-        if (viewId === 'viewInterventions' || viewId === 'viewMap') {
+        if (viewId === 'viewInterventions' || viewId === 'viewMap' || viewId === 'viewMaintenance') {
             backBtn.style.display = 'none';
-            headerTitle.textContent = viewId === 'viewMap' ? 'Karte' : 'Serviceberichte';
+            const titles = { viewMap: 'Karte', viewMaintenance: 'Wartungsübersicht', viewInterventions: 'Serviceberichte' };
+            headerTitle.textContent = titles[viewId] || 'Serviceberichte';
             document.getElementById('navRelease').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navPdfPreview').style.display = 'none';
@@ -537,8 +541,9 @@ class ServiceReportApp {
             document.getElementById('navSignature').style.display = 'none';
             // Set correct nav item active
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            const activeBtn = viewId === 'viewMap'
-                ? document.getElementById('navMap')
+            const navIds = { viewMap: 'navMap', viewMaintenance: 'navMaintenance' };
+            const activeBtn = navIds[viewId]
+                ? document.getElementById(navIds[viewId])
                 : document.querySelector('[data-view="viewInterventions"]');
             if (activeBtn) activeBtn.classList.add('active');
         } else {
@@ -3815,6 +3820,115 @@ class ServiceReportApp {
         }
 
         setTimeout(() => this.leafletMap.invalidateSize(), 100);
+    }
+
+    async showMaintenance() {
+        this.showView('viewMaintenance');
+
+        const loadingEl = document.getElementById('maintenanceLoading');
+        const listEl = document.getElementById('maintenanceList');
+
+        loadingEl.style.display = 'flex';
+        listEl.innerHTML = '';
+
+        try {
+            const data = await this.apiCall('maintenance-overview');
+            loadingEl.style.display = 'none';
+
+            if (!data || !data.groups || data.groups.length === 0) {
+                listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><p>Keine Anlagen mit Wartungsplan gefunden.</p></div>';
+                return;
+            }
+
+            this.renderMaintenanceView(data.groups, listEl);
+        } catch (e) {
+            loadingEl.style.display = 'none';
+            listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Fehler beim Laden der Wartungsübersicht.</p></div>';
+            console.error('Maintenance overview error:', e);
+        }
+    }
+
+    renderMaintenanceView(groups, container) {
+        const statusColors = {
+            overdue: '#f44336',
+            soon:    '#ff9800',
+            ok:      '#4caf50',
+            none:    '#9e9e9e'
+        };
+        const statusLabels = {
+            overdue: 'Überfällig',
+            soon:    'Bald fällig',
+            ok:      'OK',
+            none:    'Kein Datum'
+        };
+
+        groups.forEach((group, idx) => {
+            const worstColor = statusColors[group.worst_status] || '#9e9e9e';
+            const groupEl = document.createElement('div');
+            groupEl.className = 'maint-group';
+
+            const headerEl = document.createElement('div');
+            headerEl.className = 'maint-group-header';
+            headerEl.innerHTML =
+                '<div class="maint-status-dot" style="background:' + worstColor + '"></div>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div class="maint-group-label">' + this.escapeHtml(group.label) + '</div>' +
+                '</div>' +
+                '<span class="maint-group-count">' + group.equipment.length + ' Anlagen</span>' +
+                '<span class="maint-group-chevron">▼</span>';
+
+            headerEl.addEventListener('click', () => {
+                groupEl.classList.toggle('open');
+            });
+
+            const bodyEl = document.createElement('div');
+            bodyEl.className = 'maint-group-body';
+
+            group.equipment.forEach(eq => {
+                const color = statusColors[eq.maint_status] || '#9e9e9e';
+                const statusLabel = statusLabels[eq.maint_status] || '';
+                let dateText = '';
+                if (eq.next_maintenance_date) {
+                    const d = new Date(eq.next_maintenance_date);
+                    dateText = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    dateText = statusLabel + ': ' + dateText;
+                } else {
+                    dateText = statusLabel;
+                }
+
+                const itemEl = document.createElement('div');
+                itemEl.className = 'maint-eq-item';
+                itemEl.innerHTML =
+                    '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
+                    '<div class="maint-eq-info">' +
+                      '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
+                      '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' +
+                    '</div>';
+
+                if (eq.open_intervention_id) {
+                    const linkEl = document.createElement('a');
+                    linkEl.className = 'maint-eq-link';
+                    linkEl.textContent = eq.open_intervention_ref + ' →';
+                    linkEl.href = '#';
+                    linkEl.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const intervention = (this.allInterventions || []).find(i => i.id === eq.open_intervention_id);
+                        if (intervention) {
+                            this.loadEquipment(intervention);
+                        } else {
+                            this.showToast('Auftrag nicht in der Liste — bitte synchronisieren');
+                        }
+                    });
+                    itemEl.appendChild(linkEl);
+                }
+
+                bodyEl.appendChild(itemEl);
+            });
+
+            groupEl.appendChild(headerEl);
+            groupEl.appendChild(bodyEl);
+            container.appendChild(groupEl);
+        });
     }
 
     async geocodeAddress(query) {

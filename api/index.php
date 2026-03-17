@@ -201,6 +201,10 @@ try {
             handleEquipment($method, $parts, $input);
             break;
 
+        case 'maintenance-overview':
+            handleMaintenanceOverview($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -3326,4 +3330,121 @@ function handleDefectMaterial($method, $parts, $input) {
 
     http_response_code(400);
     echo json_encode(['error' => 'Invalid request']);
+}
+
+/**
+ * GET /maintenance-overview - Equipment grouped by object address with maintenance status
+ */
+function handleMaintenanceOverview($method, $parts, $input) {
+    global $db, $langs;
+
+    if ($method !== 'GET' && $method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    // Fetch all active equipment with address + maintenance info
+    $sql  = "SELECT e.rowid as equipment_id, e.equipment_number, e.label, e.equipment_type,";
+    $sql .= " e.next_maintenance_date, e.fk_soc, e.fk_address,";
+    $sql .= " s.nom as customer_name, s.address as cust_addr, s.zip as cust_zip, s.town as cust_town,";
+    $sql .= " sp.lastname, sp.firstname, sp.address as addr_street, sp.zip as addr_zip, sp.town as addr_town,";
+    $sql .= " CASE";
+    $sql .= "  WHEN e.next_maintenance_date IS NULL THEN 'none'";
+    $sql .= "  WHEN e.next_maintenance_date < CURDATE() THEN 'overdue'";
+    $sql .= "  WHEN e.next_maintenance_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'soon'";
+    $sql .= "  ELSE 'ok' END as maint_status,";
+    // Find open maintenance intervention for this equipment
+    $sql .= " (SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
+    $sql .= "  JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il ON il.fk_intervention = f.rowid";
+    $sql .= "  WHERE il.fk_equipment = e.rowid AND il.link_type = 'maintenance' AND f.fk_statut IN (0,1)";
+    $sql .= "  ORDER BY f.dateo DESC LIMIT 1) as open_intervention_id,";
+    $sql .= " (SELECT f.ref FROM ".MAIN_DB_PREFIX."fichinter f";
+    $sql .= "  JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il ON il.fk_intervention = f.rowid";
+    $sql .= "  WHERE il.fk_equipment = e.rowid AND il.link_type = 'maintenance' AND f.fk_statut IN (0,1)";
+    $sql .= "  ORDER BY f.dateo DESC LIMIT 1) as open_intervention_ref";
+    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = e.fk_soc";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " WHERE e.status = 1";
+    $sql .= " ORDER BY";
+    $sql .= "  CASE WHEN e.next_maintenance_date IS NULL THEN 4";
+    $sql .= "       WHEN e.next_maintenance_date < CURDATE() THEN 1";
+    $sql .= "       WHEN e.next_maintenance_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 2";
+    $sql .= "       ELSE 3 END,";
+    $sql .= "  e.next_maintenance_date ASC";
+
+    $resql = $db->query($sql);
+    if (!$resql) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error: ' . $db->lasterror()]);
+        return;
+    }
+
+    // Group equipment by object address (fk_address) or fallback to customer (fk_soc)
+    $groups = [];
+    $groupOrder = []; // preserve insertion order with worst status first
+
+    $statusRank = ['overdue' => 1, 'soon' => 2, 'ok' => 3, 'none' => 4];
+
+    while ($obj = $db->fetch_object($resql)) {
+        // Build group key and label
+        if ($obj->fk_address) {
+            $groupKey = 'addr_' . (int)$obj->fk_address;
+            $contactName = trim($obj->lastname . ' ' . $obj->firstname);
+            $addrLine = trim(($obj->addr_zip ?: '') . ' ' . ($obj->addr_town ?: ''));
+            $groupLabel = $contactName ?: $obj->customer_name;
+            if ($addrLine) $groupLabel .= ' — ' . $addrLine;
+            $groupAddress = trim(($obj->addr_street ?: '') . ', ' . ($obj->addr_zip ?: '') . ' ' . ($obj->addr_town ?: ''), ', ');
+        } else {
+            $groupKey = 'soc_' . (int)$obj->fk_soc;
+            $groupLabel = $obj->customer_name;
+            $addrLine = trim(($obj->cust_zip ?: '') . ' ' . ($obj->cust_town ?: ''));
+            if ($addrLine) $groupLabel .= ' — ' . $addrLine;
+            $groupAddress = trim(($obj->cust_addr ?: '') . ', ' . ($obj->cust_zip ?: '') . ' ' . ($obj->cust_town ?: ''), ', ');
+        }
+
+        if (!isset($groups[$groupKey])) {
+            $groups[$groupKey] = [
+                'key'       => $groupKey,
+                'label'     => $groupLabel,
+                'address'   => $groupAddress,
+                'worst_status' => 'none',
+                'equipment' => []
+            ];
+            $groupOrder[] = $groupKey;
+        }
+
+        // Update worst status for group
+        $cur = $statusRank[$groups[$groupKey]['worst_status']] ?? 4;
+        $new = $statusRank[$obj->maint_status] ?? 4;
+        if ($new < $cur) {
+            $groups[$groupKey]['worst_status'] = $obj->maint_status;
+        }
+
+        $groups[$groupKey]['equipment'][] = [
+            'id'                    => (int)$obj->equipment_id,
+            'ref'                   => $obj->equipment_number,
+            'label'                 => $obj->label,
+            'type'                  => $obj->equipment_type,
+            'maint_status'          => $obj->maint_status,
+            'next_maintenance_date' => $obj->next_maintenance_date,
+            'open_intervention_id'  => $obj->open_intervention_id ? (int)$obj->open_intervention_id : null,
+            'open_intervention_ref' => $obj->open_intervention_ref ?: null
+        ];
+    }
+
+    // Sort groups by worst status
+    usort($groupOrder, function($a, $b) use ($groups, $statusRank) {
+        $ra = $statusRank[$groups[$a]['worst_status']] ?? 4;
+        $rb = $statusRank[$groups[$b]['worst_status']] ?? 4;
+        return $ra - $rb;
+    });
+
+    $result = [];
+    foreach ($groupOrder as $key) {
+        $result[] = $groups[$key];
+    }
+
+    echo json_encode(['status' => 'ok', 'groups' => $result]);
 }

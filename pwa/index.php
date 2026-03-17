@@ -1211,6 +1211,118 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: inherit;
         }
 
+        /* Maintenance Overview */
+        .maint-group {
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .maint-group-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            cursor: pointer;
+            gap: 10px;
+            user-select: none;
+        }
+
+        .maint-group-header:active {
+            background: rgba(0,0,0,0.04);
+        }
+
+        .maint-status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .maint-group-label {
+            flex: 1;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .maint-group-addr {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 1px;
+        }
+
+        .maint-group-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .maint-group-chevron {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .maint-group.open .maint-group-chevron {
+            transform: rotate(180deg);
+        }
+
+        .maint-group-body {
+            display: none;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .maint-group.open .maint-group-body {
+            display: block;
+        }
+
+        .maint-eq-item {
+            display: flex;
+            align-items: center;
+            padding: 9px 14px 9px 36px;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .maint-eq-item:last-child {
+            border-bottom: none;
+        }
+
+        .maint-eq-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .maint-eq-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .maint-eq-date {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .maint-eq-link {
+            font-size: 12px;
+            color: #1976d2;
+            text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        [data-theme="dark"] .maint-eq-link {
+            color: #64b5f6;
+        }
+
         /* Map View */
         #viewMap {
             padding: 0 !important;
@@ -1982,6 +2094,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         </div>
     </div>
 
+    <!-- Maintenance Overview View -->
+    <div class="view" id="viewMaintenance">
+        <div class="content">
+            <div class="loading" id="maintenanceLoading" style="display:none;">
+                <div class="spinner"></div>
+                <p>Lade Wartungsübersicht...</p>
+            </div>
+            <div id="maintenanceList"></div>
+        </div>
+    </div>
+
     <!-- Equipment List View -->
     <!-- Map View -->
     <div class="view" id="viewMap">
@@ -2261,6 +2384,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         <button class="nav-item active" data-view="viewInterventions">
             <span class="nav-icon">📋</span>
             <span>Aufträge</span>
+        </button>
+        <button class="nav-item" id="navMaintenance">
+            <span class="nav-icon">📅</span>
+            <span>Wartung</span>
         </button>
         <button class="nav-item" id="navMap">
             <span class="nav-icon">🗺️</span>
