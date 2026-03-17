@@ -189,7 +189,7 @@ jQuery(document).ready(function() {
     // Initial check for maintenance month visibility on page load
     toggleMaintenanceMonth();
     
-    jQuery("#fk_soc_select").change(function() {
+    jQuery("#fk_soc").change(function() {
         var socid = jQuery(this).val();
         var addressSelect = jQuery("#fk_address_select");
         var contractSelect = jQuery("#fk_contract_select");
@@ -314,7 +314,7 @@ print '</td></tr>';
 
 // Third Party
 print '<tr><td class="fieldrequired">'.$langs->trans("ThirdParty").'</td><td>';
-print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
+print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 1, null, 0, 'minwidth300');
 print '</td></tr>';
 
 // Object Address
