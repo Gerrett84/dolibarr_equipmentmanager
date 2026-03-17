@@ -3901,10 +3901,12 @@ class ServiceReportApp {
 
                 const itemEl = document.createElement('div');
                 itemEl.className = 'maint-eq-item';
+                const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
                 itemEl.innerHTML =
                     '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
                     '<div class="maint-eq-info">' +
                       '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
+                      (typeLabel ? '<div class="maint-eq-date">' + this.escapeHtml(typeLabel) + '</div>' : '') +
                       (dateText ? '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' : '') +
                       (monthText ? '<div class="maint-eq-date">' + this.escapeHtml(monthText) + '</div>' : '') +
                     '</div>';
