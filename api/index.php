@@ -3344,9 +3344,9 @@ function handleMaintenanceOverview($method, $parts, $input) {
         return;
     }
 
-    // Fetch all active equipment with address + maintenance info
+    // Fetch active equipment with active contract, address + maintenance info
     $sql  = "SELECT e.rowid as equipment_id, e.equipment_number, e.label, e.equipment_type,";
-    $sql .= " e.next_maintenance_date, e.fk_soc, e.fk_address,";
+    $sql .= " e.next_maintenance_date, e.maintenance_month, e.fk_soc, e.fk_address,";
     $sql .= " s.nom as customer_name, s.address as cust_addr, s.zip as cust_zip, s.town as cust_town,";
     $sql .= " sp.lastname, sp.firstname, sp.address as addr_street, sp.zip as addr_zip, sp.town as addr_town,";
     $sql .= " CASE";
@@ -3366,7 +3366,8 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = e.fk_soc";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
-    $sql .= " WHERE e.status = 1";
+    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."contrat c ON c.rowid = e.fk_contract AND c.statut = 1";
+    $sql .= " WHERE e.status = 1 AND e.fk_contract IS NOT NULL";
     $sql .= " ORDER BY";
     $sql .= "  CASE WHEN e.next_maintenance_date IS NULL THEN 4";
     $sql .= "       WHEN e.next_maintenance_date < CURDATE() THEN 1";
@@ -3429,6 +3430,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
             'type'                  => $obj->equipment_type,
             'maint_status'          => $obj->maint_status,
             'next_maintenance_date' => $obj->next_maintenance_date,
+            'maintenance_month'     => $obj->maintenance_month ? (int)$obj->maintenance_month : null,
             'open_intervention_id'  => $obj->open_intervention_id ? (int)$obj->open_intervention_id : null,
             'open_intervention_ref' => $obj->open_intervention_ref ?: null
         ];

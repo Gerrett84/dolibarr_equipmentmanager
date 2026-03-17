@@ -3884,6 +3884,8 @@ class ServiceReportApp {
             const bodyEl = document.createElement('div');
             bodyEl.className = 'maint-group-body';
 
+        const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
             group.equipment.forEach(eq => {
                 const color = statusColors[eq.maint_status] || '#9e9e9e';
                 const statusLabel = statusLabels[eq.maint_status] || '';
@@ -3895,6 +3897,7 @@ class ServiceReportApp {
                 } else {
                     dateText = statusLabel;
                 }
+                const monthText = eq.maintenance_month ? 'Monat: ' + (monthNames[eq.maintenance_month - 1] || eq.maintenance_month) : '';
 
                 const itemEl = document.createElement('div');
                 itemEl.className = 'maint-eq-item';
@@ -3902,7 +3905,8 @@ class ServiceReportApp {
                     '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
                     '<div class="maint-eq-info">' +
                       '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
-                      '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' +
+                      (dateText ? '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' : '') +
+                      (monthText ? '<div class="maint-eq-date">' + this.escapeHtml(monthText) + '</div>' : '') +
                     '</div>';
 
                 if (eq.open_intervention_id) {
