@@ -3888,38 +3888,28 @@ class ServiceReportApp {
             none:    'Kein Datum'
         };
 
-        // Filter bar — same style as intervention filter tabs
+        // Filter dropdown — same style as signed time-range selector
         const filterWrap = document.createElement('div');
-        filterWrap.className = 'filter-tabs';
-        filterWrap.style.cssText = 'position:sticky;top:56px;z-index:10;';
-        const filterOptions = [
-            { label: '+3 Monate',  value: 3 },
-            { label: '+6 Monate',  value: 6 },
-            { label: '+9 Monate',  value: 9 },
-            { label: '+12 Monate', value: 12 },
-            { label: 'Alle',       value: 999 }
-        ];
-        filterOptions.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.className = 'filter-tab' + (monthsAhead === opt.value ? ' active' : '');
-            btn.textContent = opt.label;
-            btn.addEventListener('click', () => {
-                this.maintenanceMonthsAhead = opt.value;
-                this.renderMaintenanceView();
-            });
-            filterWrap.appendChild(btn);
-        });
+        filterWrap.className = 'time-range-selector';
+        filterWrap.innerHTML =
+            '<span class="time-range-label">Zusätzlich fällig in:</span>' +
+            '<select class="time-range-select" id="maintenanceRangeSelect">' +
+            '<option value="3"'  + (monthsAhead === 3  ? ' selected' : '') + '>3 Monate</option>' +
+            '<option value="6"'  + (monthsAhead === 6  ? ' selected' : '') + '>6 Monate</option>' +
+            '<option value="9"'  + (monthsAhead === 9  ? ' selected' : '') + '>9 Monate</option>' +
+            '<option value="12"' + (monthsAhead === 12 ? ' selected' : '') + '>12 Monate</option>' +
+            '</select>';
         container.appendChild(filterWrap);
+        filterWrap.querySelector('select').addEventListener('change', (e) => {
+            this.maintenanceMonthsAhead = parseInt(e.target.value, 10);
+            this.renderMaintenanceView();
+        });
 
         // Cut-off date: overdue+soon always shown; add equipment up to cutoff on top
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const cutoff = new Date(today);
-        if (monthsAhead < 999) {
-            cutoff.setMonth(cutoff.getMonth() + monthsAhead);
-        } else {
-            cutoff.setFullYear(cutoff.getFullYear() + 100); // "all"
-        }
+        cutoff.setMonth(cutoff.getMonth() + monthsAhead);
 
         // Filter equipment per group — always include overdue+soon, add future up to cutoff
         const filteredGroups = groups.map(group => {
