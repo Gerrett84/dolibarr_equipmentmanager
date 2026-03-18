@@ -3352,12 +3352,24 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= " sp.lastname, sp.firstname, sp.address as addr_street, sp.zip as addr_zip, sp.town as addr_town,";
     $sql .= " CASE";
     $sql .= "  WHEN e.maintenance_month IS NULL THEN 'none'";
-    // Done: last_maintenance_date is in current year and month is on or before maintenance_month
-    $sql .= "  WHEN (e.last_maintenance_date IS NOT NULL";
-    $sql .= "   AND YEAR(e.last_maintenance_date) = YEAR(CURDATE())";
-    $sql .= "   AND (MONTH(e.last_maintenance_date) >= e.maintenance_month - 1";
-    $sql .= "    OR (e.maintenance_month = 1 AND MONTH(e.last_maintenance_date) = 12)";
-    $sql .= "   )) THEN 'done'";
+    // Done check 1: last_maintenance_date in current year near maintenance_month
+    // Done check 2: closed maintenance intervention (fk_statut=3) in current year near maintenance_month
+    $sql .= "  WHEN (";
+    $sql .= "   (e.last_maintenance_date IS NOT NULL";
+    $sql .= "    AND YEAR(e.last_maintenance_date) = YEAR(CURDATE())";
+    $sql .= "    AND (MONTH(e.last_maintenance_date) >= e.maintenance_month - 1";
+    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(e.last_maintenance_date) = 12)))";
+    $sql .= "   OR EXISTS (";
+    $sql .= "    SELECT 1 FROM ".MAIN_DB_PREFIX."fichinter f3";
+    $sql .= "    JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il3 ON il3.fk_intervention = f3.rowid";
+    $sql .= "    WHERE il3.fk_equipment = e.rowid AND il3.link_type = 'maintenance'";
+    $sql .= "    AND f3.fk_statut = 3";
+    $sql .= "    AND YEAR(f3.date_valid) = YEAR(CURDATE())";
+    $sql .= "    AND (MONTH(f3.date_valid) = e.maintenance_month";
+    $sql .= "     OR MONTH(f3.date_valid) = e.maintenance_month - 1";
+    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(f3.date_valid) = 12))";
+    $sql .= "   )";
+    $sql .= "  ) THEN 'done'";
     $sql .= "  WHEN e.maintenance_month < MONTH(CURDATE()) THEN 'overdue'";
     $sql .= "  WHEN e.maintenance_month = MONTH(CURDATE()) THEN 'due'";
     $sql .= "  WHEN e.maintenance_month = MONTH(DATE_ADD(CURDATE(), INTERVAL 1 MONTH)) THEN 'soon'";
@@ -3377,13 +3389,8 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
     $sql .= " INNER JOIN ".MAIN_DB_PREFIX."contrat c ON c.rowid = e.fk_contract AND c.statut = 1";
     $sql .= " WHERE e.status = 1 AND e.fk_contract IS NOT NULL";
-    $sql .= " ORDER BY";
-    $sql .= "  CASE WHEN e.maintenance_month IS NULL THEN 5";
-    $sql .= "       WHEN (e.last_maintenance_date IS NOT NULL AND YEAR(e.last_maintenance_date) = YEAR(CURDATE()) AND (MONTH(e.last_maintenance_date) >= e.maintenance_month - 1 OR (e.maintenance_month = 1 AND MONTH(e.last_maintenance_date) = 12))) THEN 6";
-    $sql .= "       WHEN e.maintenance_month < MONTH(CURDATE()) THEN 1";
-    $sql .= "       WHEN e.maintenance_month = MONTH(CURDATE()) THEN 2";
-    $sql .= "       WHEN e.maintenance_month = MONTH(DATE_ADD(CURDATE(), INTERVAL 1 MONTH)) THEN 3";
-    $sql .= "       ELSE 4 END,";
+    $sql .= " ORDER BY maint_status = 'none', maint_status = 'done',";
+    $sql .= "  CASE maint_status WHEN 'overdue' THEN 1 WHEN 'due' THEN 2 WHEN 'soon' THEN 3 WHEN 'future' THEN 4 WHEN 'none' THEN 5 ELSE 6 END,";
     $sql .= "  e.maintenance_month ASC";
 
     $resql = $db->query($sql);
