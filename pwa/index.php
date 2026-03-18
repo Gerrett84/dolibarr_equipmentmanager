@@ -1270,6 +1270,28 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             transform: rotate(180deg);
         }
 
+        .maint-month-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px 6px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+        }
+
+        .maint-month-header .maint-status-dot {
+            width: 8px;
+            height: 8px;
+            flex-shrink: 0;
+        }
+
+        .maint-month-header span {
+            color: var(--text-primary);
+        }
+
         .maint-group-body {
             display: none;
             border-top: 1px solid var(--border-color);

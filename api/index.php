@@ -3345,15 +3345,36 @@ function handleMaintenanceOverview($method, $parts, $input) {
     }
 
     // Fetch active equipment with active contract, address + maintenance info
+    // maint_status based on maintenance_month — same logic as backend maintenance dashboard
     $sql  = "SELECT e.rowid as equipment_id, e.equipment_number, e.label, e.equipment_type,";
-    $sql .= " e.next_maintenance_date, e.maintenance_month, e.fk_soc, e.fk_address,";
+    $sql .= " e.maintenance_month, e.last_maintenance_date, e.fk_soc, e.fk_address,";
     $sql .= " s.nom as customer_name, s.address as cust_addr, s.zip as cust_zip, s.town as cust_town,";
     $sql .= " sp.lastname, sp.firstname, sp.address as addr_street, sp.zip as addr_zip, sp.town as addr_town,";
     $sql .= " CASE";
-    $sql .= "  WHEN e.next_maintenance_date IS NULL THEN 'none'";
-    $sql .= "  WHEN e.next_maintenance_date < CURDATE() THEN 'overdue'";
-    $sql .= "  WHEN e.next_maintenance_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'soon'";
-    $sql .= "  ELSE 'ok' END as maint_status,";
+    $sql .= "  WHEN e.maintenance_month IS NULL THEN 'none'";
+    // Done check 1: last_maintenance_date in current year near maintenance_month
+    // Done check 2: closed maintenance intervention (fk_statut=3) in current year near maintenance_month
+    $sql .= "  WHEN (";
+    $sql .= "   (e.last_maintenance_date IS NOT NULL";
+    $sql .= "    AND YEAR(e.last_maintenance_date) = YEAR(CURDATE())";
+    $sql .= "    AND (MONTH(e.last_maintenance_date) >= e.maintenance_month - 1";
+    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(e.last_maintenance_date) = 12)))";
+    $sql .= "   OR EXISTS (";
+    $sql .= "    SELECT 1 FROM ".MAIN_DB_PREFIX."fichinter f3";
+    $sql .= "    JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il3 ON il3.fk_intervention = f3.rowid";
+    $sql .= "    WHERE il3.fk_equipment = e.rowid AND il3.link_type = 'maintenance'";
+    $sql .= "    AND f3.fk_statut = 3";
+    $sql .= "    AND YEAR(f3.date_valid) = YEAR(CURDATE())";
+    $sql .= "    AND (MONTH(f3.date_valid) = e.maintenance_month";
+    $sql .= "     OR MONTH(f3.date_valid) = e.maintenance_month - 1";
+    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(f3.date_valid) = 12))";
+    $sql .= "   )";
+    $sql .= "  ) THEN 'done'";
+    $sql .= "  WHEN e.maintenance_month < MONTH(CURDATE()) THEN 'overdue'";
+    $sql .= "  WHEN e.maintenance_month = MONTH(CURDATE()) THEN 'due'";
+    $sql .= "  WHEN e.maintenance_month = MONTH(DATE_ADD(CURDATE(), INTERVAL 1 MONTH)) THEN 'soon'";
+    $sql .= "  ELSE 'future'";
+    $sql .= " END as maint_status,";
     // Find open maintenance intervention for this equipment
     $sql .= " (SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
     $sql .= "  JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il ON il.fk_intervention = f.rowid";
@@ -3368,12 +3389,9 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
     $sql .= " INNER JOIN ".MAIN_DB_PREFIX."contrat c ON c.rowid = e.fk_contract AND c.statut = 1";
     $sql .= " WHERE e.status = 1 AND e.fk_contract IS NOT NULL";
-    $sql .= " ORDER BY";
-    $sql .= "  CASE WHEN e.next_maintenance_date IS NULL THEN 4";
-    $sql .= "       WHEN e.next_maintenance_date < CURDATE() THEN 1";
-    $sql .= "       WHEN e.next_maintenance_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 2";
-    $sql .= "       ELSE 3 END,";
-    $sql .= "  e.next_maintenance_date ASC";
+    $sql .= " ORDER BY maint_status = 'none', maint_status = 'done',";
+    $sql .= "  CASE maint_status WHEN 'overdue' THEN 1 WHEN 'due' THEN 2 WHEN 'soon' THEN 3 WHEN 'future' THEN 4 WHEN 'none' THEN 5 ELSE 6 END,";
+    $sql .= "  e.maintenance_month ASC";
 
     $resql = $db->query($sql);
     if (!$resql) {
@@ -3386,7 +3404,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $groups = [];
     $groupOrder = []; // preserve insertion order with worst status first
 
-    $statusRank = ['overdue' => 1, 'soon' => 2, 'ok' => 3, 'none' => 4];
+    $statusRank = ['overdue' => 1, 'due' => 2, 'soon' => 3, 'future' => 4, 'none' => 5, 'done' => 6];
 
     while ($obj = $db->fetch_object($resql)) {
         // Build group key and label
@@ -3429,7 +3447,6 @@ function handleMaintenanceOverview($method, $parts, $input) {
             'label'                 => $obj->label,
             'type'                  => $obj->equipment_type,
             'maint_status'          => $obj->maint_status,
-            'next_maintenance_date' => $obj->next_maintenance_date,
             'maintenance_month'     => $obj->maintenance_month ? (int)$obj->maintenance_month : null,
             'open_intervention_id'  => $obj->open_intervention_id ? (int)$obj->open_intervention_id : null,
             'open_intervention_ref' => $obj->open_intervention_ref ?: null

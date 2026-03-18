@@ -3877,15 +3877,19 @@ class ServiceReportApp {
 
         const statusColors = {
             overdue: '#f44336',
-            soon:    '#ff9800',
-            ok:      '#4caf50',
+            due:     '#ff9800',
+            soon:    '#ffd54f',
+            future:  '#4caf50',
+            done:    '#4caf50',
             none:    '#9e9e9e'
         };
         const statusLabels = {
             overdue: 'Überfällig',
-            soon:    'Bald fällig',
-            ok:      'OK',
-            none:    'Kein Datum'
+            due:     'Fällig',
+            soon:    'Nächster Monat',
+            future:  'Geplant',
+            done:    'Erledigt',
+            none:    'Kein Monat'
         };
 
         // Filter dropdown — same style as signed time-range selector
@@ -3905,19 +3909,21 @@ class ServiceReportApp {
             this.renderMaintenanceView();
         });
 
-        // Cut-off date: overdue+soon always shown; add equipment up to cutoff on top
+        // Filter based on maintenance_month — same logic as backend maintenance dashboard
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const cutoff = new Date(today);
-        cutoff.setMonth(cutoff.getMonth() + monthsAhead);
+        const currentMonth = today.getMonth() + 1; // 1-12
 
-        // Filter equipment per group — always include overdue+soon, add future up to cutoff
         const filteredGroups = groups.map(group => {
             const equipment = group.equipment.filter(eq => {
-                if (eq.maint_status === 'overdue' || eq.maint_status === 'soon') return true;
-                if (!eq.next_maintenance_date) return false;
-                const d = new Date(eq.next_maintenance_date);
-                return d <= cutoff;
+                const s = eq.maint_status;
+                if (s === 'done') return false; // done this year — hide
+                if (s === 'overdue' || s === 'due') return true; // always show
+                if (s === 'none') return true; // no month set — always show
+                // 'soon' or 'future': show if maintenance_month falls within filter range
+                if (!eq.maintenance_month) return true;
+                let monthsUntil = eq.maintenance_month - currentMonth;
+                if (monthsUntil <= 0) monthsUntil += 12; // wrap to next calendar year
+                return monthsUntil <= monthsAhead;
             });
             return { ...group, equipment };
         }).filter(g => g.equipment.length > 0);
@@ -3930,87 +3936,113 @@ class ServiceReportApp {
             return;
         }
 
-        // Recalculate worst_status per filtered group
-        const statusRank = { overdue: 1, soon: 2, ok: 3, none: 4 };
+        const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+        const statusRank = { overdue: 1, due: 2, soon: 3, future: 4, none: 5, done: 6 };
+
+        // Group filtered equipment by maintenance_month across all address groups
+        const byMonth = {}; // month (0=none) → { month, addressGroups: { key → {label, equipment[]} } }
         filteredGroups.forEach(group => {
-            group.worst_status = group.equipment.reduce((worst, eq) => {
-                return (statusRank[eq.maint_status] || 4) < (statusRank[worst] || 4) ? eq.maint_status : worst;
-            }, 'none');
+            group.equipment.forEach(eq => {
+                const m = eq.maintenance_month || 0;
+                if (!byMonth[m]) byMonth[m] = { month: m, addressGroups: {} };
+                if (!byMonth[m].addressGroups[group.key]) {
+                    byMonth[m].addressGroups[group.key] = { key: group.key, label: group.label, equipment: [] };
+                }
+                byMonth[m].addressGroups[group.key].equipment.push(eq);
+            });
         });
 
-        filteredGroups.forEach((group, idx) => {
-            const worstColor = statusColors[group.worst_status] || '#9e9e9e';
-            const groupEl = document.createElement('div');
-            groupEl.className = 'maint-group';
+        // Sort months: 1-12 ascending (overdue months naturally first), 0 (none) last
+        const sortedMonths = Object.values(byMonth).sort((a, b) => {
+            if (a.month === 0) return 1;
+            if (b.month === 0) return -1;
+            return a.month - b.month;
+        });
 
-            const headerEl = document.createElement('div');
-            headerEl.className = 'maint-group-header';
-            headerEl.innerHTML =
-                '<div class="maint-status-dot" style="background:' + worstColor + '"></div>' +
-                '<div style="flex:1;min-width:0;">' +
-                  '<div class="maint-group-label">' + this.escapeHtml(group.label) + '</div>' +
-                '</div>' +
-                '<span class="maint-group-count">' + group.equipment.length + ' Anlagen</span>' +
-                '<span class="maint-group-chevron">▼</span>';
-
-            headerEl.addEventListener('click', () => {
-                groupEl.classList.toggle('open');
+        sortedMonths.forEach(monthData => {
+            // Worst status across all equipment in this month
+            let worstStatus = 'none';
+            Object.values(monthData.addressGroups).forEach(ag => {
+                ag.equipment.forEach(eq => {
+                    if ((statusRank[eq.maint_status] || 5) < (statusRank[worstStatus] || 5)) {
+                        worstStatus = eq.maint_status;
+                    }
+                });
             });
+            const worstColor = statusColors[worstStatus] || '#9e9e9e';
+
+            // Month header
+            const monthHeader = document.createElement('div');
+            monthHeader.className = 'maint-month-header';
+            const monthLabel = monthData.month ? monthNames[monthData.month - 1] : 'Kein Monat';
+            monthHeader.innerHTML =
+                '<div class="maint-status-dot" style="background:' + worstColor + ';width:10px;height:10px;"></div>' +
+                '<span>' + monthLabel + '</span>';
+            container.appendChild(monthHeader);
+
+            // Address groups within this month
+            Object.values(monthData.addressGroups).forEach(group => {
+                const groupWorst = group.equipment.reduce((w, eq) =>
+                    (statusRank[eq.maint_status] || 5) < (statusRank[w] || 5) ? eq.maint_status : w, 'none');
+                const groupColor = statusColors[groupWorst] || '#9e9e9e';
+
+                const groupEl = document.createElement('div');
+                groupEl.className = 'maint-group';
+
+                const headerEl = document.createElement('div');
+                headerEl.className = 'maint-group-header';
+                headerEl.innerHTML =
+                    '<div class="maint-status-dot" style="background:' + groupColor + '"></div>' +
+                    '<div style="flex:1;min-width:0;">' +
+                      '<div class="maint-group-label">' + this.escapeHtml(group.label) + '</div>' +
+                    '</div>' +
+                    '<span class="maint-group-count">' + group.equipment.length + ' Anlage' + (group.equipment.length !== 1 ? 'n' : '') + '</span>' +
+                    '<span class="maint-group-chevron">▼</span>';
+                headerEl.addEventListener('click', () => groupEl.classList.toggle('open'));
 
                 const bodyEl = document.createElement('div');
-            bodyEl.className = 'maint-group-body';
+                bodyEl.className = 'maint-group-body';
 
-            const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+                group.equipment.forEach(eq => {
+                    const color = statusColors[eq.maint_status] || '#9e9e9e';
+                    const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
+                    const statusLabel = statusLabels[eq.maint_status] || '';
 
-            group.equipment.forEach(eq => {
-                const color = statusColors[eq.maint_status] || '#9e9e9e';
-                const statusLabel = statusLabels[eq.maint_status] || '';
-                let dateText = '';
-                if (eq.next_maintenance_date) {
-                    const d = new Date(eq.next_maintenance_date);
-                    dateText = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    dateText = statusLabel + ': ' + dateText;
-                } else {
-                    dateText = statusLabel;
-                }
-                const monthText = eq.maintenance_month ? 'Monat: ' + (monthNames[eq.maintenance_month - 1] || eq.maintenance_month) : '';
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'maint-eq-item';
+                    itemEl.innerHTML =
+                        '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
+                        '<div class="maint-eq-info">' +
+                          '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
+                          (typeLabel ? '<div class="maint-eq-date">' + this.escapeHtml(typeLabel) + '</div>' : '') +
+                          '<div class="maint-eq-date">' + this.escapeHtml(statusLabel) + '</div>' +
+                        '</div>';
 
-                const itemEl = document.createElement('div');
-                itemEl.className = 'maint-eq-item';
-                const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
-                itemEl.innerHTML =
-                    '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
-                    '<div class="maint-eq-info">' +
-                      '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
-                      (typeLabel ? '<div class="maint-eq-date">' + this.escapeHtml(typeLabel) + '</div>' : '') +
-                      (dateText ? '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' : '') +
-                      (monthText ? '<div class="maint-eq-date">' + this.escapeHtml(monthText) + '</div>' : '') +
-                    '</div>';
+                    if (eq.open_intervention_id) {
+                        const linkEl = document.createElement('a');
+                        linkEl.className = 'maint-eq-link';
+                        linkEl.textContent = eq.open_intervention_ref + ' →';
+                        linkEl.href = '#';
+                        linkEl.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const intervention = (this.allInterventions || []).find(i => i.id === eq.open_intervention_id);
+                            if (intervention) {
+                                this.currentIntervention = intervention;
+                                this.loadEquipment(intervention);
+                            } else {
+                                this.showToast('Auftrag nicht in der Liste — bitte synchronisieren');
+                            }
+                        });
+                        itemEl.appendChild(linkEl);
+                    }
 
-                if (eq.open_intervention_id) {
-                    const linkEl = document.createElement('a');
-                    linkEl.className = 'maint-eq-link';
-                    linkEl.textContent = eq.open_intervention_ref + ' →';
-                    linkEl.href = '#';
-                    linkEl.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const intervention = (this.allInterventions || []).find(i => i.id === eq.open_intervention_id);
-                        if (intervention) {
-                            this.currentIntervention = intervention;
-                            this.loadEquipment(intervention);
-                        } else {
-                            this.showToast('Auftrag nicht in der Liste — bitte synchronisieren');
-                        }
-                    });
-                    itemEl.appendChild(linkEl);
-                }
+                    bodyEl.appendChild(itemEl);
+                });
 
-                bodyEl.appendChild(itemEl);
+                groupEl.appendChild(headerEl);
+                groupEl.appendChild(bodyEl);
+                container.appendChild(groupEl);
             });
-
-            groupEl.appendChild(headerEl);
-            groupEl.appendChild(bodyEl);
-            container.appendChild(groupEl);
         });
     }
 
@@ -4025,6 +4057,7 @@ class ServiceReportApp {
         const intervention = (this.allInterventions || []).find(i => i.id === interventionId);
         if (intervention) {
             this.leafletMap.closePopup();
+            this.currentIntervention = intervention;
             this.loadEquipment(intervention);
         }
     }
