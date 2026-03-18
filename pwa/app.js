@@ -3877,15 +3877,19 @@ class ServiceReportApp {
 
         const statusColors = {
             overdue: '#f44336',
-            soon:    '#ff9800',
-            ok:      '#4caf50',
+            due:     '#ff9800',
+            soon:    '#ffd54f',
+            future:  '#4caf50',
+            done:    '#4caf50',
             none:    '#9e9e9e'
         };
         const statusLabels = {
             overdue: 'Überfällig',
-            soon:    'Bald fällig',
-            ok:      'OK',
-            none:    'Kein Datum'
+            due:     'Fällig',
+            soon:    'Nächster Monat',
+            future:  'Geplant',
+            done:    'Erledigt',
+            none:    'Kein Monat'
         };
 
         // Filter dropdown — same style as signed time-range selector
@@ -3905,20 +3909,21 @@ class ServiceReportApp {
             this.renderMaintenanceView();
         });
 
-        // Cut-off date: overdue+soon always shown; add equipment up to cutoff on top
+        // Filter based on maintenance_month — same logic as backend maintenance dashboard
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const cutoff = new Date(today);
-        cutoff.setMonth(cutoff.getMonth() + monthsAhead);
+        const currentMonth = today.getMonth() + 1; // 1-12
 
-        // Filter equipment per group — always include overdue+soon+none (no date = needs scheduling),
-        // plus 'ok' items whose next date falls within the selected cutoff
         const filteredGroups = groups.map(group => {
             const equipment = group.equipment.filter(eq => {
-                if (eq.maint_status === 'overdue' || eq.maint_status === 'soon') return true;
-                if (!eq.next_maintenance_date) return true; // no date set — always show
-                const d = new Date(eq.next_maintenance_date);
-                return d <= cutoff;
+                const s = eq.maint_status;
+                if (s === 'done') return false; // done this year — hide
+                if (s === 'overdue' || s === 'due') return true; // always show
+                if (s === 'none') return true; // no month set — always show
+                // 'soon' or 'future': show if maintenance_month falls within filter range
+                if (!eq.maintenance_month) return true;
+                let monthsUntil = eq.maintenance_month - currentMonth;
+                if (monthsUntil <= 0) monthsUntil += 12; // wrap to next calendar year
+                return monthsUntil <= monthsAhead;
             });
             return { ...group, equipment };
         }).filter(g => g.equipment.length > 0);
@@ -3932,10 +3937,10 @@ class ServiceReportApp {
         }
 
         // Recalculate worst_status per filtered group
-        const statusRank = { overdue: 1, soon: 2, ok: 3, none: 4 };
+        const statusRank = { overdue: 1, due: 2, soon: 3, future: 4, none: 5, done: 6 };
         filteredGroups.forEach(group => {
             group.worst_status = group.equipment.reduce((worst, eq) => {
-                return (statusRank[eq.maint_status] || 4) < (statusRank[worst] || 4) ? eq.maint_status : worst;
+                return (statusRank[eq.maint_status] || 5) < (statusRank[worst] || 5) ? eq.maint_status : worst;
             }, 'none');
         });
 
@@ -3966,26 +3971,18 @@ class ServiceReportApp {
             group.equipment.forEach(eq => {
                 const color = statusColors[eq.maint_status] || '#9e9e9e';
                 const statusLabel = statusLabels[eq.maint_status] || '';
-                let dateText = '';
-                if (eq.next_maintenance_date) {
-                    const d = new Date(eq.next_maintenance_date);
-                    dateText = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    dateText = statusLabel + ': ' + dateText;
-                } else {
-                    dateText = statusLabel;
-                }
-                const monthText = eq.maintenance_month ? 'Monat: ' + (monthNames[eq.maintenance_month - 1] || eq.maintenance_month) : '';
+                const monthName = eq.maintenance_month ? monthNames[eq.maintenance_month - 1] : null;
+                const statusText = monthName ? statusLabel + ' · ' + monthName : statusLabel;
+                const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
 
                 const itemEl = document.createElement('div');
                 itemEl.className = 'maint-eq-item';
-                const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
                 itemEl.innerHTML =
                     '<div class="maint-status-dot" style="background:' + color + ';flex-shrink:0;"></div>' +
                     '<div class="maint-eq-info">' +
                       '<div class="maint-eq-label">' + this.escapeHtml(eq.label || eq.ref) + '</div>' +
                       (typeLabel ? '<div class="maint-eq-date">' + this.escapeHtml(typeLabel) + '</div>' : '') +
-                      (dateText ? '<div class="maint-eq-date">' + this.escapeHtml(dateText) + '</div>' : '') +
-                      (monthText ? '<div class="maint-eq-date">' + this.escapeHtml(monthText) + '</div>' : '') +
+                      '<div class="maint-eq-date">' + this.escapeHtml(statusText) + '</div>' +
                     '</div>';
 
                 if (eq.open_intervention_id) {
