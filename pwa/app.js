@@ -3911,11 +3911,12 @@ class ServiceReportApp {
         const cutoff = new Date(today);
         cutoff.setMonth(cutoff.getMonth() + monthsAhead);
 
-        // Filter equipment per group — always include overdue+soon, add future up to cutoff
+        // Filter equipment per group — always include overdue+soon+none (no date = needs scheduling),
+        // plus 'ok' items whose next date falls within the selected cutoff
         const filteredGroups = groups.map(group => {
             const equipment = group.equipment.filter(eq => {
                 if (eq.maint_status === 'overdue' || eq.maint_status === 'soon') return true;
-                if (!eq.next_maintenance_date) return false;
+                if (!eq.next_maintenance_date) return true; // no date set — always show
                 const d = new Date(eq.next_maintenance_date);
                 return d <= cutoff;
             });
@@ -4025,6 +4026,7 @@ class ServiceReportApp {
         const intervention = (this.allInterventions || []).find(i => i.id === interventionId);
         if (intervention) {
             this.leafletMap.closePopup();
+            this.currentIntervention = intervention;
             this.loadEquipment(intervention);
         }
     }
