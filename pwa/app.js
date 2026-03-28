@@ -325,7 +325,7 @@ class ServiceReportApp {
             <div class="empty-state">
                 <div class="empty-icon">🔒</div>
                 <p>${message}</p>
-                <a href="../../../user/card.php" class="btn btn-primary" style="margin-top:16px;">Anmelden</a>
+                <a href="settings.php" class="btn btn-primary" style="margin-top:16px;">Einstellungen öffnen</a>
             </div>
         `;
     }
@@ -536,7 +536,16 @@ class ServiceReportApp {
                 clearTimeout(tid);
 
                 if (response.ok || response.status === 401) {
-                    // Server reachable
+                    // Guard: service worker returns fake HTTP 200 when offline
+                    // Real server returns {"status":"ok"}, SW fallback returns {"offline":true}
+                    if (response.ok) {
+                        const data = await response.json().catch(() => ({}));
+                        if (data.offline === true) {
+                            // SW offline fallback — not actually reachable, try next attempt
+                            continue;
+                        }
+                    }
+                    // Server genuinely reachable
                     if (!this.isOnline) {
                         this.isOnline = true;
                         this.updateOnlineStatus();
