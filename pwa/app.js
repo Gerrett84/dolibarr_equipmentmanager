@@ -3644,8 +3644,11 @@ class ServiceReportApp {
             return;
         }
 
-        // Open acceptance protocol in new tab
-        const protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        // Pass current equipment ID so only that one appears in the protocol
+        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        if (this.currentEquipment && this.currentEquipment.id) {
+            protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
+        }
         window.open(protocolUrl, '_blank');
     }
 

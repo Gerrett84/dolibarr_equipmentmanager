@@ -30,12 +30,13 @@ if (!$user->id) {
     die('Not authenticated');
 }
 
-// Get intervention ID
+// Get intervention ID and optional equipment filter
 $id = GETPOST('id', 'int');
 if (!$id) {
     http_response_code(400);
     die('Missing intervention ID');
 }
+$equipment_id = GETPOST('equipment_id', 'int'); // 0 = show all
 
 // Load intervention
 $fichinter = new Fichinter($db);
@@ -81,6 +82,9 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
 $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
 $sql .= " WHERE l.fk_intervention = ".(int)$id;
 $sql .= " AND l.link_type = 'service'";
+if ($equipment_id > 0) {
+    $sql .= " AND e.rowid = ".(int)$equipment_id;
+}
 $sql .= " ORDER BY e.equipment_number";
 
 $resql = $db->query($sql);
@@ -506,6 +510,16 @@ $pdfPath = $docDir.'/'.$pdfFilename;
 // Get PDF as string, save to file, then output
 $pdfContent = $pdf->Output($pdfFilename, 'S'); // Get as string
 file_put_contents($pdfPath, $pdfContent);
+
+// Clean up old PROV-named acceptance protocol files (left over from before intervention was validated)
+$oldFiles = glob($docDir.'/Abnahmeprotokoll_*.pdf');
+if (is_array($oldFiles)) {
+    foreach ($oldFiles as $oldFile) {
+        if (basename($oldFile) !== $pdfFilename) {
+            @unlink($oldFile);
+        }
+    }
+}
 
 // Index the file in Dolibarr
 dol_include_once('/core/lib/files.lib.php');
