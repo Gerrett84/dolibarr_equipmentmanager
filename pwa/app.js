@@ -3620,7 +3620,8 @@ class ServiceReportApp {
     openPdfViewer(url, title = 'Dokument') {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
-        document.getElementById('pdfViewerFrame').src = url;
+        // Wrap in pdf_embed.php so the PDF scales to device width on iOS
+        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}`;
         overlay.classList.add('show');
     }
 
