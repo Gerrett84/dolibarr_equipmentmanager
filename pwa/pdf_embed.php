@@ -22,6 +22,11 @@ if (empty($url) || preg_match('/^https?:\/\//i', $url)) {
     exit('Invalid URL');
 }
 $safeUrl = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+
+$theme = GETPOST('theme', 'alpha');
+$isDark = ($theme === 'dark');
+$bgColor   = $isDark ? '#1a1a1a' : '#525659';
+$textColor = $isDark ? '#e0e0e0' : '#ffffff';
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -34,16 +39,29 @@ $safeUrl = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
         html, body {
             width: 100%; height: 100%;
             overflow: hidden;
-            background: #525659;
+            background: <?php echo $bgColor; ?>;
+            color: <?php echo $textColor; ?>;
         }
         embed {
             display: block;
             width: 100%;
             height: 100%;
         }
+        /* Fallback message if embed not supported */
+        .fallback {
+            display: none;
+            padding: 20px;
+            text-align: center;
+            font-family: sans-serif;
+            font-size: 15px;
+        }
+        embed:not([src]) + .fallback { display: block; }
     </style>
 </head>
 <body>
     <embed src="<?php echo $safeUrl; ?>" type="application/pdf" width="100%" height="100%">
+    <div class="fallback">PDF kann nicht angezeigt werden.<br>
+        <a href="<?php echo $safeUrl; ?>" style="color:<?php echo $textColor; ?>">PDF herunterladen</a>
+    </div>
 </body>
 </html>

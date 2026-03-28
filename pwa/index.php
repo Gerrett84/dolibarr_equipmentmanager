@@ -2136,6 +2136,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             width: 100%;
             border: none;
         }
+
+        [data-theme="dark"] #pdfViewerOverlay {
+            background: #1a1a1a;
+        }
+        [data-theme="dark"] .pdf-viewer-header {
+            background: #1e2d3d;
+        }
     </style>
 </head>
 <body>

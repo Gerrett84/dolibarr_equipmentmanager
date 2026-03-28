@@ -3621,7 +3621,11 @@ class ServiceReportApp {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
         // Wrap in pdf_embed.php so the PDF scales to device width on iOS
-        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}`;
+        const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
+        const isDark = storedTheme === 'dark' ||
+            (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        const theme = isDark ? 'dark' : 'light';
+        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}`;
         overlay.classList.add('show');
     }
 
