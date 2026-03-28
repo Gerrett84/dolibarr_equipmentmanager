@@ -2089,6 +2089,53 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             color: var(--text);
             margin-top: 4px;
         }
+
+        /* PDF Viewer Overlay */
+        #pdfViewerOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10000;
+            background: #fff;
+            flex-direction: column;
+        }
+        #pdfViewerOverlay.show {
+            display: flex;
+        }
+        .pdf-viewer-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: var(--primary-color);
+            color: #fff;
+            flex-shrink: 0;
+            min-height: 52px;
+            padding-top: calc(10px + env(safe-area-inset-top));
+        }
+        .pdf-viewer-back {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .pdf-viewer-title {
+            font-size: 16px;
+            font-weight: 600;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #pdfViewerFrame {
+            flex: 1;
+            width: 100%;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -2573,6 +2620,15 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- PDF Viewer Overlay -->
+    <div id="pdfViewerOverlay">
+        <div class="pdf-viewer-header">
+            <button class="pdf-viewer-back" id="btnClosePdfViewer">&#8592;</button>
+            <span class="pdf-viewer-title" id="pdfViewerTitle"></span>
+        </div>
+        <iframe id="pdfViewerFrame" src="about:blank"></iframe>
     </div>
 
     <!-- Documents Modal -->

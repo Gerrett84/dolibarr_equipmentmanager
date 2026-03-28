@@ -425,6 +425,7 @@ class ServiceReportApp {
         // Documents button
         document.getElementById('navDocuments').addEventListener('click', () => this.showDocuments());
         document.getElementById('btnCloseDocuments').addEventListener('click', () => this.closeDocumentsModal());
+        document.getElementById('btnClosePdfViewer').addEventListener('click', () => this.closePdfViewer());
 
         // PDF Preview button
         document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
@@ -3562,7 +3563,7 @@ class ServiceReportApp {
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
                         <div class="document-actions">
-                            <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
+                            <button type="button" class="doc-action" title="Vorschau" onclick="app.openPdfViewer('${previewUrl.replace(/'/g, "\\'")}', '${doc.name.replace(/'/g, "\\'")}')">🔍</button>
                             <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                         </div>
                     `;
@@ -3615,7 +3616,22 @@ class ServiceReportApp {
         document.getElementById('documentsModal').classList.remove('show');
     }
 
-    // Show PDF preview in new tab
+    // Open PDF in in-app viewer overlay (no new tab needed)
+    openPdfViewer(url, title = 'Dokument') {
+        const overlay = document.getElementById('pdfViewerOverlay');
+        document.getElementById('pdfViewerTitle').textContent = title;
+        document.getElementById('pdfViewerFrame').src = url;
+        overlay.classList.add('show');
+    }
+
+    closePdfViewer() {
+        const overlay = document.getElementById('pdfViewerOverlay');
+        overlay.classList.remove('show');
+        // Clear iframe to stop loading
+        document.getElementById('pdfViewerFrame').src = 'about:blank';
+    }
+
+    // Show PDF preview in in-app viewer
     showPdfPreview() {
         if (!this.currentIntervention) {
             this.showToast('Keine Intervention ausgewählt');
@@ -3627,9 +3643,8 @@ class ServiceReportApp {
             return;
         }
 
-        // Open PDF preview in new tab
         const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
-        window.open(previewUrl, '_blank');
+        this.openPdfViewer(previewUrl, 'Servicebericht');
     }
 
     // Show acceptance protocol PDF in new tab (v4.5)
@@ -3649,7 +3664,7 @@ class ServiceReportApp {
         if (this.currentEquipment && this.currentEquipment.id) {
             protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
         }
-        window.open(protocolUrl, '_blank');
+        this.openPdfViewer(protocolUrl, 'Abnahmeprotokoll');
     }
 
     buildInfoHeader(intervention) {
@@ -5132,7 +5147,7 @@ class ServiceReportApp {
         const previewParam = preview ? '&preview=1' : '';
         const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}`;
 
-        window.open(pdfUrl, '_blank');
+        this.openPdfViewer(pdfUrl, 'Checkliste');
     }
 }
 
