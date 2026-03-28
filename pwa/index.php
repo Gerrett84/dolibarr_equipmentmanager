@@ -298,6 +298,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .sync-status.online { background: #4caf50; }
         .sync-status.offline { background: #f44336; }
         .sync-status.syncing { background: #ff9800; }
+        .sync-status.pending { background: #e65100; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
         /* Main Content */
         .content {

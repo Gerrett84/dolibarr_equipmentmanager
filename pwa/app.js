@@ -9,7 +9,7 @@ class ServiceReportApp {
         this.currentEquipment = null;
         this.currentEntry = null; // v1.7 - current entry being edited
         this.currentEntries = []; // v1.7 - all entries for current equipment
-        this.isOnline = navigator.onLine;
+        this.isOnline = false; // Always start pessimistic — checkConnectivity() confirms
         this.signatureInstance = null;
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
@@ -57,17 +57,14 @@ class ServiceReportApp {
         // Update online status
         this.updateOnlineStatus();
 
-        // Load initial data
+        // Load initial data from cache immediately (fast startup)
         await this.loadInterventions();
 
-        // Prefetch all data for offline use when online
-        if (this.isOnline) {
-            // Run prefetch in background (don't await - let user interact)
-            // Status update is handled in prefetchAllData's finally block
-            this.prefetchAllData().catch(err => {
-                console.warn('Background prefetch failed:', err);
-            });
-        }
+        // Check connectivity in background — sets isOnline, triggers sync+prefetch if online
+        this.checkConnectivity(true);
+
+        // Show pending sync badge if there are unsynced items
+        this.updateSyncBadge();
     }
 
     async checkAuth() {
@@ -345,12 +342,18 @@ class ServiceReportApp {
             this.updateOnlineStatus();
         });
 
-        // Periodic connectivity check every 30s to recover from stuck offline state
+        // Periodic connectivity check every 15s — runs always to detect both
+        // stuck-offline AND stale-online states
         setInterval(() => {
-            if (!this.isOnline) {
-                this.checkConnectivity(true); // silent = true (no toast on failure)
+            this.checkConnectivity(true);
+        }, 15000);
+
+        // Check connectivity when app comes back to foreground
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                this.checkConnectivity(true);
             }
-        }, 30000);
+        });
 
         // Navigation
         document.querySelectorAll('.nav-item').forEach(btn => {
@@ -514,16 +517,27 @@ class ServiceReportApp {
                 signal: AbortSignal.timeout(5000)
             });
             if (response.ok || response.status === 401) {
-                // Server reachable (401 = auth issue but server is up)
+                // Server reachable
                 if (!this.isOnline) {
                     this.isOnline = true;
                     this.updateOnlineStatus();
                     if (!silent) this.showToast('Verbindung wiederhergestellt');
-                    this.syncData();
+                    await this.syncData();
+                    await this.loadInterventions();
+                }
+            } else {
+                // Server returned unexpected status — treat as offline
+                if (this.isOnline) {
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
                 }
             }
         } catch (e) {
-            // Still offline — keep current state
+            // Network error — offline
+            if (this.isOnline) {
+                this.isOnline = false;
+                this.updateOnlineStatus();
+            }
         }
     }
 
@@ -718,6 +732,7 @@ class ServiceReportApp {
             const response = await fetch(url, {
                 credentials: 'same-origin',
                 headers,
+                signal: AbortSignal.timeout(10000), // 10s timeout
                 ...options
             });
 
@@ -737,6 +752,14 @@ class ServiceReportApp {
             return response.json();
         } catch (err) {
             console.error('API call failed:', endpoint, err);
+            // Network error or timeout → mark offline and schedule reconnect
+            if (err.name === 'TypeError' || err.name === 'TimeoutError' || err.name === 'AbortError') {
+                if (this.isOnline) {
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+                    setTimeout(() => this.checkConnectivity(true), 3000);
+                }
+            }
             throw err;
         }
     }
@@ -2403,10 +2426,13 @@ class ServiceReportApp {
                 // Reload interventions list to reflect new status
                 await this.loadInterventions();
             } catch (err) {
-                this.showToast('Offline gespeichert - wird synchronisiert');
+                // Sync failed — saved in queue, show persistent warning
+                this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
+                this.updateSyncBadge();
             }
         } else {
-            this.showToast('Unterschrift offline gespeichert');
+            this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
+            this.updateSyncBadge();
         }
 
         // Go back to interventions list
@@ -2553,6 +2579,7 @@ class ServiceReportApp {
         }
 
         this.updateOnlineStatus();
+        await this.updateSyncBadge();
     }
 
     // Prefetch all data for offline use
@@ -2702,14 +2729,29 @@ class ServiceReportApp {
         return `<a href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" class="address-link ${additionalClasses}" title="In Karten öffnen">${addressText}</a>`;
     }
 
-    showToast(message) {
+    showToast(message, duration = 3000) {
         const toast = document.getElementById('toast');
         toast.textContent = message;
         toast.classList.add('show');
 
         setTimeout(() => {
             toast.classList.remove('show');
-        }, 3000);
+        }, duration);
+    }
+
+    async updateSyncBadge() {
+        try {
+            const queue = await offlineDB.getSyncQueue();
+            const statusEl = document.getElementById('syncStatus');
+            if (queue.length > 0) {
+                statusEl.textContent = `⚠️ ${queue.length} ausstehend`;
+                statusEl.className = 'sync-status pending';
+            } else {
+                this.updateOnlineStatus();
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 
     // Material management
