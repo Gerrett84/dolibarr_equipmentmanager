@@ -529,31 +529,32 @@ class ServiceReportApp {
                 const tid = setTimeout(() => controller.abort(), 5000);
                 const response = await fetch(CONFIG.apiBase + '?route=ping&_=' + Date.now(), {
                     credentials: 'same-origin',
-                    headers: this.pwaToken ? { 'X-PWA-Token': this.pwaToken } : {},
                     cache: 'no-store',
                     signal: controller.signal
                 });
                 clearTimeout(tid);
 
-                if (response.ok || response.status === 401) {
-                    // Guard: service worker returns fake HTTP 200 when offline
-                    // Real server returns {"status":"ok"}, SW fallback returns {"offline":true}
-                    if (response.ok) {
-                        const data = await response.json().catch(() => ({}));
-                        if (data.offline === true) {
-                            // SW offline fallback — not actually reachable, try next attempt
-                            continue;
-                        }
+                if (response.ok) {
+                    // Guard: SW returns fake HTTP 200 with {offline:true} when network is down
+                    const data = await response.json().catch(() => ({}));
+                    if (data.offline === true) continue; // SW fallback — retry
+
+                    // Real 200 — authenticated and online
+                    await this._goOnline(silent, skipAutoSync);
+                    return true;
+                }
+
+                if (response.status === 401) {
+                    // Server reachable but session expired — try auto-login to refresh session
+                    const refreshed = await this._trySessionRefresh();
+                    if (refreshed) {
+                        await this._goOnline(silent, skipAutoSync);
+                        return true;
                     }
-                    // Server genuinely reachable
+                    // No credentials / refresh failed — online but can't auth, don't sync
                     if (!this.isOnline) {
                         this.isOnline = true;
                         this.updateOnlineStatus();
-                        if (!silent) this.showToast('Verbindung wiederhergestellt');
-                        if (!skipAutoSync) {
-                            await this.syncData();
-                            await this.loadInterventions();
-                        }
                     }
                     return true;
                 }
@@ -568,6 +569,30 @@ class ServiceReportApp {
             this.updateOnlineStatus();
         }
         return false;
+    }
+
+    // Called when we confirm server is reachable and authenticated
+    async _goOnline(silent, skipAutoSync) {
+        if (!this.isOnline) {
+            this.isOnline = true;
+            this.updateOnlineStatus();
+            if (!silent) this.showToast('Verbindung wiederhergestellt');
+            if (!skipAutoSync) {
+                await this.syncData();
+                await this.loadInterventions();
+            }
+        }
+    }
+
+    // Try to refresh session using saved credentials
+    async _trySessionRefresh() {
+        try {
+            const credentials = await offlineDB.getMeta('credentials');
+            if (!credentials || !credentials.username || !credentials.password) return false;
+            return await this.tryAutoLogin(credentials.username, credentials.password);
+        } catch (e) {
+            return false;
+        }
     }
 
     showView(viewId, title = null) {
@@ -773,10 +798,12 @@ class ServiceReportApp {
                 const text = await response.text();
                 console.error('API Error:', response.status, text);
 
-                // If unauthorized and we have a PWA token, it might be expired
-                if (response.status === 401 && this.pwaToken) {
-                    this.pwaToken = null;
-                    await offlineDB.setMeta('pwaToken', null);
+                // Session expired — try to refresh and retry the request once
+                if (response.status === 401 && !options._authRetried) {
+                    const refreshed = await this._trySessionRefresh();
+                    if (refreshed) {
+                        return this.apiCall(endpoint, { ...options, _authRetried: true });
+                    }
                 }
 
                 throw new Error(`HTTP ${response.status}`);
