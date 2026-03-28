@@ -748,13 +748,17 @@ class ServiceReportApp {
             headers['X-PWA-Token'] = this.pwaToken;
         }
 
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 10000);
+
         try {
             const response = await fetch(url, {
                 credentials: 'same-origin',
                 headers,
-                signal: AbortSignal.timeout(10000), // 10s timeout
+                signal: controller.signal,
                 ...options
             });
+            clearTimeout(tid);
 
             if (!response.ok) {
                 const text = await response.text();
@@ -771,13 +775,14 @@ class ServiceReportApp {
 
             return response.json();
         } catch (err) {
+            clearTimeout(tid);
             console.error('API call failed:', endpoint, err);
             // Network error or timeout → mark offline and schedule reconnect
-            if (err.name === 'TypeError' || err.name === 'TimeoutError' || err.name === 'AbortError') {
+            if (err.name === 'TypeError' || err.name === 'AbortError') {
                 if (this.isOnline) {
                     this.isOnline = false;
                     this.updateOnlineStatus();
-                    setTimeout(() => this.checkConnectivity(true), 3000);
+                    setTimeout(() => this.checkConnectivity(true, 2), 3000);
                 }
             }
             throw err;
