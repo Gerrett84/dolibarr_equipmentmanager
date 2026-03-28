@@ -349,9 +349,10 @@ class ServiceReportApp {
         }, 15000);
 
         // Check connectivity when app comes back to foreground
+        // Use 3 retries (× 1.5s) because network may not be immediately available after wakeup
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                this.checkConnectivity(true);
+                this.checkConnectivity(true, 3);
             }
         });
 
@@ -366,8 +367,17 @@ class ServiceReportApp {
         // Back button
         document.getElementById('btnBack').addEventListener('click', () => this.goBack());
 
-        // Sync button
-        document.getElementById('btnSync').addEventListener('click', () => this.syncData());
+        // Sync button — try to reconnect first if currently offline
+        document.getElementById('btnSync').addEventListener('click', async () => {
+            if (!this.isOnline) {
+                const online = await this.checkConnectivity(true, 2, true);
+                if (!online) {
+                    this.showToast('Keine Verbindung möglich');
+                    return;
+                }
+            }
+            await this.syncData();
+        });
 
         // Entry form submit (v1.7)
         document.getElementById('entryForm').addEventListener('submit', (e) => {
@@ -509,36 +519,46 @@ class ServiceReportApp {
         }
     }
 
-    async checkConnectivity(silent = false) {
-        try {
-            const response = await fetch(CONFIG.apiBase + '?route=ping', {
-                credentials: 'same-origin',
-                headers: this.pwaToken ? { 'X-PWA-Token': this.pwaToken } : {},
-                signal: AbortSignal.timeout(5000)
-            });
-            if (response.ok || response.status === 401) {
-                // Server reachable
-                if (!this.isOnline) {
-                    this.isOnline = true;
-                    this.updateOnlineStatus();
-                    if (!silent) this.showToast('Verbindung wiederhergestellt');
-                    await this.syncData();
-                    await this.loadInterventions();
-                }
-            } else {
-                // Server returned unexpected status — treat as offline
-                if (this.isOnline) {
-                    this.isOnline = false;
-                    this.updateOnlineStatus();
-                }
+    async checkConnectivity(silent = false, maxRetries = 0, skipAutoSync = false) {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            if (attempt > 0) {
+                await new Promise(r => setTimeout(r, 1500));
             }
-        } catch (e) {
-            // Network error — offline
-            if (this.isOnline) {
-                this.isOnline = false;
-                this.updateOnlineStatus();
+            try {
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 5000);
+                const response = await fetch(CONFIG.apiBase + '?route=ping&_=' + Date.now(), {
+                    credentials: 'same-origin',
+                    headers: this.pwaToken ? { 'X-PWA-Token': this.pwaToken } : {},
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                clearTimeout(tid);
+
+                if (response.ok || response.status === 401) {
+                    // Server reachable
+                    if (!this.isOnline) {
+                        this.isOnline = true;
+                        this.updateOnlineStatus();
+                        if (!silent) this.showToast('Verbindung wiederhergestellt');
+                        if (!skipAutoSync) {
+                            await this.syncData();
+                            await this.loadInterventions();
+                        }
+                    }
+                    return true;
+                }
+            } catch (e) {
+                // Network error — try next attempt
             }
         }
+
+        // All attempts failed — offline
+        if (this.isOnline) {
+            this.isOnline = false;
+            this.updateOnlineStatus();
+        }
+        return false;
     }
 
     showView(viewId, title = null) {
