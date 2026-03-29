@@ -440,6 +440,19 @@ if (!empty($conf->totp2fa->enabled)) {
             <div id="trustedDeviceContent" class="status"></div>
         </div>
 
+        <div class="card">
+            <h2>Offline-Daten</h2>
+            <p class="help-text" style="margin-top:0;">
+                Löscht alle lokal gespeicherten Daten (Aufträge, Anlagen, Einträge). Login-Daten bleiben erhalten.
+            </p>
+            <button type="button" class="btn btn-danger" id="btnClearCache" style="margin-bottom:8px;">
+                Cache leeren
+            </button>
+            <p class="help-text" style="color:#d32f2f;display:none;" id="cacheCleared">
+                ✅ Cache wurde geleert. Bitte PWA neu laden.
+            </p>
+        </div>
+
         <a href="index.php" class="back-link">← Zurück zur PWA</a>
     </div>
 
@@ -648,6 +661,45 @@ if (!empty($conf->totp2fa->enabled)) {
                 console.error('Delete error:', err);
             }
         }
+
+        document.getElementById('btnClearCache').addEventListener('click', async () => {
+            if (!confirm('Alle Offline-Daten löschen? Login-Daten bleiben erhalten.')) return;
+
+            const btn = document.getElementById('btnClearCache');
+            btn.disabled = true;
+            btn.textContent = 'Lösche...';
+
+            try {
+                // 1. Clear service worker caches
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+
+                // 2. Clear IndexedDB data stores (keep meta = credentials/auth/token)
+                await offlineDB.init();
+                const storesToClear = ['interventions', 'equipment', 'details', 'sync_queue',
+                                       'checklist_results', 'defect_materials', 'pending_uploads'];
+                for (const store of storesToClear) {
+                    try {
+                        const tx = offlineDB.db.transaction(store, 'readwrite');
+                        await new Promise((res, rej) => {
+                            const req = tx.objectStore(store).clear();
+                            req.onsuccess = res;
+                            req.onerror = rej;
+                        });
+                    } catch (e) { /* store might not exist */ }
+                }
+
+                document.getElementById('cacheCleared').style.display = 'block';
+                btn.textContent = 'Cache leeren';
+                btn.disabled = false;
+            } catch (err) {
+                console.error('Clear cache error:', err);
+                btn.textContent = 'Fehler – bitte erneut versuchen';
+                btn.disabled = false;
+            }
+        });
 
         function showTrustedDeviceInfo(trusted) {
             const card = document.getElementById('trustedDeviceCard');

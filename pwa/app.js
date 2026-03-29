@@ -9,7 +9,7 @@ class ServiceReportApp {
         this.currentEquipment = null;
         this.currentEntry = null; // v1.7 - current entry being edited
         this.currentEntries = []; // v1.7 - all entries for current equipment
-        this.isOnline = navigator.onLine;
+        this.isOnline = false; // Always start pessimistic — checkConnectivity() confirms
         this.signatureInstance = null;
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
@@ -57,17 +57,14 @@ class ServiceReportApp {
         // Update online status
         this.updateOnlineStatus();
 
-        // Load initial data
+        // Load initial data from cache immediately (fast startup)
         await this.loadInterventions();
 
-        // Prefetch all data for offline use when online
-        if (this.isOnline) {
-            // Run prefetch in background (don't await - let user interact)
-            // Status update is handled in prefetchAllData's finally block
-            this.prefetchAllData().catch(err => {
-                console.warn('Background prefetch failed:', err);
-            });
-        }
+        // Check connectivity in background — sets isOnline, triggers sync+prefetch if online
+        this.checkConnectivity(true);
+
+        // Show pending sync badge if there are unsynced items
+        this.updateSyncBadge();
     }
 
     async checkAuth() {
@@ -328,7 +325,7 @@ class ServiceReportApp {
             <div class="empty-state">
                 <div class="empty-icon">🔒</div>
                 <p>${message}</p>
-                <a href="../../../user/card.php" class="btn btn-primary" style="margin-top:16px;">Anmelden</a>
+                <a href="settings.php" class="btn btn-primary" style="margin-top:16px;">Einstellungen öffnen</a>
             </div>
         `;
     }
@@ -345,12 +342,19 @@ class ServiceReportApp {
             this.updateOnlineStatus();
         });
 
-        // Periodic connectivity check every 30s to recover from stuck offline state
+        // Periodic connectivity check every 15s — runs always to detect both
+        // stuck-offline AND stale-online states
         setInterval(() => {
-            if (!this.isOnline) {
-                this.checkConnectivity(true); // silent = true (no toast on failure)
+            this.checkConnectivity(true);
+        }, 15000);
+
+        // Check connectivity when app comes back to foreground
+        // Use 3 retries (× 1.5s) because network may not be immediately available after wakeup
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                this.checkConnectivity(true, 3);
             }
-        }, 30000);
+        });
 
         // Navigation
         document.querySelectorAll('.nav-item').forEach(btn => {
@@ -363,8 +367,17 @@ class ServiceReportApp {
         // Back button
         document.getElementById('btnBack').addEventListener('click', () => this.goBack());
 
-        // Sync button
-        document.getElementById('btnSync').addEventListener('click', () => this.syncData());
+        // Sync button — try to reconnect first if currently offline
+        document.getElementById('btnSync').addEventListener('click', async () => {
+            if (!this.isOnline) {
+                const online = await this.checkConnectivity(true, 2, true);
+                if (!online) {
+                    this.showToast('Keine Verbindung möglich');
+                    return;
+                }
+            }
+            await this.syncData();
+        });
 
         // Entry form submit (v1.7)
         document.getElementById('entryForm').addEventListener('submit', (e) => {
@@ -412,6 +425,7 @@ class ServiceReportApp {
         // Documents button
         document.getElementById('navDocuments').addEventListener('click', () => this.showDocuments());
         document.getElementById('btnCloseDocuments').addEventListener('click', () => this.closeDocumentsModal());
+        document.getElementById('btnClosePdfViewer').addEventListener('click', () => this.closePdfViewer());
 
         // PDF Preview button
         document.getElementById('navPdfPreview').addEventListener('click', () => this.showPdfPreview());
@@ -506,24 +520,79 @@ class ServiceReportApp {
         }
     }
 
-    async checkConnectivity(silent = false) {
-        try {
-            const response = await fetch(CONFIG.apiBase + '?route=ping', {
-                credentials: 'same-origin',
-                headers: this.pwaToken ? { 'X-PWA-Token': this.pwaToken } : {},
-                signal: AbortSignal.timeout(5000)
-            });
-            if (response.ok || response.status === 401) {
-                // Server reachable (401 = auth issue but server is up)
-                if (!this.isOnline) {
-                    this.isOnline = true;
-                    this.updateOnlineStatus();
-                    if (!silent) this.showToast('Verbindung wiederhergestellt');
-                    this.syncData();
-                }
+    async checkConnectivity(silent = false, maxRetries = 0, skipAutoSync = false) {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            if (attempt > 0) {
+                await new Promise(r => setTimeout(r, 1500));
             }
+            try {
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 5000);
+                const response = await fetch(CONFIG.apiBase + '?route=ping&_=' + Date.now(), {
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                clearTimeout(tid);
+
+                if (response.ok) {
+                    // Guard: SW returns fake HTTP 200 with {offline:true} when network is down
+                    const data = await response.json().catch(() => ({}));
+                    if (data.offline === true) continue; // SW fallback — retry
+
+                    // Real 200 — authenticated and online
+                    await this._goOnline(silent, skipAutoSync);
+                    return true;
+                }
+
+                if (response.status === 401) {
+                    // Server reachable but session expired — try auto-login to refresh session
+                    const refreshed = await this._trySessionRefresh();
+                    if (refreshed) {
+                        await this._goOnline(silent, skipAutoSync);
+                        return true;
+                    }
+                    // No credentials / refresh failed — online but can't auth, don't sync
+                    if (!this.isOnline) {
+                        this.isOnline = true;
+                        this.updateOnlineStatus();
+                    }
+                    return true;
+                }
+            } catch (e) {
+                // Network error — try next attempt
+            }
+        }
+
+        // All attempts failed — offline
+        if (this.isOnline) {
+            this.isOnline = false;
+            this.updateOnlineStatus();
+        }
+        return false;
+    }
+
+    // Called when we confirm server is reachable and authenticated
+    async _goOnline(silent, skipAutoSync) {
+        if (!this.isOnline) {
+            this.isOnline = true;
+            this.updateOnlineStatus();
+            if (!silent) this.showToast('Verbindung wiederhergestellt');
+            if (!skipAutoSync) {
+                await this.syncData();
+                await this.loadInterventions();
+            }
+        }
+    }
+
+    // Try to refresh session using saved credentials
+    async _trySessionRefresh() {
+        try {
+            const credentials = await offlineDB.getMeta('credentials');
+            if (!credentials || !credentials.username || !credentials.password) return false;
+            return await this.tryAutoLogin(credentials.username, credentials.password);
         } catch (e) {
-            // Still offline — keep current state
+            return false;
         }
     }
 
@@ -714,21 +783,28 @@ class ServiceReportApp {
             headers['X-PWA-Token'] = this.pwaToken;
         }
 
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 10000);
+
         try {
             const response = await fetch(url, {
                 credentials: 'same-origin',
                 headers,
+                signal: controller.signal,
                 ...options
             });
+            clearTimeout(tid);
 
             if (!response.ok) {
                 const text = await response.text();
                 console.error('API Error:', response.status, text);
 
-                // If unauthorized and we have a PWA token, it might be expired
-                if (response.status === 401 && this.pwaToken) {
-                    this.pwaToken = null;
-                    await offlineDB.setMeta('pwaToken', null);
+                // Session expired — try to refresh and retry the request once
+                if (response.status === 401 && !options._authRetried) {
+                    const refreshed = await this._trySessionRefresh();
+                    if (refreshed) {
+                        return this.apiCall(endpoint, { ...options, _authRetried: true });
+                    }
                 }
 
                 throw new Error(`HTTP ${response.status}`);
@@ -736,7 +812,16 @@ class ServiceReportApp {
 
             return response.json();
         } catch (err) {
+            clearTimeout(tid);
             console.error('API call failed:', endpoint, err);
+            // Network error or timeout → mark offline and schedule reconnect
+            if (err.name === 'TypeError' || err.name === 'AbortError') {
+                if (this.isOnline) {
+                    this.isOnline = false;
+                    this.updateOnlineStatus();
+                    setTimeout(() => this.checkConnectivity(true, 2), 3000);
+                }
+            }
             throw err;
         }
     }
@@ -2403,10 +2488,13 @@ class ServiceReportApp {
                 // Reload interventions list to reflect new status
                 await this.loadInterventions();
             } catch (err) {
-                this.showToast('Offline gespeichert - wird synchronisiert');
+                // Sync failed — saved in queue, show persistent warning
+                this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
+                this.updateSyncBadge();
             }
         } else {
-            this.showToast('Unterschrift offline gespeichert');
+            this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
+            this.updateSyncBadge();
         }
 
         // Go back to interventions list
@@ -2553,6 +2641,7 @@ class ServiceReportApp {
         }
 
         this.updateOnlineStatus();
+        await this.updateSyncBadge();
     }
 
     // Prefetch all data for offline use
@@ -2702,14 +2791,29 @@ class ServiceReportApp {
         return `<a href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" class="address-link ${additionalClasses}" title="In Karten öffnen">${addressText}</a>`;
     }
 
-    showToast(message) {
+    showToast(message, duration = 3000) {
         const toast = document.getElementById('toast');
         toast.textContent = message;
         toast.classList.add('show');
 
         setTimeout(() => {
             toast.classList.remove('show');
-        }, 3000);
+        }, duration);
+    }
+
+    async updateSyncBadge() {
+        try {
+            const queue = await offlineDB.getSyncQueue();
+            const statusEl = document.getElementById('syncStatus');
+            if (queue.length > 0) {
+                statusEl.textContent = `⚠️ ${queue.length} ausstehend`;
+                statusEl.className = 'sync-status pending';
+            } else {
+                this.updateOnlineStatus();
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 
     // Material management
@@ -3459,7 +3563,7 @@ class ServiceReportApp {
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
                         <div class="document-actions">
-                            <a href="${previewUrl}" target="_blank" class="doc-action" title="Vorschau">🔍</a>
+                            <button type="button" class="doc-action" title="Vorschau" onclick="app.openPdfViewer('${previewUrl.replace(/'/g, "\\'")}', '${doc.name.replace(/'/g, "\\'")}')">🔍</button>
                             <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                         </div>
                     `;
@@ -3512,7 +3616,27 @@ class ServiceReportApp {
         document.getElementById('documentsModal').classList.remove('show');
     }
 
-    // Show PDF preview in new tab
+    // Open PDF in in-app viewer overlay (no new tab needed)
+    openPdfViewer(url, title = 'Dokument') {
+        const overlay = document.getElementById('pdfViewerOverlay');
+        document.getElementById('pdfViewerTitle').textContent = title;
+        // Wrap in pdf_embed.php so the PDF scales to device width on iOS
+        const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
+        const isDark = storedTheme === 'dark' ||
+            (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        const theme = isDark ? 'dark' : 'light';
+        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}`;
+        overlay.classList.add('show');
+    }
+
+    closePdfViewer() {
+        const overlay = document.getElementById('pdfViewerOverlay');
+        overlay.classList.remove('show');
+        // Clear iframe to stop loading
+        document.getElementById('pdfViewerFrame').src = 'about:blank';
+    }
+
+    // Show PDF preview in in-app viewer
     showPdfPreview() {
         if (!this.currentIntervention) {
             this.showToast('Keine Intervention ausgewählt');
@@ -3524,9 +3648,8 @@ class ServiceReportApp {
             return;
         }
 
-        // Open PDF preview in new tab
         const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
-        window.open(previewUrl, '_blank');
+        this.openPdfViewer(previewUrl, 'Servicebericht');
     }
 
     // Show acceptance protocol PDF in new tab (v4.5)
@@ -3541,9 +3664,12 @@ class ServiceReportApp {
             return;
         }
 
-        // Open acceptance protocol in new tab
-        const protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
-        window.open(protocolUrl, '_blank');
+        // Pass current equipment ID so only that one appears in the protocol
+        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        if (this.currentEquipment && this.currentEquipment.id) {
+            protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
+        }
+        this.openPdfViewer(protocolUrl, 'Abnahmeprotokoll');
     }
 
     buildInfoHeader(intervention) {
@@ -5026,7 +5152,7 @@ class ServiceReportApp {
         const previewParam = preview ? '&preview=1' : '';
         const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}`;
 
-        window.open(pdfUrl, '_blank');
+        this.openPdfViewer(pdfUrl, 'Checkliste');
     }
 }
 

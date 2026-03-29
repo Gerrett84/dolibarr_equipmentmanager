@@ -197,29 +197,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $tab_height = 130;
             $tab_height_newpage = 150;
 
-            // Display notes
-            $notetoshow = empty($object->note_public) ? '' : $object->note_public;
-            if ($notetoshow) {
-                $substitutionarray = pdf_getSubstitutionArray($outputlangs, null, $object);
-                complete_substitutions_array($substitutionarray, $outputlangs, $object);
-                $notetoshow = make_substitutions($notetoshow, $substitutionarray, $outputlangs);
-                $notetoshow = $outputlangs->convToOutputCharset($notetoshow);
-
-                $tab_top = 88;
-
-                $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->writeHTMLCell(190, 3, $this->marge_gauche, $tab_top, dol_htmlentitiesbr($notetoshow), 0, 1);
-                $nexY = $pdf->GetY();
-                $height_note = $nexY - $tab_top;
-
-                $pdf->SetDrawColor(192, 192, 192);
-                $pdf->Rect($this->marge_gauche, $tab_top - 1, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $height_note + 1);
-
-                $tab_height = $tab_height - $height_note;
-                $tab_top = $nexY + 6;
-            } else {
-                $height_note = 0;
-            }
+            $height_note = 0;
 
             $iniY = $tab_top + 7;
             $curY = $tab_top + 7;

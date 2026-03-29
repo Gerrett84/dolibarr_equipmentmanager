@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.7.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.8.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,20 @@
 -----
 
 ## Features
+
+### NEU in v4.8: PWA PDF-Viewer & Offline-Stabilität
+
+- **In-App PDF-Viewer** - PDFs (Servicebericht, Checkliste, Abnahmeprotokoll, Dokumente) öffnen direkt in der PWA mit Zurück-Button — kein Verlassen der App mehr nötig
+- **Fit-to-Width** - PDFs werden automatisch auf Displaybreite skaliert (besonders iOS)
+- **Dark Mode im PDF-Viewer** - Viewer-Header und Hintergrund folgen dem App-Theme
+- **Offline-Recovery** - Zuverlässige Erkennung von Service Worker Fake-200 Antworten; automatischer Session-Refresh bei abgelaufener PHP-Session (401)
+- **Manueller Sync** - Sync-Button versucht erst Verbindungsaufbau bevor Sync gestartet wird
+- **Cache leeren** - Neuer Button in Einstellungen löscht alle Offline-Daten (Login-Daten bleiben erhalten), auch für iOS nutzbar
+- **Login-Redirect** - Nach Cache-Leerung führt der Login zur PWA-Einstellungsseite statt ins Backend
+- **Abnahmeprotokoll-Filter** - Protokoll zeigt nur die ausgewählte Anlage (nicht alle); Filter auf `commissioning_done = 1 OR acceptance_done = 1`
+- **PROV-Datei-Bereinigung** - Alte `PROV*.pdf` Abnahmeprotokolle werden nach Auftragsfreigabe automatisch gelöscht
+- **PDF: Öffentliche Anmerkung entfernt** - `note_public` wird nicht mehr im Servicebericht-PDF gerendert (verhinderte Layout-Fehler)
+- **Objektadresse:** - Label mit Doppelpunkt in allen PDF-Dokumenten (Servicebericht, Angebot, Rechnung, Auftrag)
 
 ### NEU in v4.5: Inbetriebnahme- & Abnahmeprotokoll
 
@@ -189,6 +203,21 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.8.0 (2026-03-29)
+
+- **PWA: In-App PDF-Viewer** – PDFs öffnen in einem Vollbild-Overlay mit Zurück-Button; kein Tab-Wechsel mehr nötig
+- **PWA: PDF fit-to-width** – `pdf_embed.php` Wrapper sorgt dafür, dass PDFs auf Displaybreite skaliert werden (iOS Safari)
+- **PWA: Dark Mode im PDF-Viewer** – Header und Hintergrund des PDF-Viewers folgen dem App-Theme
+- **PWA: Offline-Recovery** – Service Worker Fake-200 Erkennung; Session-Refresh bei 401 ohne Nutzerinteraktion
+- **PWA: Sync-Button** – Versucht bei Offline-Zustand zuerst Verbindung herzustellen
+- **PWA: Cache leeren** – Neuer Button in Einstellungen (funktioniert auch auf iOS)
+- **PWA: Login-Redirect** – Nach Cache-Leerung → PWA-Einstellungen statt Dolibarr-Backend
+- **Abnahmeprotokoll** – Nur Anlagen mit `commissioning_done=1` oder `acceptance_done=1` erscheinen im Protokoll
+- **Abnahmeprotokoll** – Einzelanlage-Filter per `equipment_id` Parameter (Klick auf eine Anlage)
+- **Abnahmeprotokoll** – PROV-benannte PDFs werden nach Auftragsfreigabe automatisch gelöscht
+- **PDF Servicebericht** – `note_public` (öffentliche Anmerkung) entfernt; verhinderte Layout-Fehler
+- **PDF alle Dokumente** – `Objektadresse:` Label mit Doppelpunkt in Servicebericht, Angebot, Rechnung und Auftrag
 
 ### v4.7.1 (2026-03-18)
 
@@ -460,6 +489,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.7.1
+**Current Version:** 4.8.0
 **Released:** March 2026
 **Compatibility:** Dolibarr 16.0+

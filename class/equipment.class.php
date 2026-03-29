@@ -460,7 +460,7 @@ class Equipment extends CommonObject
         $translated = array();
 
         foreach ($types as $code => $label) {
-            $trans = $langs->trans($label);
+            $trans = $langs->transnoentities($label);
             // If no translation found, use label as-is
             $translated[$code] = ($trans != $label) ? $trans : $label;
         }

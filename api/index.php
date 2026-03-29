@@ -1754,6 +1754,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$fichinter->id;
     $sql .= " AND l.link_type = 'service'";
+    $sql .= " AND (d.commissioning_done = 1 OR d.acceptance_done = 1)";
     $sql .= " ORDER BY e.equipment_number";
 
     $resql = $db->query($sql);
@@ -2116,6 +2117,15 @@ function generateAcceptanceProtocol($fichinter, $user) {
     file_put_contents($pdfPath, $pdfContent);
 
     if (file_exists($pdfPath)) {
+        // Clean up old PROV-named acceptance protocol files (left over from before intervention was validated)
+        $oldFiles = glob($docDir.'/Abnahmeprotokoll_*.pdf');
+        if (is_array($oldFiles)) {
+            foreach ($oldFiles as $oldFile) {
+                if (basename($oldFile) !== $pdfFilename) {
+                    @unlink($oldFile);
+                }
+            }
+        }
         return $pdfFilename;
     }
     return false;
