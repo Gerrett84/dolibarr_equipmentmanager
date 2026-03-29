@@ -389,19 +389,54 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        $pdf        = $parameters['pdf'];
+        $pdf         = $parameters['pdf'];
         $outputlangs = $parameters['outputlangs'];
         $langs->load('equipmentmanager@equipmentmanager');
 
         $default_font_size = pdf_getPDFFontSize($outputlangs);
 
-        // Right-side ref block position (mirrors _pagehead: posx = page_largeur - marge_droite - 110)
+        // Right-side ref block column (mirrors _pagehead logic)
         $w    = 110;
         $posx = $object->page_largeur - $object->marge_droite - $w;
-        // Draw directly below linked objects / DateDue (~marge_haute+17 ≈ 27mm)
-        $posy = $object->marge_haute + 17;
 
-        // Save current position to restore after drawing
+        // Calculate $posy to match where _pagehead leaves off before pdf_writeLinkedObjects,
+        // so Leistungsdatum appears directly above "Serviceauftrag Ref." line.
+        // This mirrors the $posy increments in pdf_sponge::_pagehead().
+        $posy = $object->marge_haute;
+        $posy += 3; // after title MultiCell
+
+        // Optional: ref_customer
+        if (!empty($facture->ref_customer)) {
+            $posy += 4;
+        }
+        // Optional: project title / project ref (skip for brevity — rare in invoice context)
+        // Optional: replacement/correction invoice type (uncommon)
+
+        $posy += 4; // DateInvoice
+        if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
+            $posy += 4;
+        }
+        if ($facture->type != 2) {
+            $posy += 3; // DateDue
+        }
+        // Optional: customer code
+        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && !empty($facture->thirdparty->code_client)) {
+            $posy += 3;
+        }
+        // Optional: customer accounting code
+        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_ACCOUNTING_CODE') && !empty($facture->thirdparty->code_compta_client)) {
+            $posy += 3;
+        }
+        // Optional: sales rep
+        if (getDolGlobalString('DOC_SHOW_FIRST_SALES_REP')) {
+            $arrayidcontact = $facture->getIdContact('internal', 'SALESREPFOLL');
+            if (count($arrayidcontact) > 0) {
+                $posy += 4;
+            }
+        }
+        $posy += 1; // final increment before pdf_writeLinkedObjects
+
+        // Save current PDF cursor and draw in the ref block area
         $saved_x = $pdf->GetX();
         $saved_y = $pdf->GetY();
 
