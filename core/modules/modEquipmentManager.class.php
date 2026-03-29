@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '4.8.0';
+        $this->version = '5.0.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -196,7 +196,26 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 2: Anlagenliste (Parent)
+        // Überschrift 2: Service (Parent) — v5
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'ServiceOrders',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_service',
+            'url' => '/equipmentmanager/service_order_list.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 3: Anlagenliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(

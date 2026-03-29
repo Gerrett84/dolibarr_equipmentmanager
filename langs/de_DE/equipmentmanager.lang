@@ -704,3 +704,14 @@ NoAcceptanceData=Keine Anlagen mit Inbetriebnahme/Abnahme gefunden
 
 # v4.8.1 - Leistungsdatum
 Leistungsdatum=Leistungszeitraum
+
+# v5.0 - Service overview
+ServiceOrders=Service
+ServiceOrderList=Serviceauftrags-Übersicht
+ServiceOrderStatusAll=Alle
+ServiceOrderStatusDraft=Entwurf
+ServiceOrderStatusOpen=Offen
+ServiceOrderStatusBilled=Abrechnen
+ServiceOrderStatusClosed=Abgeschlossen
+ServiceOrderTechName=Techniker
+NoServiceOrders=Keine Serviceaufträge gefunden
