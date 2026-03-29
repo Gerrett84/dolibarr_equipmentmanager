@@ -351,9 +351,67 @@ class ActionsEquipmentManager
                             . dol_print_date($maxDate, 'day', 'tzserver', $langs);
         }
 
-        // Save to extrafield so it appears in the info block and PDF
+        // Save to extrafield (fetch existing first so insertExtraFields merges correctly)
+        $object->fetch_optionals();
         $object->array_options['options_leistungsdatum'] = $leistungsdatum;
         $object->insertExtraFields();
+
+        return 0;
+    }
+
+    /**
+     * Hook printUnderHeaderPDFline — draws Leistungsdatum in the right-side ref block area
+     * Uses absolute SetXY positioning to draw in the top-right column (alongside Datum, Fälligkeit)
+     *
+     * @param array $parameters Parameters (contains 'object' = Facture, 'pdf' = TCPDF instance)
+     * @param CommonObject $object PDF module instance (pdf_sponge etc.)
+     * @param string $action Action triggered
+     * @param HookManager $hookmanager Hook manager
+     * @return int 0
+     */
+    public function printUnderHeaderPDFline($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs;
+
+        // $object here is the PDF module instance; the Facture is in $parameters['object']
+        $facture = isset($parameters['object']) ? $parameters['object'] : null;
+        if (!is_object($facture) || get_class($facture) !== 'Facture') {
+            return 0;
+        }
+
+        // Read the leistungsdatum stored by beforePDFCreation
+        if (empty($facture->array_options)) {
+            $facture->fetch_optionals();
+        }
+        $leistungsdatum = isset($facture->array_options['options_leistungsdatum']) ? $facture->array_options['options_leistungsdatum'] : '';
+
+        if (empty($leistungsdatum)) {
+            return 0;
+        }
+
+        $pdf        = $parameters['pdf'];
+        $outputlangs = $parameters['outputlangs'];
+        $langs->load('equipmentmanager@equipmentmanager');
+
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+
+        // Right-side ref block position (mirrors _pagehead: posx = page_largeur - marge_droite - 110)
+        $w    = 110;
+        $posx = $object->page_largeur - $object->marge_droite - $w;
+        // Draw below DateDue (~marge_haute+20) but above address boxes (~42mm)
+        $posy = $object->marge_haute + 24;
+
+        // Save current position to restore after drawing
+        $saved_x = $pdf->GetX();
+        $saved_y = $pdf->GetY();
+
+        $pdf->SetFont('', '', $default_font_size - 2);
+        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetXY($posx, $posy);
+        $pdf->MultiCell($w, 3, $outputlangs->transnoentities('Leistungsdatum').' : '.$leistungsdatum, '', 'R');
+
+        // Restore PDF cursor
+        $pdf->SetXY($saved_x, $saved_y);
 
         return 0;
     }
