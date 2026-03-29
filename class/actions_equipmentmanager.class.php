@@ -389,20 +389,60 @@ class ActionsEquipmentManager
         $langs->load('equipmentmanager@equipmentmanager');
 
         $default_font_size = pdf_getPDFFontSize($outputlangs);
-        $line_height = 5;
 
-        // Draw at the current tab_top position (start of content area, below address blocks)
-        $posy = $object->tab_top;
-        $posx = $object->marge_gauche;
-        $width = $object->page_largeur - $object->marge_gauche - $object->marge_droite;
+        // Right-side ref block column — same as pdf_sponge _pagehead
+        $w    = 110;
+        $posx = $object->page_largeur - $object->marge_droite - $w;
 
-        $pdf->SetFont('', '', $default_font_size - 1);
+        // Mirror pdf_sponge _pagehead $posy increments up to and including linked objects,
+        // so we draw directly below the last linked object ("Serviceauftrag Ref.") line.
+        $posy = $object->marge_haute + 3; // after title
+        if (!empty($facture->ref_customer)) {
+            $posy += 4;
+        }
+        $posy += 4; // DateInvoice
+        if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
+            $posy += 4;
+        }
+        if ($facture->type != 2) {
+            $posy += 3; // DateDue
+        }
+        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && !empty($facture->thirdparty->code_client)) {
+            $posy += 3;
+        }
+        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_ACCOUNTING_CODE') && !empty($facture->thirdparty->code_compta_client)) {
+            $posy += 3;
+        }
+        if (getDolGlobalString('DOC_SHOW_FIRST_SALES_REP')) {
+            $arrayidcontact = $facture->getIdContact('internal', 'SALESREPFOLL');
+            if (count($arrayidcontact) > 0) {
+                $posy += 4;
+            }
+        }
+        $posy += 1; // _pagehead final increment before pdf_writeLinkedObjects
+
+        // Add height consumed by linked objects (each line = 3mm).
+        // $facture->linkedObjectsIds is populated by pdf_writeLinkedObjects during _pagehead.
+        if (!getDolGlobalString('INVOICE_HIDE_LINKED_OBJECT') && !empty($facture->linkedObjectsIds)) {
+            $nbLinked = 0;
+            foreach ($facture->linkedObjectsIds as $ids) {
+                $nbLinked += count((array)$ids);
+            }
+            if ($nbLinked > 0) {
+                $posy += 3 * $nbLinked;
+            }
+        }
+
+        // Save and restore PDF cursor — we are drawing back in the header area
+        $saved_x = $pdf->GetX();
+        $saved_y = $pdf->GetY();
+
+        $pdf->SetFont('', '', $default_font_size - 2);
         $pdf->SetTextColor(0, 0, 60);
         $pdf->SetXY($posx, $posy);
-        $pdf->MultiCell($width, $line_height, $outputlangs->transnoentities('Leistungsdatum').': '.$this->leistungsdatum, 0, 'L');
+        $pdf->MultiCell($w, 3, $outputlangs->transnoentities('Leistungsdatum').' : '.$this->leistungsdatum, '', 'R');
 
-        // Push line items down to make room
-        $hookmanager->resArray['extra_under_address_shift'] = $line_height + 1;
+        $pdf->SetXY($saved_x, $saved_y);
 
         return 0;
     }
