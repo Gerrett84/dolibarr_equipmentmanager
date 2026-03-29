@@ -40,6 +40,11 @@ class ActionsEquipmentManager
     public $leistungsdatum = '';
 
     /**
+     * @var int Number of linked fichinter objects, used to calculate Y offset for Leistungsdatum
+     */
+    public $leistungsdatumLinkedCount = 0;
+
+    /**
      * Constructor
      *
      * @param DoliDB $db Database handler
@@ -357,6 +362,10 @@ class ActionsEquipmentManager
                                   . dol_print_date($maxDate, 'day', 'tzserver', $langs);
         }
 
+        // Store linked fichinter count so printUnderHeaderPDFline can calculate
+        // the correct Y offset (each linked object takes 3mm in _pagehead)
+        $this->leistungsdatumLinkedCount = count($fichinterIds);
+
         return 0;
     }
 
@@ -421,16 +430,11 @@ class ActionsEquipmentManager
         }
         $posy += 1; // _pagehead final increment before pdf_writeLinkedObjects
 
-        // Add height consumed by linked objects (each line = 3mm).
-        // $facture->linkedObjectsIds is populated by pdf_writeLinkedObjects during _pagehead.
-        if (!getDolGlobalString('INVOICE_HIDE_LINKED_OBJECT') && !empty($facture->linkedObjectsIds)) {
-            $nbLinked = 0;
-            foreach ($facture->linkedObjectsIds as $ids) {
-                $nbLinked += count((array)$ids);
-            }
-            if ($nbLinked > 0) {
-                $posy += 3 * $nbLinked;
-            }
+        // Add height consumed by linked objects (each takes 3mm in _pagehead).
+        // Use count stored in beforePDFCreation — linkedObjectsIds is NOT available here
+        // because _pagehead() receives $object as a copy, not by reference.
+        if (!getDolGlobalString('INVOICE_HIDE_LINKED_OBJECT') && $this->leistungsdatumLinkedCount > 0) {
+            $posy += 3 * $this->leistungsdatumLinkedCount;
         }
 
         // Save and restore PDF cursor — we are drawing back in the header area
