@@ -430,11 +430,11 @@ class ActionsEquipmentManager
         }
         $posy += 1; // _pagehead final increment before pdf_writeLinkedObjects
 
-        // Add height consumed by linked objects (each takes 3mm in _pagehead).
-        // Use count stored in beforePDFCreation — linkedObjectsIds is NOT available here
-        // because _pagehead() receives $object as a copy, not by reference.
+        // Add height consumed by linked objects.
+        // pdf_writeLinkedObjects does: $posy+=3 (gap) then MultiCell(h=3) per item.
+        // Bottom of last item = input_posy + 3*(N+1), so we need 3*(N+1) total.
         if (!getDolGlobalString('INVOICE_HIDE_LINKED_OBJECT') && $this->leistungsdatumLinkedCount > 0) {
-            $posy += 3 * $this->leistungsdatumLinkedCount;
+            $posy += 3 * ($this->leistungsdatumLinkedCount + 1);
         }
 
         // Save and restore PDF cursor — we are drawing back in the header area
