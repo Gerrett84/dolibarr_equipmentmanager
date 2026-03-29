@@ -398,8 +398,8 @@ class ActionsEquipmentManager
         // Right-side ref block position (mirrors _pagehead: posx = page_largeur - marge_droite - 110)
         $w    = 110;
         $posx = $object->page_largeur - $object->marge_droite - $w;
-        // Draw below DateDue (~marge_haute+20) but above address boxes (~42mm)
-        $posy = $object->marge_haute + 24;
+        // Draw directly below linked objects / DateDue (~marge_haute+17 ≈ 27mm)
+        $posy = $object->marge_haute + 17;
 
         // Save current position to restore after drawing
         $saved_x = $pdf->GetX();
