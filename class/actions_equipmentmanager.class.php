@@ -292,4 +292,70 @@ class ActionsEquipmentManager
         return 1;
     }
 
+    /**
+     * Hook beforePDFCreation — auto-populate Leistungsdatum extrafield on invoices.
+     * Reads work_date MIN/MAX from linked fichinter's intervention_detail entries.
+     */
+    public function beforePDFCreation($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs;
+
+        if (get_class($object) !== 'Facture') {
+            return 0;
+        }
+
+        // Find linked fichinter(s) — link can be in either direction
+        $fichinterIds = array();
+        $sql = "SELECT fk_source AS fid FROM ".MAIN_DB_PREFIX."element_element"
+             . " WHERE sourcetype = 'fichinter' AND targettype = 'facture' AND fk_target = ".(int)$object->id;
+        $sql .= " UNION ";
+        $sql .= "SELECT fk_target AS fid FROM ".MAIN_DB_PREFIX."element_element"
+             . " WHERE targettype = 'fichinter' AND sourcetype = 'facture' AND fk_source = ".(int)$object->id;
+
+        $resql = $this->db->query($sql);
+        if ($resql) {
+            while ($obj = $this->db->fetch_object($resql)) {
+                $fichinterIds[] = (int)$obj->fid;
+            }
+        }
+
+        if (empty($fichinterIds)) {
+            return 0;
+        }
+
+        // Get MIN/MAX work_date from our intervention details
+        $ids = implode(',', $fichinterIds);
+        $sqlDates = "SELECT MIN(work_date) AS min_date, MAX(work_date) AS max_date"
+                  . " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail"
+                  . " WHERE fk_intervention IN (".$ids.")"
+                  . " AND work_date IS NOT NULL";
+
+        $resDates = $this->db->query($sqlDates);
+        if (!$resDates) {
+            return 0;
+        }
+        $obj = $this->db->fetch_object($resDates);
+        if (!$obj || empty($obj->min_date)) {
+            return 0;
+        }
+
+        $langs->load('main');
+        $minDate = dol_stringtotime($obj->min_date);
+        $maxDate = dol_stringtotime($obj->max_date);
+
+        if ($minDate === $maxDate) {
+            $leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs);
+        } else {
+            $leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs)
+                            . ' – '
+                            . dol_print_date($maxDate, 'day', 'tzserver', $langs);
+        }
+
+        // Save to extrafield so it appears in the info block and PDF
+        $object->array_options['options_leistungsdatum'] = $leistungsdatum;
+        $object->insertExtraFields();
+
+        return 0;
+    }
+
 }
