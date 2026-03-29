@@ -35,6 +35,11 @@ class ActionsEquipmentManager
     public $resprints;
 
     /**
+     * @var string Leistungsdatum calculated in beforePDFCreation, consumed in printUnderHeaderPDFline
+     */
+    public $leistungsdatum = '';
+
+    /**
      * Constructor
      *
      * @param DoliDB $db Database handler
@@ -293,8 +298,9 @@ class ActionsEquipmentManager
     }
 
     /**
-     * Hook beforePDFCreation — auto-populate Leistungsdatum extrafield on invoices.
-     * Reads work_date MIN/MAX from linked fichinter's intervention_detail entries.
+     * Hook beforePDFCreation — calculates Leistungsdatum from linked intervention work dates.
+     * Stores result in $this->leistungsdatum to be consumed by printUnderHeaderPDFline.
+     * No extrafield or DB write — completely invisible to Dolibarr UI.
      */
     public function beforePDFCreation($parameters, &$object, &$action, $hookmanager)
     {
@@ -323,7 +329,7 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Get MIN/MAX work_date from our intervention details
+        // Get MIN/MAX work_date from intervention details
         $ids = implode(',', $fichinterIds);
         $sqlDates = "SELECT MIN(work_date) AS min_date, MAX(work_date) AS max_date"
                   . " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail"
@@ -344,26 +350,21 @@ class ActionsEquipmentManager
         $maxDate = dol_stringtotime($obj->max_date);
 
         if ($minDate === $maxDate) {
-            $leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs);
+            $this->leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs);
         } else {
-            $leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs)
-                            . ' – '
-                            . dol_print_date($maxDate, 'day', 'tzserver', $langs);
+            $this->leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs)
+                                  . ' - '
+                                  . dol_print_date($maxDate, 'day', 'tzserver', $langs);
         }
-
-        // Save to extrafield (fetch existing first so insertExtraFields merges correctly)
-        $object->fetch_optionals();
-        $object->array_options['options_leistungsdatum'] = $leistungsdatum;
-        $object->insertExtraFields();
 
         return 0;
     }
 
     /**
-     * Hook printUnderHeaderPDFline — draws Leistungsdatum in the right-side ref block area
-     * Uses absolute SetXY positioning to draw in the top-right column (alongside Datum, Fälligkeit)
+     * Hook printUnderHeaderPDFline — draws Leistungsdatum below the address blocks,
+     * before the line items. Value comes from $this->leistungsdatum set by beforePDFCreation.
      *
-     * @param array $parameters Parameters (contains 'object' = Facture, 'pdf' = TCPDF instance)
+     * @param array $parameters Parameters ('pdf' = TCPDF, 'object' = Facture, 'outputlangs')
      * @param CommonObject $object PDF module instance (pdf_sponge etc.)
      * @param string $action Action triggered
      * @param HookManager $hookmanager Hook manager
@@ -373,19 +374,13 @@ class ActionsEquipmentManager
     {
         global $langs;
 
-        // $object here is the PDF module instance; the Facture is in $parameters['object']
-        $facture = isset($parameters['object']) ? $parameters['object'] : null;
-        if (!is_object($facture) || get_class($facture) !== 'Facture') {
+        if (empty($this->leistungsdatum)) {
             return 0;
         }
 
-        // Read the leistungsdatum stored by beforePDFCreation
-        if (empty($facture->array_options)) {
-            $facture->fetch_optionals();
-        }
-        $leistungsdatum = isset($facture->array_options['options_leistungsdatum']) ? $facture->array_options['options_leistungsdatum'] : '';
-
-        if (empty($leistungsdatum)) {
+        // Only for invoice PDF
+        $facture = isset($parameters['object']) ? $parameters['object'] : null;
+        if (!is_object($facture) || get_class($facture) !== 'Facture') {
             return 0;
         }
 
@@ -394,59 +389,20 @@ class ActionsEquipmentManager
         $langs->load('equipmentmanager@equipmentmanager');
 
         $default_font_size = pdf_getPDFFontSize($outputlangs);
+        $line_height = 5;
 
-        // Right-side ref block column (mirrors _pagehead logic)
-        $w    = 110;
-        $posx = $object->page_largeur - $object->marge_droite - $w;
+        // Draw at the current tab_top position (start of content area, below address blocks)
+        $posy = $object->tab_top;
+        $posx = $object->marge_gauche;
+        $width = $object->page_largeur - $object->marge_gauche - $object->marge_droite;
 
-        // Calculate $posy to match where _pagehead leaves off before pdf_writeLinkedObjects,
-        // so Leistungsdatum appears directly above "Serviceauftrag Ref." line.
-        // This mirrors the $posy increments in pdf_sponge::_pagehead().
-        $posy = $object->marge_haute;
-        $posy += 3; // after title MultiCell
-
-        // Optional: ref_customer
-        if (!empty($facture->ref_customer)) {
-            $posy += 4;
-        }
-        // Optional: project title / project ref (skip for brevity — rare in invoice context)
-        // Optional: replacement/correction invoice type (uncommon)
-
-        $posy += 4; // DateInvoice
-        if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
-            $posy += 4;
-        }
-        if ($facture->type != 2) {
-            $posy += 3; // DateDue
-        }
-        // Optional: customer code
-        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && !empty($facture->thirdparty->code_client)) {
-            $posy += 3;
-        }
-        // Optional: customer accounting code
-        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_ACCOUNTING_CODE') && !empty($facture->thirdparty->code_compta_client)) {
-            $posy += 3;
-        }
-        // Optional: sales rep
-        if (getDolGlobalString('DOC_SHOW_FIRST_SALES_REP')) {
-            $arrayidcontact = $facture->getIdContact('internal', 'SALESREPFOLL');
-            if (count($arrayidcontact) > 0) {
-                $posy += 4;
-            }
-        }
-        $posy += 1; // final increment before pdf_writeLinkedObjects
-
-        // Save current PDF cursor and draw in the ref block area
-        $saved_x = $pdf->GetX();
-        $saved_y = $pdf->GetY();
-
-        $pdf->SetFont('', '', $default_font_size - 2);
+        $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetTextColor(0, 0, 60);
         $pdf->SetXY($posx, $posy);
-        $pdf->MultiCell($w, 3, $outputlangs->transnoentities('Leistungsdatum').' : '.$leistungsdatum, '', 'R');
+        $pdf->MultiCell($width, $line_height, $outputlangs->transnoentities('Leistungsdatum').': '.$this->leistungsdatum, 0, 'L');
 
-        // Restore PDF cursor
-        $pdf->SetXY($saved_x, $saved_y);
+        // Push line items down to make room
+        $hookmanager->resArray['extra_under_address_shift'] = $line_height + 1;
 
         return 0;
     }
