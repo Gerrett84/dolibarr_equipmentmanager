@@ -2008,7 +2008,7 @@ class pdf_cyan_objektadresse extends ModelePDFPropales
 				// Print Objektadresse label (bold)
 				$pdf->SetXY($posx + 2, $posy_after_client);
 				$pdf->SetFont('', 'B', $default_font_size - 1);
-				$pdf->MultiCell($widthrecbox - 4, 4, $outputlangs->transnoentities("ObjectAddress").':', 0, $ltrdirection);
+				$pdf->MultiCell($widthrecbox - 4, 4, $outputlangs->transnoentities("ObjectAddress"), 0, $ltrdirection);
 
 				// Print Objektadresse content
 				$posy_after_label = $pdf->getY();
