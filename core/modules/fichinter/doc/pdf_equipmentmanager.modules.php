@@ -640,7 +640,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $curY += 2;
                     $pdf->SetXY($posx + 2, $curY);
                     $pdf->SetFont('', 'B', $default_font_size - 2);
-                    $pdf->MultiCell(78, 3, "Objektadresse", 0, 'L');
+                    $pdf->MultiCell(78, 3, "Objektadresse:", 0, 'L');
                     $curY = $pdf->GetY();
 
                     $pdf->SetFont('', '', $default_font_size - 2);

@@ -261,7 +261,7 @@ class ActionsEquipmentManager
         // Now append Objektadresse
         $langs->load("equipmentmanager@equipmentmanager");
 
-        $stringaddress .= "\n".$outputlangs->transnoentities("ObjectAddress")."\n";
+        $stringaddress .= "\n".$outputlangs->transnoentities("ObjectAddress").":\n";
 
         // Name
         if ($contactObj->lastname || $contactObj->firstname) {
