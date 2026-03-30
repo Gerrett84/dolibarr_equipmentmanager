@@ -11,7 +11,7 @@ Permission500105=Serviceberichte erstellen/bearbeiten
 Permission500106=Serviceberichte löschen
 
 # Menu
-Equipment=Anlagen
+Equipment=EQ
 EquipmentList=Anlagenliste
 NewEquipment=Neue Anlage
 EquipmentByAddress=Anlagen nach Objektadresse
@@ -95,7 +95,7 @@ Permission500106=Serviceberichte löschen
 
 # Menu
 
-Equipment=Anlagen
+Equipment=EQ
 EquipmentList=Anlagenliste
 NewEquipment=Neue Anlage
 EquipmentByAddress=Anlagen nach Objektadresse
@@ -706,7 +706,7 @@ NoAcceptanceData=Keine Anlagen mit Inbetriebnahme/Abnahme gefunden
 Leistungsdatum=Leistungszeitraum
 
 # v5.0 - Service overview
-ServiceOrders=Service
+ServiceOrders=Serviceaufträge
 ServiceOrderList=Serviceauftrags-Übersicht
 ServiceOrderStatusAll=Alle
 ServiceOrderStatusDraft=Entwurf

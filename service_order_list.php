@@ -58,7 +58,7 @@ $offset = $limit * $page;
 // (Dolibarr creates one row per source-document line when creating from order/proposal)
 
 $sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datef, f.datec,";
-$sql .= " f.note_public,";
+$sql .= " f.datee,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.login, u.lastname, u.firstname";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
