@@ -35,6 +35,16 @@ class ActionsEquipmentManager
     public $resprints;
 
     /**
+     * @var string Leistungsdatum calculated in beforePDFCreation, consumed in printUnderHeaderPDFline
+     */
+    public $leistungsdatum = '';
+
+    /**
+     * @var int Number of linked fichinter objects, used to calculate Y offset for Leistungsdatum
+     */
+    public $leistungsdatumLinkedCount = 0;
+
+    /**
      * Constructor
      *
      * @param DoliDB $db Database handler
@@ -290,6 +300,155 @@ class ActionsEquipmentManager
 
         // Return 1 to completely replace the address (skip normal building)
         return 1;
+    }
+
+    /**
+     * Hook beforePDFCreation — calculates Leistungsdatum from linked intervention work dates.
+     * Stores result in $this->leistungsdatum to be consumed by printUnderHeaderPDFline.
+     * No extrafield or DB write — completely invisible to Dolibarr UI.
+     */
+    public function beforePDFCreation($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs;
+
+        if (get_class($object) !== 'Facture') {
+            return 0;
+        }
+
+        // Find linked fichinter(s) — link can be in either direction
+        $fichinterIds = array();
+        $sql = "SELECT fk_source AS fid FROM ".MAIN_DB_PREFIX."element_element"
+             . " WHERE sourcetype = 'fichinter' AND targettype = 'facture' AND fk_target = ".(int)$object->id;
+        $sql .= " UNION ";
+        $sql .= "SELECT fk_target AS fid FROM ".MAIN_DB_PREFIX."element_element"
+             . " WHERE targettype = 'fichinter' AND sourcetype = 'facture' AND fk_source = ".(int)$object->id;
+
+        $resql = $this->db->query($sql);
+        if ($resql) {
+            while ($obj = $this->db->fetch_object($resql)) {
+                $fichinterIds[] = (int)$obj->fid;
+            }
+        }
+
+        if (empty($fichinterIds)) {
+            return 0;
+        }
+
+        // Get MIN/MAX work_date from intervention details
+        $ids = implode(',', $fichinterIds);
+        $sqlDates = "SELECT MIN(work_date) AS min_date, MAX(work_date) AS max_date"
+                  . " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail"
+                  . " WHERE fk_intervention IN (".$ids.")"
+                  . " AND work_date IS NOT NULL";
+
+        $resDates = $this->db->query($sqlDates);
+        if (!$resDates) {
+            return 0;
+        }
+        $obj = $this->db->fetch_object($resDates);
+        if (!$obj || empty($obj->min_date)) {
+            return 0;
+        }
+
+        $langs->load('main');
+        $minDate = dol_stringtotime($obj->min_date);
+        $maxDate = dol_stringtotime($obj->max_date);
+
+        if ($minDate === $maxDate) {
+            $this->leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs);
+        } else {
+            $this->leistungsdatum = dol_print_date($minDate, 'day', 'tzserver', $langs)
+                                  . ' - '
+                                  . dol_print_date($maxDate, 'day', 'tzserver', $langs);
+        }
+
+        // Store linked fichinter count so printUnderHeaderPDFline can calculate
+        // the correct Y offset (each linked object takes 3mm in _pagehead)
+        $this->leistungsdatumLinkedCount = count($fichinterIds);
+
+        return 0;
+    }
+
+    /**
+     * Hook printUnderHeaderPDFline — draws Leistungsdatum below the address blocks,
+     * before the line items. Value comes from $this->leistungsdatum set by beforePDFCreation.
+     *
+     * @param array $parameters Parameters ('pdf' = TCPDF, 'object' = Facture, 'outputlangs')
+     * @param CommonObject $object PDF module instance (pdf_sponge etc.)
+     * @param string $action Action triggered
+     * @param HookManager $hookmanager Hook manager
+     * @return int 0
+     */
+    public function printUnderHeaderPDFline($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs;
+
+        if (empty($this->leistungsdatum)) {
+            return 0;
+        }
+
+        // Only for invoice PDF
+        $facture = isset($parameters['object']) ? $parameters['object'] : null;
+        if (!is_object($facture) || get_class($facture) !== 'Facture') {
+            return 0;
+        }
+
+        $pdf         = $parameters['pdf'];
+        $outputlangs = $parameters['outputlangs'];
+        $langs->load('equipmentmanager@equipmentmanager');
+
+        $default_font_size = pdf_getPDFFontSize($outputlangs);
+
+        // Right-side ref block column — same as pdf_sponge _pagehead
+        $w    = 110;
+        $posx = $object->page_largeur - $object->marge_droite - $w;
+
+        // Mirror pdf_sponge _pagehead $posy increments up to and including linked objects,
+        // so we draw directly below the last linked object ("Serviceauftrag Ref.") line.
+        $posy = $object->marge_haute + 3; // after title
+        if (!empty($facture->ref_customer)) {
+            $posy += 4;
+        }
+        $posy += 4; // DateInvoice
+        if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
+            $posy += 4;
+        }
+        if ($facture->type != 2) {
+            $posy += 3; // DateDue
+        }
+        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && !empty($facture->thirdparty->code_client)) {
+            $posy += 3;
+        }
+        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_ACCOUNTING_CODE') && !empty($facture->thirdparty->code_compta_client)) {
+            $posy += 3;
+        }
+        if (getDolGlobalString('DOC_SHOW_FIRST_SALES_REP')) {
+            $arrayidcontact = $facture->getIdContact('internal', 'SALESREPFOLL');
+            if (count($arrayidcontact) > 0) {
+                $posy += 4;
+            }
+        }
+        $posy += 1; // _pagehead final increment before pdf_writeLinkedObjects
+
+        // Add height consumed by linked objects.
+        // pdf_writeLinkedObjects does: $posy+=3 (gap) then MultiCell(h=3) per item.
+        // Bottom of last item = input_posy + 3*(N+1), so we need 3*(N+1) total.
+        if (!getDolGlobalString('INVOICE_HIDE_LINKED_OBJECT') && $this->leistungsdatumLinkedCount > 0) {
+            $posy += 3 * ($this->leistungsdatumLinkedCount + 1);
+        }
+
+        // Save and restore PDF cursor — we are drawing back in the header area
+        $saved_x = $pdf->GetX();
+        $saved_y = $pdf->GetY();
+
+        $pdf->SetFont('', '', $default_font_size - 2);
+        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetXY($posx, $posy);
+        $pdf->MultiCell($w, 3, $outputlangs->transnoentities('Leistungsdatum').' : '.$this->leistungsdatum, '', 'R');
+
+        $pdf->SetXY($saved_x, $saved_y);
+
+        return 0;
     }
 
 }

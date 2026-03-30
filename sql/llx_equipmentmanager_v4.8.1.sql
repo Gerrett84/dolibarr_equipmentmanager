@@ -1,0 +1,5 @@
+-- Equipment Manager v4.8.1
+-- Previously added leistungsdatum extrafield — now removed.
+-- The column is kept in llx_facture_extrafields for data compatibility
+-- but the UI definition in llx_extrafields is no longer needed.
+-- Leistungsdatum is rendered directly via PDF hooks, not via extrafield system.

@@ -701,3 +701,6 @@ AcceptanceDate=Datum der Abnahme
 AcceptanceNote=Bemerkung zur Abnahme
 AcceptanceProtocol=Abnahmeprotokoll
 NoAcceptanceData=Keine Anlagen mit Inbetriebnahme/Abnahme gefunden
+
+# v4.8.1 - Leistungsdatum
+Leistungsdatum=Leistungszeitraum
