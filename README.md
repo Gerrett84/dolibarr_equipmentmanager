@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.8.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 4.8.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -203,6 +203,10 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v4.8.1 (2026-03-30)
+
+- **Leistungszeitraum auf Rechnungen** - Wird automatisch aus den Arbeitsterminen des verknüpften Serviceberichts berechnet (MIN/MAX `work_date`) und direkt im rechten Info-Block der Rechnung unterhalb von „Serviceauftrag Ref." angezeigt — ohne Extrafeld, komplett Hook-basiert
 
 ### v4.8.0 (2026-03-29)
 
