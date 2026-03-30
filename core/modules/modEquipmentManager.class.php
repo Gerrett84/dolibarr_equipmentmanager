@@ -116,7 +116,7 @@ class modEquipmentManager extends DolibarrModules
             'prefix' => '<span class="fa fa-wrench fa-fw paddingright pictofixedwidth"></span>',
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
-            'url' => '/equipmentmanager/maintenance_dashboard.php',
+            'url' => '/equipmentmanager/service_order_list.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
@@ -126,7 +126,60 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 1: Wartungs-Übersicht (Parent)
+        // Überschrift 1: Serviceaufträge (Parent) — v5
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'ServiceOrders',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_service',
+            'url' => '/equipmentmanager/service_order_list.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Neuer Serviceauftrag
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_service',
+            'type' => 'left',
+            'titre' => 'NewServiceOrder',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/fichinter/card.php?action=create',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Liste
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_service',
+            'type' => 'left',
+            'titre' => 'ServiceOrderList',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/service_order_list.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 2: Wartungs-Übersicht (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -187,25 +240,6 @@ class modEquipmentManager extends DolibarrModules
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
             'url' => '/equipmentmanager/maintenance_auto_create.php',
-            'langs' => 'equipmentmanager@equipmentmanager',
-            'position' => 1000 + $r,
-            'enabled' => '1',
-            'perms' => '1',
-            'target' => '',
-            'user' => 2,
-        );
-
-        // ============================================
-        // Überschrift 2: Service (Parent) — v5
-        // ============================================
-        $r++;
-        $this->menu[$r] = array(
-            'fk_menu' => 'fk_mainmenu=equipmentmanager',
-            'type' => 'left',
-            'titre' => 'ServiceOrders',
-            'mainmenu' => 'equipmentmanager',
-            'leftmenu' => 'equipmentmanager_service',
-            'url' => '/equipmentmanager/service_order_list.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',

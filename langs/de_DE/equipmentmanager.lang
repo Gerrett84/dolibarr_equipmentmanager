@@ -707,7 +707,8 @@ Leistungsdatum=Leistungszeitraum
 
 # v5.0 - Service overview
 ServiceOrders=Serviceaufträge
-ServiceOrderList=Serviceauftrags-Übersicht
+NewServiceOrder=Neuer Serviceauftrag
+ServiceOrderList=Liste
 ServiceOrderStatusAll=Alle
 ServiceOrderStatusDraft=Entwurf
 ServiceOrderStatusOpen=Offen

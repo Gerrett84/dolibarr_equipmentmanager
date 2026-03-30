@@ -133,16 +133,21 @@ $statusDefs = array(
 );
 
 // ─── Status tabs ─────────────────────────────────────────────────────────────
-print '<div class="tabsAction" style="margin-bottom:0;">';
-print '<div class="tabs" data-role="controlgroup" data-type="horizontal">';
+print '<style>';
+print '.em-status-tabs { display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; border-bottom:2px solid #ddd; margin-bottom:8px; gap:0; }';
+print '.em-status-tabs a { display:inline-block; white-space:nowrap; padding:7px 14px; text-decoration:none; color:#555; border:1px solid transparent; border-bottom:none; margin-bottom:-2px; flex-shrink:0; font-size:0.9em; }';
+print '.em-status-tabs a:hover { background:#f5f5f5; color:#333; }';
+print '.em-status-tabs a.tabactive { background:#fff; border-color:#ddd; border-bottom-color:#fff; color:#000; font-weight:bold; }';
+print '.em-status-tabs .badge { display:inline-block; padding:1px 6px; border-radius:10px; font-size:0.78em; color:#fff; margin-left:4px; vertical-align:middle; }';
+print '</style>';
+print '<div class="em-status-tabs">';
 foreach ($statusDefs as $st => $def) {
     $active = ($status == $st) ? ' tabactive' : '';
     $badge  = $statusCounts[$st] > 0 ? ' <span class="badge" style="background:'.($def['color'] ?: '#666').'">'.$statusCounts[$st].'</span>' : '';
-    print '<a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.$st.'" class="tab'.$active.'">';
+    print '<a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.$st.'" class="'.$active.'">';
     print $def['label'].$badge;
     print '</a>';
 }
-print '</div>';
 print '</div>';
 
 // ─── Search bar ──────────────────────────────────────────────────────────────
