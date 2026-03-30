@@ -57,8 +57,7 @@ $offset = $limit * $page;
 // GROUP BY f.rowid avoids duplicates caused by multiple fichinterdet rows
 // (Dolibarr creates one row per source-document line when creating from order/proposal)
 
-$sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datef, f.datec,";
-$sql .= " f.datee,";
+$sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.login, u.lastname, u.firstname";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
