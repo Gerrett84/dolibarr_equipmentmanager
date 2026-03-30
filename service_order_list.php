@@ -134,7 +134,7 @@ $statusDefs = array(
 
 // ─── Status tabs ─────────────────────────────────────────────────────────────
 print '<style>';
-print '.em-status-tabs { display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; border-bottom:2px solid #ddd; margin-bottom:8px; gap:0; }';
+print '.em-status-tabs { display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; border-bottom:2px solid #ddd; margin-bottom:8px; gap:0; }';
 print '.em-status-tabs a { display:inline-block; white-space:nowrap; padding:7px 14px; text-decoration:none; color:#555; border:1px solid transparent; border-bottom:none; margin-bottom:-2px; flex-shrink:0; font-size:0.9em; }';
 print '.em-status-tabs a:hover { background:#f5f5f5; color:#333; }';
 print '.em-status-tabs a.tabactive { background:#fff; border-color:#ddd; border-bottom-color:#fff; color:#000; font-weight:bold; }';
