@@ -89,7 +89,13 @@ if ($search_societe) {
     $sql .= " AND s.nom LIKE '%".$db->escape($search_societe)."%'";
 }
 $sql .= " GROUP BY f.rowid";
-$sql .= $db->order($sortfield, $sortorder);
+// When viewing "Alle": sort by status priority (Offen→Abrechnen→Abgeschlossen) first, then by selected sort
+if ($status == -1) {
+    $sql .= " ORDER BY CASE f.fk_statut WHEN 0 THEN 1 WHEN 1 THEN 1 WHEN 2 THEN 2 WHEN 3 THEN 3 ELSE 4 END ASC";
+    $sql .= ", ".$db->sanitize($sortfield)." ".$db->sanitize($sortorder);
+} else {
+    $sql .= $db->order($sortfield, $sortorder);
+}
 
 // Count total for pagination
 $sqlcount  = "SELECT COUNT(DISTINCT f.rowid) as nb";
