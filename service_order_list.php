@@ -27,8 +27,9 @@ if (!$user->hasRight('ficheinter', 'lire')) {
     accessforbidden();
 }
 
-// Status filter: -1=all, 0=draft, 1=open, 2=billed, 3=closed
-$status  = GETPOST('status', 'int');
+// Status filter: -1=all, 1=open (draft+open), 2=billed, 3=closed
+// Note: Dolibarr status 0 (draft) is treated as "Offen" in this view
+$status = GETPOST('status', 'int');
 if ($status === '') {
     $status = -1;
 }
@@ -53,28 +54,40 @@ if ($page < 0) {
 }
 $offset = $limit * $page;
 
+// ─── Status SQL helper ────────────────────────────────────────────────────────
+// status=1 (Offen) covers Dolibarr fk_statut 0 (draft) and 1 (validated)
+function buildStatusFilter($status, $prefix = 'f')
+{
+    if ($status == 1) {
+        return " AND ".$prefix.".fk_statut IN (0, 1)";
+    } elseif ($status == 2 || $status == 3) {
+        return " AND ".$prefix.".fk_statut = ".(int)$status;
+    }
+    return ''; // -1 = all
+}
+
 // ─── Build SQL ───────────────────────────────────────────────────────────────
-// GROUP BY f.rowid avoids duplicates caused by multiple fichinterdet rows
-// (Dolibarr creates one row per source-document line when creating from order/proposal)
+// GROUP BY f.rowid avoids duplicates from multiple equipment/detail rows
+// Objektadresse: first non-null address linked via equipment
 
 $sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec,";
 $sql .= " s.nom as societe_name,";
-$sql .= " u.login, u.lastname, u.firstname";
+$sql .= " u.login, u.lastname, u.firstname,";
+$sql .= " MIN(sp.address) as obj_address, MIN(sp.zip) as obj_zip, MIN(sp.town) as obj_town";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail as eid ON eid.fk_intervention = f.rowid AND eid.fk_equipment IS NOT NULL";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = eid.fk_equipment";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON sp.rowid = eq.fk_address";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
-
-if ($status >= 0) {
-    $sql .= " AND f.fk_statut = ".(int)$status;
-}
+$sql .= buildStatusFilter($status);
 if ($search_ref) {
     $sql .= " AND f.ref LIKE '%".$db->escape($search_ref)."%'";
 }
 if ($search_societe) {
     $sql .= " AND s.nom LIKE '%".$db->escape($search_societe)."%'";
 }
-
 $sql .= " GROUP BY f.rowid";
 $sql .= $db->order($sortfield, $sortorder);
 
@@ -83,9 +96,7 @@ $sqlcount  = "SELECT COUNT(DISTINCT f.rowid) as nb";
 $sqlcount .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
 $sqlcount .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sqlcount .= " WHERE f.entity IN (".getEntity('intervention').")";
-if ($status >= 0) {
-    $sqlcount .= " AND f.fk_statut = ".(int)$status;
-}
+$sqlcount .= buildStatusFilter($status);
 if ($search_ref) {
     $sqlcount .= " AND f.ref LIKE '%".$db->escape($search_ref)."%'";
 }
@@ -104,7 +115,8 @@ $sql .= $db->plimit($limit, $offset);
 $resql = $db->query($sql);
 
 // ─── Status counts for tab badges ────────────────────────────────────────────
-$statusCounts = array(-1 => 0, 0 => 0, 1 => 0, 2 => 0, 3 => 0);
+// Tab "Offen" (key=1) = Dolibarr status 0 + 1 combined
+$statusCounts = array(-1 => 0, 1 => 0, 2 => 0, 3 => 0);
 $sqlcnt = "SELECT f.fk_statut, COUNT(DISTINCT f.rowid) as nb"
         . " FROM ".MAIN_DB_PREFIX."fichinter as f"
         . " WHERE f.entity IN (".getEntity('intervention').")"
@@ -112,8 +124,14 @@ $sqlcnt = "SELECT f.fk_statut, COUNT(DISTINCT f.rowid) as nb"
 $rescnt = $db->query($sqlcnt);
 if ($rescnt) {
     while ($obj = $db->fetch_object($rescnt)) {
-        $statusCounts[(int)$obj->fk_statut] = (int)$obj->nb;
-        $statusCounts[-1] += (int)$obj->nb;
+        $st = (int)$obj->fk_statut;
+        $nb = (int)$obj->nb;
+        // Draft (0) counts as Offen (1)
+        $tabKey = ($st === 0) ? 1 : $st;
+        if (isset($statusCounts[$tabKey])) {
+            $statusCounts[$tabKey] += $nb;
+        }
+        $statusCounts[-1] += $nb;
     }
 }
 
@@ -123,10 +141,9 @@ llxHeader('', $title);
 
 $form = new Form($db);
 
-// Status tab definitions
+// Status tab definitions — no draft tab
 $statusDefs = array(
     -1 => array('label' => $langs->trans('ServiceOrderStatusAll'),    'color' => ''),
-     0 => array('label' => $langs->trans('ServiceOrderStatusDraft'),  'color' => '#888'),
      1 => array('label' => $langs->trans('ServiceOrderStatusOpen'),   'color' => '#2196F3'),
      2 => array('label' => $langs->trans('ServiceOrderStatusBilled'), 'color' => '#FF9800'),
      3 => array('label' => $langs->trans('ServiceOrderStatusClosed'), 'color' => '#4CAF50'),
@@ -170,15 +187,16 @@ print '<table class="tagtable liste">';
 print '<thead><tr class="liste_titre">';
 print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.ref&sortorder='.($sortfield=='f.ref'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Ref').'</a></th>';
 print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=s.nom&sortorder='.($sortfield=='s.nom'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Company').'</a></th>';
+print '<th class="liste_titre">'.$langs->trans('ObjectAddress').'</th>';
 print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('DateStart').'</a></th>';
 print '<th class="liste_titre">'.$langs->trans('ServiceOrderTechName').'</th>';
 print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
 print '<tbody>';
 
-// Status label helper
+// Status label helper — draft and open both shown as "Offen"
 $statusLabels = array(
-    0 => '<span style="color:#888">'.$langs->trans('ServiceOrderStatusDraft').'</span>',
+    0 => '<span style="color:#2196F3;font-weight:bold">'.$langs->trans('ServiceOrderStatusOpen').'</span>',
     1 => '<span style="color:#2196F3;font-weight:bold">'.$langs->trans('ServiceOrderStatusOpen').'</span>',
     2 => '<span style="color:#FF9800;font-weight:bold">'.$langs->trans('ServiceOrderStatusBilled').'</span>',
     3 => '<span style="color:#4CAF50">'.$langs->trans('ServiceOrderStatusClosed').'</span>',
@@ -187,13 +205,12 @@ $statusLabels = array(
 if ($resql) {
     $num = $db->num_rows($resql);
     if ($num == 0) {
-        print '<tr><td colspan="5" class="opacitymedium center">'.$langs->trans('NoServiceOrders').'</td></tr>';
+        print '<tr><td colspan="6" class="opacitymedium center">'.$langs->trans('NoServiceOrders').'</td></tr>';
     }
     $i = 0;
     while ($i < $num && ($limit <= 0 || $i < $limit)) {
         $obj = $db->fetch_object($resql);
-        $rowclass = ($i % 2 == 0) ? 'oddeven' : 'oddeven';
-        print '<tr class="'.$rowclass.'">';
+        print '<tr class="oddeven">';
 
         // Ref → link to fichinter card
         $fichinterUrl = DOL_URL_ROOT.'/fichinter/card.php?id='.$obj->rowid;
@@ -206,6 +223,17 @@ if ($resql) {
         } else {
             print '<td>—</td>';
         }
+
+        // Objektadresse
+        $addrParts = array();
+        if (!empty($obj->obj_address)) {
+            $addrParts[] = $obj->obj_address;
+        }
+        $cityPart = trim($obj->obj_zip.' '.$obj->obj_town);
+        if ($cityPart) {
+            $addrParts[] = $cityPart;
+        }
+        print '<td>'.dol_escape_htmltag(implode(', ', $addrParts)).'</td>';
 
         // Date
         print '<td>'.dol_print_date($db->jdate($obj->dateo), 'day').'</td>';
