@@ -178,6 +178,23 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // Unterpunkt: Statistik
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_service',
+            'type' => 'left',
+            'titre' => 'Statistics',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/fichinter/stats/index.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
         // ============================================
         // Überschrift 2: Wartungs-Übersicht (Parent)
         // ============================================
