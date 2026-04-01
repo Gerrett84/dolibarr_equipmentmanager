@@ -288,7 +288,7 @@ if ($resql) {
                     if ($label === $langKey) {
                         $label = $t;
                     }
-                    $tagParts[] = '<span style="display:inline-block;padding:1px 6px;border-radius:8px;background:#e8e8e8;font-size:0.82em;margin:1px;">'.dol_escape_htmltag($label).'</span>';
+                    $tagParts[] = '<span style="display:inline-block;padding:1px 6px;border-radius:8px;background:#555;color:#fff;font-size:0.82em;margin:1px;">'.dol_escape_htmltag($label).'</span>';
                 }
                 $typeTags = implode(' ', $tagParts);
             }
