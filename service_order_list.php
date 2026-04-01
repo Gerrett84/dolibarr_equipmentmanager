@@ -66,14 +66,22 @@ function buildStatusFilter($status, $prefix = 'f')
     return ''; // -1 = all
 }
 
+// ─── Column visibility ───────────────────────────────────────────────────────
+$showObjAddress  = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_OBJADDRESS',  '1') != '0';
+$showNbAnlagen   = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_NBANLAGEN',   '0') != '0';
+$showTypes       = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TYPES',       '0') != '0';
+$showDescription = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_DESCRIPTION', '0') != '0';
+$showTech        = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TECH',        '1') != '0';
+
 // ─── Build SQL ───────────────────────────────────────────────────────────────
 // GROUP BY f.rowid avoids duplicates from multiple equipment/detail rows
-// Objektadresse: first non-null address linked via equipment
 
-$sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec,";
+$sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec, f.description,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.login, u.lastname, u.firstname,";
-$sql .= " MIN(sp.address) as obj_address, MIN(sp.zip) as obj_zip, MIN(sp.town) as obj_town";
+$sql .= " MIN(sp.address) as obj_address, MIN(sp.zip) as obj_zip, MIN(sp.town) as obj_town,";
+$sql .= " COUNT(DISTINCT eid.fk_equipment) as nb_equipment,";
+$sql .= " GROUP_CONCAT(DISTINCT eq.equipment_type ORDER BY eq.equipment_type SEPARATOR ',') as equipment_types";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
@@ -190,12 +198,16 @@ print '<div class="div-table-responsive">';
 print '<table class="tagtable liste">';
 
 // Header
+$colspan = 3; // Ref + Company + Date + Status (always visible) = 4, but we count extras
 print '<thead><tr class="liste_titre">';
 print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.ref&sortorder='.($sortfield=='f.ref'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Ref').'</a></th>';
 print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=s.nom&sortorder='.($sortfield=='s.nom'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Company').'</a></th>';
-print '<th class="liste_titre">'.$langs->trans('ObjectAddress').'</th>';
+if ($showObjAddress)  { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColObjAddress').'</th>'; }
+if ($showDescription) { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColDescription').'</th>'; }
+if ($showNbAnlagen)   { print '<th class="liste_titre center">'.$langs->trans('ServiceOrderColNbAnlagen').'</th>'; }
+if ($showTypes)       { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTypes').'</th>'; }
 print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('DateStart').'</a></th>';
-print '<th class="liste_titre">'.$langs->trans('ServiceOrderTechName').'</th>';
+if ($showTech)        { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTech').'</th>'; }
 print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
 print '<tbody>';
@@ -210,8 +222,9 @@ $statusLabels = array(
 
 if ($resql) {
     $num = $db->num_rows($resql);
+    $totalCols = 4 + ($showObjAddress?1:0) + ($showDescription?1:0) + ($showNbAnlagen?1:0) + ($showTypes?1:0) + ($showTech?1:0);
     if ($num == 0) {
-        print '<tr><td colspan="6" class="opacitymedium center">'.$langs->trans('NoServiceOrders').'</td></tr>';
+        print '<tr><td colspan="'.$totalCols.'" class="opacitymedium center">'.$langs->trans('NoServiceOrders').'</td></tr>';
     }
     $i = 0;
     while ($i < $num && ($limit <= 0 || $i < $limit)) {
@@ -231,25 +244,60 @@ if ($resql) {
         }
 
         // Objektadresse
-        $addrParts = array();
-        if (!empty($obj->obj_address)) {
-            $addrParts[] = $obj->obj_address;
+        if ($showObjAddress) {
+            $addrParts = array();
+            if (!empty($obj->obj_address)) {
+                $addrParts[] = $obj->obj_address;
+            }
+            $cityPart = trim($obj->obj_zip.' '.$obj->obj_town);
+            if ($cityPart) {
+                $addrParts[] = $cityPart;
+            }
+            print '<td>'.dol_escape_htmltag(implode(', ', $addrParts)).'</td>';
         }
-        $cityPart = trim($obj->obj_zip.' '.$obj->obj_town);
-        if ($cityPart) {
-            $addrParts[] = $cityPart;
+
+        // Beschreibung
+        if ($showDescription) {
+            $desc = $obj->description ? substr(strip_tags($obj->description), 0, 60) : '';
+            if (strlen($obj->description) > 60) {
+                $desc .= '…';
+            }
+            print '<td>'.dol_escape_htmltag($desc).'</td>';
         }
-        print '<td>'.dol_escape_htmltag(implode(', ', $addrParts)).'</td>';
+
+        // Anzahl Anlagen
+        if ($showNbAnlagen) {
+            print '<td class="center">'.($obj->nb_equipment > 0 ? (int)$obj->nb_equipment : '—').'</td>';
+        }
+
+        // Anlagentypen
+        if ($showTypes) {
+            $typeTags = '';
+            if (!empty($obj->equipment_types)) {
+                $types = explode(',', $obj->equipment_types);
+                $tagParts = array();
+                foreach ($types as $t) {
+                    $t = trim($t);
+                    if ($t) {
+                        $tagParts[] = '<span style="display:inline-block;padding:1px 6px;border-radius:8px;background:#e8e8e8;font-size:0.82em;margin:1px;">'.dol_escape_htmltag($langs->trans($t)).'</span>';
+                    }
+                }
+                $typeTags = implode(' ', $tagParts);
+            }
+            print '<td>'.($typeTags ?: '—').'</td>';
+        }
 
         // Date
         print '<td>'.dol_print_date($db->jdate($obj->dateo), 'day').'</td>';
 
         // Technician
-        $techname = trim($obj->firstname.' '.$obj->lastname);
-        if (!$techname) {
-            $techname = $obj->login;
+        if ($showTech) {
+            $techname = trim($obj->firstname.' '.$obj->lastname);
+            if (!$techname) {
+                $techname = $obj->login;
+            }
+            print '<td>'.dol_escape_htmltag($techname).'</td>';
         }
-        print '<td>'.dol_escape_htmltag($techname).'</td>';
 
         // Status
         $stLabel = isset($statusLabels[(int)$obj->fk_statut]) ? $statusLabels[(int)$obj->fk_statut] : $obj->fk_statut;
