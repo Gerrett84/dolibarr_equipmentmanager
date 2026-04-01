@@ -278,9 +278,17 @@ if ($resql) {
                 $tagParts = array();
                 foreach ($types as $t) {
                     $t = trim($t);
-                    if ($t) {
-                        $tagParts[] = '<span style="display:inline-block;padding:1px 6px;border-radius:8px;background:#e8e8e8;font-size:0.82em;margin:1px;">'.dol_escape_htmltag($langs->trans($t)).'</span>';
+                    if (!$t) {
+                        continue;
                     }
+                    // DB stores snake_case (fire_gate), lang keys are CamelCase (FireGate)
+                    $langKey = implode('', array_map('ucfirst', explode('_', $t)));
+                    $label = $langs->trans($langKey);
+                    // If no translation found, fall back to the raw value
+                    if ($label === $langKey) {
+                        $label = $t;
+                    }
+                    $tagParts[] = '<span style="display:inline-block;padding:1px 6px;border-radius:8px;background:#e8e8e8;font-size:0.82em;margin:1px;">'.dol_escape_htmltag($label).'</span>';
                 }
                 $typeTags = implode(' ', $tagParts);
             }
