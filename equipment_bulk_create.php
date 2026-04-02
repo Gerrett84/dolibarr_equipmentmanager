@@ -124,7 +124,7 @@ print '</td></tr>';
 // ── Auftraggeber ──────────────────────────────────────────────────────────────
 print '<tr><td class="fieldrequired">'.$langs->trans('ThirdParty').'</td><td>';
 $postedSoc = (int) GETPOST('fk_soc', 'int');
-print $form->select_company($postedSoc, 'fk_soc', '', 'SelectThirdParty', 0, 1, null, 0, 'minwidth300', '', '', '', 1,
+print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 1, array(), 0, 'minwidth300',
     'onchange="loadAddresses(this.value); loadContracts(this.value);"');
 print '</td></tr>';
 
@@ -228,7 +228,7 @@ print '      catch(e) { return; }';
 print '      data.forEach(function(a) {';
 print '        var opt = document.createElement("option");';
 print '        opt.value = a.id;';
-print '        opt.textContent = a.name + (a.town ? " - " + a.town : "");';
+print '        opt.textContent = a.label;';
 print '        sel.appendChild(opt);';
 print '      });';
 print '    }';
