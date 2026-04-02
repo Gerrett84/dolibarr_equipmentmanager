@@ -57,6 +57,10 @@ if ($action == 'bulk_create') {
         setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('ThirdParty')), null, 'errors');
         $error++;
     }
+    if ($fk_addr <= 0) {
+        setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('ObjectAddress')), null, 'errors');
+        $error++;
+    }
     if ($contract_status < 0) {
         setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('MaintenanceContract')), null, 'errors');
         $error++;
@@ -137,6 +141,31 @@ print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 1, array(), 0, 'minw
     'onchange="loadAddresses(this.value); loadContracts(this.value);"');
 print '</td></tr>';
 
+// ── Objektadresse ─────────────────────────────────────────────────────────────
+print '<tr><td class="fieldrequired">'.$langs->trans('ObjectAddress').'</td><td>';
+print '<select name="fk_address" id="fk_address_select" class="flat minwidth300" required>';
+print '<option value="">---</option>';
+$postedAddr = (int) GETPOST('fk_address', 'int');
+if ($postedSoc > 0) {
+    $sqlAddr = "SELECT rowid, CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
+    $sqlAddr .= " WHERE fk_soc = ".$postedSoc." ORDER BY lastname, firstname";
+    $resAddr = $db->query($sqlAddr);
+    if ($resAddr) {
+        while ($addr = $db->fetch_object($resAddr)) {
+            $sel = ($postedAddr == $addr->rowid) ? ' selected' : '';
+            $disp = trim($addr->name);
+            if ($addr->town) {
+                $disp .= ' - '.$addr->town;
+            }
+            print '<option value="'.$addr->rowid.'"'.$sel.'>'.dol_escape_htmltag($disp).'</option>';
+        }
+    }
+}
+print '</select>';
+print ' <span class="opacitymedium" id="address_hint" style="'.($postedSoc > 0 ? 'display:none' : '').'">'.
+      $langs->trans('SelectThirdPartyFirst').'</span>';
+print '</td></tr>';
+
 // ── Wartungsvertrag ───────────────────────────────────────────────────────────
 $postedContStatus = GETPOST('action') == 'bulk_create' ? (int)GETPOST('contract_status','int') : -1;
 print '<tr><td class="fieldrequired">'.$langs->trans('MaintenanceContract').'</td><td>';
@@ -169,32 +198,6 @@ if ($postedSoc > 0) {
 }
 print '</select>';
 print '</td></tr>';
-
-// ── Objektadresse ─────────────────────────────────────────────────────────────
-print '<tr><td>'.$langs->trans('ObjectAddress').'</td><td>';
-print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
-print '<option value="">---</option>';
-$postedAddr = (int) GETPOST('fk_address', 'int');
-if ($postedSoc > 0) {
-    $sqlAddr = "SELECT rowid, CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
-    $sqlAddr .= " WHERE fk_soc = ".$postedSoc." ORDER BY lastname, firstname";
-    $resAddr = $db->query($sqlAddr);
-    if ($resAddr) {
-        while ($addr = $db->fetch_object($resAddr)) {
-            $sel = ($postedAddr == $addr->rowid) ? ' selected' : '';
-            $disp = trim($addr->name);
-            if ($addr->town) {
-                $disp .= ' - '.$addr->town;
-            }
-            print '<option value="'.$addr->rowid.'"'.$sel.'>'.dol_escape_htmltag($disp).'</option>';
-        }
-    }
-}
-print '</select>';
-print ' <span class="opacitymedium" id="address_hint" style="'.($postedSoc > 0 ? 'display:none' : '').'">'.
-      $langs->trans('SelectThirdPartyFirst').'</span>';
-print '</td></tr>';
-
 
 // ── Bezeichnung (optional) ────────────────────────────────────────────────────
 print '<tr><td>'.$langs->trans('Label').'</td><td>';
