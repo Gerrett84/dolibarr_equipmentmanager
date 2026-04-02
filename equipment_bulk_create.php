@@ -138,12 +138,35 @@ print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 1, array(), 0, 'minw
 print '</td></tr>';
 
 // ── Wartungsvertrag ───────────────────────────────────────────────────────────
-print '<tr><td class="fieldrequired">'.$langs->trans('MaintenanceContract').'</td><td>';
 $postedContStatus = GETPOST('action') == 'bulk_create' ? (int)GETPOST('contract_status','int') : -1;
-print '<select name="contract_status" class="flat" required>';
+print '<tr><td class="fieldrequired">'.$langs->trans('MaintenanceContract').'</td><td>';
+print '<select name="contract_status" id="contract_status_select" class="flat" required onchange="toggleContractRow(this.value)">';
 print '<option value=""></option>';
 print '<option value="1"'.($postedContStatus===1?' selected':'').'>'.$langs->trans('ActiveContract').'</option>';
 print '<option value="0"'.($postedContStatus===0?' selected':'').'>'.$langs->trans('NoContract').'</option>';
+print '</select>';
+print '</td></tr>';
+
+// ── Vertrag ───────────────────────────────────────────────────────────────────
+$contractRowStyle = ($postedContStatus === 1) ? '' : 'display:none;';
+print '<tr id="contract_row" style="'.$contractRowStyle.'">';
+print '<td>'.$langs->trans('Contract').'</td><td>';
+print '<select name="fk_contract" id="fk_contract_select" class="flat minwidth300">';
+print '<option value="">---</option>';
+$postedCont = (int) GETPOST('fk_contract', 'int');
+if ($postedSoc > 0) {
+    $sqlCont = "SELECT c.rowid, c.ref, c.ref_customer FROM ".MAIN_DB_PREFIX."contrat as c";
+    $sqlCont .= " WHERE c.fk_soc = ".$postedSoc." AND c.entity IN (".getEntity('contrat').")";
+    $sqlCont .= " ORDER BY c.ref";
+    $resCont = $db->query($sqlCont);
+    if ($resCont) {
+        while ($cont = $db->fetch_object($resCont)) {
+            $contLabel = $cont->ref.($cont->ref_customer ? ' ('.$cont->ref_customer.')' : '');
+            $sel = ($postedCont == $cont->rowid) ? ' selected' : '';
+            print '<option value="'.$cont->rowid.'"'.$sel.'>'.dol_escape_htmltag($contLabel).'</option>';
+        }
+    }
+}
 print '</select>';
 print '</td></tr>';
 
@@ -172,25 +195,6 @@ print ' <span class="opacitymedium" id="address_hint" style="'.($postedSoc > 0 ?
       $langs->trans('SelectThirdPartyFirst').'</span>';
 print '</td></tr>';
 
-// ── Vertrag ───────────────────────────────────────────────────────────────────
-print '<tr><td>'.$langs->trans('Contract').'</td><td>';
-print '<select name="fk_contract" id="fk_contract_select" class="flat minwidth300">';
-print '<option value="">---</option>';
-$postedCont = (int) GETPOST('fk_contract', 'int');
-if ($postedSoc > 0) {
-    $sqlCont = "SELECT c.rowid, c.ref FROM ".MAIN_DB_PREFIX."contrat as c";
-    $sqlCont .= " WHERE c.fk_soc = ".$postedSoc." AND c.entity IN (".getEntity('contrat').")";
-    $sqlCont .= " ORDER BY c.ref";
-    $resCont = $db->query($sqlCont);
-    if ($resCont) {
-        while ($cont = $db->fetch_object($resCont)) {
-            $sel = ($postedCont == $cont->rowid) ? ' selected' : '';
-            print '<option value="'.$cont->rowid.'"'.$sel.'>'.dol_escape_htmltag($cont->ref).'</option>';
-        }
-    }
-}
-print '</select>';
-print '</td></tr>';
 
 // ── Bezeichnung (optional) ────────────────────────────────────────────────────
 print '<tr><td>'.$langs->trans('Label').'</td><td>';
@@ -232,6 +236,10 @@ print '</form>';
 
 // ── JavaScript: AJAX load addresses & contracts on company change ─────────────
 print '<script>';
+print 'function toggleContractRow(val) {';
+print '  var row = document.getElementById("contract_row");';
+print '  if (row) row.style.display = (val == "1") ? "" : "none";';
+print '}';
 print 'function loadAddresses(socId) {';
 print '  var sel = document.getElementById("fk_address_select");';
 print '  var hint = document.getElementById("address_hint");';
