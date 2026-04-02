@@ -723,6 +723,13 @@ ServiceOrderStatusClosed=Abgeschlossen
 ServiceOrderTechName=Techniker
 NoServiceOrders=Keine Serviceaufträge gefunden
 
+# v5.0 - Type-specific equipment fields
+BatteryInstallDate=Einbaujahr Akku
+BatteryReplacementCycle=Tauschzyklus Akku
+SmokeDetectorInstallDate=Einbaujahr Rauchmelder
+SmokeDetectorReplacementCycle=Tauschzyklus Rauchmelder
+YearsUnit=Jahre
+
 # v5.0 - Bulk Equipment Create
 BulkCreateEquipment=Mehrere Anlagen anlegen
 BulkCreateQty=Anzahl

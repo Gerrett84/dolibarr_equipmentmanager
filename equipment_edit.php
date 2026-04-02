@@ -73,6 +73,12 @@ if ($action == 'add' && !$cancel) {
     $object->planned_duration = GETPOST('planned_duration', 'int') ?: null;
     $object->fk_contract = GETPOST('fk_contract', 'int') ?: null;
     $object->maintenance_interval = GETPOST('maintenance_interval', 'alpha') ?: null;
+    $object->battery_install_month = GETPOST('battery_install_month', 'int') ?: null;
+    $object->battery_install_year = GETPOST('battery_install_year', 'int') ?: null;
+    $object->battery_replacement_cycle = GETPOST('battery_replacement_cycle', 'int') ?: null;
+    $object->smoke_detector_install_month = GETPOST('smoke_detector_install_month', 'int') ?: null;
+    $object->smoke_detector_install_year = GETPOST('smoke_detector_install_year', 'int') ?: null;
+    $object->smoke_detector_replacement_cycle = GETPOST('smoke_detector_replacement_cycle', 'int') ?: null;
 
     if (empty($object->label)) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Label")), null, 'errors');
@@ -118,6 +124,12 @@ if ($action == 'update' && !$cancel) {
     $object->planned_duration = GETPOST('planned_duration', 'int') ?: null;
     $object->fk_contract = GETPOST('fk_contract', 'int') ?: null;
     $object->maintenance_interval = GETPOST('maintenance_interval', 'alpha') ?: null;
+    $object->battery_install_month = GETPOST('battery_install_month', 'int') ?: null;
+    $object->battery_install_year = GETPOST('battery_install_year', 'int') ?: null;
+    $object->battery_replacement_cycle = GETPOST('battery_replacement_cycle', 'int') ?: null;
+    $object->smoke_detector_install_month = GETPOST('smoke_detector_install_month', 'int') ?: null;
+    $object->smoke_detector_install_year = GETPOST('smoke_detector_install_year', 'int') ?: null;
+    $object->smoke_detector_replacement_cycle = GETPOST('smoke_detector_replacement_cycle', 'int') ?: null;
 
     if (!$error) {
         $result = $object->update($user);
@@ -185,9 +197,21 @@ function toggleMaintenanceMonth() {
     }
 }
 
+function updateTypeSpecificFields(type) {
+    var batteryRows  = document.querySelectorAll('.eq-battery-row');
+    var smokeRows    = document.querySelectorAll('.eq-smoke-row');
+    var showBattery  = (type === 'door_sliding');
+    var showSmoke    = (type === 'door_swing' || type === 'hold_open' || type === 'fire_gate');
+    batteryRows.forEach(function(r) { r.style.display = showBattery ? '' : 'none'; });
+    smokeRows.forEach(function(r)   { r.style.display = showSmoke  ? '' : 'none'; });
+}
+
 jQuery(document).ready(function() {
     // Initial check for maintenance month visibility on page load
     toggleMaintenanceMonth();
+    // Initial check for type-specific fields
+    var typeEl = document.querySelector('select[name="equipment_type"]');
+    if (typeEl) updateTypeSpecificFields(typeEl.value);
     
     jQuery("#fk_soc").change(function() {
         var socid = jQuery(this).val();
@@ -288,7 +312,7 @@ print '</td></tr>';
 
 // Type (dynamic from database)
 print '<tr><td class="fieldrequired">'.$langs->trans("Type").'</td><td>';
-print '<select name="equipment_type" class="flat minwidth200" required>';
+print '<select name="equipment_type" class="flat minwidth200" required onchange="updateTypeSpecificFields(this.value)">';
 if (!$object->id) print '<option value=""></option>';
 $equipmentTypes = Equipment::getEquipmentTypes($db);
 foreach ($equipmentTypes as $code => $label) {
@@ -447,6 +471,70 @@ if ($object->fk_soc > 0) {
         }
     }
 }
+print '</select>';
+print '</td></tr>';
+
+// ── Akku-Felder (nur Schiebetür) ─────────────────────────────────────────────
+$months_options = '';
+$months_arr = array(1=>'January',2=>'February',3=>'March',4=>'April',5=>'May',6=>'June',
+                    7=>'July',8=>'August',9=>'September',10=>'October',11=>'November',12=>'December');
+foreach ($months_arr as $mn => $mk) {
+    $months_options .= '<option value="'.$mn.'">'.dol_escape_htmltag($langs->trans($mk)).'</option>';
+}
+
+$currentYear = (int)date('Y');
+$yearOptions = '<option value=""></option>';
+for ($y = $currentYear - 20; $y <= $currentYear + 5; $y++) {
+    $yearOptions .= '<option value="'.$y.'">'.$y.'</option>';
+}
+
+// Battery rows
+print '<tr class="eq-battery-row"><td>'.$langs->trans('BatteryInstallDate').'</td><td>';
+print '<select name="battery_install_month" class="flat">';
+print '<option value=""></option>';
+foreach ($months_arr as $mn => $mk) {
+    $sel = ($object->battery_install_month == $mn) ? ' selected' : '';
+    print '<option value="'.$mn.'"'.$sel.'>'.$langs->trans($mk).'</option>';
+}
+print '</select> ';
+print '<select name="battery_install_year" class="flat">';
+print '<option value=""></option>';
+for ($y = $currentYear - 20; $y <= $currentYear + 5; $y++) {
+    $sel = ($object->battery_install_year == $y) ? ' selected' : '';
+    print '<option value="'.$y.'"'.$sel.'>'.$y.'</option>';
+}
+print '</select>';
+print '</td></tr>';
+
+print '<tr class="eq-battery-row"><td>'.$langs->trans('BatteryReplacementCycle').'</td><td>';
+print '<input type="number" name="battery_replacement_cycle" min="1" max="30" class="flat" style="width:70px;" ';
+print 'value="'.($object->battery_replacement_cycle > 0 ? (int)$object->battery_replacement_cycle : '').'">';
+print ' <span class="opacitymedium">'.$langs->trans('YearsUnit').'</span>';
+print '</td></tr>';
+
+// Smoke detector rows
+print '<tr class="eq-smoke-row"><td>'.$langs->trans('SmokeDetectorInstallDate').'</td><td>';
+print '<select name="smoke_detector_install_month" class="flat">';
+print '<option value=""></option>';
+foreach ($months_arr as $mn => $mk) {
+    $sel = ($object->smoke_detector_install_month == $mn) ? ' selected' : '';
+    print '<option value="'.$mn.'"'.$sel.'>'.$langs->trans($mk).'</option>';
+}
+print '</select> ';
+print '<select name="smoke_detector_install_year" class="flat">';
+print '<option value=""></option>';
+for ($y = $currentYear - 20; $y <= $currentYear + 5; $y++) {
+    $sel = ($object->smoke_detector_install_year == $y) ? ' selected' : '';
+    print '<option value="'.$y.'"'.$sel.'>'.$y.'</option>';
+}
+print '</select>';
+print '</td></tr>';
+
+print '<tr class="eq-smoke-row"><td>'.$langs->trans('SmokeDetectorReplacementCycle').'</td><td>';
+print '<select name="smoke_detector_replacement_cycle" class="flat">';
+print '<option value=""></option>';
+print '<option value="5"'.($object->smoke_detector_replacement_cycle == 5 ? ' selected' : '').'>5 '.$langs->trans('YearsUnit').'</option>';
+print '<option value="8"'.($object->smoke_detector_replacement_cycle == 8 ? ' selected' : '').'>8 '.$langs->trans('YearsUnit').'</option>';
 print '</select>';
 print '</td></tr>';
 
