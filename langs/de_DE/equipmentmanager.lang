@@ -722,3 +722,10 @@ ServiceOrderStatusBilled=Abrechnen
 ServiceOrderStatusClosed=Abgeschlossen
 ServiceOrderTechName=Techniker
 NoServiceOrders=Keine Serviceaufträge gefunden
+
+# v5.0 - Bulk Equipment Create
+BulkCreateEquipment=Mehrere Anlagen anlegen
+BulkCreateQty=Anzahl
+BulkCreateSubmit=Anlagen jetzt erstellen
+BulkCreateSuccess=%s Anlagen wurden erfolgreich erstellt
+BulkCreateLabelHint=Leer lassen für automatische Bezeichnung (Typ-Name)

@@ -284,6 +284,23 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // Unterpunkt: Mehrere Anlagen anlegen
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_equipment',
+            'type' => 'left',
+            'titre' => 'BulkCreateEquipment',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/equipment_bulk_create.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
         // Unterpunkt: Neue Anlage
         $r++;
         $this->menu[$r] = array(
