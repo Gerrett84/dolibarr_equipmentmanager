@@ -233,6 +233,13 @@ class Equipment extends CommonObject
                 $this->planned_duration = $obj->planned_duration;
                 $this->fk_contract = $obj->fk_contract;
                 $this->maintenance_interval = $obj->maintenance_interval;
+                $this->battery_install_month = $obj->battery_install_month;
+                $this->battery_install_year = $obj->battery_install_year;
+                $this->battery_replacement_cycle = $obj->battery_replacement_cycle;
+                $this->fire_protection = $obj->fire_protection;
+                $this->smoke_detector_install_month = $obj->smoke_detector_install_month;
+                $this->smoke_detector_install_year = $obj->smoke_detector_install_year;
+                $this->smoke_detector_replacement_cycle = $obj->smoke_detector_replacement_cycle;
                 $this->last_maintenance_date = $this->db->jdate($obj->last_maintenance_date);
                 $this->next_maintenance_date = $this->db->jdate($obj->next_maintenance_date);
                 $this->note_public = $obj->note_public;
