@@ -76,6 +76,7 @@ class Equipment extends CommonObject
     public $battery_install_month;
     public $battery_install_year;
     public $battery_replacement_cycle;
+    public $fire_protection;
     public $smoke_detector_install_month;
     public $smoke_detector_install_year;
     public $smoke_detector_replacement_cycle;
@@ -136,6 +137,7 @@ class Equipment extends CommonObject
         $sql .= "battery_install_month,";
         $sql .= "battery_install_year,";
         $sql .= "battery_replacement_cycle,";
+        $sql .= "fire_protection,";
         $sql .= "smoke_detector_install_month,";
         $sql .= "smoke_detector_install_year,";
         $sql .= "smoke_detector_replacement_cycle,";
@@ -165,6 +167,7 @@ class Equipment extends CommonObject
         $sql .= ($this->battery_install_month > 0 ? (int)$this->battery_install_month : 'NULL').",";
         $sql .= ($this->battery_install_year > 0 ? (int)$this->battery_install_year : 'NULL').",";
         $sql .= ($this->battery_replacement_cycle > 0 ? (int)$this->battery_replacement_cycle : 'NULL').",";
+        $sql .= (isset($this->fire_protection) && $this->fire_protection !== null ? (int)$this->fire_protection : 'NULL').",";
         $sql .= ($this->smoke_detector_install_month > 0 ? (int)$this->smoke_detector_install_month : 'NULL').",";
         $sql .= ($this->smoke_detector_install_year > 0 ? (int)$this->smoke_detector_install_year : 'NULL').",";
         $sql .= ($this->smoke_detector_replacement_cycle > 0 ? (int)$this->smoke_detector_replacement_cycle : 'NULL').",";
@@ -276,6 +279,7 @@ class Equipment extends CommonObject
         $sql .= " battery_install_month = ".($this->battery_install_month > 0 ? (int)$this->battery_install_month : 'NULL').",";
         $sql .= " battery_install_year = ".($this->battery_install_year > 0 ? (int)$this->battery_install_year : 'NULL').",";
         $sql .= " battery_replacement_cycle = ".($this->battery_replacement_cycle > 0 ? (int)$this->battery_replacement_cycle : 'NULL').",";
+        $sql .= " fire_protection = ".(isset($this->fire_protection) && $this->fire_protection !== null ? (int)$this->fire_protection : 'NULL').",";
         $sql .= " smoke_detector_install_month = ".($this->smoke_detector_install_month > 0 ? (int)$this->smoke_detector_install_month : 'NULL').",";
         $sql .= " smoke_detector_install_year = ".($this->smoke_detector_install_year > 0 ? (int)$this->smoke_detector_install_year : 'NULL').",";
         $sql .= " smoke_detector_replacement_cycle = ".($this->smoke_detector_replacement_cycle > 0 ? (int)$this->smoke_detector_replacement_cycle : 'NULL').",";

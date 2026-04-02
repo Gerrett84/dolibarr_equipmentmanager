@@ -289,9 +289,24 @@ if ($object->id > 0) {
         print '</td></tr>';
     }
 
-    // Rauchmelder-Felder (Drehtür, Feststellanlage, Brandschutztor)
+    // Brandschutz (nur Drehtür)
+    if ($object->equipment_type == 'door_swing') {
+        print '<tr><td>'.$langs->trans('FireProtection').'</td><td>';
+        if ($object->fire_protection === '1' || $object->fire_protection === 1) {
+            print '<span class="badge badge-status4 badge-status">'.$langs->trans('Yes').'</span>';
+        } elseif ($object->fire_protection === '0' || $object->fire_protection === 0) {
+            print '<span class="badge badge-status8 badge-status">'.$langs->trans('No').'</span>';
+        } else {
+            print '<span class="opacitymedium">-</span>';
+        }
+        print '</td></tr>';
+    }
+
+    // Rauchmelder-Felder (Drehtür mit Brandschutz=Ja, Feststellanlage, Brandschutztor)
+    $showSmokeInView = (in_array($object->equipment_type, array('hold_open', 'fire_gate'))) ||
+                       ($object->equipment_type == 'door_swing' && ($object->fire_protection === 1 || $object->fire_protection === '1'));
     $smoke_types = array('door_swing', 'hold_open', 'fire_gate');
-    if (in_array($object->equipment_type, $smoke_types) && ($object->smoke_detector_install_year > 0 || $object->smoke_detector_replacement_cycle > 0)) {
+    if ($showSmokeInView && ($object->smoke_detector_install_year > 0 || $object->smoke_detector_replacement_cycle > 0)) {
         if (!isset($months_view)) {
             $months_view = array(1=>'January',2=>'February',3=>'March',4=>'April',5=>'May',6=>'June',
                                  7=>'July',8=>'August',9=>'September',10=>'October',11=>'November',12=>'December');

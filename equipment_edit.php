@@ -76,6 +76,8 @@ if ($action == 'add' && !$cancel) {
     $object->battery_install_month = GETPOST('battery_install_month', 'int') ?: null;
     $object->battery_install_year = GETPOST('battery_install_year', 'int') ?: null;
     $object->battery_replacement_cycle = GETPOST('battery_replacement_cycle', 'int') ?: null;
+    $fp = GETPOST('fire_protection', 'int');
+    $object->fire_protection = ($fp !== '' && $fp !== null) ? (int)$fp : null;
     $object->smoke_detector_install_month = GETPOST('smoke_detector_install_month', 'int') ?: null;
     $object->smoke_detector_install_year = GETPOST('smoke_detector_install_year', 'int') ?: null;
     $object->smoke_detector_replacement_cycle = GETPOST('smoke_detector_replacement_cycle', 'int') ?: null;
@@ -127,6 +129,8 @@ if ($action == 'update' && !$cancel) {
     $object->battery_install_month = GETPOST('battery_install_month', 'int') ?: null;
     $object->battery_install_year = GETPOST('battery_install_year', 'int') ?: null;
     $object->battery_replacement_cycle = GETPOST('battery_replacement_cycle', 'int') ?: null;
+    $fp = GETPOST('fire_protection', 'int');
+    $object->fire_protection = ($fp !== '' && $fp !== null) ? (int)$fp : null;
     $object->smoke_detector_install_month = GETPOST('smoke_detector_install_month', 'int') ?: null;
     $object->smoke_detector_install_year = GETPOST('smoke_detector_install_year', 'int') ?: null;
     $object->smoke_detector_replacement_cycle = GETPOST('smoke_detector_replacement_cycle', 'int') ?: null;
@@ -198,12 +202,18 @@ function toggleMaintenanceMonth() {
 }
 
 function updateTypeSpecificFields(type) {
-    var batteryRows  = document.querySelectorAll('.eq-battery-row');
-    var smokeRows    = document.querySelectorAll('.eq-smoke-row');
-    var showBattery  = (type === 'door_sliding');
-    var showSmoke    = (type === 'door_swing' || type === 'hold_open' || type === 'fire_gate');
+    var batteryRows = document.querySelectorAll('.eq-battery-row');
+    var bpRows      = document.querySelectorAll('.eq-bp-row');
+    var smokeRows   = document.querySelectorAll('.eq-smoke-row');
+    var showBattery = (type === 'door_sliding');
+    var showBP      = (type === 'door_swing');
+    var fpEl        = document.getElementById('fire_protection_select');
+    var fpActive    = fpEl && fpEl.value === '1';
+    var showSmoke   = (type === 'hold_open' || type === 'fire_gate') ||
+                      (type === 'door_swing' && fpActive);
     batteryRows.forEach(function(r) { r.style.display = showBattery ? '' : 'none'; });
-    smokeRows.forEach(function(r)   { r.style.display = showSmoke  ? '' : 'none'; });
+    bpRows.forEach(function(r)      { r.style.display = showBP      ? '' : 'none'; });
+    smokeRows.forEach(function(r)   { r.style.display = showSmoke   ? '' : 'none'; });
 }
 
 jQuery(document).ready(function() {
@@ -510,6 +520,17 @@ print '<tr class="eq-battery-row"><td>'.$langs->trans('BatteryReplacementCycle')
 print '<input type="number" name="battery_replacement_cycle" min="1" max="30" class="flat" style="width:70px;" ';
 print 'value="'.($object->battery_replacement_cycle > 0 ? (int)$object->battery_replacement_cycle : '').'">';
 print ' <span class="opacitymedium">'.$langs->trans('YearsUnit').'</span>';
+print '</td></tr>';
+
+// Brandschutz row (nur Drehtür)
+$fpVal = isset($object->fire_protection) ? $object->fire_protection : '';
+print '<tr class="eq-bp-row"><td>'.$langs->trans('FireProtection').'</td><td>';
+print '<select name="fire_protection" id="fire_protection_select" class="flat" ';
+print 'onchange="updateTypeSpecificFields(document.querySelector(\'select[name=equipment_type]\').value)">';
+print '<option value=""></option>';
+print '<option value="1"'.($fpVal === 1 || $fpVal === '1' ? ' selected' : '').'>'.$langs->trans('Yes').'</option>';
+print '<option value="0"'.($fpVal === 0 && $fpVal !== '' ? ' selected' : '').'>'.$langs->trans('No').'</option>';
+print '</select>';
 print '</td></tr>';
 
 // Smoke detector rows

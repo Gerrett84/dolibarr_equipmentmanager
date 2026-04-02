@@ -729,6 +729,9 @@ BatteryReplacementCycle=Tauschzyklus Akku
 SmokeDetectorInstallDate=Einbaujahr Rauchmelder
 SmokeDetectorReplacementCycle=Tauschzyklus Rauchmelder
 YearsUnit=Jahre
+FireProtection=Brandschutz
+Yes=Ja
+No=Nein
 
 # v5.0 - Bulk Equipment Create
 BulkCreateEquipment=Mehrere Anlagen anlegen
