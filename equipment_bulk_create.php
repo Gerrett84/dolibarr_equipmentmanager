@@ -44,12 +44,21 @@ if ($action == 'bulk_create') {
     $duration = (int) GETPOST('planned_duration', 'int');
     $interval = GETPOST('maintenance_interval', 'alpha');
 
+    $contract_status = GETPOST('contract_status', 'int');
+    if (!in_array($contract_status, array(0, 1))) {
+        $contract_status = -1;
+    }
+
     if (empty($eq_type)) {
         setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('Type')), null, 'errors');
         $error++;
     }
     if ($fk_soc <= 0) {
         setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('ThirdParty')), null, 'errors');
+        $error++;
+    }
+    if ($contract_status < 0) {
+        setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('MaintenanceContract')), null, 'errors');
         $error++;
     }
 
@@ -71,7 +80,7 @@ if ($action == 'bulk_create') {
             $eq->manufacturer         = $manuf;
             $eq->planned_duration     = $duration > 0 ? $duration : 0;
             $eq->maintenance_interval = $interval;
-            $eq->status               = 1;
+            $eq->status               = $contract_status;
 
             $result = $eq->create($user);
             if ($result > 0) {
@@ -126,6 +135,16 @@ print '<tr><td class="fieldrequired">'.$langs->trans('ThirdParty').'</td><td>';
 $postedSoc = (int) GETPOST('fk_soc', 'int');
 print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 1, array(), 0, 'minwidth300',
     'onchange="loadAddresses(this.value); loadContracts(this.value);"');
+print '</td></tr>';
+
+// ── Wartungsvertrag ───────────────────────────────────────────────────────────
+print '<tr><td class="fieldrequired">'.$langs->trans('MaintenanceContract').'</td><td>';
+$postedContStatus = GETPOST('action') == 'bulk_create' ? (int)GETPOST('contract_status','int') : -1;
+print '<select name="contract_status" class="flat" required>';
+print '<option value=""></option>';
+print '<option value="1"'.($postedContStatus===1?' selected':'').'>'.$langs->trans('ActiveContract').'</option>';
+print '<option value="0"'.($postedContStatus===0?' selected':'').'>'.$langs->trans('NoContract').'</option>';
+print '</select>';
 print '</td></tr>';
 
 // ── Objektadresse ─────────────────────────────────────────────────────────────
