@@ -1464,7 +1464,7 @@ function handleAvailableEquipment($method, $parts, $input) {
 function handleLinkEquipment($method, $parts, $input) {
     global $db, $user;
 
-    if ($method !== 'POST') {
+    if (!in_array($method, ['POST', 'DELETE'])) {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
         return;
@@ -1473,6 +1473,58 @@ function handleLinkEquipment($method, $parts, $input) {
     $intervention_id = (int)($input['intervention_id'] ?? 0);
     $equipment_id = (int)($input['equipment_id'] ?? 0);
     $link_type = $input['link_type'] ?? 'service';
+
+    // DELETE: remove equipment from intervention (cascade detail + materials + checklists)
+    if ($method === 'DELETE') {
+        if (!$intervention_id || !$equipment_id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'intervention_id and equipment_id required']);
+            return;
+        }
+
+        $db->begin();
+
+        // Delete checklist results for this equipment/intervention
+        $sqlCl = "DELETE cr FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_result cr"
+               . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il"
+               . "   ON il.rowid = cr.fk_equipment_intervention"
+               . " WHERE il.fk_intervention = ".(int)$intervention_id
+               . " AND il.fk_equipment = ".(int)$equipment_id;
+        $db->query($sqlCl);
+
+        // Delete materials
+        $sqlMat = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_material"
+                . " WHERE fk_intervention = ".(int)$intervention_id
+                . " AND fk_equipment = ".(int)$equipment_id;
+        $db->query($sqlMat);
+
+        // Delete detail
+        $sqlDet = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail"
+                . " WHERE fk_intervention = ".(int)$intervention_id
+                . " AND fk_equipment = ".(int)$equipment_id;
+        $db->query($sqlDet);
+
+        // Delete the link itself
+        $sqlLnk = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link"
+                . " WHERE fk_intervention = ".(int)$intervention_id
+                . " AND fk_equipment = ".(int)$equipment_id;
+        $resql = $db->query($sqlLnk);
+
+        if ($resql) {
+            $db->commit();
+            echo json_encode([
+                'status' => 'ok',
+                'message' => 'Equipment unlinked',
+                'intervention_id' => $intervention_id,
+                'equipment_id' => $equipment_id
+            ]);
+        } else {
+            $db->rollback();
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to unlink equipment: ' . $db->lasterror()]);
+        }
+        return;
+    }
 
     if (!$intervention_id || !$equipment_id) {
         http_response_code(400);

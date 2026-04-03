@@ -1373,6 +1373,15 @@ class ServiceReportApp {
                 const statusIcon = isProcessed ? '✅' : '🚪';
                 const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
 
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = '🗑️';
+                removeBtn.title = 'Anlage entfernen';
+                removeBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;padding:4px 8px;flex-shrink:0;opacity:0.6;';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.unlinkEquipment(eq);
+                });
+
                 item.innerHTML = `
                     <div class="equipment-icon">${statusIcon}</div>
                     <div class="equipment-info">
@@ -1382,6 +1391,7 @@ class ServiceReportApp {
                     </div>
                     ${linkTypeBadge}
                 `;
+                item.appendChild(removeBtn);
                 if (isProcessed) {
                     item.style.borderLeft = '3px solid #4caf50';
                 }
@@ -4370,6 +4380,36 @@ class ServiceReportApp {
             }
         } catch (err) {
             console.error('Failed to update equipment:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
+    }
+
+    // Remove equipment link from current intervention
+    async unlinkEquipment(eq) {
+        const hasData = eq.detail && (eq.detail.work_done || eq.detail.issues_found);
+        const warn = hasData ? '\n⚠️ Es sind bereits Einträge vorhanden – diese werden ebenfalls gelöscht!' : '';
+        if (!confirm(`Anlage "${eq.ref} – ${eq.label || ''}" aus diesem Serviceauftrag entfernen?${warn}`)) {
+            return;
+        }
+
+        try {
+            const result = await this.apiCall('link-equipment', {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: eq.id
+                })
+            });
+
+            if (result.status === 'ok') {
+                this.showToast('Anlage entfernt');
+                // Reload equipment list
+                this.loadEquipment(this.currentIntervention);
+            } else {
+                this.showToast('Fehler beim Entfernen');
+            }
+        } catch (err) {
+            console.error('Failed to unlink equipment:', err);
             this.showToast('Fehler: ' + err.message);
         }
     }
