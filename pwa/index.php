@@ -2230,6 +2230,29 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                             <span style="color:var(--text-muted);">Seriennummer:</span>
                             <div id="eqDetailSerial" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
+                        <!-- Battery fields (door_sliding only) -->
+                        <div id="eqDetailBatteryRow" style="display:none;grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Einbaujahr Akku:</span>
+                            <div id="eqDetailBatteryDate" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div id="eqDetailBatteryCycleRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Tauschzyklus Akku:</span>
+                            <div id="eqDetailBatteryCycle" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
+                        <!-- Brandschutz (door_swing only) -->
+                        <div id="eqDetailFireProtRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Brandschutz:</span>
+                            <div id="eqDetailFireProt" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
+                        <!-- Smoke detector fields -->
+                        <div id="eqDetailSmokeRow" style="display:none;grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Einbaujahr Rauchmelder:</span>
+                            <div id="eqDetailSmokeDate" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div id="eqDetailSmokeCycleRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Tauschzyklus Rauchmelder:</span>
+                            <div id="eqDetailSmokeCycle" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body" style="padding:0;">

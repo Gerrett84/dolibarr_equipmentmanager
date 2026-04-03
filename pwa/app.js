@@ -4228,6 +4228,114 @@ class ServiceReportApp {
         locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
         manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
         serialEl.onclick = () => this.editEquipmentField('serial_number', 'Seriennummer', equipment.serial_number || '');
+
+        // Helper: format month/year
+        const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+        const formatMonthYear = (month, year) => {
+            if (!year) return '-';
+            const mName = (month >= 1 && month <= 12) ? monthNames[month - 1] + ' ' : '';
+            return mName + year;
+        };
+
+        const type = equipment.type;
+        const fireProtActive = (equipment.fire_protection == 1);
+        const showBattery  = (type === 'door_sliding');
+        const showFireProt = (type === 'door_swing');
+        const showSmoke    = (type === 'hold_open' || type === 'fire_gate') || (type === 'door_swing' && fireProtActive);
+
+        // Battery rows
+        const batteryRow      = document.getElementById('eqDetailBatteryRow');
+        const batteryCycleRow = document.getElementById('eqDetailBatteryCycleRow');
+        const batteryDateEl   = document.getElementById('eqDetailBatteryDate');
+        const batteryCycleEl  = document.getElementById('eqDetailBatteryCycle');
+        if (showBattery) {
+            batteryDateEl.textContent = formatMonthYear(equipment.battery_install_month, equipment.battery_install_year);
+            batteryCycleEl.textContent = equipment.battery_replacement_cycle ? equipment.battery_replacement_cycle + ' J.' : '-';
+            batteryRow.style.display = '';
+            batteryCycleRow.style.display = '';
+            batteryDateEl.style.background = 'var(--input-bg)';
+            batteryDateEl.style.border = '1px dashed var(--border-color)';
+            batteryDateEl.onclick = () => this.editEquipmentInstallDate('battery', equipment);
+        } else {
+            batteryRow.style.display = 'none';
+            batteryCycleRow.style.display = 'none';
+        }
+
+        // Brandschutz row
+        const fireProtRow = document.getElementById('eqDetailFireProtRow');
+        const fireProtEl  = document.getElementById('eqDetailFireProt');
+        if (showFireProt) {
+            fireProtEl.textContent = fireProtActive ? 'Ja' : 'Nein';
+            fireProtRow.style.display = '';
+        } else {
+            fireProtRow.style.display = 'none';
+        }
+
+        // Smoke detector rows
+        const smokeRow      = document.getElementById('eqDetailSmokeRow');
+        const smokeCycleRow = document.getElementById('eqDetailSmokeCycleRow');
+        const smokeDateEl   = document.getElementById('eqDetailSmokeDate');
+        const smokeCycleEl  = document.getElementById('eqDetailSmokeCycle');
+        if (showSmoke) {
+            smokeDateEl.textContent = formatMonthYear(equipment.smoke_detector_install_month, equipment.smoke_detector_install_year);
+            smokeCycleEl.textContent = equipment.smoke_detector_replacement_cycle ? equipment.smoke_detector_replacement_cycle + ' J.' : '-';
+            smokeRow.style.display = '';
+            smokeCycleRow.style.display = '';
+            smokeDateEl.style.background = 'var(--input-bg)';
+            smokeDateEl.style.border = '1px dashed var(--border-color)';
+            smokeDateEl.onclick = () => this.editEquipmentInstallDate('smoke_detector', equipment);
+        } else {
+            smokeRow.style.display = 'none';
+            smokeCycleRow.style.display = 'none';
+        }
+    }
+
+    // Edit install date (month+year) for battery or smoke_detector
+    async editEquipmentInstallDate(prefix, equipment) {
+        const label = prefix === 'battery' ? 'Einbaujahr Akku' : 'Einbaujahr Rauchmelder';
+        const monthField = prefix + '_install_month';
+        const yearField  = prefix + '_install_year';
+        const currentMonth = equipment[monthField] || '';
+        const currentYear  = equipment[yearField] || '';
+        const currentVal   = currentMonth && currentYear ? currentMonth + '/' + currentYear
+                           : currentYear ? currentYear : '';
+
+        const input = prompt(label + ' (MM/JJJJ oder JJJJ):', currentVal);
+        if (input === null) return;
+
+        let month = null, year = null;
+        const trimmed = input.trim();
+        if (trimmed) {
+            const parts = trimmed.split('/');
+            if (parts.length === 2) {
+                month = parseInt(parts[0], 10) || null;
+                year  = parseInt(parts[1], 10) || null;
+            } else {
+                year = parseInt(trimmed, 10) || null;
+            }
+            if (month !== null && (month < 1 || month > 12)) month = null;
+        }
+
+        try {
+            const body = {};
+            body[monthField] = month;
+            body[yearField]  = year;
+            const result = await this.apiCall(`equipment/${this.currentEquipment.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(body)
+            });
+            if (result.status === 'ok') {
+                this.currentEquipment[monthField] = month;
+                this.currentEquipment[yearField]  = year;
+                this.renderEquipmentDetails(this.currentEquipment);
+                this.showToast(label + ' aktualisiert');
+            } else {
+                this.showToast('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Failed to update install date:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
     }
 
     // Edit equipment field via prompt

@@ -695,6 +695,9 @@ function getInterventionEquipment($intervention_id) {
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
     $sql .= " e.location_note, e.manufacturer, e.door_wings,";
+    $sql .= " e.battery_install_month, e.battery_install_year, e.battery_replacement_cycle,";
+    $sql .= " e.fire_protection,";
+    $sql .= " e.smoke_detector_install_month, e.smoke_detector_install_year, e.smoke_detector_replacement_cycle,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_duration,";
@@ -722,6 +725,13 @@ function getInterventionEquipment($intervention_id) {
                 'serial_number' => $obj->serial_number,
                 'location' => $obj->location_note ?: '',
                 'door_wings' => $obj->door_wings ?: '',
+                'battery_install_month' => $obj->battery_install_month !== null ? (int)$obj->battery_install_month : null,
+                'battery_install_year' => $obj->battery_install_year !== null ? (int)$obj->battery_install_year : null,
+                'battery_replacement_cycle' => $obj->battery_replacement_cycle !== null ? (int)$obj->battery_replacement_cycle : null,
+                'fire_protection' => $obj->fire_protection !== null ? (int)$obj->fire_protection : null,
+                'smoke_detector_install_month' => $obj->smoke_detector_install_month !== null ? (int)$obj->smoke_detector_install_month : null,
+                'smoke_detector_install_year' => $obj->smoke_detector_install_year !== null ? (int)$obj->smoke_detector_install_year : null,
+                'smoke_detector_replacement_cycle' => $obj->smoke_detector_replacement_cycle !== null ? (int)$obj->smoke_detector_replacement_cycle : null,
                 'link_type' => $obj->link_type,
                 'detail' => null
             ];
@@ -2833,29 +2843,32 @@ function handleEquipment($method, $parts, $input) {
                 'location' => $equipment->location_note ?: '',
                 'door_wings' => $equipment->door_wings ?: '',
                 'fk_soc' => (int)$equipment->fk_soc,
-                'fk_address' => (int)$equipment->fk_address
+                'fk_address' => (int)$equipment->fk_address,
+                'battery_install_month' => $equipment->battery_install_month !== null ? (int)$equipment->battery_install_month : null,
+                'battery_install_year' => $equipment->battery_install_year !== null ? (int)$equipment->battery_install_year : null,
+                'battery_replacement_cycle' => $equipment->battery_replacement_cycle !== null ? (int)$equipment->battery_replacement_cycle : null,
+                'fire_protection' => $equipment->fire_protection !== null ? (int)$equipment->fire_protection : null,
+                'smoke_detector_install_month' => $equipment->smoke_detector_install_month !== null ? (int)$equipment->smoke_detector_install_month : null,
+                'smoke_detector_install_year' => $equipment->smoke_detector_install_year !== null ? (int)$equipment->smoke_detector_install_year : null,
+                'smoke_detector_replacement_cycle' => $equipment->smoke_detector_replacement_cycle !== null ? (int)$equipment->smoke_detector_replacement_cycle : null
             ]
         ]);
 
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Update equipment - only specific fields allowed from PWA
-        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number'];
+        $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number',
+            'battery_install_month', 'battery_install_year', 'battery_replacement_cycle',
+            'fire_protection',
+            'smoke_detector_install_month', 'smoke_detector_install_year', 'smoke_detector_replacement_cycle'];
 
         foreach ($allowed_fields as $field) {
-            if (isset($input[$field])) {
-                // Map API field names to class properties
-                if ($field === 'label') {
-                    $equipment->label = $input[$field];
-                } elseif ($field === 'location_note') {
-                    $equipment->location_note = $input[$field];
-                } elseif ($field === 'equipment_type') {
-                    $equipment->equipment_type = $input[$field];
-                } elseif ($field === 'manufacturer') {
-                    $equipment->manufacturer = $input[$field];
-                } elseif ($field === 'door_wings') {
-                    $equipment->door_wings = $input[$field];
-                } elseif ($field === 'serial_number') {
-                    $equipment->serial_number = $input[$field];
+            if (array_key_exists($field, $input)) {
+                $val = $input[$field];
+                if (in_array($field, ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number'])) {
+                    $equipment->$field = $val;
+                } else {
+                    // Integer or null fields
+                    $equipment->$field = ($val !== null && $val !== '') ? (int)$val : null;
                 }
             }
         }
