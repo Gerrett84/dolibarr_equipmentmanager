@@ -341,6 +341,133 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
+    // GET /intervention/{id}/email-info — suggested recipient + subject for send-email modal
+    if (isset($parts[2]) && $parts[2] === 'email-info' && $method === 'GET') {
+        $fichinter->fetch_thirdparty();
+
+        // Try CUSTOMER contact with email first
+        $recipientEmail = '';
+        $recipientName  = '';
+        $sqlCust  = "SELECT sp.email, sp.lastname, sp.firstname";
+        $sqlCust .= " FROM " . MAIN_DB_PREFIX . "element_contact ec";
+        $sqlCust .= " JOIN " . MAIN_DB_PREFIX . "c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+        $sqlCust .= " JOIN " . MAIN_DB_PREFIX . "socpeople sp ON sp.rowid = ec.fk_socpeople";
+        $sqlCust .= " WHERE ec.element_id = " . (int)$id;
+        $sqlCust .= " AND tc.code = 'CUSTOMER' AND tc.element = 'fichinter'";
+        $sqlCust .= " AND sp.email != '' LIMIT 1";
+        $resCust = $db->query($sqlCust);
+        if ($resCust && $objCust = $db->fetch_object($resCust)) {
+            $recipientEmail = $objCust->email;
+            $recipientName  = trim($objCust->lastname . ' ' . $objCust->firstname);
+        }
+        // Fallback to thirdparty email
+        if (!$recipientEmail && is_object($fichinter->thirdparty)) {
+            $recipientEmail = $fichinter->thirdparty->email ?: '';
+            $recipientName  = $fichinter->thirdparty->name ?: '';
+        }
+
+        // Load template + apply substitutions for subject preview
+        require_once DOL_DOCUMENT_ROOT . '/core/class/html.formmail.class.php';
+        $formmail = new FormMail($db);
+        $template = $formmail->getEMailTemplate($db, 'fichinter_send', $user, $langs, 0, 1, '', -1);
+        $subject = '';
+        if (is_object($template) && $template->id > 0) {
+            $subst = getCommonSubstitutionArray($langs, 0, null, $fichinter);
+            complete_substitutions_array($subst, $langs, $fichinter);
+            $subject = make_substitutions($template->topic, $subst);
+        }
+
+        echo json_encode([
+            'status'         => 'ok',
+            'email'          => $recipientEmail,
+            'recipient_name' => $recipientName,
+            'subject'        => $subject
+        ]);
+        return;
+    }
+
+    // POST /intervention/{id}/send-email — send service report email with PDF
+    if (isset($parts[2]) && $parts[2] === 'send-email' && $method === 'POST') {
+        $recipientEmail = trim($input['email'] ?? '');
+        $customSubject  = trim($input['subject'] ?? '');
+
+        if (!$recipientEmail) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Email address required']);
+            return;
+        }
+        if (!filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid email address']);
+            return;
+        }
+
+        $fichinter->fetch_thirdparty();
+
+        // Build subject + body from template
+        require_once DOL_DOCUMENT_ROOT . '/core/class/html.formmail.class.php';
+        $formmail = new FormMail($db);
+        $template = $formmail->getEMailTemplate($db, 'fichinter_send', $user, $langs, 0, 1, '', -1);
+
+        $subst = getCommonSubstitutionArray($langs, 0, null, $fichinter);
+        complete_substitutions_array($subst, $langs, $fichinter);
+
+        $subject = $customSubject ?: (is_object($template) && $template->id > 0
+            ? make_substitutions($template->topic, $subst) : $fichinter->ref);
+        $message = is_object($template) && $template->id > 0
+            ? make_substitutions($template->content, $subst) : '';
+
+        // Find PDF: prefer signed, fallback to main
+        $docDir    = getFichinterDocDir($fichinter);
+        $signedPdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/' . dol_sanitizeFileName($fichinter->ref) . '_signed.pdf';
+        $mainPdf   = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+
+        $attachPaths = [];
+        $attachMimes = [];
+        $attachNames = [];
+        if (file_exists($signedPdf)) {
+            $attachPaths[] = $signedPdf;
+            $attachMimes[] = 'application/pdf';
+            $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '_signed.pdf';
+        } elseif (file_exists($mainPdf)) {
+            $attachPaths[] = $mainPdf;
+            $attachMimes[] = 'application/pdf';
+            $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '.pdf';
+        }
+
+        // From address
+        $fromEmail = getDolGlobalString('MAIN_MAIL_EMAIL_FROM') ?: ($user->email ?: 'noreply@localhost');
+        $fromName  = getDolGlobalString('MAIN_MAIL_EMAIL_FROM_NAME') ?: $user->getFullName($langs);
+        $from      = $fromName ? '"' . $fromName . '" <' . $fromEmail . '>' : $fromEmail;
+
+        require_once DOL_DOCUMENT_ROOT . '/core/class/CMailFile.class.php';
+        $mailfile = new CMailFile(
+            $subject,
+            $recipientEmail,
+            $from,
+            $message,
+            $attachPaths,
+            $attachMimes,
+            $attachNames,
+            '', '', 0, 1
+        );
+
+        $result = $mailfile->sendfile();
+
+        if ($result) {
+            echo json_encode([
+                'status'    => 'ok',
+                'message'   => 'E-Mail gesendet',
+                'recipient' => $recipientEmail,
+                'attached'  => !empty($attachPaths)
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'E-Mail konnte nicht gesendet werden', 'details' => $mailfile->error]);
+        }
+        return;
+    }
+
     // If requesting equipment list
     if (isset($parts[2]) && $parts[2] === 'equipment') {
         $equipment = getInterventionEquipment($id);

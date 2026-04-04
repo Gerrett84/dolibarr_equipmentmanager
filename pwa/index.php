@@ -2707,5 +2707,25 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
     </script>
     <?php endif; ?>
+
+    <!-- Email Send Modal -->
+    <div id="emailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--bg-primary);border-radius:12px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 16px;font-size:17px;">📧 Servicebericht senden</h3>
+            <div class="form-group">
+                <label class="form-label">Empfänger</label>
+                <input type="email" class="form-input" id="emailModalRecipient" placeholder="email@beispiel.de">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Betreff</label>
+                <input type="text" class="form-input" id="emailModalSubject" placeholder="Betreff">
+            </div>
+            <div id="emailModalAttachNote" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+            <div style="display:flex;gap:8px;margin-top:20px;">
+                <button type="button" class="btn" id="btnEmailModalCancel" style="flex:1;background:var(--bg-secondary);color:var(--text-primary);">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="btnEmailModalSend" style="flex:1;">Senden</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

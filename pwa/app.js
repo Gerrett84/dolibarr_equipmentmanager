@@ -662,7 +662,7 @@ class ServiceReportApp {
                 `;
                 saveBtn.style.display = 'none';
             } else if (signedStatus >= 3) {
-                // Already signed
+                // Already signed — show email button
                 signatureCard.innerHTML = `
                     <div class="card-header">
                         <h3 class="card-title">Kundenunterschrift</h3>
@@ -672,9 +672,13 @@ class ServiceReportApp {
                             <div class="empty-icon">✅</div>
                             <p>Unterschrift bereits vorhanden</p>
                         </div>
+                        <button type="button" class="btn btn-primary btn-block" id="btnSendEmailSigned" style="margin-top:12px;">
+                            📧 Servicebericht per E-Mail senden
+                        </button>
                     </div>
                 `;
                 saveBtn.style.display = 'none';
+                document.getElementById('btnSendEmailSigned').addEventListener('click', () => this.showEmailModal());
             } else {
                 // Released - show Online Sign option
                 this.showOnlineSignOption(signatureCard, saveBtn);
@@ -2500,24 +2504,25 @@ class ServiceReportApp {
                         signer_name: signerName
                     })
                 });
-                this.showToast('Unterschrift gespeichert - Auftrag abgeschlossen');
                 this.currentIntervention.signed_status = 3;
                 this.currentIntervention.status = 3; // Closed
-
-                // Reload interventions list to reflect new status
                 await this.loadInterventions();
+
+                // Offer to send email
+                this.showToast('Unterschrift gespeichert – Auftrag abgeschlossen');
+                this.showView('viewInterventions');
+                setTimeout(() => this.showEmailModal(), 600);
             } catch (err) {
                 // Sync failed — saved in queue, show persistent warning
                 this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
                 this.updateSyncBadge();
+                this.showView('viewInterventions');
             }
         } else {
             this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
             this.updateSyncBadge();
+            this.showView('viewInterventions');
         }
-
-        // Go back to interventions list
-        this.showView('viewInterventions');
     }
 
     // Sync data with server
@@ -4390,6 +4395,66 @@ class ServiceReportApp {
         } catch (err) {
             console.error('Failed to update equipment:', err);
             this.showToast('Fehler: ' + err.message);
+        }
+    }
+
+    // Show send-email modal, pre-filled with recipient + subject from API
+    async showEmailModal() {
+        const modal       = document.getElementById('emailModal');
+        const recipientEl = document.getElementById('emailModalRecipient');
+        const subjectEl   = document.getElementById('emailModalSubject');
+        const attachNote  = document.getElementById('emailModalAttachNote');
+        const sendBtn     = document.getElementById('btnEmailModalSend');
+        const cancelBtn   = document.getElementById('btnEmailModalCancel');
+
+        // Show modal immediately with loading state
+        modal.style.display = 'flex';
+        recipientEl.value = '';
+        subjectEl.value = 'Lädt…';
+        sendBtn.disabled = true;
+
+        try {
+            const info = await this.apiCall(`intervention/${this.currentIntervention.id}/email-info`);
+            recipientEl.value = info.email || '';
+            subjectEl.value   = info.subject || this.currentIntervention.ref || '';
+            attachNote.textContent = '📎 PDF wird automatisch angehängt';
+        } catch (err) {
+            subjectEl.value = this.currentIntervention.ref || '';
+            attachNote.textContent = '';
+        }
+        sendBtn.disabled = false;
+
+        cancelBtn.onclick = () => { modal.style.display = 'none'; };
+        sendBtn.onclick   = () => this.sendEmailReport(recipientEl.value.trim(), subjectEl.value.trim());
+    }
+
+    async sendEmailReport(email, subject) {
+        if (!email) {
+            this.showToast('Bitte E-Mail-Adresse eingeben');
+            return;
+        }
+
+        const sendBtn = document.getElementById('btnEmailModalSend');
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sende…';
+
+        try {
+            const result = await this.apiCall(`intervention/${this.currentIntervention.id}/send-email`, {
+                method: 'POST',
+                body: JSON.stringify({ email, subject })
+            });
+
+            document.getElementById('emailModal').style.display = 'none';
+            if (result.status === 'ok') {
+                this.showToast(result.attached ? '📧 E-Mail mit PDF gesendet' : '📧 E-Mail gesendet');
+            } else {
+                this.showToast('Fehler beim Senden');
+            }
+        } catch (err) {
+            this.showToast('Fehler: ' + err.message);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Senden';
         }
     }
 
