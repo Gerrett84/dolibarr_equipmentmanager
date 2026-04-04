@@ -1373,14 +1373,23 @@ class ServiceReportApp {
                 const statusIcon = isProcessed ? '✅' : '🚪';
                 const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
 
+                const hasData = eq.detail && (eq.detail.work_done || eq.detail.issues_found || eq.detail.notes || eq.detail.recommendations);
                 const removeBtn = document.createElement('button');
                 removeBtn.innerHTML = '🗑️';
-                removeBtn.title = 'Anlage entfernen';
-                removeBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;padding:4px 8px;flex-shrink:0;opacity:0.6;';
-                removeBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.unlinkEquipment(eq);
-                });
+                removeBtn.style.cssText = 'background:none;border:none;font-size:18px;padding:4px 8px;flex-shrink:0;';
+                if (hasData) {
+                    removeBtn.title = 'Nicht löschbar – Anlage hat bereits Einträge';
+                    removeBtn.style.opacity = '0.2';
+                    removeBtn.style.cursor = 'not-allowed';
+                } else {
+                    removeBtn.title = 'Anlage entfernen';
+                    removeBtn.style.opacity = '0.6';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.unlinkEquipment(eq);
+                    });
+                }
 
                 item.innerHTML = `
                     <div class="equipment-icon">${statusIcon}</div>
@@ -4386,9 +4395,7 @@ class ServiceReportApp {
 
     // Remove equipment link from current intervention
     async unlinkEquipment(eq) {
-        const hasData = eq.detail && (eq.detail.work_done || eq.detail.issues_found);
-        const warn = hasData ? '\n⚠️ Es sind bereits Einträge vorhanden – diese werden ebenfalls gelöscht!' : '';
-        if (!confirm(`Anlage "${eq.ref} – ${eq.label || ''}" aus diesem Serviceauftrag entfernen?${warn}`)) {
+        if (!confirm(`Anlage "${eq.ref} – ${eq.label || ''}" aus diesem Serviceauftrag entfernen?`)) {
             return;
         }
 
