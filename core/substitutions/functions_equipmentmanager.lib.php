@@ -7,6 +7,7 @@
  *   __DELIVERY_ADDRESS_SUFFIX__ → " - NAME" if OBJ contact exists, otherwise ""
  *   __INVOICE_DATE__            → formatted invoice date for facture objects
  *   __FICHINTER_DATE__          → formatted start date for fichinter objects
+ *   __ORDER_DATE__              → formatted order date for commande objects
  */
 
 function equipmentmanager_completesubstitutionarray(&$substitutionarray, $outputlangs, $object, $parameters)
@@ -47,4 +48,11 @@ function equipmentmanager_completesubstitutionarray(&$substitutionarray, $output
         $fichinterDate = dol_print_date($object->dateo, 'day', false, $outputlangs);
     }
     $substitutionarray['__FICHINTER_DATE__'] = $fichinterDate;
+
+    // --- Order date for commande objects ---
+    $orderDate = '';
+    if (is_object($object) && isset($object->element) && $object->element === 'commande' && !empty($object->date)) {
+        $orderDate = dol_print_date($object->date, 'day', false, $outputlangs);
+    }
+    $substitutionarray['__ORDER_DATE__'] = $orderDate;
 }
