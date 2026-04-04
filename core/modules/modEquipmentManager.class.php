@@ -33,6 +33,7 @@ class modEquipmentManager extends DolibarrModules
         // Tell Dolibarr this module provides PDF templates for fichinter
         $this->module_parts = array(
             'models' => 1,  // This module provides document templates
+            'substitutions' => 1, // Custom substitution variables (OBJ address, invoice date)
             'hooks' => array(
                 'toprightmenu',      // Hook for adding to top right menu
                 'formmail',          // Hook for auto-attaching PDFs to emails
