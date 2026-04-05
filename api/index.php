@@ -469,17 +469,12 @@ function handleIntervention($method, $parts, $input) {
             $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '.pdf';
         }
 
-        // Attach all completed checklist PDFs if they exist
-        $checklistDir = $docDir . '/' . dol_sanitizeFileName($fichinter->ref);
-        $checklistPdfs = array_merge(
-            glob($checklistDir . '/Checkliste_*.pdf') ?: [],
-            glob($checklistDir . '/Checklist_*.pdf') ?: [],
-            glob($checklistDir . '/Checklisten_*.pdf') ?: []
-        );
-        foreach ($checklistPdfs as $clPdf) {
-            $attachPaths[] = $clPdf;
+        // Attach combined checklists PDF if it exists (generated at release)
+        $combinedChecklistPdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+        if (file_exists($combinedChecklistPdf)) {
+            $attachPaths[] = $combinedChecklistPdf;
             $attachMimes[] = 'application/pdf';
-            $attachNames[] = basename($clPdf);
+            $attachNames[] = 'Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
         }
 
         // From address

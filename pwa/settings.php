@@ -541,8 +541,8 @@ if (!empty($conf->totp2fa->enabled)) {
             ));
             list.appendChild(buildToggleRow(
                 'pwa_email_show_body',
-                'E-Mail Inhalt anzeigen',
-                'Vorschau und Bearbeitung des E-Mail-Textes',
+                'E-Mail Inhalt anzeigen <span style="font-size:11px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">Beta</span>',
+                'Vorschau und Bearbeitung – Formatierung kann abweichen',
                 false
             ));
         }
