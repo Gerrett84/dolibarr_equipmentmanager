@@ -441,6 +441,22 @@ if (!empty($conf->totp2fa->enabled)) {
         </div>
 
         <div class="card">
+            <h2>📧 E-Mail</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                <div>
+                    <div style="font-weight:500;font-size:14px;">E-Mail nach Unterschrift</div>
+                    <div class="help-text" style="margin-top:2px;">Sendeformular automatisch öffnen</div>
+                </div>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+                    <input type="checkbox" id="toggleEmailAutoOpen" style="opacity:0;width:0;height:0;">
+                    <span id="emailAutoOpenSlider" style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:24px;transition:.2s;">
+                        <span style="position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s;display:block;" id="emailAutoOpenThumb"></span>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card">
             <h2>Offline-Daten</h2>
             <p class="help-text" style="margin-top:0;">
                 Löscht alle lokal gespeicherten Daten (Aufträge, Anlagen, Einträge). Login-Daten bleiben erhalten.
@@ -498,10 +514,32 @@ if (!empty($conf->totp2fa->enabled)) {
         }
 
         // Initialize
+        // Email auto-open toggle
+        function initEmailToggle() {
+            const checkbox = document.getElementById('toggleEmailAutoOpen');
+            const slider   = document.getElementById('emailAutoOpenSlider');
+            const thumb    = document.getElementById('emailAutoOpenThumb');
+            const enabled  = localStorage.getItem('pwa_email_auto_open') !== 'false'; // default: true
+
+            function applyState(on) {
+                slider.style.background = on ? '#263c5c' : '#ccc';
+                thumb.style.transform   = on ? 'translateX(20px)' : 'translateX(0)';
+                checkbox.checked = on;
+            }
+
+            applyState(enabled);
+
+            checkbox.addEventListener('change', () => {
+                localStorage.setItem('pwa_email_auto_open', checkbox.checked ? 'true' : 'false');
+                applyState(checkbox.checked);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             await offlineDB.init();
             await loadStatus();
             initTheme();
+            initEmailToggle();
 
             document.getElementById('settingsForm').addEventListener('submit', handleSubmit);
         });

@@ -2716,6 +2716,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 <label class="form-label">Empfänger</label>
                 <input type="email" class="form-input" id="emailModalRecipient" placeholder="email@beispiel.de">
             </div>
+            <div class="form-group">
+                <label class="form-label">CC <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+                <input type="email" class="form-input" id="emailModalCC" placeholder="cc@beispiel.de">
+            </div>
             <div class="form-group" style="margin-bottom:0;">
                 <label class="form-label">Betreff</label>
                 <input type="text" class="form-input" id="emailModalSubject" placeholder="Betreff">

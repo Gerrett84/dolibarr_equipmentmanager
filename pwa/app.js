@@ -2518,10 +2518,12 @@ class ServiceReportApp {
                 this.currentIntervention.status = 3; // Closed
                 await this.loadInterventions();
 
-                // Offer to send email
+                // Offer to send email (if auto-open enabled in settings, default: true)
                 this.showToast('Unterschrift gespeichert – Auftrag abgeschlossen');
                 this.showView('viewInterventions');
-                setTimeout(() => this.showEmailModal(), 600);
+                if (localStorage.getItem('pwa_email_auto_open') !== 'false') {
+                    setTimeout(() => this.showEmailModal(), 600);
+                }
             } catch (err) {
                 // Sync failed — saved in queue, show persistent warning
                 this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
@@ -4412,6 +4414,7 @@ class ServiceReportApp {
     async showEmailModal() {
         const modal       = document.getElementById('emailModal');
         const recipientEl = document.getElementById('emailModalRecipient');
+        const ccEl        = document.getElementById('emailModalCC');
         const subjectEl   = document.getElementById('emailModalSubject');
         const attachNote  = document.getElementById('emailModalAttachNote');
         const sendBtn     = document.getElementById('btnEmailModalSend');
@@ -4420,6 +4423,7 @@ class ServiceReportApp {
         // Show modal immediately with loading state
         modal.style.display = 'flex';
         recipientEl.value = '';
+        ccEl.value = '';
         subjectEl.value = 'Lädt…';
         sendBtn.disabled = true;
 
@@ -4435,10 +4439,14 @@ class ServiceReportApp {
         sendBtn.disabled = false;
 
         cancelBtn.onclick = () => { modal.style.display = 'none'; };
-        sendBtn.onclick   = () => this.sendEmailReport(recipientEl.value.trim(), subjectEl.value.trim());
+        sendBtn.onclick   = () => this.sendEmailReport(
+            recipientEl.value.trim(),
+            subjectEl.value.trim(),
+            ccEl.value.trim()
+        );
     }
 
-    async sendEmailReport(email, subject) {
+    async sendEmailReport(email, subject, cc = '') {
         if (!email) {
             this.showToast('Bitte E-Mail-Adresse eingeben');
             return;
@@ -4449,9 +4457,11 @@ class ServiceReportApp {
         sendBtn.textContent = 'Sende…';
 
         try {
+            const body = { email, subject };
+            if (cc) body.cc = cc;
             const result = await this.apiCall(`intervention/${this.currentIntervention.id}/send-email`, {
                 method: 'POST',
-                body: JSON.stringify({ email, subject })
+                body: JSON.stringify(body)
             });
 
             document.getElementById('emailModal').style.display = 'none';

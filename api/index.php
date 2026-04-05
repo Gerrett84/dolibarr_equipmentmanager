@@ -390,6 +390,7 @@ function handleIntervention($method, $parts, $input) {
     if (isset($parts[2]) && $parts[2] === 'send-email' && $method === 'POST') {
         $recipientEmail = trim($input['email'] ?? '');
         $customSubject  = trim($input['subject'] ?? '');
+        $ccEmail        = trim($input['cc'] ?? '');
 
         if (!$recipientEmail) {
             http_response_code(400);
@@ -399,6 +400,11 @@ function handleIntervention($method, $parts, $input) {
         if (!filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid email address']);
+            return;
+        }
+        if ($ccEmail && !filter_var($ccEmail, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid CC email address']);
             return;
         }
 
@@ -449,7 +455,7 @@ function handleIntervention($method, $parts, $input) {
             $attachPaths,
             $attachMimes,
             $attachNames,
-            '', '', 0, 1
+            $ccEmail, '', 0, 1
         );
 
         $result = $mailfile->sendfile();
