@@ -469,6 +469,19 @@ function handleIntervention($method, $parts, $input) {
             $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '.pdf';
         }
 
+        // Attach all completed checklist PDFs if they exist
+        $checklistDir = $docDir . '/' . dol_sanitizeFileName($fichinter->ref);
+        $checklistPdfs = array_merge(
+            glob($checklistDir . '/Checkliste_*.pdf') ?: [],
+            glob($checklistDir . '/Checklist_*.pdf') ?: [],
+            glob($checklistDir . '/Checklisten_*.pdf') ?: []
+        );
+        foreach ($checklistPdfs as $clPdf) {
+            $attachPaths[] = $clPdf;
+            $attachMimes[] = 'application/pdf';
+            $attachNames[] = basename($clPdf);
+        }
+
         // From address
         $fromEmail = getDolGlobalString('MAIN_MAIL_EMAIL_FROM') ?: ($user->email ?: 'noreply@localhost');
         $fromName  = getDolGlobalString('MAIN_MAIL_EMAIL_FROM_NAME') ?: $user->getFullName($langs);
