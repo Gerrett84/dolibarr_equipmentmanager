@@ -4415,6 +4415,7 @@ class ServiceReportApp {
         const modal       = document.getElementById('emailModal');
         const recipientEl = document.getElementById('emailModalRecipient');
         const ccEl        = document.getElementById('emailModalCC');
+        const bccEl       = document.getElementById('emailModalBCC');
         const subjectEl   = document.getElementById('emailModalSubject');
         const bodyRow     = document.getElementById('emailModalBodyRow');
         const bodyEl      = document.getElementById('emailModalBody');
@@ -4429,6 +4430,7 @@ class ServiceReportApp {
         modal.style.display = 'flex';
         recipientEl.value = '';
         ccEl.value = '';
+        bccEl.value = '';
         subjectEl.value = 'Lädt…';
         bodyEl.value = '';
         sendBtn.disabled = true;
@@ -4438,6 +4440,7 @@ class ServiceReportApp {
             recipientEl.value = info.email || '';
             subjectEl.value   = info.subject || this.currentIntervention.ref || '';
             bodyEl.value      = info.body || '';
+            bccEl.value       = info.bcc || '';
             attachNote.textContent = '📎 PDF wird automatisch angehängt';
         } catch (err) {
             subjectEl.value = this.currentIntervention.ref || '';
@@ -4450,11 +4453,12 @@ class ServiceReportApp {
             recipientEl.value.trim(),
             subjectEl.value.trim(),
             ccEl.value.trim(),
-            showBody ? bodyEl.value.trim() : ''
+            showBody ? bodyEl.value.trim() : '',
+            bccEl.value.trim()
         );
     }
 
-    async sendEmailReport(email, subject, cc = '', body = '') {
+    async sendEmailReport(email, subject, cc = '', body = '', bcc = '') {
         if (!email) {
             this.showToast('Bitte E-Mail-Adresse eingeben');
             return;
@@ -4467,6 +4471,7 @@ class ServiceReportApp {
         try {
             const payload = { email, subject };
             if (cc)   payload.cc   = cc;
+            if (bcc)  payload.bcc  = bcc;
             if (body) payload.body = body;
             const result = await this.apiCall(`intervention/${this.currentIntervention.id}/send-email`, {
                 method: 'POST',

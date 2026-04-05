@@ -403,7 +403,8 @@ function handleIntervention($method, $parts, $input) {
             'email'          => $recipientEmail,
             'recipient_name' => $recipientName,
             'subject'        => $subject,
-            'body'           => $body
+            'body'           => $body,
+            'bcc'            => $user->email ?: ''
         ]);
         return;
     }
@@ -413,6 +414,7 @@ function handleIntervention($method, $parts, $input) {
         $recipientEmail = trim($input['email'] ?? '');
         $customSubject  = trim($input['subject'] ?? '');
         $ccEmail        = trim($input['cc'] ?? '');
+        $bccEmail       = trim($input['bcc'] ?? '');
         $customBody     = trim($input['body'] ?? '');
 
         if (!$recipientEmail) {
@@ -428,6 +430,11 @@ function handleIntervention($method, $parts, $input) {
         if ($ccEmail && !filter_var($ccEmail, FILTER_VALIDATE_EMAIL)) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid CC email address']);
+            return;
+        }
+        if ($bccEmail && !filter_var($bccEmail, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid BCC email address']);
             return;
         }
 
@@ -491,7 +498,7 @@ function handleIntervention($method, $parts, $input) {
             $attachPaths,
             $attachMimes,
             $attachNames,
-            $ccEmail, '', 0, 1
+            $ccEmail, $bccEmail, 0, 1
         );
 
         $result = $mailfile->sendfile();
