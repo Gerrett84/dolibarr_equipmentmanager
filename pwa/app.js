@@ -4416,21 +4416,28 @@ class ServiceReportApp {
         const recipientEl = document.getElementById('emailModalRecipient');
         const ccEl        = document.getElementById('emailModalCC');
         const subjectEl   = document.getElementById('emailModalSubject');
+        const bodyRow     = document.getElementById('emailModalBodyRow');
+        const bodyEl      = document.getElementById('emailModalBody');
         const attachNote  = document.getElementById('emailModalAttachNote');
         const sendBtn     = document.getElementById('btnEmailModalSend');
         const cancelBtn   = document.getElementById('btnEmailModalCancel');
+
+        const showBody = localStorage.getItem('pwa_email_show_body') === 'true';
+        bodyRow.style.display = showBody ? 'block' : 'none';
 
         // Show modal immediately with loading state
         modal.style.display = 'flex';
         recipientEl.value = '';
         ccEl.value = '';
         subjectEl.value = 'Lädt…';
+        bodyEl.value = '';
         sendBtn.disabled = true;
 
         try {
             const info = await this.apiCall(`intervention/${this.currentIntervention.id}/email-info`);
             recipientEl.value = info.email || '';
             subjectEl.value   = info.subject || this.currentIntervention.ref || '';
+            bodyEl.value      = info.body || '';
             attachNote.textContent = '📎 PDF wird automatisch angehängt';
         } catch (err) {
             subjectEl.value = this.currentIntervention.ref || '';
@@ -4442,11 +4449,12 @@ class ServiceReportApp {
         sendBtn.onclick   = () => this.sendEmailReport(
             recipientEl.value.trim(),
             subjectEl.value.trim(),
-            ccEl.value.trim()
+            ccEl.value.trim(),
+            showBody ? bodyEl.value.trim() : ''
         );
     }
 
-    async sendEmailReport(email, subject, cc = '') {
+    async sendEmailReport(email, subject, cc = '', body = '') {
         if (!email) {
             this.showToast('Bitte E-Mail-Adresse eingeben');
             return;
@@ -4457,11 +4465,12 @@ class ServiceReportApp {
         sendBtn.textContent = 'Sende…';
 
         try {
-            const body = { email, subject };
-            if (cc) body.cc = cc;
+            const payload = { email, subject };
+            if (cc)   payload.cc   = cc;
+            if (body) payload.body = body;
             const result = await this.apiCall(`intervention/${this.currentIntervention.id}/send-email`, {
                 method: 'POST',
-                body: JSON.stringify(body)
+                body: JSON.stringify(payload)
             });
 
             document.getElementById('emailModal').style.display = 'none';

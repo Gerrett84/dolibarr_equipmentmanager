@@ -442,18 +442,7 @@ if (!empty($conf->totp2fa->enabled)) {
 
         <div class="card">
             <h2>📧 E-Mail</h2>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
-                <div>
-                    <div style="font-weight:500;font-size:14px;">E-Mail nach Unterschrift</div>
-                    <div class="help-text" style="margin-top:2px;">Sendeformular automatisch öffnen</div>
-                </div>
-                <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
-                    <input type="checkbox" id="toggleEmailAutoOpen" style="opacity:0;width:0;height:0;">
-                    <span id="emailAutoOpenSlider" style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:24px;transition:.2s;">
-                        <span style="position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s;display:block;" id="emailAutoOpenThumb"></span>
-                    </span>
-                </label>
-            </div>
+            <div id="emailSettingsList"></div>
         </div>
 
         <div class="card">
@@ -514,32 +503,55 @@ if (!empty($conf->totp2fa->enabled)) {
         }
 
         // Initialize
-        // Email auto-open toggle
-        function initEmailToggle() {
-            const checkbox = document.getElementById('toggleEmailAutoOpen');
-            const slider   = document.getElementById('emailAutoOpenSlider');
-            const thumb    = document.getElementById('emailAutoOpenThumb');
-            const enabled  = localStorage.getItem('pwa_email_auto_open') !== 'false'; // default: true
+        // Generic toggle row builder — stored in localStorage, default true unless defaultVal=false
+        function buildToggleRow(key, label, helpText, defaultVal = true) {
+            const on = localStorage.getItem(key) === null ? defaultVal : localStorage.getItem(key) !== 'false';
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 0;border-top:1px solid var(--border-color, #eee);';
+            row.innerHTML = `
+                <div>
+                    <div style="font-weight:500;font-size:14px;">${label}</div>
+                    ${helpText ? `<div class="help-text" style="margin-top:2px;">${helpText}</div>` : ''}
+                </div>
+                <div data-key="${key}" data-on="${on ? '1' : '0'}"
+                    style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;"
+                    onclick="toggleSetting(this)">
+                    <div style="position:absolute;inset:0;border-radius:24px;background:${on ? '#263c5c' : '#ccc'};transition:.2s;" class="tog-track"></div>
+                    <div style="position:absolute;top:3px;left:${on ? '23px' : '3px'};width:18px;height:18px;border-radius:50%;background:white;transition:.2s;" class="tog-thumb"></div>
+                </div>`;
+            return row;
+        }
 
-            function applyState(on) {
-                slider.style.background = on ? '#263c5c' : '#ccc';
-                thumb.style.transform   = on ? 'translateX(20px)' : 'translateX(0)';
-                checkbox.checked = on;
-            }
+        function toggleSetting(el) {
+            const key = el.dataset.key;
+            const nowOn = el.dataset.on !== '1';
+            el.dataset.on = nowOn ? '1' : '0';
+            localStorage.setItem(key, nowOn ? 'true' : 'false');
+            el.querySelector('.tog-track').style.background = nowOn ? '#263c5c' : '#ccc';
+            el.querySelector('.tog-thumb').style.left = nowOn ? '23px' : '3px';
+        }
 
-            applyState(enabled);
-
-            checkbox.addEventListener('change', () => {
-                localStorage.setItem('pwa_email_auto_open', checkbox.checked ? 'true' : 'false');
-                applyState(checkbox.checked);
-            });
+        function initEmailSettings() {
+            const list = document.getElementById('emailSettingsList');
+            list.appendChild(buildToggleRow(
+                'pwa_email_auto_open',
+                'E-Mail nach Unterschrift',
+                'Sendeformular automatisch öffnen',
+                true
+            ));
+            list.appendChild(buildToggleRow(
+                'pwa_email_show_body',
+                'E-Mail Inhalt anzeigen',
+                'Vorschau und Bearbeitung des E-Mail-Textes',
+                false
+            ));
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             await offlineDB.init();
             await loadStatus();
             initTheme();
-            initEmailToggle();
+            initEmailSettings();
 
             document.getElementById('settingsForm').addEventListener('submit', handleSubmit);
         });

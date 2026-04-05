@@ -371,17 +371,23 @@ function handleIntervention($method, $parts, $input) {
         $formmail = new FormMail($db);
         $template = $formmail->getEMailTemplate($db, 'fichinter_send', $user, $langs, 0, 1, '', -1);
         $subject = '';
+        $body    = '';
         if (is_object($template) && $template->id > 0) {
             $subst = getCommonSubstitutionArray($langs, 0, null, $fichinter);
             complete_substitutions_array($subst, $langs, $fichinter);
             $subject = make_substitutions($template->topic, $subst);
+            $rawBody = make_substitutions($template->content, $subst);
+            // Strip HTML tags for plain-text display in the textarea
+            $body = html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</div>', '</p>'], "\n", $rawBody)), ENT_QUOTES, 'UTF-8');
+            $body = preg_replace("/\n{3,}/", "\n\n", trim($body));
         }
 
         echo json_encode([
             'status'         => 'ok',
             'email'          => $recipientEmail,
             'recipient_name' => $recipientName,
-            'subject'        => $subject
+            'subject'        => $subject,
+            'body'           => $body
         ]);
         return;
     }
@@ -391,6 +397,7 @@ function handleIntervention($method, $parts, $input) {
         $recipientEmail = trim($input['email'] ?? '');
         $customSubject  = trim($input['subject'] ?? '');
         $ccEmail        = trim($input['cc'] ?? '');
+        $customBody     = trim($input['body'] ?? '');
 
         if (!$recipientEmail) {
             http_response_code(400);
@@ -420,8 +427,13 @@ function handleIntervention($method, $parts, $input) {
 
         $subject = $customSubject ?: (is_object($template) && $template->id > 0
             ? make_substitutions($template->topic, $subst) : $fichinter->ref);
-        $message = is_object($template) && $template->id > 0
-            ? make_substitutions($template->content, $subst) : '';
+        if ($customBody) {
+            // Client sent an edited plain-text body — convert newlines to <br>
+            $message = nl2br(dol_htmlentitiesbr($customBody));
+        } else {
+            $message = is_object($template) && $template->id > 0
+                ? make_substitutions($template->content, $subst) : '';
+        }
 
         // Find PDF: prefer signed, fallback to main
         $docDir    = getFichinterDocDir($fichinter);
