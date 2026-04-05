@@ -378,8 +378,19 @@ function handleIntervention($method, $parts, $input) {
             $subject = make_substitutions($template->topic, $subst);
             $rawBody = make_substitutions($template->content, $subst);
             // Strip HTML tags for plain-text display in the textarea
-            $body = html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</div>', '</p>'], "\n", $rawBody)), ENT_QUOTES, 'UTF-8');
-            $body = preg_replace("/\n{3,}/", "\n\n", trim($body));
+            $plainBody = str_replace(['<br>', '<br/>', '<br />', '</div>', '</p>'], "\n", $rawBody);
+            $plainBody = html_entity_decode(strip_tags($plainBody), ENT_QUOTES, 'UTF-8');
+            // Trim each line, then collapse runs of blank lines to a single blank line
+            $lines = array_map('trim', explode("\n", $plainBody));
+            $collapsed = [];
+            $prevBlank = false;
+            foreach ($lines as $line) {
+                $isBlank = ($line === '');
+                if ($isBlank && $prevBlank) continue;
+                $collapsed[] = $line;
+                $prevBlank = $isBlank;
+            }
+            $body = trim(implode("\n", $collapsed));
         }
 
         echo json_encode([
