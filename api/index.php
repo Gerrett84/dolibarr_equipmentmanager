@@ -379,9 +379,11 @@ function handleIntervention($method, $parts, $input) {
             $rawBody = make_substitutions($template->content, $subst);
             // Strip HTML tags for plain-text display in the textarea
             $plainBody = str_replace(['<br>', '<br/>', '<br />', '</div>', '</p>'], "\n", $rawBody);
+            // Replace &nbsp; before html_entity_decode so it becomes empty, not \u00A0
+            $plainBody = str_replace('&nbsp;', '', $plainBody);
             $plainBody = html_entity_decode(strip_tags($plainBody), ENT_QUOTES, 'UTF-8');
-            // Trim each line, then collapse runs of blank lines to a single blank line
-            $lines = array_map('trim', explode("\n", $plainBody));
+            // Trim each line (also strip non-breaking spaces), then collapse consecutive blank lines
+            $lines = array_map(function($l) { return trim($l, " \t\n\r\0\x0B\xc2\xa0"); }, explode("\n", $plainBody));
             $collapsed = [];
             $prevBlank = false;
             foreach ($lines as $line) {
