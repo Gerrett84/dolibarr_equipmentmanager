@@ -43,9 +43,15 @@ function equipmentmanager_completesubstitutionarray(&$substitutionarray, $output
     $substitutionarray['__INVOICE_DATE__'] = $invoiceDate;
 
     // --- Intervention start date for fichinter objects ---
+    // Fallback chain: dateo (start) → datee (end) → datec (creation)
     $fichinterDate = '';
-    if (is_object($object) && isset($object->element) && $object->element === 'fichinter' && !empty($object->dateo)) {
-        $fichinterDate = dol_print_date($object->dateo, 'day', false, $outputlangs);
+    if (is_object($object) && isset($object->element) && $object->element === 'fichinter') {
+        $dateVal = !empty($object->dateo) ? $object->dateo
+                 : (!empty($object->datee) ? $object->datee
+                 : (!empty($object->datec) ? $object->datec : null));
+        if ($dateVal) {
+            $fichinterDate = dol_print_date($dateVal, 'day', false, $outputlangs);
+        }
     }
     $substitutionarray['__FICHINTER_DATE__'] = $fichinterDate;
 

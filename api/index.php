@@ -317,7 +317,7 @@ function handleInterventions($method, $parts, $input) {
  * DELETE /intervention/{id}/documents/{filename} - Delete document
  */
 function handleIntervention($method, $parts, $input) {
-    global $db, $user;
+    global $db, $user, $langs, $conf;
 
     // Accept GET, POST, and DELETE (DELETE for document removal)
     if (!in_array($method, ['GET', 'POST', 'DELETE'])) {

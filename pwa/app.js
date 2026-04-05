@@ -1287,16 +1287,26 @@ class ServiceReportApp {
                 releaseText.textContent = 'Freigeben';
             }
 
-            // Only show signature button if released (signed_status >= 1)
+            // Show signature/email button based on signed_status
             const sigBtn = document.getElementById('navSignature');
             if (signedStatus >= 1 && signedStatus < 3) {
                 sigBtn.style.display = 'flex';
+                sigBtn.querySelector('.nav-icon').textContent = '✍️';
+                sigBtn.querySelector('span:last-child').textContent = 'Unterschrift';
+                sigBtn.onclick = null;
+                sigBtn.setAttribute('data-view', 'viewSignature');
             } else if (signedStatus >= 3) {
-                // Already signed - hide signature button
-                sigBtn.style.display = 'none';
+                // Already signed — repurpose as direct email button
+                sigBtn.style.display = 'flex';
+                sigBtn.querySelector('.nav-icon').textContent = '📧';
+                sigBtn.querySelector('span:last-child').textContent = 'E-Mail';
+                sigBtn.removeAttribute('data-view');
+                sigBtn.onclick = (e) => { e.stopPropagation(); this.showEmailModal(); };
             } else {
                 // Not released - hide signature button
                 sigBtn.style.display = 'none';
+                sigBtn.onclick = null;
+                sigBtn.setAttribute('data-view', 'viewSignature');
             }
 
             // Show acceptance protocol button if has acceptance data (v4.5)
