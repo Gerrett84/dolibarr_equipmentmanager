@@ -6,7 +6,7 @@
  *   __DELIVERY_ADDRESS_NAME__   → name of the OBJ contact on the document (or empty)
  *   __DELIVERY_ADDRESS_SUFFIX__ → " - NAME" if OBJ contact exists, otherwise ""
  *   __INVOICE_DATE__            → formatted invoice date for facture objects
- *   __FICHINTER_DATE__          → formatted start date for fichinter objects
+ *   __FICHINTER_DATE__          → formatted release/completion date for fichinter objects (date_valid)
  *   __ORDER_DATE__              → formatted order date for commande objects
  */
 
@@ -42,13 +42,14 @@ function equipmentmanager_completesubstitutionarray(&$substitutionarray, $output
     }
     $substitutionarray['__INVOICE_DATE__'] = $invoiceDate;
 
-    // --- Intervention start date for fichinter objects ---
-    // Fallback chain: dateo (start) → datee (end) → datec (creation)
+    // --- Intervention release/completion date for fichinter objects ---
+    // Primary: date_valid (release date) → fallback: dateo (start) → datee (end) → datec (creation)
     $fichinterDate = '';
     if (is_object($object) && isset($object->element) && $object->element === 'fichinter') {
-        $dateVal = !empty($object->dateo) ? $object->dateo
+        $dateVal = !empty($object->date_valid) ? $object->date_valid
+                 : (!empty($object->dateo) ? $object->dateo
                  : (!empty($object->datee) ? $object->datee
-                 : (!empty($object->datec) ? $object->datec : null));
+                 : (!empty($object->datec) ? $object->datec : null)));
         if ($dateVal) {
             $fichinterDate = dol_print_date($dateVal, 'day', false, $outputlangs);
         }
