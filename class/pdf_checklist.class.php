@@ -311,9 +311,14 @@ class pdf_checklist
             if ($soc->zip || $soc->town) $objAddr .= ', ' . trim($soc->zip . ' ' . $soc->town);
         }
 
-        // Calculate box height: header + 3 two-column rows + Objektadresse + Serviceauftrag
-        $boxHeight = 6 + ($rowH * 3) + $rowH + $rowH + 5;
-        if (!empty($equipment->location_note)) $boxHeight += 0; // fits in col2 of row2
+        // Determine optional rows
+        $hasBattery = !empty($equipment->battery_install_year);
+        $hasSmoke   = !empty($equipment->smoke_detector_install_year) && !empty($equipment->fire_protection);
+
+        // Calculate box height: header(6) + row1 + row2 + row3(Obj) + row4(SA) + optional rows + padding(5)
+        $boxHeight = 6 + $rowH + $rowH + $rowH + $rowH + 5;
+        if ($hasBattery) $boxHeight += $rowH;
+        if ($hasSmoke)   $boxHeight += $rowH;
 
         $pdf->SetDrawColor(200, 200, 200);
         $pdf->SetFillColor(250, 250, 250);
@@ -355,7 +360,39 @@ class pdf_checklist
         $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
         $posy += $rowH;
 
-        // --- Row 4 full: Serviceauftrag ---
+        // --- Row 4 (optional): Akku Einbau | Wechsel ---
+        if ($hasBattery) {
+            $batteryDate = ($equipment->battery_install_month ? sprintf('%02d', $equipment->battery_install_month).'/' : '') . $equipment->battery_install_year;
+            $pdf->SetXY($innerX, $posy);
+            $pdf->Cell($labelW, $rowH, 'Akku Einbau:', 0, 0, 'L');
+            $pdf->Cell($colW - $labelW, $rowH, $batteryDate, 0, 0, 'L');
+            if (!empty($equipment->battery_replacement_cycle)) {
+                $pdf->SetXY($x2, $posy);
+                $pdf->Cell($labelW, $rowH, 'Akku Wechsel:', 0, 0, 'L');
+                $pdf->Cell(0, $rowH, 'alle ' . $equipment->battery_replacement_cycle . ' Jahre', 0, 1, 'L');
+            } else {
+                $pdf->Ln($rowH);
+            }
+            $posy += $rowH;
+        }
+
+        // --- Row 5 (optional): Rauchmelder Einbau | Wechsel ---
+        if ($hasSmoke) {
+            $smokeDate = ($equipment->smoke_detector_install_month ? sprintf('%02d', $equipment->smoke_detector_install_month).'/' : '') . $equipment->smoke_detector_install_year;
+            $pdf->SetXY($innerX, $posy);
+            $pdf->Cell($labelW, $rowH, 'Rauchmelder Einbau:', 0, 0, 'L');
+            $pdf->Cell($colW - $labelW, $rowH, $smokeDate, 0, 0, 'L');
+            if (!empty($equipment->smoke_detector_replacement_cycle)) {
+                $pdf->SetXY($x2, $posy);
+                $pdf->Cell($labelW, $rowH, 'Rauchmelder Wechsel:', 0, 0, 'L');
+                $pdf->Cell(0, $rowH, 'alle ' . $equipment->smoke_detector_replacement_cycle . ' Jahre', 0, 1, 'L');
+            } else {
+                $pdf->Ln($rowH);
+            }
+            $posy += $rowH;
+        }
+
+        // --- Last row full: Serviceauftrag ---
         $pdf->SetXY($innerX, $posy);
         $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Intervention')).':', 0, 0, 'L');
         $pdf->Cell(0, $rowH, $intervention->ref, 0, 1, 'L');
