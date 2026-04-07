@@ -289,72 +289,77 @@ class pdf_checklist
         global $db;
 
         $default_font_size = pdf_getPDFFontSize($outputlangs);
-        $width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+        $width      = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+        $colW       = ($width - 6) / 2; // width of each column (3mm gap between)
+        $labelW     = 38;               // label part within a column
+        $rowH       = 5;
+        $innerX     = $this->marge_gauche + 3;
 
-        // Box (height depends on whether location_note exists)
-        $boxHeight = 35;
-        if (!empty($equipment->location_note)) $boxHeight += 5;
+        // Build Objektadresse from intervention thirdparty
+        $objAddr = '';
+        if (is_object($intervention->thirdparty)) {
+            $tp = $intervention->thirdparty;
+            $objAddr = $tp->name;
+            if ($tp->address) $objAddr .= ', ' . $tp->address;
+            if ($tp->zip || $tp->town) $objAddr .= ', ' . trim($tp->zip . ' ' . $tp->town);
+        } elseif (!empty($intervention->socid)) {
+            require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+            $soc = new Societe($db);
+            $soc->fetch($intervention->socid);
+            $objAddr = $soc->name;
+            if ($soc->address) $objAddr .= ', ' . $soc->address;
+            if ($soc->zip || $soc->town) $objAddr .= ', ' . trim($soc->zip . ' ' . $soc->town);
+        }
+
+        // Calculate box height: header + 3 two-column rows + Objektadresse + Serviceauftrag
+        $boxHeight = 6 + ($rowH * 3) + $rowH + $rowH + 5;
+        if (!empty($equipment->location_note)) $boxHeight += 0; // fits in col2 of row2
+
         $pdf->SetDrawColor(200, 200, 200);
         $pdf->SetFillColor(250, 250, 250);
         $pdf->Rect($this->marge_gauche, $posy, $width, $boxHeight, 'DF');
 
-        $posy += 3;
+        // --- Header row ---
+        $posy += 2;
         $pdf->SetFont('', 'B', $default_font_size);
-        $pdf->SetXY($this->marge_gauche + 3, $posy);
+        $pdf->SetXY($innerX, $posy);
         $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Equipment')), 0, 1, 'L');
         $posy += 6;
 
         $pdf->SetFont('', '', $default_font_size - 1);
+        $x2 = $this->marge_gauche + 3 + $colW + 3; // X start of right column
 
-        // Equipment number
-        $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('EquipmentNumber')).':', 0, 0, 'L');
+        // --- Row 1: Anlagen-Nummer | Bezeichnung ---
+        $pdf->SetXY($innerX, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('EquipmentNumber')).':', 0, 0, 'L');
         $pdf->SetFont('', 'B', $default_font_size - 1);
-        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->equipment_number), 0, 1, 'L');
-        $posy += 5;
-
+        $pdf->Cell($colW - $labelW, $rowH, $outputlangs->convToOutputCharset($equipment->equipment_number), 0, 0, 'L');
         $pdf->SetFont('', '', $default_font_size - 1);
+        $pdf->SetXY($x2, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
+        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($equipment->label), 0, 1, 'L');
+        $posy += $rowH;
 
-        // Label
-        $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->label), 0, 1, 'L');
-        $posy += 5;
+        // --- Row 2: Hersteller | Standort ---
+        $pdf->SetXY($innerX, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
+        $pdf->Cell($colW - $labelW, $rowH, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 0, 'L');
+        $pdf->SetXY($x2, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('LocationNote')).':', 0, 0, 'L');
+        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($equipment->location_note), 0, 1, 'L');
+        $posy += $rowH;
 
-        // Manufacturer
-        $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 1, 'L');
-        $posy += 5;
+        // --- Row 3 full: Objektadresse ---
+        $pdf->SetXY($innerX, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
+        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
+        $posy += $rowH;
 
-        // Standort (location_note)
-        if (!empty($equipment->location_note)) {
-            $pdf->SetXY($this->marge_gauche + 3, $posy);
-            $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('LocationNote')).':', 0, 0, 'L');
-            $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($equipment->location_note), 0, 1, 'L');
-            $posy += 5;
-        }
-
-        // Object Address
-        if ($equipment->fk_address > 0) {
-            require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-            $contact = new Contact($db);
-            $contact->fetch($equipment->fk_address);
-
-            $pdf->SetXY($this->marge_gauche + 3, $posy);
-            $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
-            $address_text = $contact->getFullName($outputlangs);
-            if ($contact->address) $address_text .= ', '.$contact->address;
-            if ($contact->zip || $contact->town) $address_text .= ', '.$contact->zip.' '.$contact->town;
-            $pdf->Cell(0, 4, $outputlangs->convToOutputCharset($address_text), 0, 1, 'L');
-            $posy += 5;
-        }
-
-        // Intervention ref
-        $pdf->SetXY($this->marge_gauche + 3, $posy);
-        $pdf->Cell(40, 4, $this->pdfStr($outputlangs->transnoentities('Intervention')).':', 0, 0, 'L');
-        $pdf->Cell(0, 4, $intervention->ref, 0, 1, 'L');
-        $posy += 8;
+        // --- Row 4 full: Serviceauftrag ---
+        $pdf->SetXY($innerX, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Intervention')).':', 0, 0, 'L');
+        $pdf->Cell(0, $rowH, $intervention->ref, 0, 1, 'L');
+        $posy += $rowH + 5;
 
         return $posy;
     }
