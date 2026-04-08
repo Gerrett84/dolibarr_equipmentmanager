@@ -315,8 +315,8 @@ class pdf_checklist
         $hasBattery = !empty($equipment->battery_install_year);
         $hasSmoke   = !empty($equipment->smoke_detector_install_year) && !empty($equipment->fire_protection);
 
-        // Calculate box height: header(6) + row1 + row2 + row3(Obj) + row4(SA) + optional rows + padding(5)
-        $boxHeight = 6 + $rowH + $rowH + $rowH + $rowH + 5;
+        // Calculate box height: header(6) + Objektadresse + Anlage/Standort + Hersteller/Bezeichnung + optional + padding(5)
+        $boxHeight = 6 + $rowH + $rowH + $rowH + 5;
         if ($hasBattery) $boxHeight += $rowH;
         if ($hasSmoke)   $boxHeight += $rowH;
 
@@ -334,30 +334,30 @@ class pdf_checklist
         $pdf->SetFont('', '', $default_font_size - 1);
         $x2 = $this->marge_gauche + 3 + $colW + 3; // X start of right column
 
-        // --- Row 1: Anlagen-Nummer | Bezeichnung ---
+        // --- Row 1 full: Objektadresse ---
         $pdf->SetXY($innerX, $posy);
-        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('EquipmentNumber')).':', 0, 0, 'L');
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
+        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
+        $posy += $rowH;
+
+        // --- Row 2: Anlage (Nr.) | Standort ---
+        $pdf->SetXY($innerX, $posy);
+        $pdf->Cell($labelW, $rowH, 'Anlage:', 0, 0, 'L');
         $pdf->SetFont('', 'B', $default_font_size - 1);
         $pdf->Cell($colW - $labelW, $rowH, $outputlangs->convToOutputCharset($equipment->equipment_number), 0, 0, 'L');
         $pdf->SetFont('', '', $default_font_size - 1);
-        $pdf->SetXY($x2, $posy);
-        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
-        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($equipment->label), 0, 1, 'L');
-        $posy += $rowH;
-
-        // --- Row 2: Hersteller | Standort ---
-        $pdf->SetXY($innerX, $posy);
-        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
-        $pdf->Cell($colW - $labelW, $rowH, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 0, 'L');
         $pdf->SetXY($x2, $posy);
         $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('LocationNote')).':', 0, 0, 'L');
         $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($equipment->location_note), 0, 1, 'L');
         $posy += $rowH;
 
-        // --- Row 3 full: Objektadresse ---
+        // --- Row 3: Hersteller | Bezeichnung ---
         $pdf->SetXY($innerX, $posy);
-        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
-        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Manufacturer')).':', 0, 0, 'L');
+        $pdf->Cell($colW - $labelW, $rowH, $outputlangs->convToOutputCharset($equipment->manufacturer), 0, 0, 'L');
+        $pdf->SetXY($x2, $posy);
+        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Label')).':', 0, 0, 'L');
+        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($equipment->label), 0, 1, 'L');
         $posy += $rowH;
 
         // --- Row 4 (optional): Akku Einbau | Wechsel ---
@@ -392,12 +392,7 @@ class pdf_checklist
             $posy += $rowH;
         }
 
-        // --- Last row full: Serviceauftrag ---
-        $pdf->SetXY($innerX, $posy);
-        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('Intervention')).':', 0, 0, 'L');
-        $pdf->Cell(0, $rowH, $intervention->ref, 0, 1, 'L');
-        $posy += $rowH + 5;
-
+        $posy += 5;
         return $posy;
     }
 
