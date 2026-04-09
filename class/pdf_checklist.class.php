@@ -234,28 +234,26 @@ class pdf_checklist
      */
     protected function _pagehead(&$pdf, $checklist, $equipment, $template, $intervention, $outputlangs)
     {
-        global $conf, $mysoc;
+        global $conf, $mysoc, $db;
 
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $posy = $this->marge_haute;
 
-        // Logo
+        // Logo (no company name — logo is sufficient)
         $logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
         if ($mysoc->logo && file_exists($logo)) {
             $height = pdf_getHeightForLogo($logo);
             $pdf->Image($logo, $this->marge_gauche, $posy, 0, $height);
             $posy += $height + 5;
         } else {
-            $posy += 5;
+            // Fallback: show company name only when no logo
+            $pdf->SetFont('', 'B', $default_font_size + 2);
+            $pdf->SetXY($this->marge_gauche, $posy);
+            $pdf->Cell(0, 6, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
+            $posy += 8;
         }
 
-        // Company name
-        $pdf->SetFont('', 'B', $default_font_size + 2);
-        $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->Cell(0, 6, $outputlangs->convToOutputCharset($mysoc->name), 0, 1, 'L');
-        $posy += 8;
-
-        // Title - only template label, nothing else
+        // Title bar
         $pdf->SetFont('', 'B', $default_font_size + 4);
         $pdf->SetXY($this->marge_gauche, $posy);
         $pdf->SetFillColor(240, 240, 240);
@@ -264,12 +262,34 @@ class pdf_checklist
         $pdf->Cell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 10, $title, 1, 1, 'C', true);
         $posy += 12;
 
-        // Intervention ref (left) and Date (right)
+        // Serviceauftrag (left) and Date (right)
         $pdf->SetFont('', '', $default_font_size - 1);
         $pdf->SetXY($this->marge_gauche, $posy);
         $pdf->Cell(50, 5, 'Serviceauftrag: '.$intervention->ref, 0, 0, 'L');
         $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Date')).': '.dol_print_date($checklist->date_completion, 'day'), 0, 1, 'R');
-        $posy += 7;
+        $posy += 6;
+
+        // Objektadresse — from intervention thirdparty
+        $objAddr = '';
+        if (is_object($intervention->thirdparty)) {
+            $tp = $intervention->thirdparty;
+            $objAddr = $tp->name;
+            if ($tp->address) $objAddr .= ', ' . $tp->address;
+            if ($tp->zip || $tp->town) $objAddr .= ', ' . trim($tp->zip . ' ' . $tp->town);
+        } elseif (!empty($intervention->socid)) {
+            require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+            $soc = new Societe($db);
+            $soc->fetch($intervention->socid);
+            $objAddr = $soc->name;
+            if ($soc->address) $objAddr .= ', ' . $soc->address;
+            if ($soc->zip || $soc->town) $objAddr .= ', ' . trim($soc->zip . ' ' . $soc->town);
+        }
+        if ($objAddr) {
+            $pdf->SetXY($this->marge_gauche, $posy);
+            $pdf->Cell(30, 5, 'Objektadresse:', 0, 0, 'L');
+            $pdf->Cell(0, 5, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
+            $posy += 6;
+        }
 
         return $posy;
     }
@@ -286,8 +306,6 @@ class pdf_checklist
      */
     protected function _drawEquipmentInfo(&$pdf, $equipment, $intervention, $outputlangs, $posy)
     {
-        global $db;
-
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         $width      = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
         $colW       = ($width - 6) / 2; // width of each column (3mm gap between)
@@ -295,28 +313,12 @@ class pdf_checklist
         $rowH       = 5;
         $innerX     = $this->marge_gauche + 3;
 
-        // Build Objektadresse from intervention thirdparty
-        $objAddr = '';
-        if (is_object($intervention->thirdparty)) {
-            $tp = $intervention->thirdparty;
-            $objAddr = $tp->name;
-            if ($tp->address) $objAddr .= ', ' . $tp->address;
-            if ($tp->zip || $tp->town) $objAddr .= ', ' . trim($tp->zip . ' ' . $tp->town);
-        } elseif (!empty($intervention->socid)) {
-            require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
-            $soc = new Societe($db);
-            $soc->fetch($intervention->socid);
-            $objAddr = $soc->name;
-            if ($soc->address) $objAddr .= ', ' . $soc->address;
-            if ($soc->zip || $soc->town) $objAddr .= ', ' . trim($soc->zip . ' ' . $soc->town);
-        }
-
         // Determine optional rows
         $hasBattery = !empty($equipment->battery_install_year);
         $hasSmoke   = !empty($equipment->smoke_detector_install_year) && !empty($equipment->fire_protection);
 
-        // Calculate box height: header(6) + Objektadresse + Anlage/Standort + Hersteller/Bezeichnung + optional + padding(5)
-        $boxHeight = 6 + $rowH + $rowH + $rowH + 5;
+        // Calculate box height: 2 fixed rows + optional + padding(4)
+        $boxHeight = $rowH + $rowH + 4;
         if ($hasBattery) $boxHeight += $rowH;
         if ($hasSmoke)   $boxHeight += $rowH;
 
@@ -324,23 +326,11 @@ class pdf_checklist
         $pdf->SetFillColor(250, 250, 250);
         $pdf->Rect($this->marge_gauche, $posy, $width, $boxHeight, 'DF');
 
-        // --- Header row ---
         $posy += 2;
-        $pdf->SetFont('', 'B', $default_font_size);
-        $pdf->SetXY($innerX, $posy);
-        $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Equipment')), 0, 1, 'L');
-        $posy += 6;
-
         $pdf->SetFont('', '', $default_font_size - 1);
         $x2 = $this->marge_gauche + 3 + $colW + 3; // X start of right column
 
-        // --- Row 1 full: Objektadresse ---
-        $pdf->SetXY($innerX, $posy);
-        $pdf->Cell($labelW, $rowH, $this->pdfStr($outputlangs->transnoentities('ObjectAddress')).':', 0, 0, 'L');
-        $pdf->Cell(0, $rowH, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
-        $posy += $rowH;
-
-        // --- Row 2: Anlage (Nr.) | Standort ---
+        // --- Row 1: Anlage (Nr.) | Standort ---
         $pdf->SetXY($innerX, $posy);
         $pdf->Cell($labelW, $rowH, 'Anlage:', 0, 0, 'L');
         $pdf->SetFont('', 'B', $default_font_size - 1);
