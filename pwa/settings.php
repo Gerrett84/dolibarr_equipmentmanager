@@ -441,6 +441,11 @@ if (!empty($conf->totp2fa->enabled)) {
         </div>
 
         <div class="card">
+            <h2>📧 E-Mail</h2>
+            <div id="emailSettingsList"></div>
+        </div>
+
+        <div class="card">
             <h2>Offline-Daten</h2>
             <p class="help-text" style="margin-top:0;">
                 Löscht alle lokal gespeicherten Daten (Aufträge, Anlagen, Einträge). Login-Daten bleiben erhalten.
@@ -498,10 +503,55 @@ if (!empty($conf->totp2fa->enabled)) {
         }
 
         // Initialize
+        // Generic toggle row builder — stored in localStorage, default true unless defaultVal=false
+        function buildToggleRow(key, label, helpText, defaultVal = true) {
+            const on = localStorage.getItem(key) === null ? defaultVal : localStorage.getItem(key) !== 'false';
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 0;border-top:1px solid var(--border-color, #eee);';
+            row.innerHTML = `
+                <div>
+                    <div style="font-weight:500;font-size:14px;">${label}</div>
+                    ${helpText ? `<div class="help-text" style="margin-top:2px;">${helpText}</div>` : ''}
+                </div>
+                <div data-key="${key}" data-on="${on ? '1' : '0'}"
+                    style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;"
+                    onclick="toggleSetting(this)">
+                    <div style="position:absolute;inset:0;border-radius:24px;background:${on ? '#263c5c' : '#ccc'};transition:.2s;" class="tog-track"></div>
+                    <div style="position:absolute;top:3px;left:${on ? '23px' : '3px'};width:18px;height:18px;border-radius:50%;background:white;transition:.2s;" class="tog-thumb"></div>
+                </div>`;
+            return row;
+        }
+
+        function toggleSetting(el) {
+            const key = el.dataset.key;
+            const nowOn = el.dataset.on !== '1';
+            el.dataset.on = nowOn ? '1' : '0';
+            localStorage.setItem(key, nowOn ? 'true' : 'false');
+            el.querySelector('.tog-track').style.background = nowOn ? '#263c5c' : '#ccc';
+            el.querySelector('.tog-thumb').style.left = nowOn ? '23px' : '3px';
+        }
+
+        function initEmailSettings() {
+            const list = document.getElementById('emailSettingsList');
+            list.appendChild(buildToggleRow(
+                'pwa_email_auto_open',
+                'E-Mail nach Unterschrift',
+                'Sendeformular automatisch öffnen',
+                true
+            ));
+            list.appendChild(buildToggleRow(
+                'pwa_email_show_body',
+                'E-Mail Inhalt anzeigen <span style="font-size:11px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">Beta</span>',
+                'Vorschau und Bearbeitung – Formatierung kann abweichen',
+                false
+            ));
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             await offlineDB.init();
             await loadStatus();
             initTheme();
+            initEmailSettings();
 
             document.getElementById('settingsForm').addEventListener('submit', handleSubmit);
         });

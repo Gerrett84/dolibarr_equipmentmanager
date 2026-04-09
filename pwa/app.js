@@ -662,7 +662,7 @@ class ServiceReportApp {
                 `;
                 saveBtn.style.display = 'none';
             } else if (signedStatus >= 3) {
-                // Already signed
+                // Already signed — show email button
                 signatureCard.innerHTML = `
                     <div class="card-header">
                         <h3 class="card-title">Kundenunterschrift</h3>
@@ -672,9 +672,13 @@ class ServiceReportApp {
                             <div class="empty-icon">✅</div>
                             <p>Unterschrift bereits vorhanden</p>
                         </div>
+                        <button type="button" class="btn btn-primary btn-block" id="btnSendEmailSigned" style="margin-top:12px;">
+                            📧 Servicebericht per E-Mail senden
+                        </button>
                     </div>
                 `;
                 saveBtn.style.display = 'none';
+                document.getElementById('btnSendEmailSigned').addEventListener('click', () => this.showEmailModal());
             } else {
                 // Released - show Online Sign option
                 this.showOnlineSignOption(signatureCard, saveBtn);
@@ -1283,16 +1287,26 @@ class ServiceReportApp {
                 releaseText.textContent = 'Freigeben';
             }
 
-            // Only show signature button if released (signed_status >= 1)
+            // Show signature/email button based on signed_status
             const sigBtn = document.getElementById('navSignature');
             if (signedStatus >= 1 && signedStatus < 3) {
                 sigBtn.style.display = 'flex';
+                sigBtn.querySelector('.nav-icon').textContent = '✍️';
+                sigBtn.querySelector('span:last-child').textContent = 'Unterschrift';
+                sigBtn.onclick = null;
+                sigBtn.setAttribute('data-view', 'viewSignature');
             } else if (signedStatus >= 3) {
-                // Already signed - hide signature button
-                sigBtn.style.display = 'none';
+                // Already signed — repurpose as direct email button
+                sigBtn.style.display = 'flex';
+                sigBtn.querySelector('.nav-icon').textContent = '📧';
+                sigBtn.querySelector('span:last-child').textContent = 'E-Mail';
+                sigBtn.removeAttribute('data-view');
+                sigBtn.onclick = (e) => { e.stopPropagation(); this.showEmailModal(); };
             } else {
                 // Not released - hide signature button
                 sigBtn.style.display = 'none';
+                sigBtn.onclick = null;
+                sigBtn.setAttribute('data-view', 'viewSignature');
             }
 
             // Show acceptance protocol button if has acceptance data (v4.5)
@@ -1373,6 +1387,24 @@ class ServiceReportApp {
                 const statusIcon = isProcessed ? '✅' : '🚪';
                 const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
 
+                const hasData = eq.detail && (eq.detail.work_done || eq.detail.issues_found || eq.detail.notes || eq.detail.recommendations);
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = '🗑️';
+                removeBtn.style.cssText = 'background:none;border:none;font-size:18px;padding:4px 8px;flex-shrink:0;';
+                if (hasData) {
+                    removeBtn.title = 'Nicht löschbar – Anlage hat bereits Einträge';
+                    removeBtn.style.opacity = '0.2';
+                    removeBtn.style.cursor = 'not-allowed';
+                } else {
+                    removeBtn.title = 'Anlage entfernen';
+                    removeBtn.style.opacity = '0.6';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.unlinkEquipment(eq);
+                    });
+                }
+
                 item.innerHTML = `
                     <div class="equipment-icon">${statusIcon}</div>
                     <div class="equipment-info">
@@ -1382,6 +1414,7 @@ class ServiceReportApp {
                     </div>
                     ${linkTypeBadge}
                 `;
+                item.appendChild(removeBtn);
                 if (isProcessed) {
                     item.style.borderLeft = '3px solid #4caf50';
                 }
@@ -2481,24 +2514,27 @@ class ServiceReportApp {
                         signer_name: signerName
                     })
                 });
-                this.showToast('Unterschrift gespeichert - Auftrag abgeschlossen');
                 this.currentIntervention.signed_status = 3;
                 this.currentIntervention.status = 3; // Closed
-
-                // Reload interventions list to reflect new status
                 await this.loadInterventions();
+
+                // Offer to send email (if auto-open enabled in settings, default: true)
+                this.showToast('Unterschrift gespeichert – Auftrag abgeschlossen');
+                this.showView('viewInterventions');
+                if (localStorage.getItem('pwa_email_auto_open') !== 'false') {
+                    setTimeout(() => this.showEmailModal(), 600);
+                }
             } catch (err) {
                 // Sync failed — saved in queue, show persistent warning
                 this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
                 this.updateSyncBadge();
+                this.showView('viewInterventions');
             }
         } else {
             this.showToast('⚠️ Offline gespeichert – Sync ausstehend!', 6000);
             this.updateSyncBadge();
+            this.showView('viewInterventions');
         }
-
-        // Go back to interventions list
-        this.showView('viewInterventions');
     }
 
     // Sync data with server
@@ -4228,6 +4264,114 @@ class ServiceReportApp {
         locationEl.onclick = () => this.editEquipmentField('location_note', 'Standort', equipment.location || '');
         manufacturerEl.onclick = () => this.editEquipmentField('manufacturer', 'Hersteller', equipment.manufacturer || '');
         serialEl.onclick = () => this.editEquipmentField('serial_number', 'Seriennummer', equipment.serial_number || '');
+
+        // Helper: format month/year
+        const monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+        const formatMonthYear = (month, year) => {
+            if (!year) return '-';
+            const mName = (month >= 1 && month <= 12) ? monthNames[month - 1] + ' ' : '';
+            return mName + year;
+        };
+
+        const type = equipment.type;
+        const fireProtActive = (equipment.fire_protection == 1);
+        const showBattery  = (type === 'door_sliding');
+        const showFireProt = (type === 'door_swing');
+        const showSmoke    = (type === 'hold_open' || type === 'fire_gate') || (type === 'door_swing' && fireProtActive);
+
+        // Battery rows
+        const batteryRow      = document.getElementById('eqDetailBatteryRow');
+        const batteryCycleRow = document.getElementById('eqDetailBatteryCycleRow');
+        const batteryDateEl   = document.getElementById('eqDetailBatteryDate');
+        const batteryCycleEl  = document.getElementById('eqDetailBatteryCycle');
+        if (showBattery) {
+            batteryDateEl.textContent = formatMonthYear(equipment.battery_install_month, equipment.battery_install_year);
+            batteryCycleEl.textContent = equipment.battery_replacement_cycle ? equipment.battery_replacement_cycle + ' J.' : '-';
+            batteryRow.style.display = '';
+            batteryCycleRow.style.display = '';
+            batteryDateEl.style.background = 'var(--input-bg)';
+            batteryDateEl.style.border = '1px dashed var(--border-color)';
+            batteryDateEl.onclick = () => this.editEquipmentInstallDate('battery', equipment);
+        } else {
+            batteryRow.style.display = 'none';
+            batteryCycleRow.style.display = 'none';
+        }
+
+        // Brandschutz row
+        const fireProtRow = document.getElementById('eqDetailFireProtRow');
+        const fireProtEl  = document.getElementById('eqDetailFireProt');
+        if (showFireProt) {
+            fireProtEl.textContent = fireProtActive ? 'Ja' : 'Nein';
+            fireProtRow.style.display = '';
+        } else {
+            fireProtRow.style.display = 'none';
+        }
+
+        // Smoke detector rows
+        const smokeRow      = document.getElementById('eqDetailSmokeRow');
+        const smokeCycleRow = document.getElementById('eqDetailSmokeCycleRow');
+        const smokeDateEl   = document.getElementById('eqDetailSmokeDate');
+        const smokeCycleEl  = document.getElementById('eqDetailSmokeCycle');
+        if (showSmoke) {
+            smokeDateEl.textContent = formatMonthYear(equipment.smoke_detector_install_month, equipment.smoke_detector_install_year);
+            smokeCycleEl.textContent = equipment.smoke_detector_replacement_cycle ? equipment.smoke_detector_replacement_cycle + ' J.' : '-';
+            smokeRow.style.display = '';
+            smokeCycleRow.style.display = '';
+            smokeDateEl.style.background = 'var(--input-bg)';
+            smokeDateEl.style.border = '1px dashed var(--border-color)';
+            smokeDateEl.onclick = () => this.editEquipmentInstallDate('smoke_detector', equipment);
+        } else {
+            smokeRow.style.display = 'none';
+            smokeCycleRow.style.display = 'none';
+        }
+    }
+
+    // Edit install date (month+year) for battery or smoke_detector
+    async editEquipmentInstallDate(prefix, equipment) {
+        const label = prefix === 'battery' ? 'Einbaujahr Akku' : 'Einbaujahr Rauchmelder';
+        const monthField = prefix + '_install_month';
+        const yearField  = prefix + '_install_year';
+        const currentMonth = equipment[monthField] || '';
+        const currentYear  = equipment[yearField] || '';
+        const currentVal   = currentMonth && currentYear ? currentMonth + '/' + currentYear
+                           : currentYear ? currentYear : '';
+
+        const input = prompt(label + ' (MM/JJJJ oder JJJJ):', currentVal);
+        if (input === null) return;
+
+        let month = null, year = null;
+        const trimmed = input.trim();
+        if (trimmed) {
+            const parts = trimmed.split('/');
+            if (parts.length === 2) {
+                month = parseInt(parts[0], 10) || null;
+                year  = parseInt(parts[1], 10) || null;
+            } else {
+                year = parseInt(trimmed, 10) || null;
+            }
+            if (month !== null && (month < 1 || month > 12)) month = null;
+        }
+
+        try {
+            const body = {};
+            body[monthField] = month;
+            body[yearField]  = year;
+            const result = await this.apiCall(`equipment/${this.currentEquipment.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(body)
+            });
+            if (result.status === 'ok') {
+                this.currentEquipment[monthField] = month;
+                this.currentEquipment[yearField]  = year;
+                this.renderEquipmentDetails(this.currentEquipment);
+                this.showToast(label + ' aktualisiert');
+            } else {
+                this.showToast('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Failed to update install date:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
     }
 
     // Edit equipment field via prompt
@@ -4262,6 +4406,116 @@ class ServiceReportApp {
             }
         } catch (err) {
             console.error('Failed to update equipment:', err);
+            this.showToast('Fehler: ' + err.message);
+        }
+    }
+
+    // Show send-email modal, pre-filled with recipient + subject from API
+    async showEmailModal() {
+        const modal       = document.getElementById('emailModal');
+        const recipientEl = document.getElementById('emailModalRecipient');
+        const ccEl        = document.getElementById('emailModalCC');
+        const bccEl       = document.getElementById('emailModalBCC');
+        const subjectEl   = document.getElementById('emailModalSubject');
+        const bodyRow     = document.getElementById('emailModalBodyRow');
+        const bodyEl      = document.getElementById('emailModalBody');
+        const attachNote  = document.getElementById('emailModalAttachNote');
+        const sendBtn     = document.getElementById('btnEmailModalSend');
+        const cancelBtn   = document.getElementById('btnEmailModalCancel');
+
+        const showBody = localStorage.getItem('pwa_email_show_body') === 'true';
+        bodyRow.style.display = showBody ? 'block' : 'none';
+
+        // Show modal immediately with loading state
+        modal.style.display = 'flex';
+        recipientEl.value = '';
+        ccEl.value = '';
+        bccEl.value = '';
+        subjectEl.value = 'Lädt…';
+        bodyEl.value = '';
+        sendBtn.disabled = true;
+
+        try {
+            const info = await this.apiCall(`intervention/${this.currentIntervention.id}/email-info`);
+            recipientEl.value = info.email || '';
+            subjectEl.value   = info.subject || this.currentIntervention.ref || '';
+            bodyEl.value      = info.body || '';
+            bccEl.value       = info.bcc || '';
+            attachNote.textContent = '📎 PDF wird automatisch angehängt';
+        } catch (err) {
+            subjectEl.value = this.currentIntervention.ref || '';
+            attachNote.textContent = '';
+        }
+        sendBtn.disabled = false;
+
+        cancelBtn.onclick = () => { modal.style.display = 'none'; };
+        sendBtn.onclick   = () => this.sendEmailReport(
+            recipientEl.value.trim(),
+            subjectEl.value.trim(),
+            ccEl.value.trim(),
+            showBody ? bodyEl.value.trim() : '',
+            bccEl.value.trim()
+        );
+    }
+
+    async sendEmailReport(email, subject, cc = '', body = '', bcc = '') {
+        if (!email) {
+            this.showToast('Bitte E-Mail-Adresse eingeben');
+            return;
+        }
+
+        const sendBtn = document.getElementById('btnEmailModalSend');
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sende…';
+
+        try {
+            const payload = { email, subject };
+            if (cc)   payload.cc   = cc;
+            if (bcc)  payload.bcc  = bcc;
+            if (body) payload.body = body;
+            const result = await this.apiCall(`intervention/${this.currentIntervention.id}/send-email`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            document.getElementById('emailModal').style.display = 'none';
+            if (result.status === 'ok') {
+                this.showToast(result.attached ? '📧 E-Mail mit PDF gesendet' : '📧 E-Mail gesendet');
+            } else {
+                this.showToast('Fehler beim Senden');
+            }
+        } catch (err) {
+            this.showToast('Fehler: ' + err.message);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Senden';
+        }
+    }
+
+    // Remove equipment link from current intervention
+    async unlinkEquipment(eq) {
+        if (!confirm(`Anlage "${eq.ref} – ${eq.label || ''}" aus diesem Serviceauftrag entfernen?`)) {
+            return;
+        }
+
+        try {
+            const result = await this.apiCall('link-equipment', {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    intervention_id: this.currentIntervention.id,
+                    equipment_id: eq.id
+                })
+            });
+
+            if (result.status === 'ok') {
+                this.showToast('Anlage entfernt');
+                // Reload equipment list
+                this.loadEquipment(this.currentIntervention);
+            } else {
+                this.showToast('Fehler beim Entfernen');
+            }
+        } catch (err) {
+            console.error('Failed to unlink equipment:', err);
             this.showToast('Fehler: ' + err.message);
         }
     }

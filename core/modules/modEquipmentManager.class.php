@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '4.8.1';
+        $this->version = '5.0.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -33,6 +33,7 @@ class modEquipmentManager extends DolibarrModules
         // Tell Dolibarr this module provides PDF templates for fichinter
         $this->module_parts = array(
             'models' => 1,  // This module provides document templates
+            'substitutions' => 1, // Custom substitution variables (OBJ address, invoice date)
             'hooks' => array(
                 'toprightmenu',      // Hook for adding to top right menu
                 'formmail',          // Hook for auto-attaching PDFs to emails
@@ -116,7 +117,7 @@ class modEquipmentManager extends DolibarrModules
             'prefix' => '<span class="fa fa-wrench fa-fw paddingright pictofixedwidth"></span>',
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
-            'url' => '/equipmentmanager/maintenance_dashboard.php',
+            'url' => '/equipmentmanager/service_order_list.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
@@ -126,7 +127,77 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 1: Wartungs-Übersicht (Parent)
+        // Überschrift 1: Serviceaufträge (Parent) — v5
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'ServiceOrders',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_service',
+            'url' => '/equipmentmanager/service_order_list.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Neuer Serviceauftrag
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_service',
+            'type' => 'left',
+            'titre' => 'NewServiceOrder',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/fichinter/card.php?action=create',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Liste
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_service',
+            'type' => 'left',
+            'titre' => 'ServiceOrderList',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/service_order_list.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Statistik
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_service',
+            'type' => 'left',
+            'titre' => 'Statistics',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/fichinter/stats/index.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 2: Wartungs-Übersicht (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -196,7 +267,7 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 2: Anlagenliste (Parent)
+        // Überschrift 3: Anlagenliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -206,6 +277,23 @@ class modEquipmentManager extends DolibarrModules
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => 'equipmentmanager_equipment',
             'url' => '/equipmentmanager/equipment_list.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Mehrere Anlagen anlegen
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_equipment',
+            'type' => 'left',
+            'titre' => 'BulkCreateEquipment',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/equipment_bulk_create.php',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',

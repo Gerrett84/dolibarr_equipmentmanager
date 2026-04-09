@@ -11,7 +11,7 @@ Permission500105=Serviceberichte erstellen/bearbeiten
 Permission500106=Serviceberichte löschen
 
 # Menu
-Equipment=Anlagen
+Equipment=EQ
 EquipmentList=Anlagenliste
 NewEquipment=Neue Anlage
 EquipmentByAddress=Anlagen nach Objektadresse
@@ -95,7 +95,7 @@ Permission500106=Serviceberichte löschen
 
 # Menu
 
-Equipment=Anlagen
+Equipment=EQ
 EquipmentList=Anlagenliste
 NewEquipment=Neue Anlage
 EquipmentByAddress=Anlagen nach Objektadresse
@@ -704,3 +704,38 @@ NoAcceptanceData=Keine Anlagen mit Inbetriebnahme/Abnahme gefunden
 
 # v4.8.1 - Leistungsdatum
 Leistungsdatum=Leistungszeitraum
+
+# v5.0 - Service overview
+ServiceOrders=Serviceaufträge
+NewServiceOrder=Neuer Serviceauftrag
+ServiceOrderList=Liste
+ServiceOrderListColumns=Spalten der Serviceauftrags-Liste
+ServiceOrderColObjAddress=Objektadresse
+ServiceOrderColNbAnlagen=Anzahl Anlagen
+ServiceOrderColTypes=Anlagentypen
+ServiceOrderColDescription=Beschreibung
+ServiceOrderColTech=Techniker
+ServiceOrderStatusAll=Alle
+ServiceOrderStatusDraft=Entwurf
+ServiceOrderStatusOpen=Offen
+ServiceOrderStatusBilled=Abrechnen
+ServiceOrderStatusClosed=Abgeschlossen
+ServiceOrderTechName=Techniker
+NoServiceOrders=Keine Serviceaufträge gefunden
+
+# v5.0 - Type-specific equipment fields
+BatteryInstallDate=Einbaujahr Akku
+BatteryReplacementCycle=Tauschzyklus Akku
+SmokeDetectorInstallDate=Einbaujahr Rauchmelder
+SmokeDetectorReplacementCycle=Tauschzyklus Rauchmelder
+YearsUnit=Jahre
+FireProtection=Brandschutz
+Yes=Ja
+No=Nein
+
+# v5.0 - Bulk Equipment Create
+BulkCreateEquipment=Mehrere Anlagen anlegen
+BulkCreateQty=Anzahl
+BulkCreateSubmit=Anlagen jetzt erstellen
+BulkCreateSuccess=%s Anlagen wurden erfolgreich erstellt
+BulkCreateLabelHint=Leer lassen für automatische Bezeichnung (Typ-Name)

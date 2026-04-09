@@ -70,6 +70,24 @@ if ($action == 'save') {
     exit;
 }
 
+// Save service order list column settings
+if ($action == 'save_sol_columns') {
+    $cols = array(
+        'EQUIPMENTMANAGER_SOL_COL_OBJADDRESS',
+        'EQUIPMENTMANAGER_SOL_COL_NBANLAGEN',
+        'EQUIPMENTMANAGER_SOL_COL_TYPES',
+        'EQUIPMENTMANAGER_SOL_COL_DESCRIPTION',
+        'EQUIPMENTMANAGER_SOL_COL_TECH',
+    );
+    foreach ($cols as $key) {
+        $val = GETPOST($key, 'int') ? '1' : '0';
+        dolibarr_set_const($db, $key, $val, 'chaine', 0, '', $conf->entity);
+    }
+    setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 // Set PDF model for interventions
 if ($action == 'setmodel') {
     $value = GETPOST('value', 'alpha');
@@ -299,6 +317,39 @@ print '<td>'.$langs->trans("ManageEquipmentAndServiceReports").'</td>';
 print '</tr>';
 
 print '</table>';
+print '</div>';
+print '<br>';
+
+// Service Order List Column Settings
+print '<div class="div-table-responsive-no-min">';
+print '<form action="'.$_SERVER["PHP_SELF"].'" method="POST">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_sol_columns">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td colspan="2"><span class="fa fa-list-ul paddingright"></span>'.$langs->trans("ServiceOrderListColumns").'</td>';
+print "</tr>\n";
+
+$solCols = array(
+    'EQUIPMENTMANAGER_SOL_COL_OBJADDRESS'  => array('label' => $langs->trans('ServiceOrderColObjAddress'),  'default' => '1'),
+    'EQUIPMENTMANAGER_SOL_COL_NBANLAGEN'   => array('label' => $langs->trans('ServiceOrderColNbAnlagen'),   'default' => '0'),
+    'EQUIPMENTMANAGER_SOL_COL_TYPES'       => array('label' => $langs->trans('ServiceOrderColTypes'),       'default' => '0'),
+    'EQUIPMENTMANAGER_SOL_COL_DESCRIPTION' => array('label' => $langs->trans('ServiceOrderColDescription'), 'default' => '0'),
+    'EQUIPMENTMANAGER_SOL_COL_TECH'        => array('label' => $langs->trans('ServiceOrderColTech'),        'default' => '1'),
+);
+foreach ($solCols as $key => $def) {
+    $checked = getDolGlobalString($key, $def['default']) != '0' ? ' checked' : '';
+    print '<tr class="oddeven">';
+    print '<td>'.$def['label'].'</td>';
+    print '<td><input type="checkbox" name="'.$key.'" value="1"'.$checked.'></td>';
+    print '</tr>';
+}
+
+print '<tr class="oddeven">';
+print '<td colspan="2" class="right"><input type="submit" class="button button-save" value="'.$langs->trans("Save").'"></td>';
+print '</tr>';
+print '</table>';
+print '</form>';
 print '</div>';
 print '<br>';
 

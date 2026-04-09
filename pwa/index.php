@@ -2230,6 +2230,29 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                             <span style="color:var(--text-muted);">Seriennummer:</span>
                             <div id="eqDetailSerial" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
                         </div>
+                        <!-- Battery fields (door_sliding only) -->
+                        <div id="eqDetailBatteryRow" style="display:none;grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Einbaujahr Akku:</span>
+                            <div id="eqDetailBatteryDate" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div id="eqDetailBatteryCycleRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Tauschzyklus Akku:</span>
+                            <div id="eqDetailBatteryCycle" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
+                        <!-- Brandschutz (door_swing only) -->
+                        <div id="eqDetailFireProtRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Brandschutz:</span>
+                            <div id="eqDetailFireProt" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
+                        <!-- Smoke detector fields -->
+                        <div id="eqDetailSmokeRow" style="display:none;grid-column:span 2;">
+                            <span style="color:var(--text-muted);">Einbaujahr Rauchmelder:</span>
+                            <div id="eqDetailSmokeDate" class="eq-detail-value" style="cursor:pointer;padding:4px;border-radius:4px;">-</div>
+                        </div>
+                        <div id="eqDetailSmokeCycleRow" style="display:none;">
+                            <span style="color:var(--text-muted);">Tauschzyklus Rauchmelder:</span>
+                            <div id="eqDetailSmokeCycle" class="eq-detail-value" style="padding:4px;">-</div>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body" style="padding:0;">
@@ -2684,5 +2707,37 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
     </script>
     <?php endif; ?>
+
+    <!-- Email Send Modal -->
+    <div id="emailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--bg-primary);border-radius:12px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 16px;font-size:17px;">📧 Servicebericht senden</h3>
+            <div class="form-group">
+                <label class="form-label">Empfänger</label>
+                <input type="email" class="form-input" id="emailModalRecipient" placeholder="email@beispiel.de">
+            </div>
+            <div class="form-group">
+                <label class="form-label">CC <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+                <input type="email" class="form-input" id="emailModalCC" placeholder="cc@beispiel.de">
+            </div>
+            <div class="form-group">
+                <label class="form-label">BCC <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+                <input type="email" class="form-input" id="emailModalBCC" placeholder="bcc@beispiel.de">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Betreff</label>
+                <input type="text" class="form-input" id="emailModalSubject" placeholder="Betreff">
+            </div>
+            <div id="emailModalAttachNote" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+            <div id="emailModalBodyRow" style="display:none;margin-top:12px;">
+                <label class="form-label">E-Mail Inhalt</label>
+                <textarea id="emailModalBody" class="form-input" rows="6" style="resize:vertical;font-size:13px;line-height:1.5;"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:20px;">
+                <button type="button" class="btn" id="btnEmailModalCancel" style="flex:1;background:var(--bg-secondary);color:var(--text-primary);">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="btnEmailModalSend" style="flex:1;">Senden</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
