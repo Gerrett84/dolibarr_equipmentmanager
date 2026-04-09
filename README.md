@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 4.8.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,21 @@
 -----
 
 ## Features
+
+### NEU in v5.0: E-Mail-Versand, Checklisten-PDF & Anlagetyp-Felder
+
+- **E-Mail nach Unterschrift** – Nach der Kundenunterschrift öffnet sich automatisch ein E-Mail-Modal; Servicebericht und kombinierte Checklisten-PDF werden automatisch angehängt
+- **E-Mail CC/BCC** – CC-Feld im Modal, BCC automatisch mit Techniker-E-Mail vorausgefüllt
+- **Body-Vorschau** – E-Mail-Text aus Dolibarr-Vorlage mit Substitutionsvariablen vorschaubar und editierbar (Beta)
+- **Neue Substitutionsvariablen** – `__FICHINTER_DATE__` (Freigabedatum), `__ORDER_DATE__` (Auftragsdatum) für E-Mail-Vorlagen
+- **Typ-spezifische Anlagefelder** – Eigene Felder pro Anlagentyp: Akku-Info für Brandschutztüren/RWA/RWS, Rauchmelder-Anzahl, Brandschutz Ja/Nein für Drehtüranlagen
+- **Anlagenfelder in PWA** – Akku und Rauchmelder-Felder direkt in der PWA sichtbar und editierbar
+- **Anlage aus Serviceauftrag entfernen** – Anlagen können in der PWA aus dem Auftrag entfernt werden; Entfernung wird gesperrt solange Einträge existieren
+- **Bulk-Anlagenerstellung** – Neue Seite zur Massenanlage von Geräten für einen Kunden inkl. Wartungsvertrag-Pflichtfeld
+- **Checklisten-PDF überarbeitet** – 2-Spalten-Layout, Objektadresse im Header, kompakte Equipment-Box (Anlage/Standort, Hersteller/Bezeichnung, optionale Akku/Rauchmelder-Zeilen)
+- **Serviceauftragsliste** – Neue deduplizierte Liste unter eigenem Menüpunkt; konfigurierbare Spalten, Objektadresse-Spalte, Status-Sortierung
+- **Statistik** – Neuer Statistik-Link im Serviceaufträge-Menü
+- **Dark Mode** – Anlagentyp-Badges korrekt im Dark Mode dargestellt
 
 ### NEU in v4.8: PWA PDF-Viewer & Offline-Stabilität
 
@@ -203,6 +218,21 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.0.0 (2026-04-09)
+
+- **E-Mail nach Unterschrift** – Nach Kundenunterschrift öffnet sich automatisch das E-Mail-Modal; Servicebericht-PDF und kombinierte Checklisten-PDF (`Checklisten_{ref}.pdf`) werden automatisch angehängt
+- **E-Mail CC/BCC** – CC-Feld frei editierbar; BCC wird automatisch mit der E-Mail-Adresse des eingeloggten Technikers vorausgefüllt
+- **E-Mail Body-Vorschau** – Text aus Dolibarr-Vorlage `fichinter_send` inkl. Substitutionsvariablen vorschaubar und direkt im Modal editierbar (Beta)
+- **Neue Substitutionsvariablen** – `__FICHINTER_DATE__` (Freigabedatum via `date_valid`), `__ORDER_DATE__` (Auftragsdatum) für Dolibarr E-Mail-Vorlagen
+- **Typ-spezifische Anlagefelder** – Akku-Typ/Kapazität für Brandschutztüren, RWA, RWS; Rauchmelder-Anzahl für RWA/RWS; Brandschutz Ja/Nein für Drehtüranlagen
+- **Anlagefelder in PWA** – Akku- und Rauchmelder-Felder in der Anlagendetailansicht der PWA anzeigbar und editierbar
+- **Anlage entfernen in PWA** – Anlagen können aus Serviceaufträgen entfernt werden; Entfernung gesperrt wenn noch Arbeitseinträge vorhanden
+- **Bulk-Anlagenerstellung** – Neue Seite `/equipment_bulk_create.php` zur Massenanlage; Wartungsvertrag als Pflichtfeld; einzelne Firmenauswahl mit AJAX-Adressfeld
+- **Checklisten-PDF** – Komplettes Redesign: 2-Spalten-Layout, Objektadresse im Seitenkopf (unter Serviceauftrag/Datum), keine Firmenname-Zeile; Equipment-Box kompakt (Anlage | Standort / Hersteller | Bezeichnung / Akku & Rauchmelder optional)
+- **Serviceauftragsliste** – Neue deduplizierte Liste (`service_order_list.php`) als eigener Menüpunkt; konfigurierbare Spalten; Objektadresse-Spalte; Sortierung nach Status-Priorität dann Datum; Entwurf und Offen zusammengefasst
+- **Menü-Struktur** – Serviceaufträge an erster Position; Untermenü mit Liste, Statistik und neuem Serviceauftrags-Menüpunkt
+- **Dark Mode Fix** – Anlagentyp-Badges mit dunklem Hintergrund und weißem Text auch im Dark Mode korrekt dargestellt
 
 ### v4.8.1 (2026-03-30)
 
@@ -493,6 +523,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 4.8.0
-**Released:** March 2026
+**Current Version:** 5.0.0
+**Released:** April 2026
 **Compatibility:** Dolibarr 16.0+
