@@ -31,7 +31,7 @@ if (!$user->hasRight('ficheinter', 'lire')) {
 // Note: Dolibarr status 0 (draft) is treated as "Offen" in this view
 $status = GETPOST('status', 'int');
 if ($status === '') {
-    $status = -1;
+    $status = 1;
 }
 $status = (int) $status;
 
@@ -163,10 +163,10 @@ $form = new Form($db);
 
 // Status tab definitions — no draft tab
 $statusDefs = array(
-    -1 => array('label' => $langs->trans('ServiceOrderStatusAll'),    'color' => ''),
      1 => array('label' => $langs->trans('ServiceOrderStatusOpen'),   'color' => '#2196F3'),
      2 => array('label' => $langs->trans('ServiceOrderStatusBilled'), 'color' => '#FF9800'),
      3 => array('label' => $langs->trans('ServiceOrderStatusClosed'), 'color' => '#4CAF50'),
+    -1 => array('label' => $langs->trans('ServiceOrderStatusAll'),    'color' => ''),
 );
 
 // ─── Status tabs ─────────────────────────────────────────────────────────────
