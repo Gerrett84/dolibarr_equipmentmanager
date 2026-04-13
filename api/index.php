@@ -3638,8 +3638,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = e.fk_soc";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
-    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."contrat c ON c.rowid = e.fk_contract AND c.statut = 1";
-    $sql .= " WHERE e.status = 1 AND e.fk_contract IS NOT NULL";
+    $sql .= " WHERE e.status = 1";
     $sql .= " ORDER BY maint_status = 'none', maint_status = 'done',";
     $sql .= "  CASE maint_status WHEN 'overdue' THEN 1 WHEN 'due' THEN 2 WHEN 'soon' THEN 3 WHEN 'future' THEN 4 WHEN 'none' THEN 5 ELSE 6 END,";
     $sql .= "  e.maintenance_month ASC";
