@@ -4897,6 +4897,9 @@ class ServiceReportApp {
                 } else if (answerType === 'ja_nein') {
                     html += `<option value="ja" ${currentAnswer === 'ja' ? 'selected' : ''}>Ja</option>`;
                     html += `<option value="nein" ${currentAnswer === 'nein' ? 'selected' : ''}>Nein</option>`;
+                } else if (answerType === 'number') {
+                    // Number input — rendered separately below, select is hidden
+                    html += `<option value="${this.escapeHtml(currentAnswer)}" selected>${this.escapeHtml(currentAnswer) || '-'}</option>`;
                 } else {
                     // Default fallback to ok_mangel
                     html += `<option value="ok" ${currentAnswer === 'ok' ? 'selected' : ''}>OK</option>`;
@@ -4905,6 +4908,20 @@ class ServiceReportApp {
                 }
 
                 html += `</select>`;
+
+                // Number input field for 'number' answer type (replaces select)
+                if (answerType === 'number') {
+                    html += `<input type="number" class="checklist-item-number"
+                                placeholder="N"
+                                data-item="${itemId}"
+                                data-section="${sectionCode}"
+                                value="${this.escapeHtml(currentAnswer)}"
+                                step="any"
+                                ${!canEditChecklist ? 'disabled' : ''}
+                                onchange="app.onChecklistNumberChange(this)"
+                                style="display:none">`;
+                }
+
                 html += `</div>`;
 
                 // Note field
@@ -4964,6 +4981,13 @@ class ServiceReportApp {
         html += '</div>';
 
         contentEl.innerHTML = html;
+
+        // For 'number' answer type: hide the select, show the number input
+        contentEl.querySelectorAll('.checklist-item-number').forEach(numEl => {
+            const selectEl = numEl.closest('.checklist-item-header').querySelector('.checklist-item-select');
+            if (selectEl) selectEl.style.display = 'none';
+            numEl.style.display = 'inline-block';
+        });
     }
 
     // Render checklist start view when no checklist exists yet
@@ -5106,9 +5130,29 @@ class ServiceReportApp {
         const itemCode = inputEl.dataset.item;
         const note = inputEl.value;
 
-        // Get answer value
+        // Get answer value — prefer number input if present
+        const numberEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-number');
         const selectEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-select');
-        const answer = selectEl ? selectEl.value : '';
+        const answer = numberEl ? numberEl.value : (selectEl ? selectEl.value : '');
+
+        await this.saveChecklistItem(itemCode, answer, note);
+    }
+
+    // Handle number measurement input change
+    async onChecklistNumberChange(inputEl) {
+        const itemCode = inputEl.dataset.item;
+        const answer = inputEl.value;
+
+        const noteEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-note');
+        const note = noteEl ? noteEl.value : '';
+
+        // Update hidden select to keep value in sync
+        const selectEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-select');
+        if (selectEl) {
+            selectEl.options[0].value = answer;
+            selectEl.options[0].text = answer || '-';
+            selectEl.value = answer;
+        }
 
         await this.saveChecklistItem(itemCode, answer, note);
     }

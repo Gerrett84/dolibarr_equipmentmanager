@@ -34,6 +34,10 @@ class Equipment extends CommonObject
             'hold_open' => 'HoldOpen',
             'rws' => 'RWS',
             'rwa' => 'RWA',
+            'gate_swing' => 'GateSwing',
+            'gate_sliding' => 'GateSliding',
+            'gate_sectional' => 'GateSectional',
+            'gate_upandover' => 'GateUpAndOver',
             'other' => 'Other'
         )),
         'serial_number' => array('type' => 'varchar(255)', 'label' => 'SerialNumber', 'enabled' => 1, 'visible' => 1, 'position' => 70),
@@ -474,6 +478,10 @@ class Equipment extends CommonObject
                 'hold_open' => 'HoldOpen',
                 'rws' => 'RWS',
                 'rwa' => 'RWA',
+                'gate_swing' => 'GateSwing',
+                'gate_sliding' => 'GateSliding',
+                'gate_sectional' => 'GateSectional',
+                'gate_upandover' => 'GateUpAndOver',
                 'other' => 'Other'
             );
         }

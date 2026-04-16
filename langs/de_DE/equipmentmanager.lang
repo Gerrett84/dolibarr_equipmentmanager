@@ -385,6 +385,10 @@ NoEquipmentForThisAddress=Keine Anlagen für diese Adresse gefunden
 
 # Equipment Types v2.5
 FireGate=Brandschutztor
+GateSwing=Schwenkflügeltor
+GateSliding=Schiebetor
+GateSectional=Sektionaltor
+GateUpAndOver=Schwingtor
 EquipmentTypesSetup=Anlagentypen verwalten
 AddEquipmentType=Anlagentyp hinzufügen
 EditEquipmentType=Anlagentyp bearbeiten
@@ -438,6 +442,10 @@ ChecklistDoorSliding=Checkliste Schiebetürantrieb
 ChecklistFireDoor=Checkliste Brandschutztür
 ChecklistFireDoorFSA=Checkliste Feststellanlage
 ChecklistFireGate=Checkliste Brandschutztor
+ChecklistGateSwing=Checkliste Schwenkflügeltor
+ChecklistGateSliding=Checkliste Schiebetor
+ChecklistGateSectional=Checkliste Sektionaltor
+ChecklistGateUpAndOver=Checkliste Schwingtor
 ChecklistDoorCloser=Checkliste Türschließer
 ChecklistRWS=Checkliste RWS
 ChecklistRWA=Checkliste RWA
@@ -447,7 +455,11 @@ HasFSA=Mit Feststellanlage
 # Checklist Sections
 SectionTuerelement=Türelement
 SectionTorelement=Torelement
+SectionToranlage=Toranlage
 SectionAntriebFunktion=Antrieb / Funktion
+SectionAntriebTor=Antrieb / Funktion
+SectionFeder=Feder / Gegengewicht
+SectionSicherheit=Sicherheitseinrichtungen
 SectionFSA=FSA (Feststellanlage)
 SectionTuerschliesser=Türschließer
 SectionRWSTerminal=RWS Terminal
@@ -456,6 +468,24 @@ SectionAusloesung=Auslösung
 SectionElektrik=Elektrik
 SectionAllgemein=Allgemein
 SectionErgebnis=Ergebnis
+
+# Checklist Items - Torelement / Toranlage
+ItemTorblattZargeD=Torblatt, Zarge, Dichtung
+ItemFahrschieneFuehrung=Fahrschiene / Führung
+ItemLaufrollen=Laufrollen / Laufwagen
+ItemZahnstangeKette=Zahnstange / Kette / Riemen
+ItemScharniereGelenkePaneele=Scharniere, Gelenke, Paneele
+ItemAufwicklungWelle=Aufwicklung / Welle
+ItemGegengewichtAusgleich=Gegengewicht / Ausgleichsfeder
+ItemTragarme=Tragarme / Hebemechanik
+ItemTorsionsfederSpannung=Torsionsfeder (Spannung, Zustand)
+ItemEndanschlagVerriegelung=Endanschlag / Verriegelung
+ItemAbsturzsicherung=Absturzsicherung (bei Aufbau > 2,5 m)
+ItemSicherheitskontakleiste=Sicherheitskontaktleiste (Schließkante)
+ItemLichtschranke=Lichtschranke / Sicherheitsfeld
+ItemHandbetaetigung=Handbetätigung (Notentriegelung)
+ItemSchliesskraftmessungN=Schließkraftmessung [N]
+ItemEntsprichtDINEN12453=Entspricht DIN EN 12453
 
 # Checklist Items - Türelement
 ItemTuerblattZargeDichtungGlas=Türblatt, Zarge, Dichtung, Glas
@@ -528,6 +558,7 @@ ItemEntsprichtDIN18232ASRA16=Entspricht DIN 18232-2, ASR A1.6
 ItemPruefungBestanden=Prüfung bestanden
 
 # Answer Types
+AnswerNumber=Messwert (Zahl)
 AnswerOK=OK
 AnswerMangel=Mangel
 AnswerNV=N.V.

@@ -1615,6 +1615,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             border-color: #666;
         }
 
+        .checklist-item-number {
+            padding: 6px 10px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            font-size: 13px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            width: 90px;
+            text-align: right;
+        }
+
         .checklist-item-note {
             width: 100%;
             padding: 6px 10px;
