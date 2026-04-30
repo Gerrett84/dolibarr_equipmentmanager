@@ -2218,7 +2218,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
             $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
         } else {
             $noteY = $pdf->GetY();
-            $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($ibnNote), 'LR', 'L', false, 1, $leftMargin, $noteY, true, 0, false, true, $ibnNoteH, 'T');
+            $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($ibnNote), 'LR', 'L', false, 1, $leftMargin, $noteY, true, 0, false, true, 0, 'T');
         }
 
         $leftEndY = $pdf->GetY();
@@ -2257,7 +2257,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetX($rightX);
                 $noteY = $pdf->GetY();
-                $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote ?: '-'), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, $accNoteH, 'T');
+                $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote ?: '-'), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, 0, 'T');
             } elseif (!empty($accNote)) {
                 $pdf->SetX($rightX);
                 $pdf->SetFont('', 'B', $default_font_size - 1);
@@ -2265,7 +2265,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
                 $pdf->SetFont('', '', $default_font_size - 1);
                 $pdf->SetX($rightX);
                 $noteY = $pdf->GetY();
-                $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, $accNoteH, 'T');
+                $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, 0, 'T');
             } else {
                 $pdf->SetX($rightX);
                 $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
@@ -2277,7 +2277,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
             $pdf->SetFont('', '', $default_font_size - 1);
             $pdf->SetX($rightX);
             $noteY = $pdf->GetY();
-            $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote ?: '-'), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, $accNoteH, 'T');
+            $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote ?: '-'), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, 0, 'T');
         }
 
         $rightEndY = $pdf->GetY();
