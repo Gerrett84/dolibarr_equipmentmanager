@@ -457,6 +457,10 @@ class ServiceReportApp {
         document.getElementById('entryAcceptanceDone').addEventListener('change', (e) => {
             this.updateAcceptanceSuccessUI(e.target.checked);
         });
+        // Mangelfrei toggle (inside success row)
+        document.getElementById('entryAcceptanceDefectFree').addEventListener('change', (e) => {
+            this.updateAcceptanceDefectFreeUI(e.target.checked);
+        });
     }
 
     // Toggle commissioning date vs note visibility (v4.5)
@@ -507,10 +511,21 @@ class ServiceReportApp {
             if (!dateInput.value) {
                 dateInput.value = this.formatDateInput(new Date());
             }
+            // Re-apply mangelfrei state
+            const defectFreeChk = document.getElementById('entryAcceptanceDefectFree');
+            this.updateAcceptanceDefectFreeUI(defectFreeChk ? defectFreeChk.checked : true);
         } else {
             successRow.style.display = 'none';
             failedRow.style.display = 'block';
         }
+    }
+
+    // Toggle between "Mangelfrei" (remark) and "Abnahme mit Mängeln" views
+    updateAcceptanceDefectFreeUI(isDefectFree) {
+        const remarkRow = document.getElementById('acceptanceRemarkRow');
+        const mitMaengelRow = document.getElementById('acceptanceMitMaengelRow');
+        if (remarkRow) remarkRow.style.display = isDefectFree ? 'block' : 'none';
+        if (mitMaengelRow) mitMaengelRow.style.display = isDefectFree ? 'none' : 'block';
     }
 
     updateOnlineStatus() {
@@ -1658,22 +1673,32 @@ class ServiceReportApp {
         const accDefects = document.getElementById('entryAcceptanceDefects');
         const accNote = document.getElementById('entryAcceptanceNote');
 
-        // Determine if user was doing acceptance:
-        // - acceptance_done = 1 → doing acceptance, successful
-        // - acceptance_done = 0 AND acceptance_note has content → doing acceptance, failed
-        // - acceptance_done = 0 AND acceptance_note empty → not doing acceptance
+        // Determine acceptance state:
+        // - acceptance_done=1, defect_free=1 → successful (mangelfrei)
+        // - acceptance_done=1, defect_free=0 → successful with defects (mit Mängeln)
+        // - acceptance_done=0 + note → not performed (wesentliche Mängel)
+        // - acceptance_done=0, no note → not doing acceptance
         const wasDoingAcceptance = !!entry?.acceptance_done || !!(entry?.acceptance_note);
         const wasSuccessful = !!entry?.acceptance_done;
+        const wasDefectFree = entry?.acceptance_defect_free !== 0; // DB default is 1
+        const wasMitMaengeln = wasSuccessful && !wasDefectFree;
 
         doingAcc.checked = wasDoingAcceptance;
         accDone.checked = wasSuccessful;
         accDate.value = entry?.acceptance_date || '';
-        accNote.value = wasSuccessful ? (entry?.acceptance_note || '') : '';
-        accDefects.value = !wasSuccessful && wasDoingAcceptance ? (entry?.acceptance_note || '') : '';
+
+        const defectFreeChk = document.getElementById('entryAcceptanceDefectFree');
+        if (defectFreeChk) defectFreeChk.checked = wasDefectFree;
+
+        accNote.value = (wasSuccessful && wasDefectFree) ? (entry?.acceptance_note || '') : '';
+        accDefects.value = (!wasSuccessful && wasDoingAcceptance) ? (entry?.acceptance_note || '') : '';
+        const accWithDefects = document.getElementById('entryAcceptanceWithDefects');
+        if (accWithDefects) accWithDefects.value = wasMitMaengeln ? (entry?.acceptance_note || '') : '';
 
         this.updateDoingAcceptanceUI(doingAcc.checked);
         if (doingAcc.checked) {
             this.updateAcceptanceSuccessUI(accDone.checked);
+            if (wasSuccessful) this.updateAcceptanceDefectFreeUI(wasDefectFree);
         }
 
         // Instruction & Testbook
@@ -1739,24 +1764,28 @@ class ServiceReportApp {
             const accSuccessful = document.getElementById('entryAcceptanceDone').checked;
 
             if (doingAcceptance && accSuccessful) {
-                // Abnahme erfolgreich durchgeführt
+                const defectFree = document.getElementById('entryAcceptanceDefectFree').checked;
                 entryData.acceptance_done = 1;
                 entryData.acceptance_date = document.getElementById('entryAcceptanceDate').value || null;
-                entryData.acceptance_note = document.getElementById('entryAcceptanceNote').value || null;
+                entryData.acceptance_defect_free = defectFree ? 1 : 0;
+                if (defectFree) {
+                    entryData.acceptance_note = document.getElementById('entryAcceptanceNote').value || null;
+                } else {
+                    entryData.acceptance_note = document.getElementById('entryAcceptanceWithDefects').value || null;
+                }
             } else if (doingAcceptance && !accSuccessful) {
-                // Abnahme durchgeführt aber fehlgeschlagen (Mängel)
+                // Abnahme durchgeführt aber nicht erfolgt (wesentliche Mängel)
                 entryData.acceptance_done = 0;
                 entryData.acceptance_date = null;
+                entryData.acceptance_defect_free = 0;
                 entryData.acceptance_note = document.getElementById('entryAcceptanceDefects').value || null;
             } else {
-                // Keine Abnahme durchgeführt (andere Arbeiten)
+                // Keine Abnahme durchgeführt
                 entryData.acceptance_done = 0;
                 entryData.acceptance_date = null;
+                entryData.acceptance_defect_free = 1;
                 entryData.acceptance_note = null;
             }
-
-            // acceptance_defect_free is no longer used in new logic, but keep for backwards compat
-            entryData.acceptance_defect_free = accSuccessful ? 1 : 0;
 
             entryData.instruction_done = document.getElementById('entryInstructionDone').checked ? 1 : 0;
             entryData.testbook_handed = document.getElementById('entryTestbookHanded').checked ? 1 : 0;

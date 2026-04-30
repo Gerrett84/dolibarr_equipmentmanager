@@ -2423,12 +2423,22 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                                         <span>Abnahme erfolgreich</span>
                                     </label>
 
-                                    <!-- Success: Date + optional note -->
+                                    <!-- Success: Date + mangelfrei toggle + note/defects -->
                                     <div id="acceptanceSuccessRow" style="display:none; margin-top:10px;">
                                         <label class="form-label" style="font-size:12px;">Abnahme am:</label>
                                         <input type="date" class="form-input" id="entryAcceptanceDate" style="width:100%; margin-bottom:8px;">
-                                        <label class="form-label" style="font-size:12px;">Bemerkung (optional):</label>
-                                        <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Zusätzliche Bemerkungen"></textarea>
+                                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
+                                            <input type="checkbox" id="entryAcceptanceDefectFree" style="width:18px; height:18px;" checked>
+                                            <span style="font-size:13px;">Mangelfrei</span>
+                                        </label>
+                                        <div id="acceptanceRemarkRow">
+                                            <label class="form-label" style="font-size:12px;">Bemerkung (optional):</label>
+                                            <textarea class="form-textarea" id="entryAcceptanceNote" rows="2" placeholder="Zusätzliche Bemerkungen"></textarea>
+                                        </div>
+                                        <div id="acceptanceMitMaengelRow" style="display:none;">
+                                            <label class="form-label" style="font-size:12px; color:#e65100; font-weight:bold;">Abnahme mit folgenden Mängeln:</label>
+                                            <textarea class="form-textarea" id="entryAcceptanceWithDefects" rows="3" placeholder="Mängel beschreiben" style="border-color:#e65100;"></textarea>
+                                        </div>
                                     </div>
 
                                     <!-- Failed: Mandatory defect description -->

@@ -2165,6 +2165,28 @@ function generateAcceptanceProtocol($fichinter, $user) {
         $pdf->Ln(1);
 
         $boxStartY = $pdf->GetY();
+        $rightX = $leftMargin + $halfWidth + 4;
+        $accDefectFree = (int)$eq->acceptance_defect_free;
+        $accNote = $eq->acceptance_note ?: '';
+        $ibnNote = $eq->commissioning_done ? '' : ($eq->commissioning_note ?: '-');
+
+        // Pre-measure note heights for dynamic box sizing
+        $pdf->SetFont('', '', $default_font_size - 1);
+        $noteW = $halfWidth - 4;
+        $ibnNoteH = (!empty($ibnNote)) ? max($rowHeight, $pdf->getStringHeight($noteW, $ibnNote)) : $rowHeight;
+        $accNoteH  = (!empty($accNote))  ? max($rowHeight, $pdf->getStringHeight($noteW, $accNote))  : $rowHeight;
+
+        $leftRows = $headerHeight + $rowHeight + $rowHeight + $ibnNoteH + $rowHeight;
+        if (!$eq->acceptance_done) {
+            $rightRows = $headerHeight + $rowHeight + $rowHeight + $accNoteH + $rowHeight;
+        } elseif (!$accDefectFree) {
+            $rightRows = $headerHeight + $rowHeight + $rowHeight + $rowHeight + $accNoteH + $rowHeight;
+        } elseif (!empty($accNote)) {
+            $rightRows = $headerHeight + $rowHeight + $rowHeight + $rowHeight + $accNoteH + $rowHeight;
+        } else {
+            $rightRows = $headerHeight + $rowHeight * 4;
+        }
+        $eqBoxHeight = max($leftRows, $rightRows);
 
         // LEFT: Inbetriebnahme
         $pdf->SetXY($leftMargin, $boxStartY);
@@ -2172,11 +2194,10 @@ function generateAcceptanceProtocol($fichinter, $user) {
         $pdf->Cell($halfWidth, $headerHeight, "Inbetriebnahme", 1, 1, 'L');
 
         $pdf->SetX($leftMargin);
-        $erfolgtIBN = $eq->commissioning_done ? "Ja" : "Nein";
         $pdf->SetFont('', 'B', $default_font_size - 1);
         $pdf->Cell(18, $rowHeight, "Erfolgt:", 'L', 0, 'L');
         $pdf->SetFont('', '', $default_font_size - 1);
-        $pdf->Cell($halfWidth - 18, $rowHeight, $erfolgtIBN, 'R', 1, 'L');
+        $pdf->Cell($halfWidth - 18, $rowHeight, $eq->commissioning_done ? "Ja" : "Nein", 'R', 1, 'L');
 
         $pdf->SetX($leftMargin);
         if ($eq->commissioning_done) {
@@ -2187,9 +2208,8 @@ function generateAcceptanceProtocol($fichinter, $user) {
             $pdf->Cell($halfWidth - 18, $rowHeight, $dateStr, 'R', 1, 'L');
         } else {
             $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->Cell(22, $rowHeight, "Bemerkung:", 'L', 0, 'L');
+            $pdf->Cell($halfWidth, $rowHeight, "Bemerkung:", 'LR', 1, 'L');
             $pdf->SetFont('', '', $default_font_size - 1);
-            $pdf->Cell($halfWidth - 22, $rowHeight, "", 'R', 1, 'L');
         }
 
         $pdf->SetX($leftMargin);
@@ -2197,57 +2217,80 @@ function generateAcceptanceProtocol($fichinter, $user) {
         if ($eq->commissioning_done) {
             $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
         } else {
-            $note = $eq->commissioning_note ?: '-';
-            $pdf->Cell($halfWidth, $rowHeight, $note, 'LR', 1, 'L');
+            $noteY = $pdf->GetY();
+            $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($ibnNote), 'LR', 'L', false, 1, $leftMargin, $noteY, true, 0, false, true, $ibnNoteH, 'T');
         }
 
-        $pdf->SetX($leftMargin);
-        $pdf->Cell($halfWidth, $rowHeight, "", 'LRB', 1, 'L');
+        $leftEndY = $pdf->GetY();
+        $leftRemaining = ($boxStartY + $eqBoxHeight) - $leftEndY;
+        if ($leftRemaining > 0.5) {
+            $pdf->SetX($leftMargin);
+            $pdf->Cell($halfWidth, $leftRemaining, "", 'LRB', 1, 'L');
+        } else {
+            $pdf->Line($leftMargin, $boxStartY + $eqBoxHeight, $leftMargin + $halfWidth, $boxStartY + $eqBoxHeight);
+            $pdf->SetY($boxStartY + $eqBoxHeight);
+        }
 
         // RIGHT: Abnahme
-        $pdf->SetXY($leftMargin + $halfWidth + 4, $boxStartY);
+        $pdf->SetXY($rightX, $boxStartY);
         $pdf->SetFont('', 'B', $default_font_size - 1);
         $pdf->Cell($halfWidth, $headerHeight, "Abnahme", 1, 1, 'L');
 
-        $pdf->SetX($leftMargin + $halfWidth + 4);
-        $erfolgtAbn = $eq->acceptance_done ? "Ja" : "Nein";
+        $pdf->SetX($rightX);
         $pdf->SetFont('', 'B', $default_font_size - 1);
         $pdf->Cell(18, $rowHeight, "Erfolgt:", 'L', 0, 'L');
         $pdf->SetFont('', '', $default_font_size - 1);
-        $pdf->Cell($halfWidth - 18, $rowHeight, $erfolgtAbn, 'R', 1, 'L');
+        $pdf->Cell($halfWidth - 18, $rowHeight, $eq->acceptance_done ? "Ja" : "Nein", 'R', 1, 'L');
 
-        $pdf->SetX($leftMargin + $halfWidth + 4);
         if ($eq->acceptance_done) {
             $dateStr = $eq->acceptance_date ? dol_print_date($db->jdate($eq->acceptance_date), 'day') : '-';
+            $pdf->SetX($rightX);
             $pdf->SetFont('', 'B', $default_font_size - 1);
             $pdf->Cell(18, $rowHeight, "Datum:", 'L', 0, 'L');
             $pdf->SetFont('', '', $default_font_size - 1);
             $pdf->Cell($halfWidth - 18, $rowHeight, $dateStr, 'R', 1, 'L');
-        } else {
-            $pdf->SetFont('', 'B', $default_font_size - 1);
-            $pdf->Cell($halfWidth, $rowHeight, "Wesentliche Mängel:", 'LR', 1, 'L');
-            $pdf->SetFont('', '', $default_font_size - 1);
-        }
 
-        $pdf->SetX($leftMargin + $halfWidth + 4);
-        if ($eq->acceptance_done) {
-            if (!empty($eq->acceptance_note)) {
+            if (!$accDefectFree) {
+                $pdf->SetX($rightX);
                 $pdf->SetFont('', 'B', $default_font_size - 1);
-                $pdf->Cell(22, $rowHeight, "Bemerkung:", 'L', 0, 'L');
+                $pdf->Cell($halfWidth, $rowHeight, "Abnahme mit folgenden Mängeln:", 'LR', 1, 'L');
                 $pdf->SetFont('', '', $default_font_size - 1);
-                $pdf->Cell($halfWidth - 22, $rowHeight, $eq->acceptance_note, 'R', 1, 'L');
+                $pdf->SetX($rightX);
+                $noteY = $pdf->GetY();
+                $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote ?: '-'), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, $accNoteH, 'T');
+            } elseif (!empty($accNote)) {
+                $pdf->SetX($rightX);
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->Cell($halfWidth, $rowHeight, "Bemerkung:", 'LR', 1, 'L');
+                $pdf->SetFont('', '', $default_font_size - 1);
+                $pdf->SetX($rightX);
+                $noteY = $pdf->GetY();
+                $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, $accNoteH, 'T');
             } else {
+                $pdf->SetX($rightX);
                 $pdf->Cell($halfWidth, $rowHeight, "", 'LR', 1, 'L');
             }
         } else {
-            $maengel = $eq->acceptance_note ?: '-';
-            $pdf->Cell($halfWidth, $rowHeight, $maengel, 'LR', 1, 'L');
+            $pdf->SetX($rightX);
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->Cell($halfWidth, $rowHeight, "Wesentliche Mängel:", 'LR', 1, 'L');
+            $pdf->SetFont('', '', $default_font_size - 1);
+            $pdf->SetX($rightX);
+            $noteY = $pdf->GetY();
+            $pdf->MultiCell($halfWidth, $rowHeight, $outputlangs->convToOutputCharset($accNote ?: '-'), 'LR', 'L', false, 1, $rightX, $noteY, true, 0, false, true, $accNoteH, 'T');
         }
 
-        $pdf->SetX($leftMargin + $halfWidth + 4);
-        $pdf->Cell($halfWidth, $rowHeight, "", 'LRB', 1, 'L');
+        $rightEndY = $pdf->GetY();
+        $rightRemaining = ($boxStartY + $eqBoxHeight) - $rightEndY;
+        if ($rightRemaining > 0.5) {
+            $pdf->SetX($rightX);
+            $pdf->Cell($halfWidth, $rightRemaining, "", 'LRB', 1, 'L');
+        } else {
+            $pdf->Line($rightX, $boxStartY + $eqBoxHeight, $rightX + $halfWidth, $boxStartY + $eqBoxHeight);
+            $pdf->SetY($boxStartY + $eqBoxHeight);
+        }
 
-        $pdf->SetY($boxStartY + $fixedBoxHeight + 1);
+        $pdf->SetY($boxStartY + $eqBoxHeight + 1);
 
         $pdf->SetFont('', '', $default_font_size - 1);
         $checkYes = "[X]";
