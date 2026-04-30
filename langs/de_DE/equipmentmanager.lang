@@ -485,6 +485,7 @@ ItemSicherheitskontakleiste=Sicherheitskontaktleiste (Schließkante)
 ItemLichtschranke=Lichtschranke / Sicherheitsfeld
 ItemHandbetaetigung=Handbetätigung (Notentriegelung)
 ItemSchliesskraftmessungN=Schließkraftmessung [N]
+ItemOeffnungskraftmessungN=Öffnungskraftmessung [N]
 ItemEntsprichtDINEN12453=Entspricht DIN EN 12453
 
 # Checklist Items - Türelement

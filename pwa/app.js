@@ -20,16 +20,20 @@ class ServiceReportApp {
         this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
         this.equipmentTypeLabels = {
-            'door_swing':    'Drehtür',
-            'door_sliding':  'Schiebetür',
-            'fire_door':     'Brandschutztür',
-            'fire_door_fsa': 'Brandschutztür (FSA)',
-            'fire_gate':     'Brandschutztor',
-            'door_closer':   'Türschließer',
-            'hold_open':     'Feststellanlage',
-            'rws':           'RWS',
-            'rwa':           'RWA',
-            'other':         'Sonstige'
+            'door_swing':      'Drehtür',
+            'door_sliding':    'Schiebetür',
+            'fire_door':       'Brandschutztür',
+            'fire_door_fsa':   'Brandschutztür (FSA)',
+            'fire_gate':       'Brandschutztor',
+            'door_closer':     'Türschließer',
+            'hold_open':       'Feststellanlage',
+            'rws':             'RWS',
+            'rwa':             'RWA',
+            'gate_swing':      'Schwenkflügeltor',
+            'gate_sliding':    'Schiebetor',
+            'gate_sectional':  'Sektionaltor',
+            'gate_upandover':  'Schwingtor',
+            'other':           'Sonstige'
         };
 
         this.init();
@@ -1360,16 +1364,20 @@ class ServiceReportApp {
 
             // Equipment type labels - store as class property for reuse
             this.equipmentTypeLabels = {
-                'door_swing': 'Drehtür',
-                'door_sliding': 'Schiebetür',
-                'fire_door': 'Brandschutztür',
-                'fire_door_fsa': 'Brandschutztür (FSA)',
-                'fire_gate': 'Brandschutztor',
-                'door_closer': 'Türschließer',
-                'hold_open': 'Feststellanlage',
-                'rws': 'RWS',
-                'rwa': 'RWA',
-                'other': 'Sonstige'
+                'door_swing':     'Drehtür',
+                'door_sliding':   'Schiebetür',
+                'fire_door':      'Brandschutztür',
+                'fire_door_fsa':  'Brandschutztür (FSA)',
+                'fire_gate':      'Brandschutztor',
+                'door_closer':    'Türschließer',
+                'hold_open':      'Feststellanlage',
+                'rws':            'RWS',
+                'rwa':            'RWA',
+                'gate_swing':     'Schwenkflügeltor',
+                'gate_sliding':   'Schiebetor',
+                'gate_sectional': 'Sektionaltor',
+                'gate_upandover': 'Schwingtor',
+                'other':          'Sonstige'
             };
             const typeLabels = this.equipmentTypeLabels;
 

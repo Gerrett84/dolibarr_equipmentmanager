@@ -134,7 +134,12 @@ FROM llx_equipmentmanager_checklist_sections s JOIN llx_equipmentmanager_checkli
 WHERE t.equipment_type_code = 'gate_swing' AND s.code = 'sicherheit';
 
 INSERT INTO llx_equipmentmanager_checklist_items (fk_section, code, label, answer_type, position, active, date_creation)
-SELECT s.rowid, 'S3', 'ItemSchliesskraftmessungN', 'number', 30, 1, NOW()
+SELECT s.rowid, 'S3', 'ItemOeffnungskraftmessungN', 'number', 30, 1, NOW()
+FROM llx_equipmentmanager_checklist_sections s JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
+WHERE t.equipment_type_code = 'gate_swing' AND s.code = 'sicherheit';
+
+INSERT INTO llx_equipmentmanager_checklist_items (fk_section, code, label, answer_type, position, active, date_creation)
+SELECT s.rowid, 'S4', 'ItemSchliesskraftmessungN', 'number', 40, 1, NOW()
 FROM llx_equipmentmanager_checklist_sections s JOIN llx_equipmentmanager_checklist_templates t ON s.fk_template = t.rowid
 WHERE t.equipment_type_code = 'gate_swing' AND s.code = 'sicherheit';
 
