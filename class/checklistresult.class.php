@@ -279,7 +279,7 @@ class ChecklistResult extends CommonObject
      * @param string $photo Photo filename for defect documentation
      * @return int <0 if KO, >0 if OK
      */
-    public function saveItemResult($item_id, $answer, $answer_text = '', $note = '', $photo = '')
+    public function saveItemResult($item_id, $answer, $answer_text = '', $note = '', $photo = null)
     {
         $now = dol_now();
 
@@ -291,12 +291,15 @@ class ChecklistResult extends CommonObject
         $resql = $this->db->query($sql);
         if ($resql && $this->db->num_rows($resql)) {
             $obj = $this->db->fetch_object($resql);
-            // Update existing
+            // Update existing — never overwrite photo unless caller explicitly provides one.
+            // Photo is managed via the dedicated defect-photo endpoint.
             $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results SET";
             $sql .= " answer = ".($answer ? "'".$this->db->escape($answer)."'" : 'NULL').",";
             $sql .= " answer_text = ".($answer_text ? "'".$this->db->escape($answer_text)."'" : 'NULL').",";
-            $sql .= " note = ".($note ? "'".$this->db->escape($note)."'" : 'NULL').",";
-            $sql .= " photo = ".($photo ? "'".$this->db->escape($photo)."'" : 'NULL');
+            $sql .= " note = ".($note ? "'".$this->db->escape($note)."'" : 'NULL');
+            if ($photo !== null) {
+                $sql .= ", photo = ".($photo ? "'".$this->db->escape($photo)."'" : 'NULL');
+            }
             $sql .= " WHERE rowid = ".(int)$obj->rowid;
         } else {
             // Insert new
