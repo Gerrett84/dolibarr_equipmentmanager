@@ -362,9 +362,19 @@ class ActionsEquipmentManager
                                   . dol_print_date($maxDate, 'day', 'tzserver', $langs);
         }
 
-        // Store linked fichinter count so printUnderHeaderPDFline can calculate
-        // the correct Y offset (each linked object takes 3mm in _pagehead)
-        $this->leistungsdatumLinkedCount = count($fichinterIds);
+        // Count ALL linked objects on the invoice (fichinter + commande + propal etc.)
+        // pdf_writeLinkedObjects renders one line per linked object, so the Y offset
+        // must account for the total, not just fichinter links.
+        $sqlAllLinked = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."element_element"
+            . " WHERE (sourcetype = 'facture' AND fk_source = ".(int)$object->id.")"
+            . " OR (targettype = 'facture' AND fk_target = ".(int)$object->id.")";
+        $resAllLinked = $this->db->query($sqlAllLinked);
+        $totalLinked = 0;
+        if ($resAllLinked) {
+            $objLinked = $this->db->fetch_object($resAllLinked);
+            $totalLinked = (int)$objLinked->nb;
+        }
+        $this->leistungsdatumLinkedCount = $totalLinked ?: count($fichinterIds);
 
         return 0;
     }

@@ -31,7 +31,7 @@ if (!$user->hasRight('ficheinter', 'lire')) {
 // Note: Dolibarr status 0 (draft) is treated as "Offen" in this view
 $status = GETPOST('status', 'int');
 if ($status === '') {
-    $status = -1;
+    $status = 1;
 }
 $status = (int) $status;
 
@@ -79,7 +79,9 @@ $showTech        = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TECH',        '1
 $sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec, f.description,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.login, u.lastname, u.firstname,";
-$sql .= " MIN(sp.address) as obj_address, MIN(sp.zip) as obj_zip, MIN(sp.town) as obj_town,";
+$sql .= " COALESCE(MIN(sp.address), MIN(sp_obj.address)) as obj_address,";
+$sql .= " COALESCE(MIN(sp.zip), MIN(sp_obj.zip)) as obj_zip,";
+$sql .= " COALESCE(MIN(sp.town), MIN(sp_obj.town)) as obj_town,";
 $sql .= " COUNT(DISTINCT eid.fk_equipment) as nb_equipment,";
 $sql .= " GROUP_CONCAT(DISTINCT eq.equipment_type ORDER BY eq.equipment_type SEPARATOR ',') as equipment_types";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
@@ -88,6 +90,10 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail as eid ON eid.fk_intervention = f.rowid AND eid.fk_equipment IS NOT NULL";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = eid.fk_equipment";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON sp.rowid = eq.fk_address";
+// Fallback: OBJ-Kontakt direkt am Serviceauftrag (wenn keine Anlage mit Adresse verknüpft)
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."element_contact as ec ON ec.element_id = f.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_type_contact as ctc ON ctc.rowid = ec.fk_c_type_contact AND ctc.code = 'OBJ' AND ctc.element = 'fichinter'";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp_obj ON sp_obj.rowid = ec.fk_socpeople AND ctc.rowid IS NOT NULL";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
 $sql .= buildStatusFilter($status);
 if ($search_ref) {
@@ -157,10 +163,10 @@ $form = new Form($db);
 
 // Status tab definitions — no draft tab
 $statusDefs = array(
-    -1 => array('label' => $langs->trans('ServiceOrderStatusAll'),    'color' => ''),
      1 => array('label' => $langs->trans('ServiceOrderStatusOpen'),   'color' => '#2196F3'),
      2 => array('label' => $langs->trans('ServiceOrderStatusBilled'), 'color' => '#FF9800'),
      3 => array('label' => $langs->trans('ServiceOrderStatusClosed'), 'color' => '#4CAF50'),
+    -1 => array('label' => $langs->trans('ServiceOrderStatusAll'),    'color' => ''),
 );
 
 // ─── Status tabs ─────────────────────────────────────────────────────────────

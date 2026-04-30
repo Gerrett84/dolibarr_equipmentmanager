@@ -477,6 +477,9 @@ class pdf_checklist
                 if ($item->answer_type == 'info') {
                     $display_answer = $outputlangs->convToOutputCharset($answer_text);
                     $pdf->SetTextColor(0, 0, 0);
+                } elseif ($item->answer_type == 'number') {
+                    $display_answer = ($answer !== '' && $answer !== null) ? $outputlangs->convToOutputCharset($answer) : '-';
+                    $pdf->SetTextColor(0, 0, 0);
                 } else {
                     if ($answer == 'ok' || $answer == 'ja') {
                         $display_answer = $this->pdfStr($outputlangs->trans('Answer'.ucfirst($answer)));

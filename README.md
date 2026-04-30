@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,17 @@
 -----
 
 ## Features
+
+### NEU in v5.1: Tortypen, Abnahmeprotokoll-Verbesserungen & Bugfixes
+
+- **4 neue Tortypen** – Schwenkflügeltor, Schiebetor, Sektionaltor, Schwingtor (gate_swing/sliding/sectional/upandover) mit vollständigen Wartungschecklisten (DIN EN 12453)
+- **Kraftmessung** – Schließ- und Öffnungskraftmessung als numerischer Eingabetyp in Checkliste und PDF
+- **Abnahme mit Mängeln** – Neue dritte Abnahme-Variante: Abnahme erfolgt, aber mit dokumentierten Mängeln; Datum + Mängelliste im Protokoll
+- **Abnahmeprotokoll Textwrapping** – Lange Bemerkungen/Mängeltexte brechen nun korrekt um (MultiCell, dynamische Boxhöhe)
+- **Kraftmessung in Checklisten-PDF** – Numerische Prüfwerte werden jetzt korrekt im PDF dargestellt
+- **Mängel-Fotos** – Fotos bleiben beim Bearbeiten eines Eintrags erhalten (saveItemResult schreibt Photo nur wenn explizit übergeben)
+- **Serviceauftragsliste** – Standardmäßig Tab "Offen" beim Öffnen; "Alle" an letzter Position
+- **Leistungsdatum-Fix** – Position auf Rechnungen mit mehreren verlinkten Objekten korrekt berechnet
 
 ### NEU in v5.0: E-Mail-Versand, Checklisten-PDF & Anlagetyp-Felder
 
@@ -135,7 +146,7 @@
 
 ### Equipment-Typen
 
-Drehtürantrieb | Schiebetürantrieb | Brandschutztür | Türschließer | Feststellanlage | RWS | RWA | Sonstige
+Drehtürantrieb | Schiebetürantrieb | Brandschutztür | Türschließer | Feststellanlage | RWS | RWA | Schwenkflügeltor | Schiebetor | Sektionaltor | Schwingtor | Sonstige
 
 -----
 
@@ -218,6 +229,17 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.1.0 (2026-04-30)
+
+- **4 neue Tortypen** – Schwenkflügeltor, Schiebetor, Sektionaltor, Schwingtor mit vollständigen Wartungschecklisten nach DIN EN 12453; Sections: Toranlage, Federn, Sicherheit, Antrieb/Funktion
+- **Numerischer Antworttyp** – `number` answer_type für Messwerte (z.B. Schließ-/Öffnungskraft in N); Darstellung als Zahleneingabe in PWA und Wert in Checklisten-PDF
+- **Abnahme mit Mängeln** – Neue dritte Abnahme-Variante neben "erfolgreich" und "nicht erfolgt": `acceptance_done=1, acceptance_defect_free=0`; zeigt Datum + Mängelliste im Protokoll
+- **Abnahmeprotokoll Textwrapping** – Bemerkung/Mängeltext werden via MultiCell umgebrochen; Boxhöhe passt sich dynamisch dem Textinhalt an (beide Spalten synchron)
+- **Mängel-Foto-Persistenz** – `saveItemResult()` überschreibt Photo nur wenn explizit übergeben (null-Sentinel); verhindert Verlust von Mängelfotos beim Bearbeiten
+- **Serviceauftragsliste** – Standardmäßig Tab "Offen" aktiv beim Öffnen; "Alle" als letzter Tab
+- **Wartungsübersicht** – Anlagen ohne `fk_contract` werden jetzt korrekt in der PWA-Wartungsübersicht angezeigt (Matching mit Backend-Kalender)
+- **Leistungsdatum-Fix** – Y-Position auf Rechnungen wird korrekt berechnet wenn mehrere Objekte (Serviceauftrag + Kundenauftrag) verknüpft sind
 
 ### v5.0.0 (2026-04-09)
 
@@ -523,6 +545,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.0.0
+**Current Version:** 5.1.0
 **Released:** April 2026
 **Compatibility:** Dolibarr 16.0+
