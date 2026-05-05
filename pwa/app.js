@@ -2831,6 +2831,201 @@ class ServiceReportApp {
         });
     }
 
+    // Format schedule for display (two lines: start / end)
+    formatScheduleDisplay(dateStart, dateEnd) {
+        if (!dateStart) return '<span style="color:var(--text-muted);font-style:italic;">Kein Termin</span>';
+        const fmtOpts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+        const fmtTime = { hour: '2-digit', minute: '2-digit' };
+        const ds = new Date(dateStart);
+        const isAllDay = ds.getHours() === 0 && ds.getMinutes() === 0 &&
+                         (!dateEnd || (new Date(dateEnd).getHours() === 23 && new Date(dateEnd).getMinutes() === 59));
+        const startStr = isAllDay
+            ? ds.toLocaleDateString('de-DE', fmtOpts)
+            : ds.toLocaleDateString('de-DE', fmtOpts) + ' ' + ds.toLocaleTimeString('de-DE', fmtTime) + ' Uhr';
+        if (!dateEnd) return startStr;
+        const de = new Date(dateEnd);
+        const endStr = isAllDay
+            ? de.toLocaleDateString('de-DE', fmtOpts)
+            : de.toLocaleDateString('de-DE', fmtOpts) + ' ' + de.toLocaleTimeString('de-DE', fmtTime) + ' Uhr';
+        return startStr + '<br><span style="color:var(--text-muted);">' + endStr + '</span>';
+    }
+
+    // Parse DB date string (YYYY-MM-DD HH:MM:SS) into local date/time input values
+    parseDateForInput(dbStr) {
+        if (!dbStr) return { date: '', time: '' };
+        // DB format: "2026-05-05 09:00:00"
+        const parts = dbStr.replace('T', ' ').split(' ');
+        return { date: parts[0] || '', time: (parts[1] || '').slice(0, 5) };
+    }
+
+    showScheduleModal(intervention) {
+        const sStart = this.parseDateForInput(intervention.date_start);
+        const sEnd   = this.parseDateForInput(intervention.date_end);
+        const isAllDay = sStart.time === '00:00' && (!sEnd.time || sEnd.time === '23:59');
+
+        // Build modal
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+
+        const sheet = document.createElement('div');
+        sheet.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;box-shadow:0 -4px 24px rgba(0,0,0,.2);';
+
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin:0 0 16px;font-size:18px;';
+        title.textContent = 'Termin bearbeiten';
+
+        // All-day toggle
+        const allDayLabel = document.createElement('label');
+        allDayLabel.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:15px;cursor:pointer;';
+        const allDayChk = document.createElement('input');
+        allDayChk.type = 'checkbox';
+        allDayChk.style.cssText = 'width:18px;height:18px;';
+        allDayChk.checked = isAllDay;
+        allDayLabel.appendChild(allDayChk);
+        allDayLabel.appendChild(document.createTextNode('Ganztägig'));
+
+        // Start fields
+        const startGroup = document.createElement('div');
+        startGroup.style.marginBottom = '12px';
+        const startLbl = document.createElement('div');
+        startLbl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;';
+        startLbl.textContent = 'Start';
+        const startRow = document.createElement('div');
+        startRow.style.cssText = 'display:flex;gap:8px;';
+        const dateStartInp = document.createElement('input');
+        dateStartInp.type = 'date';
+        dateStartInp.value = sStart.date;
+        dateStartInp.style.cssText = 'flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:var(--input-bg,#fff);color:var(--text,#000);';
+        const timeStartInp = document.createElement('input');
+        timeStartInp.type = 'time';
+        timeStartInp.value = sStart.time || '08:00';
+        timeStartInp.style.cssText = 'width:100px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:var(--input-bg,#fff);color:var(--text,#000);';
+        timeStartInp.style.display = isAllDay ? 'none' : '';
+        startRow.appendChild(dateStartInp);
+        startRow.appendChild(timeStartInp);
+        startGroup.appendChild(startLbl);
+        startGroup.appendChild(startRow);
+
+        // End fields
+        const endGroup = document.createElement('div');
+        endGroup.style.marginBottom = '16px';
+        const endLbl = document.createElement('div');
+        endLbl.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;';
+        endLbl.textContent = 'Ende';
+        const endRow = document.createElement('div');
+        endRow.style.cssText = 'display:flex;gap:8px;';
+        const dateEndInp = document.createElement('input');
+        dateEndInp.type = 'date';
+        dateEndInp.value = sEnd.date;
+        dateEndInp.style.cssText = dateStartInp.style.cssText;
+        const timeEndInp = document.createElement('input');
+        timeEndInp.type = 'time';
+        timeEndInp.value = sEnd.time || '17:00';
+        timeEndInp.style.cssText = timeStartInp.style.cssText;
+        timeEndInp.style.display = isAllDay ? 'none' : '';
+        endRow.appendChild(dateEndInp);
+        endRow.appendChild(timeEndInp);
+        endGroup.appendChild(endLbl);
+        endGroup.appendChild(endRow);
+
+        // Auto-adjust end date when start date changes
+        let prevStartMs = dateStartInp.value ? new Date(dateStartInp.value + 'T' + (timeStartInp.value || '00:00')).getTime() : null;
+        dateStartInp.addEventListener('change', () => {
+            const endMs = dateEndInp.value ? new Date(dateEndInp.value + 'T' + (timeEndInp.value || '00:00')).getTime() : null;
+            const newStartMs = new Date(dateStartInp.value + 'T' + (timeStartInp.value || '00:00')).getTime();
+            if (prevStartMs && endMs && newStartMs) {
+                const delta = endMs - prevStartMs;
+                const newEndMs = newStartMs + delta;
+                const ned = new Date(newEndMs);
+                dateEndInp.value = ned.getFullYear() + '-' + String(ned.getMonth()+1).padStart(2,'0') + '-' + String(ned.getDate()).padStart(2,'0');
+                timeEndInp.value = String(ned.getHours()).padStart(2,'0') + ':' + String(ned.getMinutes()).padStart(2,'0');
+            }
+            prevStartMs = newStartMs;
+        });
+
+        // Toggle all-day
+        allDayChk.addEventListener('change', () => {
+            const hide = allDayChk.checked;
+            timeStartInp.style.display = hide ? 'none' : '';
+            timeEndInp.style.display   = hide ? 'none' : '';
+        });
+
+        // Error message
+        const errEl = document.createElement('div');
+        errEl.style.cssText = 'color:#e53935;font-size:13px;margin-bottom:8px;display:none;';
+
+        // Buttons
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:10px;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Abbrechen';
+        cancelBtn.style.cssText = 'flex:1;padding:12px;border:1px solid #ddd;border-radius:8px;background:transparent;font-size:15px;cursor:pointer;';
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Speichern';
+        saveBtn.style.cssText = 'flex:1;padding:12px;border:none;border-radius:8px;background:var(--primary,#2196F3);color:#fff;font-size:15px;font-weight:600;cursor:pointer;';
+
+        const closeModal = () => overlay.remove();
+        cancelBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+        saveBtn.addEventListener('click', async () => {
+            if (!dateStartInp.value) {
+                errEl.textContent = 'Startdatum ist erforderlich.';
+                errEl.style.display = 'block';
+                return;
+            }
+            saveBtn.disabled = true;
+            saveBtn.textContent = '…';
+            try {
+                const payload = {
+                    date_start: dateStartInp.value,
+                    time_start: allDayChk.checked ? '' : timeStartInp.value,
+                    date_end:   dateEndInp.value,
+                    time_end:   allDayChk.checked ? '' : timeEndInp.value,
+                    allday:     allDayChk.checked,
+                };
+                const result = await this.apiCall('schedule/' + intervention.id, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+                if (result.status === 'ok') {
+                    // Update in-memory intervention
+                    intervention.date_start = result.date_start;
+                    intervention.date_end   = result.date_end;
+                    // Update display in info header
+                    const textEl = document.getElementById('infoTerminText_' + intervention.id);
+                    if (textEl) textEl.innerHTML = this.formatScheduleDisplay(result.date_start, result.date_end);
+                    // Also update the card in the intervention list
+                    const idx = this.allInterventions.findIndex(i => i.id === intervention.id);
+                    if (idx >= 0) {
+                        this.allInterventions[idx].date_start = result.date_start;
+                        this.allInterventions[idx].date_end   = result.date_end;
+                    }
+                    closeModal();
+                    this.showToast('Termin gespeichert');
+                } else {
+                    throw new Error(result.error || 'Fehler');
+                }
+            } catch (err) {
+                errEl.textContent = 'Fehler: ' + err.message;
+                errEl.style.display = 'block';
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Speichern';
+            }
+        });
+
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(saveBtn);
+        sheet.appendChild(title);
+        sheet.appendChild(allDayLabel);
+        sheet.appendChild(startGroup);
+        sheet.appendChild(endGroup);
+        sheet.appendChild(errEl);
+        sheet.appendChild(btnRow);
+        overlay.appendChild(sheet);
+        document.body.appendChild(overlay);
+    }
+
     formatDateInput(date) {
         return date.toISOString().split('T')[0];
     }
@@ -3868,6 +4063,36 @@ class ServiceReportApp {
             objSec.appendChild(val);
         }
         body.appendChild(objSec);
+
+        // Termin
+        const terminSec = document.createElement('div');
+        terminSec.className = 'info-collapse-section';
+        const terminLbl = document.createElement('div');
+        terminLbl.className = 'info-collapse-label';
+        terminLbl.textContent = 'Termin';
+        const terminVal = document.createElement('div');
+        terminVal.className = 'info-collapse-value';
+        terminVal.id = 'infoTerminVal_' + intervention.id;
+        terminVal.style.display = 'flex';
+        terminVal.style.alignItems = 'flex-start';
+        terminVal.style.gap = '8px';
+        const terminText = document.createElement('div');
+        terminText.id = 'infoTerminText_' + intervention.id;
+        terminText.style.flex = '1';
+        terminText.innerHTML = this.formatScheduleDisplay(intervention.date_start, intervention.date_end);
+        const terminEditBtn = document.createElement('button');
+        terminEditBtn.innerHTML = '✏️';
+        terminEditBtn.style.cssText = 'background:none;border:none;cursor:pointer;padding:0;font-size:16px;line-height:1;flex-shrink:0;';
+        terminEditBtn.title = 'Termin bearbeiten';
+        terminEditBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showScheduleModal(intervention);
+        });
+        terminVal.appendChild(terminText);
+        terminVal.appendChild(terminEditBtn);
+        terminSec.appendChild(terminLbl);
+        terminSec.appendChild(terminVal);
+        body.appendChild(terminSec);
 
         // Beschreibung
         if (intervention.description) {
