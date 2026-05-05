@@ -886,12 +886,6 @@ function handleSchedule($method, $parts, $input) {
         return;
     }
 
-    if (!$user->hasRight('ficheinter', 'creer')) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Permission denied']);
-        return;
-    }
-
     $dateStart = isset($input['date_start']) ? trim($input['date_start']) : '';
     $timeStart = isset($input['time_start']) ? trim($input['time_start']) : '00:00';
     $dateEnd   = isset($input['date_end'])   ? trim($input['date_end'])   : '';
