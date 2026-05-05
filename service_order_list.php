@@ -26,6 +26,7 @@ $langs->loadLangs(array("equipmentmanager@equipmentmanager", "interventions", "c
 if (!$user->hasRight('ficheinter', 'lire')) {
     accessforbidden();
 }
+$permissiontoadd = $user->hasRight('ficheinter', 'creer');
 
 // Status filter: -1=all, 1=open (draft+open), 2=billed, 3=closed
 // Note: Dolibarr status 0 (draft) is treated as "Offen" in this view
@@ -212,7 +213,7 @@ if ($showObjAddress)  { print '<th class="liste_titre">'.$langs->trans('ServiceO
 if ($showDescription) { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColDescription').'</th>'; }
 if ($showNbAnlagen)   { print '<th class="liste_titre center">'.$langs->trans('ServiceOrderColNbAnlagen').'</th>'; }
 if ($showTypes)       { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTypes').'</th>'; }
-print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('DateStart').'</a></th>';
+print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Termin').'</a></th>';
 if ($showTech)        { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTech').'</th>'; }
 print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
@@ -301,8 +302,31 @@ if ($resql) {
             print '<td>'.($typeTags ?: '—').'</td>';
         }
 
-        // Date
-        print '<td>'.dol_print_date($db->jdate($obj->dateo), 'day').'</td>';
+        // Date + edit icon
+        $tsStart = $db->jdate($obj->dateo);
+        $tsEnd   = $db->jdate($obj->datee);
+        $dateStartVal = $tsStart ? dol_print_date($tsStart, '%Y-%m-%d') : '';
+        $timeStartVal = $tsStart ? dol_print_date($tsStart, '%H:%M') : '';
+        $dateEndVal   = $tsEnd   ? dol_print_date($tsEnd,   '%Y-%m-%d') : '';
+        $timeEndVal   = $tsEnd   ? dol_print_date($tsEnd,   '%H:%M') : '';
+        $displayDate  = $tsStart ? dol_print_date($tsStart, 'dayhour') : '—';
+        if ($tsEnd) {
+            $displayDate .= ' – '.dol_print_date($tsEnd, 'dayhour');
+        }
+        print '<td style="white-space:nowrap;">';
+        print '<span id="dateDisplay_'.$obj->rowid.'" style="margin-right:4px;">'.$displayDate.'</span>';
+        if ($permissiontoadd) {
+            print '<a href="#" class="editScheduleBtn" style="color:#666;"';
+            print ' data-id="'.((int)$obj->rowid).'"';
+            print ' data-date-start="'.dol_escape_htmltag($dateStartVal).'"';
+            print ' data-time-start="'.dol_escape_htmltag($timeStartVal).'"';
+            print ' data-date-end="'.dol_escape_htmltag($dateEndVal).'"';
+            print ' data-time-end="'.dol_escape_htmltag($timeEndVal).'"';
+            print ' title="'.$langs->trans('EditSchedule').'">';
+            print img_picto($langs->trans('EditSchedule'), 'edit');
+            print '</a>';
+        }
+        print '</td>';
 
         // Technician
         if ($showTech) {
@@ -328,6 +352,105 @@ print '</tbody></table></div>';
 
 // Pagination
 print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.'&search_ref='.urlencode($search_ref).'&search_societe='.urlencode($search_societe).'&sortfield='.$sortfield.'&sortorder='.$sortorder, '', $sortfield, $sortorder, '', $num, $nbtotalofrecords, '', 0, '', '', $limit);
+
+// ─── Schedule edit modal ─────────────────────────────────────────────────────
+?>
+<div id="scheduleModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:6px; padding:24px; max-width:400px; width:90%; box-shadow:0 4px 24px rgba(0,0,0,.3);">
+    <h3 style="margin:0 0 16px;"><?php print $langs->trans('EditSchedule'); ?></h3>
+    <table style="width:100%; border-collapse:collapse;">
+      <tr>
+        <td style="padding:6px 0; width:90px;"><label><?php print $langs->trans('DateStart'); ?></label></td>
+        <td style="padding:6px 0;"><input type="date" id="schedDateStart" class="flat" style="width:150px; margin-right:6px;"> <input type="time" id="schedTimeStart" class="flat" style="width:90px;"></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;"><label><?php print $langs->trans('DateEnd'); ?></label></td>
+        <td style="padding:6px 0;"><input type="date" id="schedDateEnd" class="flat" style="width:150px; margin-right:6px;"> <input type="time" id="schedTimeEnd" class="flat" style="width:90px;"></td>
+      </tr>
+    </table>
+    <div id="schedError" style="color:#c0392b; margin:8px 0; display:none;"></div>
+    <div style="margin-top:18px; text-align:right;">
+      <button type="button" class="button" onclick="closeScheduleModal()"><?php print $langs->trans('Cancel'); ?></button>
+      <button type="button" class="button button-save" onclick="saveSchedule()"><?php print $langs->trans('SaveSchedule'); ?></button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+    var currentId = 0;
+    var ajaxUrl = '<?php print dol_buildpath('/equipmentmanager/ajax/update_schedule.php', 1); ?>';
+
+    document.querySelectorAll('.editScheduleBtn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            currentId = parseInt(this.dataset.id);
+            document.getElementById('schedDateStart').value = this.dataset.dateStart || '';
+            document.getElementById('schedTimeStart').value = this.dataset.timeStart || '';
+            document.getElementById('schedDateEnd').value   = this.dataset.dateEnd   || '';
+            document.getElementById('schedTimeEnd').value   = this.dataset.timeEnd   || '';
+            document.getElementById('schedError').style.display = 'none';
+            document.getElementById('scheduleModal').style.display = 'flex';
+        });
+    });
+
+    window.closeScheduleModal = function() {
+        document.getElementById('scheduleModal').style.display = 'none';
+    };
+
+    document.getElementById('scheduleModal').addEventListener('click', function(e) {
+        if (e.target === this) closeScheduleModal();
+    });
+
+    window.saveSchedule = function() {
+        var dateStart = document.getElementById('schedDateStart').value;
+        if (!dateStart) {
+            showSchedError('<?php print $langs->trans('DateStart'); ?> ist erforderlich.');
+            return;
+        }
+        var fd = new FormData();
+        fd.append('id', currentId);
+        fd.append('date_start', dateStart);
+        fd.append('time_start', document.getElementById('schedTimeStart').value);
+        fd.append('date_end',   document.getElementById('schedDateEnd').value);
+        fd.append('time_end',   document.getElementById('schedTimeEnd').value);
+
+        fetch(ajaxUrl, { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    // Update display in the table row
+                    var el = document.getElementById('dateDisplay_' + currentId);
+                    if (el) {
+                        var disp = data.date_start_display;
+                        if (data.date_end_display) disp += ' – ' + data.date_end_display;
+                        el.textContent = disp;
+                    }
+                    // Update data attributes on button for next edit
+                    var btn = document.querySelector('.editScheduleBtn[data-id="' + currentId + '"]');
+                    if (btn) {
+                        btn.dataset.dateStart = document.getElementById('schedDateStart').value;
+                        btn.dataset.timeStart = document.getElementById('schedTimeStart').value;
+                        btn.dataset.dateEnd   = document.getElementById('schedDateEnd').value;
+                        btn.dataset.timeEnd   = document.getElementById('schedTimeEnd').value;
+                    }
+                    closeScheduleModal();
+                } else {
+                    showSchedError(data.error || '<?php print $langs->trans('ScheduleSaveError'); ?>');
+                }
+            })
+            .catch(function() {
+                showSchedError('<?php print $langs->trans('ScheduleSaveError'); ?>');
+            });
+    };
+
+    function showSchedError(msg) {
+        var el = document.getElementById('schedError');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+})();
+</script>
+<?php
 
 llxFooter();
 $db->close();

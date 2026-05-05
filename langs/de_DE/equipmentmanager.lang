@@ -771,3 +771,26 @@ BulkCreateQty=Anzahl
 BulkCreateSubmit=Anlagen jetzt erstellen
 BulkCreateSuccess=%s Anlagen wurden erfolgreich erstellt
 BulkCreateLabelHint=Leer lassen für automatische Bezeichnung (Typ-Name)
+
+# v5.1 - Terminverwaltung & iOS Kalender
+EditSchedule=Termin bearbeiten
+DateStart=Startdatum
+DateEnd=Enddatum
+TimeStart=Startzeit
+TimeEnd=Endzeit
+SaveSchedule=Speichern
+ScheduleSaved=Termin gespeichert
+ScheduleSaveError=Fehler beim Speichern des Termins
+
+# iOS Calendar feed
+CalendarFeed=iOS Kalender-Abo
+CalendarFeedUrl=Kalender-URL (für iOS Kalender-App)
+CalendarFeedHelp=Diese URL in der iOS Kalender-App abonnieren: Kalender → + → Kalenderabo hinzufügen
+SubscribeInCalendar=In Kalender abonnieren (webcal://)
+CalendarFeedNoToken=Kein Token generiert. Bitte zuerst einen Token erstellen.
+GenerateToken=Token generieren
+RegenerateToken=Token neu generieren
+CalendarTokenGenerated=Neuer Kalender-Token generiert
+ConfirmRegenerateToken=Einen neuen Token generieren? Der alte Link wird ungültig.
+
+Termin=Termin

@@ -181,6 +181,15 @@ if ($action == 'delete_signature') {
     exit;
 }
 
+// Generate new calendar token
+if ($action == 'generate_cal_token') {
+    $newToken = bin2hex(random_bytes(24));
+    dolibarr_set_const($db, 'EQUIPMENTMANAGER_CAL_SECRET', $newToken, 'chaine', 0, '', $conf->entity);
+    setEventMessages($langs->trans("CalendarTokenGenerated"), null, 'mesgs');
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 // Cleanup duplicate checklist entries
 if ($action == 'cleanup_duplicates') {
     $errors = array();
@@ -775,6 +784,39 @@ print '</form>';
 })();
 </script>
 <?php
+
+// ─── iOS Calendar / ICS Feed ─────────────────────────────────────────────────
+print '<br>';
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<td colspan="2"><span class="fa fa-calendar paddingright"></span>'.$langs->trans("CalendarFeed").'</td>';
+print "</tr>\n";
+print '<tr class="oddeven">';
+print '<td>';
+$calSecret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
+if ($calSecret) {
+    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode($calSecret);
+    $webcalUrl = str_replace(array('https://', 'http://'), 'webcal://', $calUrl);
+    print '<strong>'.$langs->trans("CalendarFeedUrl").'</strong><br>';
+    print '<code style="word-break:break-all;">'.$calUrl.'</code>';
+    print '<br><small class="opacitymedium">'.$langs->trans("CalendarFeedHelp").'</small>';
+    print '<br><br>';
+    print '<a href="'.dol_escape_htmltag($webcalUrl).'" class="button smallpaddingimp"><span class="fa fa-calendar"></span> '.$langs->trans("SubscribeInCalendar").'</a>';
+} else {
+    print $langs->trans("CalendarFeedNoToken");
+}
+print '</td>';
+print '<td class="right" style="vertical-align:top; white-space:nowrap;">';
+if ($calSecret) {
+    print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=generate_cal_token&token='.newToken().'" onclick="return confirm(\''.$langs->trans("ConfirmRegenerateToken").'\');">'.$langs->trans("RegenerateToken").'</a>';
+} else {
+    print '<a class="butAction" href="'.$_SERVER["PHP_SELF"].'?action=generate_cal_token&token='.newToken().'">'.$langs->trans("GenerateToken").'</a>';
+}
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
 
 print dol_get_fiche_end();
 
