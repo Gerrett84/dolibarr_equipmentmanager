@@ -73,6 +73,7 @@ if ($action == 'save') {
 // Save service order list column settings
 if ($action == 'save_sol_columns') {
     $cols = array(
+        'EQUIPMENTMANAGER_SOL_COL_TERMIN',
         'EQUIPMENTMANAGER_SOL_COL_OBJADDRESS',
         'EQUIPMENTMANAGER_SOL_COL_NBANLAGEN',
         'EQUIPMENTMANAGER_SOL_COL_TYPES',
@@ -340,6 +341,7 @@ print '<td colspan="2"><span class="fa fa-list-ul paddingright"></span>'.$langs-
 print "</tr>\n";
 
 $solCols = array(
+    'EQUIPMENTMANAGER_SOL_COL_TERMIN'      => array('label' => $langs->trans('Termin'),                     'default' => '1'),
     'EQUIPMENTMANAGER_SOL_COL_OBJADDRESS'  => array('label' => $langs->trans('ServiceOrderColObjAddress'),  'default' => '1'),
     'EQUIPMENTMANAGER_SOL_COL_NBANLAGEN'   => array('label' => $langs->trans('ServiceOrderColNbAnlagen'),   'default' => '0'),
     'EQUIPMENTMANAGER_SOL_COL_TYPES'       => array('label' => $langs->trans('ServiceOrderColTypes'),       'default' => '0'),
