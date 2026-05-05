@@ -205,6 +205,10 @@ try {
             handleMaintenanceOverview($method, $parts, $input);
             break;
 
+        case 'schedule':
+            handleSchedule($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -861,6 +865,65 @@ function handleIntervention($method, $parts, $input) {
         ],
         'equipment' => $equipment
     ]);
+}
+
+/**
+ * POST /schedule/{intervention_id} — update dateo/datee
+ */
+function handleSchedule($method, $parts, $input) {
+    global $db, $user;
+
+    if ($method !== 'POST' && $method !== 'PUT') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $id = isset($parts[1]) ? (int)$parts[1] : 0;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing intervention id']);
+        return;
+    }
+
+    $dateStart = isset($input['date_start']) ? trim($input['date_start']) : '';
+    $timeStart = isset($input['time_start']) ? trim($input['time_start']) : '00:00';
+    $dateEnd   = isset($input['date_end'])   ? trim($input['date_end'])   : '';
+    $timeEnd   = isset($input['time_end'])   ? trim($input['time_end'])   : '00:00';
+    $allDay    = !empty($input['allday']);
+
+    if (!$dateStart || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateStart)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid date_start']);
+        return;
+    }
+
+    $pS = explode('-', $dateStart);
+    $tS = explode(':', $allDay ? '00:00' : $timeStart);
+    $ts_start = mktime((int)($tS[0]??0), (int)($tS[1]??0), 0, (int)$pS[1], (int)$pS[2], (int)$pS[0]);
+
+    $ts_end = null;
+    if ($dateEnd && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateEnd)) {
+        $pE = explode('-', $dateEnd);
+        $tE = explode(':', $allDay ? '23:59' : $timeEnd);
+        $ts_end = mktime((int)($tE[0]??23), (int)($tE[1]??59), 0, (int)$pE[1], (int)$pE[2], (int)$pE[0]);
+    }
+
+    $sql  = "UPDATE ".MAIN_DB_PREFIX."fichinter";
+    $sql .= " SET dateo = '".$db->idate($ts_start)."'";
+    $sql .= ", datee = ".($ts_end ? "'".$db->idate($ts_end)."'" : "NULL");
+    $sql .= " WHERE rowid = ".(int)$id;
+
+    if ($db->query($sql)) {
+        echo json_encode([
+            'status'     => 'ok',
+            'date_start' => $db->idate($ts_start),
+            'date_end'   => $ts_end ? $db->idate($ts_end) : null,
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => $db->lasterror()]);
+    }
 }
 
 /**

@@ -26,6 +26,7 @@ $langs->loadLangs(array("equipmentmanager@equipmentmanager", "interventions", "c
 if (!$user->hasRight('ficheinter', 'lire')) {
     accessforbidden();
 }
+$permissiontoadd = $user->hasRight('ficheinter', 'creer');
 
 // Status filter: -1=all, 1=open (draft+open), 2=billed, 3=closed
 // Note: Dolibarr status 0 (draft) is treated as "Offen" in this view
@@ -72,6 +73,7 @@ $showNbAnlagen   = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_NBANLAGEN',   '0
 $showTypes       = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TYPES',       '0') != '0';
 $showDescription = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_DESCRIPTION', '0') != '0';
 $showTech        = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TECH',        '1') != '0';
+$showTermin      = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TERMIN',      '1') != '0';
 
 // ─── Build SQL ───────────────────────────────────────────────────────────────
 // GROUP BY f.rowid avoids duplicates from multiple equipment/detail rows
@@ -212,7 +214,7 @@ if ($showObjAddress)  { print '<th class="liste_titre">'.$langs->trans('ServiceO
 if ($showDescription) { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColDescription').'</th>'; }
 if ($showNbAnlagen)   { print '<th class="liste_titre center">'.$langs->trans('ServiceOrderColNbAnlagen').'</th>'; }
 if ($showTypes)       { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTypes').'</th>'; }
-print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('DateStart').'</a></th>';
+if ($showTermin)      { print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Termin').'</a></th>'; }
 if ($showTech)        { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTech').'</th>'; }
 print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
@@ -228,7 +230,7 @@ $statusLabels = array(
 
 if ($resql) {
     $num = $db->num_rows($resql);
-    $totalCols = 4 + ($showObjAddress?1:0) + ($showDescription?1:0) + ($showNbAnlagen?1:0) + ($showTypes?1:0) + ($showTech?1:0);
+    $totalCols = 3 + ($showObjAddress?1:0) + ($showDescription?1:0) + ($showNbAnlagen?1:0) + ($showTypes?1:0) + ($showTech?1:0) + ($showTermin?1:0);
     if ($num == 0) {
         print '<tr><td colspan="'.$totalCols.'" class="opacitymedium center">'.$langs->trans('NoServiceOrders').'</td></tr>';
     }
@@ -301,8 +303,38 @@ if ($resql) {
             print '<td>'.($typeTags ?: '—').'</td>';
         }
 
-        // Date
-        print '<td>'.dol_print_date($db->jdate($obj->dateo), 'day').'</td>';
+        // Date + edit icon (only when column is visible)
+        if ($showTermin) {
+            $tsStart = $db->jdate($obj->dateo);
+            $tsEnd   = $db->jdate($obj->datee);
+            $dateStartVal = $tsStart ? date('Y-m-d', $tsStart) : '';
+            $timeStartVal = $tsStart ? date('H:i', $tsStart)   : '';
+            $dateEndVal   = $tsEnd   ? date('Y-m-d', $tsEnd)   : '';
+            $timeEndVal   = $tsEnd   ? date('H:i', $tsEnd)     : '';
+            $isAllDay     = $tsStart && $timeStartVal === '00:00' && (!$tsEnd || $timeEndVal === '23:59');
+            $fmt          = $isAllDay ? 'day' : 'dayhour';
+            $lineStart    = $tsStart ? dol_print_date($tsStart, $fmt) : '—';
+            $lineEnd      = $tsEnd   ? dol_print_date($tsEnd, $fmt)   : '';
+            print '<td style="white-space:nowrap; line-height:1.5;">';
+            print '<span id="dateDisplay_'.$obj->rowid.'">';
+            print $lineStart;
+            if ($lineEnd) {
+                print '<br><span style="color:#888;">'.$lineEnd.'</span>';
+            }
+            print '</span>';
+            if ($permissiontoadd) {
+                print ' <a href="#" class="editScheduleBtn" style="color:#666; vertical-align:top;"';
+                print ' data-id="'.((int)$obj->rowid).'"';
+                print ' data-date-start="'.dol_escape_htmltag($dateStartVal).'"';
+                print ' data-time-start="'.dol_escape_htmltag($timeStartVal).'"';
+                print ' data-date-end="'.dol_escape_htmltag($dateEndVal).'"';
+                print ' data-time-end="'.dol_escape_htmltag($timeEndVal).'"';
+                print ' title="'.$langs->trans('EditSchedule').'">';
+                print img_picto($langs->trans('EditSchedule'), 'edit');
+                print '</a>';
+            }
+            print '</td>';
+        }
 
         // Technician
         if ($showTech) {
@@ -328,6 +360,186 @@ print '</tbody></table></div>';
 
 // Pagination
 print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.'&search_ref='.urlencode($search_ref).'&search_societe='.urlencode($search_societe).'&sortfield='.$sortfield.'&sortorder='.$sortorder, '', $sortfield, $sortorder, '', $num, $nbtotalofrecords, '', 0, '', '', $limit);
+
+// ─── Schedule edit modal ─────────────────────────────────────────────────────
+?>
+<div id="scheduleModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:6px; padding:24px; max-width:360px; width:92%; box-shadow:0 4px 24px rgba(0,0,0,.3);">
+    <h3 style="margin:0 0 14px;"><?php print $langs->trans('EditSchedule'); ?></h3>
+
+    <label style="display:flex; align-items:center; gap:8px; margin-bottom:14px; cursor:pointer;">
+      <input type="checkbox" id="schedAllDay" style="width:16px; height:16px;">
+      <span><?php print $langs->trans('AllDay'); ?></span>
+    </label>
+
+    <div style="margin-bottom:12px;">
+      <div style="font-size:.82em; color:#888; margin-bottom:3px;"><?php print $langs->trans('DateStart'); ?></div>
+      <div style="display:flex; gap:6px;">
+        <input type="date" id="schedDateStart" class="flat" style="flex:1; min-width:0;">
+        <input type="time" id="schedTimeStart" class="flat" style="width:90px;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.82em; color:#888; margin-bottom:3px;"><?php print $langs->trans('DateEnd'); ?></div>
+      <div style="display:flex; gap:6px;">
+        <input type="date" id="schedDateEnd" class="flat" style="flex:1; min-width:0;">
+        <input type="time" id="schedTimeEnd" class="flat" style="width:90px;">
+      </div>
+    </div>
+
+    <div id="schedError" style="color:#c0392b; margin:8px 0; display:none;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+      <button type="button" class="button" onclick="closeScheduleModal()"><?php print $langs->trans('Cancel'); ?></button>
+      <button type="button" class="button button-save" onclick="saveSchedule()"><?php print $langs->trans('SaveSchedule'); ?></button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+    var currentId = 0;
+    var ajaxUrl = '<?php print dol_buildpath('/equipmentmanager/ajax/update_schedule.php', 1); ?>';
+
+    var elAllDay   = document.getElementById('schedAllDay');
+    var elDateS    = document.getElementById('schedDateStart');
+    var elTimeS    = document.getElementById('schedTimeStart');
+    var elDateE    = document.getElementById('schedDateEnd');
+    var elTimeE    = document.getElementById('schedTimeEnd');
+
+    // Helpers: date string ↔ ms
+    function dateMs(dateStr, timeStr) {
+        if (!dateStr) return null;
+        var d = new Date(dateStr + 'T' + (timeStr || '00:00') + ':00');
+        return isNaN(d) ? null : d.getTime();
+    }
+    function msToDate(ms) {
+        var d = new Date(ms);
+        // Use local date parts — toISOString() would give UTC date which can be off by one day
+        return d.getFullYear() + '-' +
+               String(d.getMonth() + 1).padStart(2, '0') + '-' +
+               String(d.getDate()).padStart(2, '0');
+    }
+    function msToTime(ms) {
+        var d = new Date(ms);
+        return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    // Toggle all-day: hide/show time inputs
+    elAllDay.addEventListener('change', function() {
+        var hide = this.checked;
+        elTimeS.style.display = hide ? 'none' : '';
+        elTimeE.style.display = hide ? 'none' : '';
+    });
+
+    // Auto-adjust end date when start date changes (keep same duration)
+    elDateS.addEventListener('change', function() {
+        var prevStartMs = dateMs(elDateS._prevValue, elTimeS.value);
+        var endMs       = dateMs(elDateE.value, elTimeE.value);
+        var newStartMs  = dateMs(elDateS.value, elTimeS.value);
+        if (prevStartMs && endMs && newStartMs) {
+            var delta = endMs - prevStartMs;
+            var newEndMs = newStartMs + delta;
+            elDateE.value = msToDate(newEndMs);
+            elTimeE.value = msToTime(newEndMs);
+        }
+        elDateS._prevValue = elDateS.value;
+    });
+
+    // Also shift end time when start time changes
+    elTimeS.addEventListener('change', function() {
+        var prevStartMs = dateMs(elDateS.value, elTimeS._prevValue || '00:00');
+        var endMs       = dateMs(elDateE.value, elTimeE.value);
+        var newStartMs  = dateMs(elDateS.value, elTimeS.value);
+        if (prevStartMs && endMs && newStartMs) {
+            var delta = endMs - prevStartMs;
+            var newEndMs = newStartMs + delta;
+            elDateE.value = msToDate(newEndMs);
+            elTimeE.value = msToTime(newEndMs);
+        }
+        elTimeS._prevValue = elTimeS.value;
+    });
+
+    document.querySelectorAll('.editScheduleBtn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            currentId = parseInt(this.dataset.id);
+            elDateS.value = this.dataset.dateStart || '';
+            elTimeS.value = this.dataset.timeStart || '';
+            elDateE.value = this.dataset.dateEnd   || '';
+            elTimeE.value = this.dataset.timeEnd   || '';
+            elDateS._prevValue = elDateS.value;
+            elTimeS._prevValue = elTimeS.value;
+
+            // Detect all-day
+            var isAllDay = elTimeS.value === '00:00' && (!elTimeE.value || elTimeE.value === '23:59');
+            elAllDay.checked = isAllDay;
+            elTimeS.style.display = isAllDay ? 'none' : '';
+            elTimeE.style.display = isAllDay ? 'none' : '';
+
+            document.getElementById('schedError').style.display = 'none';
+            document.getElementById('scheduleModal').style.display = 'flex';
+        });
+    });
+
+    window.closeScheduleModal = function() {
+        document.getElementById('scheduleModal').style.display = 'none';
+    };
+
+    document.getElementById('scheduleModal').addEventListener('click', function(e) {
+        if (e.target === this) closeScheduleModal();
+    });
+
+    window.saveSchedule = function() {
+        if (!elDateS.value) {
+            showSchedError('<?php print $langs->trans('DateStart'); ?> <?php print $langs->trans('Required'); ?>.');
+            return;
+        }
+        var fd = new FormData();
+        fd.append('id',         currentId);
+        fd.append('date_start', elDateS.value);
+        fd.append('time_start', elAllDay.checked ? '' : elTimeS.value);
+        fd.append('date_end',   elDateE.value);
+        fd.append('time_end',   elAllDay.checked ? '' : elTimeE.value);
+        fd.append('allday',     elAllDay.checked ? '1' : '0');
+
+        fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var el = document.getElementById('dateDisplay_' + currentId);
+                    if (el) {
+                        // Rebuild two-line display: start on top, end below in grey
+                        el.innerHTML = data.date_start_display +
+                            (data.date_end_display
+                                ? '<br><span style="color:#888;">' + data.date_end_display + '</span>'
+                                : '');
+                    }
+                    // Refresh data attributes for next open
+                    var btn = document.querySelector('.editScheduleBtn[data-id="' + currentId + '"]');
+                    if (btn) {
+                        btn.dataset.dateStart = elDateS.value;
+                        btn.dataset.timeStart = elAllDay.checked ? '00:00' : (elTimeS.value || '00:00');
+                        btn.dataset.dateEnd   = elDateE.value;
+                        btn.dataset.timeEnd   = elAllDay.checked ? '23:59' : (elTimeE.value || '');
+                    }
+                    closeScheduleModal();
+                } else {
+                    showSchedError(data.error || '<?php print $langs->trans('ScheduleSaveError'); ?>');
+                }
+            })
+            .catch(function(err) {
+                showSchedError('<?php print $langs->trans('ScheduleSaveError'); ?>');
+            });
+    };
+
+    function showSchedError(msg) {
+        var el = document.getElementById('schedError');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+})();
+</script>
+<?php
 
 llxFooter();
 $db->close();

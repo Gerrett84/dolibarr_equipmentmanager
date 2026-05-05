@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,17 @@
 -----
 
 ## Features
+
+### NEU in v5.2: Terminplanung & iOS-Kalender
+
+- **Termin bearbeiten** – Start- und Enddatum/-uhrzeit eines Serviceauftrags direkt in der Übersichtsliste und in der PWA bearbeitbar; funktioniert auch nach Dolibarr-Freigabe (Direkt-SQL-Update)
+- **Ganztägig-Option** – Termin als ganztägig markieren; setzt automatisch 00:00–23:59
+- **Termin-Spalte konfigurierbar** – Spalte „Termin" in der Serviceauftragsliste kann in den Admin-Einstellungen ein-/ausgeblendet werden
+- **PWA Terminanzeige** – Termin wird im Info-Header des Auftrags angezeigt (Start & Ende, Ganztägig-Erkennung)
+- **PWA Termin bearbeiten** – Neues Modal in der PWA zum Bearbeiten des Termins mit Datum/Uhrzeit und Ganztägig-Toggle
+- **iOS-Kalender-Feed** – Neuer ICS/WebCal-Feed (`calendar.php`) zum Abonnieren offener Serviceaufträge im iOS-Kalender oder jeder anderen Kalender-App
+- **Kalender-Authentifizierung** – Token-basierter Zugriff (`EQUIPMENTMANAGER_CAL_SECRET`); Token wird in der Admin-Einrichtungsseite generiert und angezeigt
+- **Kalender-Inhalt** – Zusammenfassung: Auftragsnummer + Objektadresse-Name (Fallback: Adresse, dann Kundenname); Ort aus Objektadresse; Notiz aus Auftragsbeschreibung
 
 ### NEU in v5.1: Tortypen, Abnahmeprotokoll-Verbesserungen & Bugfixes
 
@@ -229,6 +240,17 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.2.0 (2026-05-05)
+
+- **Termin bearbeiten** – Start-/Enddatum und Uhrzeit direkt in der Serviceauftragsliste und der PWA editierbar; Direkt-SQL-Update umgeht Dolibarr-Freigabesperre
+- **Ganztägig** – Termin als ganztägig markieren (00:00–23:59); Anzeige angepasst in Liste und PWA
+- **Termin-Spalte konfigurierbar** – Spalte in der Serviceauftragsliste via Admin-Einstellungen ein-/ausblendbar
+- **PWA: Termin im Info-Header** – Start, Ende und Ganztägig-Status im aufklappbaren Auftragsheader
+- **PWA: Termin bearbeiten** – Neues Bottom-Sheet-Modal mit Datum/Uhrzeit-Feldern, Ganztägig-Toggle und automatischer Anpassung des Enddatums
+- **iOS-Kalender-Feed** – ICS/WebCal-Endpoint `calendar.php`; abonnierbar in iOS-Kalender, Google Calendar etc.
+- **Kalender-Token** – Sicherer Token-Zugriff via `EQUIPMENTMANAGER_CAL_SECRET`; Generierung und Subscribe-Link in der Admin-Einrichtungsseite
+- **Fix: HTTP 403 in PWA** – PWA-Token-Auth lädt keine Benutzerrechte; `hasRight()`-Prüfung im Schedule-API-Endpunkt entfernt
 
 ### v5.1.0 (2026-04-30)
 
@@ -545,6 +567,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.1.0
-**Released:** April 2026
+**Current Version:** 5.2.0
+**Released:** Mai 2026
 **Compatibility:** Dolibarr 16.0+

@@ -249,3 +249,27 @@ EquipmentForAddress=Equipment for Address
 PleaseAddAddressFirst=Please link an address first
 GoToContactTabToAddAddress=Go to "Contacts/Addresses" tab to add an object address
 NoEquipmentForThisAddress=No equipment found for this address
+# v5.1 - Schedule management & iOS Calendar
+EditSchedule=Edit schedule
+DateStart=Start date
+DateEnd=End date
+TimeStart=Start time
+TimeEnd=End time
+SaveSchedule=Save
+ScheduleSaved=Schedule saved
+ScheduleSaveError=Error saving schedule
+
+# iOS Calendar feed
+CalendarFeed=iOS Calendar Subscription
+CalendarFeedUrl=Calendar URL (for iOS Calendar app)
+CalendarFeedHelp=Subscribe to this URL in iOS Calendar: Calendar → + → Add Calendar Subscription
+SubscribeInCalendar=Subscribe in Calendar (webcal://)
+CalendarFeedNoToken=No token generated. Please create a token first.
+GenerateToken=Generate token
+RegenerateToken=Regenerate token
+CalendarTokenGenerated=New calendar token generated
+ConfirmRegenerateToken=Generate a new token? The old link will become invalid.
+
+Termin=Appointment
+AllDay=All day
+Required=is required
