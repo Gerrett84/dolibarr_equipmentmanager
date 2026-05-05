@@ -313,8 +313,8 @@ if ($resql) {
             $timeEndVal   = $tsEnd   ? date('H:i', $tsEnd)     : '';
             $isAllDay     = $tsStart && $timeStartVal === '00:00' && (!$tsEnd || $timeEndVal === '23:59');
             $fmt          = $isAllDay ? 'day' : 'dayhour';
-            $lineStart    = $tsStart ? dol_print_date($tsStart, $fmt) : '—';
-            $lineEnd      = $tsEnd   ? dol_print_date($tsEnd, $fmt)   : '';
+            $lineStart    = $tsStart ? dol_print_date($tsStart, $fmt, 'tzserver') : '—';
+            $lineEnd      = $tsEnd   ? dol_print_date($tsEnd, $fmt, 'tzserver')   : '';
             print '<td style="white-space:nowrap; line-height:1.5;">';
             print '<span id="dateDisplay_'.$obj->rowid.'">';
             print $lineStart;
