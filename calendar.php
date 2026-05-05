@@ -153,15 +153,7 @@ if ($resql) {
         $location = implode(', ', $locParts);
 
         // Description
-        $descParts = array();
-        $techName = trim($obj->tech_firstname.' '.$obj->tech_lastname);
-        if ($techName) {
-            $descParts[] = 'Techniker: '.$techName;
-        }
-        if ($obj->description) {
-            $descParts[] = strip_tags($obj->description);
-        }
-        $description = implode('\n', $descParts);
+        $description = $obj->description ? strip_tags($obj->description) : '';
 
         $uid = 'serviceorder-'.$obj->rowid.'@equipmentmanager';
         $dtStamp = icsDate(time());
