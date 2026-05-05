@@ -271,3 +271,5 @@ CalendarTokenGenerated=New calendar token generated
 ConfirmRegenerateToken=Generate a new token? The old link will become invalid.
 
 Termin=Appointment
+AllDay=All day
+Required=is required

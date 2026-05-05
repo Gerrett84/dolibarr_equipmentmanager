@@ -794,3 +794,5 @@ CalendarTokenGenerated=Neuer Kalender-Token generiert
 ConfirmRegenerateToken=Einen neuen Token generieren? Der alte Link wird ungültig.
 
 Termin=Termin
+AllDay=Ganztägig
+Required=ist erforderlich
