@@ -7,6 +7,10 @@
  * Token is shown in Equipment Manager admin setup page.
  */
 
+ob_start(); // catch any stray PHP output so it can't corrupt the ICS response
+error_reporting(0);
+ini_set('display_errors', 0);
+
 // No Dolibarr session needed — token-based auth only
 define('NOLOGIN', '1');
 define('NOCSRFCHECK', '1');
@@ -52,10 +56,11 @@ if (!$secret || !$token || !hash_equals($secret, $token)) {
 // Query open service orders with dates
 $sql  = "SELECT f.rowid, f.ref, f.dateo, f.datee, f.description,";
 $sql .= " s.nom as societe_name,";
-$sql .= " u.firstname, u.lastname,";
+$sql .= " u.firstname as tech_firstname, u.lastname as tech_lastname,";
 $sql .= " COALESCE(MIN(sp.address), MIN(sp_obj.address)) as obj_address,";
 $sql .= " COALESCE(MIN(sp.zip), MIN(sp_obj.zip)) as obj_zip,";
-$sql .= " COALESCE(MIN(sp.town), MIN(sp_obj.town)) as obj_town";
+$sql .= " COALESCE(MIN(sp.town), MIN(sp_obj.town)) as obj_town,";
+$sql .= " TRIM(CONCAT(COALESCE(MIN(sp.firstname), MIN(sp_obj.firstname), ''), ' ', COALESCE(MIN(sp.lastname), MIN(sp_obj.lastname), ''))) as obj_contact_name";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
@@ -102,6 +107,7 @@ function icsEscape($str) {
     return $str;
 }
 
+ob_end_clean(); // discard any stray output (PHP warnings etc.) before ICS headers
 header('Content-Type: text/calendar; charset=UTF-8');
 header('Content-Disposition: inline; filename="serviceorders.ics"');
 header('Cache-Control: no-cache, no-store');
@@ -123,9 +129,15 @@ if ($resql) {
         $ts_start = $db->jdate($obj->dateo);
         $ts_end   = $obj->datee ? $db->jdate($obj->datee) : ($ts_start + 3600);
 
-        // Summary: "INT-0001 – Musterfirma GmbH"
+        // Summary: "INT-0001 – Objektname" (fallback: Adresse, then Kundenname)
         $summary = $obj->ref;
-        if ($obj->societe_name) {
+        $objName = trim($obj->obj_contact_name);
+        if ($objName) {
+            $summary .= ' - '.$objName;
+        } elseif ($obj->obj_address) {
+            $addrShort = trim($obj->obj_address.($obj->obj_town ? ', '.$obj->obj_town : ''));
+            $summary .= ' - '.$addrShort;
+        } elseif ($obj->societe_name) {
             $summary .= ' - '.$obj->societe_name;
         }
 
@@ -142,7 +154,7 @@ if ($resql) {
 
         // Description
         $descParts = array();
-        $techName = trim($obj->firstname.' '.$obj->lastname);
+        $techName = trim($obj->tech_firstname.' '.$obj->tech_lastname);
         if ($techName) {
             $descParts[] = 'Techniker: '.$techName;
         }
