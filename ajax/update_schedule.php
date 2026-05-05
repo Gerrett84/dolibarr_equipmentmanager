@@ -85,8 +85,8 @@ $sql .= " WHERE rowid = ".(int)$id;
 if ($db->query($sql)) {
     echo json_encode(array(
         'success'            => true,
-        'date_start_display' => dol_print_date($ts_start, $allday ? 'day' : 'dayhour'),
-        'date_end_display'   => $ts_end ? dol_print_date($ts_end, $allday ? 'day' : 'dayhour') : '',
+        'date_start_display' => dol_print_date($ts_start, $allday ? 'day' : 'dayhour', 'tzserver'),
+        'date_end_display'   => $ts_end ? dol_print_date($ts_end, $allday ? 'day' : 'dayhour', 'tzserver') : '',
     ));
 } else {
     echo json_encode(array('error' => $db->lasterror()));
