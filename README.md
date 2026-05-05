@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.2.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -240,6 +240,10 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.2.1 (2026-05-05)
+
+- **Hotfix: Termin-Uhrzeit wird nicht gespeichert** – `llx_fichinter.dateo`/`datee` waren `DATE`-Spalten; MySQL verwarf die Uhrzeit beim Speichern lautlos → immer 00:00 UTC gespeichert → 02:00 CEST angezeigt. Fix: Spalten auf `DATETIME` geändert, Anzeige auf `'tzserver'` umgestellt (SQL-Migration: `sql/llx_equipmentmanager_v5.2.1_fichinter_datetime.sql`)
 
 ### v5.2.0 (2026-05-05)
 
@@ -567,6 +571,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.2.0
+**Current Version:** 5.2.1
 **Released:** Mai 2026
 **Compatibility:** Dolibarr 16.0+
