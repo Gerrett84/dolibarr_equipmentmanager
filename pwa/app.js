@@ -5173,15 +5173,32 @@ class ServiceReportApp {
 
                 // Number input field for 'number' answer type (replaces select)
                 if (answerType === 'number') {
-                    html += `<input type="number" class="checklist-item-number"
+                    const thresholdMax = item.threshold_max != null ? parseFloat(item.threshold_max) : null;
+                    const numVal = currentAnswer !== '' ? parseFloat(currentAnswer) : NaN;
+                    let numClass = '';
+                    let badgeHtml = '';
+                    if (!isNaN(numVal) && thresholdMax !== null) {
+                        if (numVal <= thresholdMax) {
+                            numClass = 'threshold-ok';
+                            badgeHtml = `<span class="number-threshold-badge ok">✓ OK</span>`;
+                        } else {
+                            numClass = 'threshold-nok';
+                            badgeHtml = `<span class="number-threshold-badge nok">✗ >${thresholdMax} N</span>`;
+                        }
+                    }
+                    const thresholdAttr = thresholdMax !== null ? `data-threshold-max="${thresholdMax}"` : '';
+                    html += `<input type="number" class="checklist-item-number ${numClass}"
                                 placeholder="N"
                                 data-item="${itemId}"
                                 data-section="${sectionCode}"
                                 value="${this.escapeHtml(currentAnswer)}"
                                 step="any"
+                                ${thresholdAttr}
                                 ${!canEditChecklist ? 'disabled' : ''}
                                 onchange="app.onChecklistNumberChange(this)"
                                 style="display:none">`;
+                    html += `<span class="number-unit" style="display:none">N</span>`;
+                    html += badgeHtml ? `<span class="number-threshold-display" style="display:none">${badgeHtml}</span>` : `<span class="number-threshold-display" style="display:none"></span>`;
                 }
 
                 html += `</div>`;
@@ -5244,11 +5261,16 @@ class ServiceReportApp {
 
         contentEl.innerHTML = html;
 
-        // For 'number' answer type: hide the select, show the number input
+        // For 'number' answer type: hide the select, show the number input + unit + badge
         contentEl.querySelectorAll('.checklist-item-number').forEach(numEl => {
-            const selectEl = numEl.closest('.checklist-item-header').querySelector('.checklist-item-select');
+            const header = numEl.closest('.checklist-item-header');
+            const selectEl = header.querySelector('.checklist-item-select');
             if (selectEl) selectEl.style.display = 'none';
             numEl.style.display = 'inline-block';
+            const unitEl = header.querySelector('.number-unit');
+            if (unitEl) unitEl.style.display = 'inline';
+            const badgeContainer = header.querySelector('.number-threshold-display');
+            if (badgeContainer) badgeContainer.style.display = 'inline';
         });
     }
 
@@ -5405,8 +5427,25 @@ class ServiceReportApp {
         const itemCode = inputEl.dataset.item;
         const answer = inputEl.value;
 
-        const noteEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-note');
-        const note = noteEl ? noteEl.value : '';
+        // Update threshold badge color
+        const thresholdMax = inputEl.dataset.thresholdMax != null ? parseFloat(inputEl.dataset.thresholdMax) : null;
+        const numVal = answer !== '' ? parseFloat(answer) : NaN;
+        const header = inputEl.closest('.checklist-item-header');
+        const badgeContainer = header ? header.querySelector('.number-threshold-display') : null;
+        inputEl.classList.remove('threshold-ok', 'threshold-nok');
+        if (badgeContainer) {
+            if (!isNaN(numVal) && thresholdMax !== null) {
+                if (numVal <= thresholdMax) {
+                    inputEl.classList.add('threshold-ok');
+                    badgeContainer.innerHTML = `<span class="number-threshold-badge ok">✓ OK</span>`;
+                } else {
+                    inputEl.classList.add('threshold-nok');
+                    badgeContainer.innerHTML = `<span class="number-threshold-badge nok">✗ >${thresholdMax} N</span>`;
+                }
+            } else {
+                badgeContainer.innerHTML = '';
+            }
+        }
 
         // Update hidden select to keep value in sync
         const selectEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-select');
@@ -5415,6 +5454,9 @@ class ServiceReportApp {
             selectEl.options[0].text = answer || '-';
             selectEl.value = answer;
         }
+
+        const noteEl = inputEl.closest('.checklist-item').querySelector('.checklist-item-note');
+        const note = noteEl ? noteEl.value : '';
 
         await this.saveChecklistItem(itemCode, answer, note);
     }
