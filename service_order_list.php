@@ -56,13 +56,17 @@ if ($page < 0) {
 $offset = $limit * $page;
 
 // ─── Status SQL helper ────────────────────────────────────────────────────────
-// status=1 (Offen) covers Dolibarr fk_statut 0 (draft) and 1 (validated)
+// status=1 (Offen) = Dolibarr fk_statut 0 (draft)
+// status=2 (Abrechnen) = Dolibarr fk_statut 1 (validated) + 2 (signed)
+// status=3 (Abgeschlossen) = Dolibarr fk_statut 3 (billed)
 function buildStatusFilter($status, $prefix = 'f')
 {
     if ($status == 1) {
-        return " AND ".$prefix.".fk_statut IN (0, 1)";
-    } elseif ($status == 2 || $status == 3) {
-        return " AND ".$prefix.".fk_statut = ".(int)$status;
+        return " AND ".$prefix.".fk_statut = 0";
+    } elseif ($status == 2) {
+        return " AND ".$prefix.".fk_statut IN (1, 2)";
+    } elseif ($status == 3) {
+        return " AND ".$prefix.".fk_statut = 3";
     }
     return ''; // -1 = all
 }
@@ -107,7 +111,7 @@ if ($search_societe) {
 $sql .= " GROUP BY f.rowid";
 // When viewing "Alle": sort by status priority (Offen→Abrechnen→Abgeschlossen) first, then by selected sort
 if ($status == -1) {
-    $sql .= " ORDER BY CASE f.fk_statut WHEN 0 THEN 1 WHEN 1 THEN 1 WHEN 2 THEN 2 WHEN 3 THEN 3 ELSE 4 END ASC";
+    $sql .= " ORDER BY CASE f.fk_statut WHEN 0 THEN 1 WHEN 1 THEN 2 WHEN 2 THEN 2 WHEN 3 THEN 3 ELSE 4 END ASC";
     $sql .= ", ".$db->sanitize($sortfield)." ".$db->sanitize($sortorder);
 } else {
     $sql .= $db->order($sortfield, $sortorder);
@@ -137,7 +141,9 @@ $sql .= $db->plimit($limit, $offset);
 $resql = $db->query($sql);
 
 // ─── Status counts for tab badges ────────────────────────────────────────────
-// Tab "Offen" (key=1) = Dolibarr status 0 + 1 combined
+// Tab 1 (Offen)      = fk_statut 0 (draft)
+// Tab 2 (Abrechnen)  = fk_statut 1 (validated) + 2 (signed)
+// Tab 3 (Abgeschlossen) = fk_statut 3 (billed)
 $statusCounts = array(-1 => 0, 1 => 0, 2 => 0, 3 => 0);
 $sqlcnt = "SELECT f.fk_statut, COUNT(DISTINCT f.rowid) as nb"
         . " FROM ".MAIN_DB_PREFIX."fichinter as f"
@@ -148,8 +154,8 @@ if ($rescnt) {
     while ($obj = $db->fetch_object($rescnt)) {
         $st = (int)$obj->fk_statut;
         $nb = (int)$obj->nb;
-        // Draft (0) counts as Offen (1)
-        $tabKey = ($st === 0) ? 1 : $st;
+        $tabKeyMap = array(0 => 1, 1 => 2, 2 => 2, 3 => 3);
+        $tabKey = isset($tabKeyMap[$st]) ? $tabKeyMap[$st] : -1;
         if (isset($statusCounts[$tabKey])) {
             $statusCounts[$tabKey] += $nb;
         }
@@ -220,10 +226,9 @@ print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
 print '<tbody>';
 
-// Status label helper — draft and open both shown as "Offen"
 $statusLabels = array(
     0 => '<span style="color:#2196F3;font-weight:bold">'.$langs->trans('ServiceOrderStatusOpen').'</span>',
-    1 => '<span style="color:#2196F3;font-weight:bold">'.$langs->trans('ServiceOrderStatusOpen').'</span>',
+    1 => '<span style="color:#FF9800;font-weight:bold">'.$langs->trans('ServiceOrderStatusValidated').'</span>',
     2 => '<span style="color:#FF9800;font-weight:bold">'.$langs->trans('ServiceOrderStatusBilled').'</span>',
     3 => '<span style="color:#4CAF50">'.$langs->trans('ServiceOrderStatusClosed').'</span>',
 );

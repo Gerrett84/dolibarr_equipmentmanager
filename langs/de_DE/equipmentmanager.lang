@@ -750,6 +750,7 @@ ServiceOrderColTech=Techniker
 ServiceOrderStatusAll=Alle
 ServiceOrderStatusDraft=Entwurf
 ServiceOrderStatusOpen=Offen
+ServiceOrderStatusValidated=Freigegeben
 ServiceOrderStatusBilled=Abrechnen
 ServiceOrderStatusClosed=Abgeschlossen
 ServiceOrderTechName=Techniker
