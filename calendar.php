@@ -126,8 +126,19 @@ echo "X-PUBLISHED-TTL:PT1H\r\n";
 
 if ($resql) {
     while ($obj = $db->fetch_object($resql)) {
-        $ts_start = $db->jdate($obj->dateo);
-        $ts_end   = $obj->datee ? $db->jdate($obj->datee) : ($ts_start + 3600);
+        // Raw string extraction for TZ-independent all-day detection
+        $dateoRaw = !empty($obj->dateo) ? (string)$obj->dateo : '';
+        $dateeRaw = !empty($obj->datee) ? (string)$obj->datee : '';
+        $timeStartVal = (strlen($dateoRaw) >= 16) ? substr($dateoRaw, 11, 5) : '';
+        $timeEndVal   = (strlen($dateeRaw) >= 16) ? substr($dateeRaw, 11, 5) : '';
+        $dateStartStr = (strlen($dateoRaw) >= 10) ? str_replace('-', '', substr($dateoRaw, 0, 10)) : '';
+        $dateEndStr   = (strlen($dateeRaw) >= 10) ? str_replace('-', '', substr($dateeRaw, 0, 10)) : '';
+
+        $isAllDay = !empty($dateStartStr) && $timeStartVal === '00:00'
+                    && (empty($dateeRaw) || $timeEndVal === '00:00' || $timeEndVal === '23:59');
+
+        $ts_start = $db->jdate($dateoRaw);
+        $ts_end   = $dateeRaw ? $db->jdate($dateeRaw) : ($ts_start + 3600);
 
         // Summary: "INT-0001 – Objektname" (fallback: Adresse, then Kundenname)
         $summary = $obj->ref;
@@ -161,8 +172,24 @@ if ($resql) {
         echo "BEGIN:VEVENT\r\n";
         echo icsFold("UID:".$uid)."\r\n";
         echo "DTSTAMP:".$dtStamp."\r\n";
-        echo "DTSTART:".icsDate($ts_start)."\r\n";
-        echo "DTEND:".icsDate($ts_end)."\r\n";
+
+        if ($isAllDay) {
+            // RFC 5545: all-day events use VALUE=DATE (date only, no time)
+            // DTEND is exclusive: must be the day AFTER the last day of the event
+            echo "DTSTART;VALUE=DATE:".$dateStartStr."\r\n";
+            if ($timeEndVal === '23:59') {
+                $dtEndAllDay = date('Ymd', strtotime(substr($dateeRaw, 0, 10).' +1 day'));
+            } elseif ($timeEndVal === '00:00' && $dateEndStr > $dateStartStr) {
+                $dtEndAllDay = $dateEndStr; // already midnight of next day → exclusive end
+            } else {
+                $dtEndAllDay = date('Ymd', strtotime(substr($dateoRaw, 0, 10).' +1 day'));
+            }
+            echo "DTEND;VALUE=DATE:".$dtEndAllDay."\r\n";
+        } else {
+            echo "DTSTART:".icsDate($ts_start)."\r\n";
+            echo "DTEND:".icsDate($ts_end)."\r\n";
+        }
+
         echo icsFold("SUMMARY:".icsEscape($summary))."\r\n";
         if ($location) {
             echo icsFold("LOCATION:".icsEscape($location))."\r\n";
