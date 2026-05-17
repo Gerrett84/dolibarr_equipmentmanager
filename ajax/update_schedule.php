@@ -65,14 +65,18 @@ if ($date_end) {
     $pEnd = explode('-', $date_end);
     if (count($pEnd) === 3) {
         list($ey, $em, $ed) = $pEnd;
-        if ($allday || !$time_end) {
-            $eh = 23; $emin = 59;
+        if ($allday) {
+            // All-day: store end = same midnight as start day; end date is used only for multi-day events
+            $ts_end = mktime(0, 0, 0, (int)$em, (int)$ed, (int)$ey);
+        } elseif (!$time_end) {
+            $eh = 0; $emin = 0;
+            $ts_end = mktime($eh, $emin, 0, (int)$em, (int)$ed, (int)$ey);
         } else {
             $tParts2 = explode(':', $time_end);
             $eh   = isset($tParts2[0]) ? (int)$tParts2[0] : 0;
             $emin = isset($tParts2[1]) ? (int)$tParts2[1] : 0;
+            $ts_end = mktime($eh, $emin, 0, (int)$em, (int)$ed, (int)$ey);
         }
-        $ts_end = mktime($eh, $emin, 0, (int)$em, (int)$ed, (int)$ey);
     }
 }
 
@@ -86,7 +90,10 @@ if ($db->query($sql)) {
     echo json_encode(array(
         'success'            => true,
         'date_start_display' => dol_print_date($ts_start, $allday ? 'day' : 'dayhour', 'tzserver'),
-        'date_end_display'   => $ts_end ? dol_print_date($ts_end, $allday ? 'day' : 'dayhour', 'tzserver') : '',
+        // For all-day: hide end when it's the same calendar day as start
+        'date_end_display'   => ($ts_end && !($allday && date('Y-m-d', $ts_end) === date('Y-m-d', $ts_start)))
+                                    ? dol_print_date($ts_end, $allday ? 'day' : 'dayhour', 'tzserver')
+                                    : '',
     ));
 } else {
     echo json_encode(array('error' => $db->lasterror()));

@@ -316,10 +316,17 @@ if ($resql) {
             $timeStartVal = $tsStart ? date('H:i', $tsStart)   : '';
             $dateEndVal   = $tsEnd   ? date('Y-m-d', $tsEnd)   : '';
             $timeEndVal   = $tsEnd   ? date('H:i', $tsEnd)     : '';
-            $isAllDay     = $tsStart && $timeStartVal === '00:00' && (!$tsEnd || $timeEndVal === '23:59');
+            // All-day: start at midnight UTC; end is either same, null, or 23:59 UTC (legacy from update_schedule)
+            $isAllDay     = $tsStart && $timeStartVal === '00:00'
+                            && (!$tsEnd || $timeEndVal === '00:00' || $timeEndVal === '23:59');
             $fmt          = $isAllDay ? 'day' : 'dayhour';
             $lineStart    = $tsStart ? dol_print_date($tsStart, $fmt, 'tzserver') : '—';
-            $lineEnd      = $tsEnd   ? dol_print_date($tsEnd, $fmt, 'tzserver')   : '';
+            // For all-day: only show end date if it's a different calendar day than start
+            if ($isAllDay && $tsEnd && date('Y-m-d', $tsEnd) === date('Y-m-d', $tsStart)) {
+                $lineEnd = '';
+            } else {
+                $lineEnd = $tsEnd ? dol_print_date($tsEnd, $fmt, 'tzserver') : '';
+            }
             print '<td style="white-space:nowrap; line-height:1.5;">';
             print '<span id="dateDisplay_'.$obj->rowid.'">';
             print $lineStart;
@@ -475,8 +482,8 @@ print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list
             elDateS._prevValue = elDateS.value;
             elTimeS._prevValue = elTimeS.value;
 
-            // Detect all-day
-            var isAllDay = elTimeS.value === '00:00' && (!elTimeE.value || elTimeE.value === '23:59');
+            // Detect all-day: start at midnight, end at midnight or 23:59 (or absent)
+            var isAllDay = elTimeS.value === '00:00' && (!elTimeE.value || elTimeE.value === '00:00' || elTimeE.value === '23:59');
             elAllDay.checked = isAllDay;
             elTimeS.style.display = isAllDay ? 'none' : '';
             elTimeE.style.display = isAllDay ? 'none' : '';
