@@ -1189,11 +1189,27 @@ if ($object->id > 0) {
                     } elseif ($item->answer_type == 'info') {
                         print '<input type="text" name="answer_text_'.$item->id.'" value="'.dol_escape_htmltag($current_text).'" class="flat minwidth200" data-section="'.$section->code.'">';
                         print '<input type="hidden" name="answer_'.$item->id.'" value="info">';
+                    } elseif ($item->answer_type == 'number') {
+                        print '<input type="number" name="answer_'.$item->id.'" value="'.dol_escape_htmltag($current_answer).'" class="flat" style="width:70px;text-align:right;" step="any" data-section="'.$section->code.'"> N';
                     }
                 } else {
                     // Read-only display
                     if ($item->answer_type == 'info') {
                         print dol_escape_htmltag($current_text);
+                    } elseif ($item->answer_type == 'number') {
+                        if ($current_answer !== '') {
+                            $tmax = isset($item->threshold_max) ? $item->threshold_max : null;
+                            $numVal = (float)$current_answer;
+                            if ($tmax !== null) {
+                                if ($numVal <= (float)$tmax) {
+                                    print '<span class="badge badge-status4">'.$current_answer.' N</span>';
+                                } else {
+                                    print '<span class="badge badge-status8">'.$current_answer.' N</span>';
+                                }
+                            } else {
+                                print '<span class="badge badge-status0">'.$current_answer.' N</span>';
+                            }
+                        }
                     } else {
                         $answer_class = '';
                         if ($current_answer == 'ok' || $current_answer == 'ja') {

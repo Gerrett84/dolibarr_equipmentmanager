@@ -168,7 +168,7 @@ class ChecklistTemplate extends CommonObject
                 $section->items = array();
 
                 // Load items for this section
-                $sqlItems = "SELECT rowid, fk_section, code, label, description, answer_type, required, position, active";
+                $sqlItems = "SELECT rowid, fk_section, code, label, description, answer_type, threshold_max, required, position, active";
                 $sqlItems .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_items";
                 $sqlItems .= " WHERE fk_section = ".(int)$section->id;
                 $sqlItems .= " AND active = 1";
@@ -184,6 +184,7 @@ class ChecklistTemplate extends CommonObject
                         $item->label = $objItem->label;
                         $item->description = $objItem->description;
                         $item->answer_type = $objItem->answer_type;
+                        $item->threshold_max = ($objItem->threshold_max !== null) ? (float)$objItem->threshold_max : null;
                         $item->required = $objItem->required;
                         $item->position = $objItem->position;
                         $section->items[] = $item;

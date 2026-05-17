@@ -3114,6 +3114,7 @@ function formatTemplateForApi($template, $langs) {
                 'label' => html_entity_decode($langs->trans($item->label), ENT_QUOTES, 'UTF-8'),
                 'label_key' => $item->label,
                 'answer_type' => $item->answer_type,
+                'threshold_max' => isset($item->threshold_max) ? $item->threshold_max : null,
                 'required' => (int)$item->required
             ];
         }

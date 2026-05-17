@@ -1617,14 +1617,29 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .checklist-item-number {
             padding: 6px 10px;
-            border: 1px solid var(--input-border);
+            border: 2px solid var(--input-border);
             border-radius: 4px;
             font-size: 13px;
             background: var(--input-bg);
             color: var(--text-primary);
-            width: 90px;
+            width: 80px;
             text-align: right;
+            transition: border-color 0.2s;
         }
+        .checklist-item-number.threshold-ok  { border-color: #4CAF50; color: #2e7d32; }
+        .checklist-item-number.threshold-nok { border-color: #e53935; color: #b71c1c; }
+        .number-unit { font-size: 12px; color: var(--text-secondary); margin-left: 2px; }
+        .number-threshold-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 7px;
+            border-radius: 10px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+        .number-threshold-badge.ok  { background: #e8f5e9; color: #2e7d32; }
+        .number-threshold-badge.nok { background: #ffebee; color: #b71c1c; }
 
         .checklist-item-note {
             width: 100%;

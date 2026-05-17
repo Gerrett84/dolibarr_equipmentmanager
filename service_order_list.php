@@ -56,13 +56,17 @@ if ($page < 0) {
 $offset = $limit * $page;
 
 // ─── Status SQL helper ────────────────────────────────────────────────────────
-// status=1 (Offen) covers Dolibarr fk_statut 0 (draft) and 1 (validated)
+// status=1 (Offen) = Dolibarr fk_statut 0 (draft)
+// status=2 (Abrechnen) = Dolibarr fk_statut 1 (validated) + 2 (signed)
+// status=3 (Abgeschlossen) = Dolibarr fk_statut 3 (billed)
 function buildStatusFilter($status, $prefix = 'f')
 {
     if ($status == 1) {
-        return " AND ".$prefix.".fk_statut IN (0, 1)";
-    } elseif ($status == 2 || $status == 3) {
-        return " AND ".$prefix.".fk_statut = ".(int)$status;
+        return " AND ".$prefix.".fk_statut = 0";
+    } elseif ($status == 2) {
+        return " AND ".$prefix.".fk_statut IN (1, 2)";
+    } elseif ($status == 3) {
+        return " AND ".$prefix.".fk_statut = 3";
     }
     return ''; // -1 = all
 }
@@ -107,7 +111,7 @@ if ($search_societe) {
 $sql .= " GROUP BY f.rowid";
 // When viewing "Alle": sort by status priority (Offen→Abrechnen→Abgeschlossen) first, then by selected sort
 if ($status == -1) {
-    $sql .= " ORDER BY CASE f.fk_statut WHEN 0 THEN 1 WHEN 1 THEN 1 WHEN 2 THEN 2 WHEN 3 THEN 3 ELSE 4 END ASC";
+    $sql .= " ORDER BY CASE f.fk_statut WHEN 0 THEN 1 WHEN 1 THEN 2 WHEN 2 THEN 2 WHEN 3 THEN 3 ELSE 4 END ASC";
     $sql .= ", ".$db->sanitize($sortfield)." ".$db->sanitize($sortorder);
 } else {
     $sql .= $db->order($sortfield, $sortorder);
@@ -137,7 +141,9 @@ $sql .= $db->plimit($limit, $offset);
 $resql = $db->query($sql);
 
 // ─── Status counts for tab badges ────────────────────────────────────────────
-// Tab "Offen" (key=1) = Dolibarr status 0 + 1 combined
+// Tab 1 (Offen)      = fk_statut 0 (draft)
+// Tab 2 (Abrechnen)  = fk_statut 1 (validated) + 2 (signed)
+// Tab 3 (Abgeschlossen) = fk_statut 3 (billed)
 $statusCounts = array(-1 => 0, 1 => 0, 2 => 0, 3 => 0);
 $sqlcnt = "SELECT f.fk_statut, COUNT(DISTINCT f.rowid) as nb"
         . " FROM ".MAIN_DB_PREFIX."fichinter as f"
@@ -148,8 +154,8 @@ if ($rescnt) {
     while ($obj = $db->fetch_object($rescnt)) {
         $st = (int)$obj->fk_statut;
         $nb = (int)$obj->nb;
-        // Draft (0) counts as Offen (1)
-        $tabKey = ($st === 0) ? 1 : $st;
+        $tabKeyMap = array(0 => 1, 1 => 2, 2 => 2, 3 => 3);
+        $tabKey = isset($tabKeyMap[$st]) ? $tabKeyMap[$st] : -1;
         if (isset($statusCounts[$tabKey])) {
             $statusCounts[$tabKey] += $nb;
         }
@@ -220,10 +226,9 @@ print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
 print '<tbody>';
 
-// Status label helper — draft and open both shown as "Offen"
 $statusLabels = array(
     0 => '<span style="color:#2196F3;font-weight:bold">'.$langs->trans('ServiceOrderStatusOpen').'</span>',
-    1 => '<span style="color:#2196F3;font-weight:bold">'.$langs->trans('ServiceOrderStatusOpen').'</span>',
+    1 => '<span style="color:#FF9800;font-weight:bold">'.$langs->trans('ServiceOrderStatusValidated').'</span>',
     2 => '<span style="color:#FF9800;font-weight:bold">'.$langs->trans('ServiceOrderStatusBilled').'</span>',
     3 => '<span style="color:#4CAF50">'.$langs->trans('ServiceOrderStatusClosed').'</span>',
 );
@@ -305,16 +310,27 @@ if ($resql) {
 
         // Date + edit icon (only when column is visible)
         if ($showTermin) {
-            $tsStart = $db->jdate($obj->dateo);
-            $tsEnd   = $db->jdate($obj->datee);
-            $dateStartVal = $tsStart ? date('Y-m-d', $tsStart) : '';
-            $timeStartVal = $tsStart ? date('H:i', $tsStart)   : '';
-            $dateEndVal   = $tsEnd   ? date('Y-m-d', $tsEnd)   : '';
-            $timeEndVal   = $tsEnd   ? date('H:i', $tsEnd)     : '';
-            $isAllDay     = $tsStart && $timeStartVal === '00:00' && (!$tsEnd || $timeEndVal === '23:59');
+            // Use raw DB strings for time-part extraction to avoid any PHP-TZ dependency
+            $dateoRaw = !empty($obj->dateo) ? (string)$obj->dateo : '';
+            $dateeRaw = !empty($obj->datee) ? (string)$obj->datee : '';
+            // DB format: "YYYY-MM-DD HH:MM:SS"
+            $dateStartVal = (strlen($dateoRaw) >= 10) ? substr($dateoRaw, 0, 10) : '';
+            $timeStartVal = (strlen($dateoRaw) >= 16) ? substr($dateoRaw, 11, 5) : '';
+            $dateEndVal   = (strlen($dateeRaw) >= 10) ? substr($dateeRaw, 0, 10) : '';
+            $timeEndVal   = (strlen($dateeRaw) >= 16) ? substr($dateeRaw, 11, 5) : '';
+            $tsStart = $db->jdate($dateoRaw);
+            $tsEnd   = $db->jdate($dateeRaw);
+            // All-day: raw string time part is "00:00"; end is same midnight, null, or 23:59 (legacy)
+            $isAllDay = !empty($dateStartVal) && $timeStartVal === '00:00'
+                        && (empty($dateEndVal) || $timeEndVal === '00:00' || $timeEndVal === '23:59');
             $fmt          = $isAllDay ? 'day' : 'dayhour';
             $lineStart    = $tsStart ? dol_print_date($tsStart, $fmt, 'tzserver') : '—';
-            $lineEnd      = $tsEnd   ? dol_print_date($tsEnd, $fmt, 'tzserver')   : '';
+            // For all-day: only show end date if it's a different calendar day than start (compare raw date strings)
+            if ($isAllDay && !empty($dateEndVal) && $dateEndVal === $dateStartVal) {
+                $lineEnd = '';
+            } else {
+                $lineEnd = $tsEnd ? dol_print_date($tsEnd, $fmt, 'tzserver') : '';
+            }
             print '<td style="white-space:nowrap; line-height:1.5;">';
             print '<span id="dateDisplay_'.$obj->rowid.'">';
             print $lineStart;
@@ -470,8 +486,8 @@ print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list
             elDateS._prevValue = elDateS.value;
             elTimeS._prevValue = elTimeS.value;
 
-            // Detect all-day
-            var isAllDay = elTimeS.value === '00:00' && (!elTimeE.value || elTimeE.value === '23:59');
+            // Detect all-day: start at midnight, end at midnight or 23:59 (or absent)
+            var isAllDay = elTimeS.value === '00:00' && (!elTimeE.value || elTimeE.value === '00:00' || elTimeE.value === '23:59');
             elAllDay.checked = isAllDay;
             elTimeS.style.display = isAllDay ? 'none' : '';
             elTimeE.style.display = isAllDay ? 'none' : '';

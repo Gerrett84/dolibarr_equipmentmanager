@@ -478,8 +478,22 @@ class pdf_checklist
                     $display_answer = $outputlangs->convToOutputCharset($answer_text);
                     $pdf->SetTextColor(0, 0, 0);
                 } elseif ($item->answer_type == 'number') {
-                    $display_answer = ($answer !== '' && $answer !== null) ? $outputlangs->convToOutputCharset($answer) : '-';
-                    $pdf->SetTextColor(0, 0, 0);
+                    if ($answer !== '' && $answer !== null) {
+                        $display_answer = $outputlangs->convToOutputCharset($answer).' N';
+                        $tmax = isset($item->threshold_max) ? $item->threshold_max : null;
+                        if ($tmax !== null) {
+                            if ((float)$answer <= (float)$tmax) {
+                                $pdf->SetTextColor(0, 128, 0); // Green
+                            } else {
+                                $pdf->SetTextColor(200, 0, 0); // Red
+                            }
+                        } else {
+                            $pdf->SetTextColor(0, 0, 0);
+                        }
+                    } else {
+                        $display_answer = '-';
+                        $pdf->SetTextColor(0, 0, 0);
+                    }
                 } else {
                     if ($answer == 'ok' || $answer == 'ja') {
                         $display_answer = $this->pdfStr($outputlangs->trans('Answer'.ucfirst($answer)));

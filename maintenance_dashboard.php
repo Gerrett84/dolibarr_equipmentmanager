@@ -171,12 +171,13 @@ $sql .= " AND t.maintenance_month IS NOT NULL";
 $semi_current = $current_month > 6 ? $current_month - 6 : $current_month + 6;
 $semi_next = $next_month > 6 ? $next_month - 6 : $next_month + 6;
 
-// Zeige: aktueller Monat, nächster Monat, UND alle überfälligen
+// Zeige: aktueller Monat, nächster Monat, UND überfällige (max. 3 Monate rückwirkend)
+$overdue_min = max(1, $current_month - 3);
 $sql .= " AND (";
 // Jährlich oder Hauptmonat bei halbjährlich
 $sql .= "   t.maintenance_month = ".$current_month;
 $sql .= "   OR t.maintenance_month = ".$next_month;
-$sql .= "   OR t.maintenance_month < ".$current_month;
+$sql .= "   OR (t.maintenance_month < ".$current_month." AND t.maintenance_month >= ".$overdue_min.")";
 // Halbjährlich: auch den versetzten Monat prüfen
 $sql .= "   OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".$semi_current.")";
 $sql .= "   OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".$semi_next.")";
@@ -195,12 +196,8 @@ $sql .= "   WHERE il2.fk_equipment = t.rowid";
 $sql .= "   AND il2.link_type = 'maintenance'";
 $sql .= "   AND f2.fk_statut = 3";
 $sql .= "   AND (";
-// Normale Wartungen: im aktuellen Jahr erledigt
-$sql .= "     (YEAR(f2.date_valid) = ".$current_year." AND (";
-$sql .= "       MONTH(f2.date_valid) = t.maintenance_month";
-$sql .= "       OR MONTH(f2.date_valid) = t.maintenance_month - 1";
-$sql .= "       OR (t.maintenance_month = 1 AND MONTH(f2.date_valid) = 12)";
-$sql .= "     ))";
+// Normale Wartungen: im aktuellen Jahr erledigt (Toleranz: -1 bis +3 Monate)
+$sql .= "     (YEAR(f2.date_valid) = ".$current_year." AND MONTH(f2.date_valid) BETWEEN GREATEST(1, t.maintenance_month - 1) AND LEAST(12, t.maintenance_month + 3))";
 // Dezember-Wartungen: auch Vorjahr prüfen
 if ($current_month <= 2) {
     $sql .= "     OR (t.maintenance_month = 12 AND YEAR(f2.date_valid) = ".($current_year - 1)." AND MONTH(f2.date_valid) = 12)";
@@ -210,12 +207,8 @@ $sql .= " )";
 $sql .= " AND NOT (";
 $sql .= "   t.last_maintenance_date IS NOT NULL";
 $sql .= "   AND (";
-// Normale Wartungen: im aktuellen Jahr erledigt
-$sql .= "     (YEAR(t.last_maintenance_date) = ".$current_year." AND (";
-$sql .= "       MONTH(t.last_maintenance_date) = t.maintenance_month";
-$sql .= "       OR MONTH(t.last_maintenance_date) = t.maintenance_month - 1";
-$sql .= "       OR (t.maintenance_month = 1 AND MONTH(t.last_maintenance_date) = 12)";
-$sql .= "     ))";
+// Normale Wartungen: im aktuellen Jahr erledigt (Toleranz: -1 bis +3 Monate)
+$sql .= "     (YEAR(t.last_maintenance_date) = ".$current_year." AND MONTH(t.last_maintenance_date) BETWEEN GREATEST(1, t.maintenance_month - 1) AND LEAST(12, t.maintenance_month + 3))";
 // Dezember-Wartungen: auch Vorjahr prüfen
 if ($current_month <= 2) {
     $sql .= "     OR (t.maintenance_month = 12 AND YEAR(t.last_maintenance_date) = ".($current_year - 1)." AND MONTH(t.last_maintenance_date) = 12)";
