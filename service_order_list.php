@@ -310,19 +310,23 @@ if ($resql) {
 
         // Date + edit icon (only when column is visible)
         if ($showTermin) {
-            $tsStart = $db->jdate($obj->dateo);
-            $tsEnd   = $db->jdate($obj->datee);
-            $dateStartVal = $tsStart ? date('Y-m-d', $tsStart) : '';
-            $timeStartVal = $tsStart ? date('H:i', $tsStart)   : '';
-            $dateEndVal   = $tsEnd   ? date('Y-m-d', $tsEnd)   : '';
-            $timeEndVal   = $tsEnd   ? date('H:i', $tsEnd)     : '';
-            // All-day: start at midnight UTC; end is either same, null, or 23:59 UTC (legacy from update_schedule)
-            $isAllDay     = $tsStart && $timeStartVal === '00:00'
-                            && (!$tsEnd || $timeEndVal === '00:00' || $timeEndVal === '23:59');
+            // Use raw DB strings for time-part extraction to avoid any PHP-TZ dependency
+            $dateoRaw = !empty($obj->dateo) ? (string)$obj->dateo : '';
+            $dateeRaw = !empty($obj->datee) ? (string)$obj->datee : '';
+            // DB format: "YYYY-MM-DD HH:MM:SS"
+            $dateStartVal = (strlen($dateoRaw) >= 10) ? substr($dateoRaw, 0, 10) : '';
+            $timeStartVal = (strlen($dateoRaw) >= 16) ? substr($dateoRaw, 11, 5) : '';
+            $dateEndVal   = (strlen($dateeRaw) >= 10) ? substr($dateeRaw, 0, 10) : '';
+            $timeEndVal   = (strlen($dateeRaw) >= 16) ? substr($dateeRaw, 11, 5) : '';
+            $tsStart = $db->jdate($dateoRaw);
+            $tsEnd   = $db->jdate($dateeRaw);
+            // All-day: raw string time part is "00:00"; end is same midnight, null, or 23:59 (legacy)
+            $isAllDay = !empty($dateStartVal) && $timeStartVal === '00:00'
+                        && (empty($dateEndVal) || $timeEndVal === '00:00' || $timeEndVal === '23:59');
             $fmt          = $isAllDay ? 'day' : 'dayhour';
             $lineStart    = $tsStart ? dol_print_date($tsStart, $fmt, 'tzserver') : '—';
-            // For all-day: only show end date if it's a different calendar day than start
-            if ($isAllDay && $tsEnd && date('Y-m-d', $tsEnd) === date('Y-m-d', $tsStart)) {
+            // For all-day: only show end date if it's a different calendar day than start (compare raw date strings)
+            if ($isAllDay && !empty($dateEndVal) && $dateEndVal === $dateStartVal) {
                 $lineEnd = '';
             } else {
                 $lineEnd = $tsEnd ? dol_print_date($tsEnd, $fmt, 'tzserver') : '';
