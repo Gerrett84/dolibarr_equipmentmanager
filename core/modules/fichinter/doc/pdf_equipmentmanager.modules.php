@@ -527,6 +527,30 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
         }
 
+        // Ihr Zeichen (customer reference)
+        if (!empty($object->ref_client)) {
+            $posy += 4;
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetTextColor(0, 0, 60);
+            $pdf->MultiCell(100, 4, "Ihr Zeichen : ".$outputlangs->convToOutputCharset($object->ref_client), '', 'R');
+        }
+
+        // Auftragsnummer (linked order - handles both link directions)
+        $sql_order = "SELECT c.ref FROM ".MAIN_DB_PREFIX."commande c";
+        $sql_order .= " INNER JOIN ".MAIN_DB_PREFIX."element_element ee ON";
+        $sql_order .= " (ee.fk_source = c.rowid AND ee.sourcetype = 'commande' AND ee.fk_target = ".(int)$object->id." AND ee.targettype = 'fichinter')";
+        $sql_order .= " OR (ee.fk_target = c.rowid AND ee.targettype = 'commande' AND ee.fk_source = ".(int)$object->id." AND ee.sourcetype = 'fichinter')";
+        $sql_order .= " LIMIT 1";
+        $res_order = $this->db->query($sql_order);
+        if ($res_order && $this->db->num_rows($res_order) > 0) {
+            $row_order = $this->db->fetch_object($res_order);
+            $posy += 4;
+            $pdf->SetXY($posx, $posy);
+            $pdf->SetTextColor(0, 0, 60);
+            $pdf->MultiCell(100, 4, "Auftragsnr. : ".$outputlangs->convToOutputCharset($row_order->ref), '', 'R');
+            $this->db->free($res_order);
+        }
+
         if ($showaddress) {
             // Left side: Customer - with background and phone/email
             $posy = 42;
