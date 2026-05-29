@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.2.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.2.3** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,11 @@
 -----
 
 ## Features
+
+### NEU in v5.2.3: Servicebericht-PDF-Header
+
+- **Ihr Zeichen** – Kundenreferenz (`ref_client`) wird im Servicebericht-PDF oben rechts angezeigt (nur wenn gesetzt)
+- **Auftragsnummer** – Verknüpfte Auftragsnummer wird ebenfalls im PDF-Header oben rechts angezeigt (nur wenn verknüpft)
 
 ### NEU in v5.2.2: Zeitzone & Kalender-Bugfixes
 
@@ -249,6 +254,20 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.2.3 (2026-05-29)
+
+- **Servicebericht-PDF: Ihr Zeichen** – Kundenreferenz (`ref_client`) wird im Header oben rechts angezeigt (nur wenn gesetzt)
+- **Servicebericht-PDF: Auftragsnummer** – Verknüpfte Auftragsnummer (`Auftragsnr.`) wird im Header oben rechts angezeigt (nur wenn verknüpft)
+
+### v5.2.2 (2026-05-28)
+
+- **Ganztägige Einträge im iPhone-Kalender** – ICS-Feed gibt jetzt korrektes RFC-5545-Format aus (`DTSTART;VALUE=DATE:YYYYMMDD`); iPhone zeigt „Ganztägig" statt „0:00 – 23:59"
+- **Zeitzone-Fix** – Alle Kalendereinträge zeigten +2 Stunden Versatz; Serverzeit (Europe/Berlin) wird nun korrekt gesetzt (`MAIN_SERVER_TZ`)
+- **Ganztägige Einträge in Serviceauftragsliste** – Zeigten fälschlicherweise „02:00 – 01:59 (2 Tage)"; Erkennung jetzt zeitzonenunabhängig über Rohstring-Auswertung
+- **Kraftmessung: Grenzwert-Indikator** – Schließ-/Öffnungskraft (400 N, DIN EN 12453) wird in PWA, Backend und PDF grün/rot hervorgehoben; `threshold_max`-Spalte in Datenbank (SQL-Migration: `sql/llx_equipmentmanager_v5.3.0_checklist_threshold.sql`)
+- **Freigegebene Aufträge im Tab „Abrechnen"** – Aufträge mit Status „Freigegeben" (fk_statut=1) werden korrekt im Abrechnungs-Tab angezeigt
+- **Überfällige Wartungen** – Vorschau auf maximal 3 Monate begrenzt; „Erledigt"-Prüfung ebenfalls auf 3 Monate erweitert
 
 ### v5.2.1 (2026-05-05)
 
@@ -580,6 +599,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.2.1
+**Current Version:** 5.2.3
 **Released:** Mai 2026
 **Compatibility:** Dolibarr 16.0+
