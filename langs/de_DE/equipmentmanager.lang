@@ -225,7 +225,10 @@ IssuesFound=Gefundene Mängel
 Recommendations=Empfehlungen
 Notes=Notizen
 WorkDate=Arbeitsdatum
-WorkDuration=Arbeitszeit
+WorkDuration=Dauer
+TimeRange=Zeitraum
+From=Von
+To=Bis
 Hours=Stunden
 Minutes=Minuten
 

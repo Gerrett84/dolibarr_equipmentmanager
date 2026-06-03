@@ -1560,7 +1560,13 @@ class ServiceReportApp {
 
                     const hours = Math.floor((entry.work_duration || 0) / 60);
                     const mins = (entry.work_duration || 0) % 60;
-                    const durationText = hours > 0 || mins > 0 ? `${hours} Std. ${mins} min.` : '';
+                    let durationText = '';
+                    if (entry.work_start_time && entry.work_end_time) {
+                        durationText = `${entry.work_start_time} – ${entry.work_end_time}`;
+                        if (hours > 0 || mins > 0) durationText += ` (${hours}h${mins > 0 ? ` ${mins}min` : ''})`;
+                    } else if (hours > 0 || mins > 0) {
+                        durationText = `${hours} Std. ${mins} min.`;
+                    }
 
                     const summary = entry.work_done ? entry.work_done.substring(0, 50) + (entry.work_done.length > 50 ? '...' : '') : '';
 
@@ -1613,10 +1619,18 @@ class ServiceReportApp {
         // Populate form
         document.getElementById('entryDate').value = entry.work_date || this.formatDateInput(new Date());
 
-        const hours = Math.floor((entry.work_duration || 0) / 60);
-        const minutes = (entry.work_duration || 0) % 60;
-        document.getElementById('entryHours').value = hours > 0 ? hours : '';
-        document.getElementById('entryMinutes').value = String(Math.floor(minutes / 15) * 15);
+        if (entry.work_start_time && entry.work_end_time) {
+            this.setTimeMode('range');
+            document.getElementById('entryTimeStart').value = entry.work_start_time;
+            document.getElementById('entryTimeEnd').value = entry.work_end_time;
+            this.onTimeRangeChange();
+        } else {
+            this.setTimeMode('duration');
+            const hours = Math.floor((entry.work_duration || 0) / 60);
+            const minutes = (entry.work_duration || 0) % 60;
+            document.getElementById('entryHours').value = hours > 0 ? hours : '';
+            document.getElementById('entryMinutes').value = String(Math.floor(minutes / 15) * 15);
+        }
 
         document.getElementById('entryWorkDone').value = entry.work_done || '';
         document.getElementById('entryIssuesFound').value = entry.issues_found || '';
@@ -1715,8 +1729,12 @@ class ServiceReportApp {
 
         // Clear form
         document.getElementById('entryDate').value = this.formatDateInput(new Date());
+        this.setTimeMode('duration');
         document.getElementById('entryHours').value = '';
         document.getElementById('entryMinutes').value = '0';
+        document.getElementById('entryTimeStart').value = '';
+        document.getElementById('entryTimeEnd').value = '';
+        document.getElementById('timeRangePreview').textContent = '';
         document.getElementById('entryWorkDone').value = '';
         document.getElementById('entryIssuesFound').value = '';
 
@@ -1737,16 +1755,60 @@ class ServiceReportApp {
         document.getElementById('btnDeleteEntry').style.display = 'none';
     }
 
+    // Time mode toggle
+    setTimeMode(mode) {
+        const isDuration = (mode === 'duration');
+        document.getElementById('timeModeDuration').style.display = isDuration ? 'flex' : 'none';
+        document.getElementById('timeModeRange').style.display = isDuration ? 'none' : 'block';
+        document.getElementById('btnModeDuration').classList.toggle('active', isDuration);
+        document.getElementById('btnModeRange').classList.toggle('active', !isDuration);
+        this._timeMode = mode;
+    }
+
+    onTimeRangeChange() {
+        const s = document.getElementById('entryTimeStart').value;
+        const e = document.getElementById('entryTimeEnd').value;
+        const el = document.getElementById('timeRangePreview');
+        if (!s || !e) { el.textContent = ''; return; }
+        const [sh, sm] = s.split(':').map(Number);
+        const [eh, em] = e.split(':').map(Number);
+        let startMin = sh * 60 + sm, endMin = eh * 60 + em;
+        if (endMin < startMin) endMin += 24 * 60;
+        const diff = endMin - startMin;
+        const h = Math.floor(diff / 60), m = diff % 60;
+        el.textContent = `= ${h}h${m > 0 ? ` ${m}min` : ''}`;
+    }
+
     // Save entry (v1.7)
     async saveEntry() {
-        const hours = parseInt(document.getElementById('entryHours').value) || 0;
-        const minutes = parseInt(document.getElementById('entryMinutes').value) || 0;
-        const totalMinutes = (hours * 60) + minutes;
+        const mode = this._timeMode || 'duration';
+        let totalMinutes = 0;
+        let workStartTime = null, workEndTime = null;
+
+        if (mode === 'range') {
+            const s = document.getElementById('entryTimeStart').value;
+            const e = document.getElementById('entryTimeEnd').value;
+            if (s && e) {
+                workStartTime = s;
+                workEndTime = e;
+                const [sh, sm] = s.split(':').map(Number);
+                const [eh, em] = e.split(':').map(Number);
+                let startMin = sh * 60 + sm, endMin = eh * 60 + em;
+                if (endMin < startMin) endMin += 24 * 60;
+                totalMinutes = endMin - startMin;
+            }
+        } else {
+            const hours = parseInt(document.getElementById('entryHours').value) || 0;
+            const minutes = parseInt(document.getElementById('entryMinutes').value) || 0;
+            totalMinutes = (hours * 60) + minutes;
+        }
 
         const entryData = {
             intervention_id: this.currentIntervention.id,
             equipment_id: this.currentEquipment.id,
             work_date: document.getElementById('entryDate').value,
+            work_start_time: workStartTime,
+            work_end_time: workEndTime,
             work_duration: totalMinutes,
             work_done: document.getElementById('entryWorkDone').value,
             issues_found: document.getElementById('entryIssuesFound').value

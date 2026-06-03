@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.2.3** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.2.4** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,15 @@
 -----
 
 ## Features
+
+### NEU in v5.2.4: Zeitraum-Eingabe für Arbeitseinträge
+
+- **Von/Bis-Uhrzeit** – Arbeitseinträge können statt einer Dauer (Stunden/Minuten) alternativ als Zeitraum eingegeben werden (z.B. „Von 12:00 bis 14:00 Uhr")
+- **Toggle Dauer/Zeitraum** – Umschalter zwischen beiden Eingabemodi in PWA und Backend
+- **Automatische Berechnung** – Dauer wird automatisch aus Start- und Endzeit berechnet; Mitternachtsüberschreitung wird korrekt behandelt
+- **Live-Vorschau** – In der PWA wird die berechnete Dauer sofort beim Eingeben angezeigt
+- **PDF-Anzeige** – Zeitraum-Einträge erscheinen im Servicebericht-PDF als „12:00 – 14:00 Uhr (2 Std.)" statt nur „2 Std."
+- **DB-Migration** – Neue Spalten `work_start_time` und `work_end_time` in `llx_equipmentmanager_intervention_detail` (SQL: `sql/llx_equipmentmanager_v5.2.4_work_time_range.sql`)
 
 ### NEU in v5.2.3: Servicebericht-PDF-Header
 
@@ -254,6 +263,13 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.2.4 (2026-06-03)
+
+- **Zeitraum-Eingabe** – Arbeitseinträge können alternativ mit Von/Bis-Uhrzeit erfasst werden statt mit einer reinen Dauer (Stunden/Minuten)
+- **Toggle Dauer/Zeitraum** – Umschalter in PWA und Backend; Dauer wird automatisch berechnet; Mitternachtsüberschreitung korrekt behandelt
+- **PDF-Darstellung** – Zeitraum-Einträge werden als „HH:MM – HH:MM Uhr (X Std. Y min.)" im Servicebericht-PDF angezeigt; nur bei `link_type='service'` (nicht bei Wartung)
+- **DB-Migration** – `work_start_time TIME NULL` und `work_end_time TIME NULL` in `llx_equipmentmanager_intervention_detail` (SQL: `sql/llx_equipmentmanager_v5.2.4_work_time_range.sql`)
 
 ### v5.2.3 (2026-05-29)
 
@@ -599,6 +615,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.2.3
-**Released:** Mai 2026
+**Current Version:** 5.2.4
+**Released:** Juni 2026
 **Compatibility:** Dolibarr 16.0+

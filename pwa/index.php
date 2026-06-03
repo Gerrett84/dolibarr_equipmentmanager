@@ -1629,6 +1629,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .checklist-item-number.threshold-ok  { border-color: #4CAF50; color: #2e7d32; }
         .checklist-item-number.threshold-nok { border-color: #e53935; color: #b71c1c; }
         .number-unit { font-size: 12px; color: var(--text-secondary); margin-left: 2px; }
+        .time-mode-btn { padding: 5px 14px; border: none; background: transparent; cursor: pointer; font-size: 13px; color: var(--text-secondary); }
+        .time-mode-btn.active { background: var(--primary); color: #fff; }
         .number-threshold-badge {
             display: inline-block;
             font-size: 11px;
@@ -2353,7 +2355,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
                         <div class="form-group">
                             <label class="form-label">Arbeitszeit</label>
-                            <div style="display: flex; gap: 12px;">
+                            <!-- Toggle: Dauer / Zeitraum -->
+                            <div style="display:inline-flex;border:1px solid var(--input-border);border-radius:6px;margin-bottom:10px;overflow:hidden;">
+                                <button type="button" id="btnModeDuration" class="time-mode-btn active" onclick="app.setTimeMode('duration')">Dauer</button>
+                                <button type="button" id="btnModeRange" class="time-mode-btn" onclick="app.setTimeMode('range')">Zeitraum</button>
+                            </div>
+                            <!-- Dauer-Modus -->
+                            <div id="timeModeDuration" style="display:flex; gap: 12px;">
                                 <div style="flex: 1;">
                                     <input type="number" class="form-input" id="entryHours" min="0" max="24" placeholder="Std">
                                     <span style="font-size: 12px; color: #666;">Stunden</span>
@@ -2366,6 +2374,20 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                                         <option value="45">45 min</option>
                                     </select>
                                     <span style="font-size: 12px; color: #666;">Minuten</span>
+                                </div>
+                            </div>
+                            <!-- Zeitraum-Modus -->
+                            <div id="timeModeRange" style="display:none;">
+                                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                    <div>
+                                        <label style="font-size:12px;color:#666;">Von</label>
+                                        <input type="time" class="form-input" id="entryTimeStart" style="width:110px;" oninput="app.onTimeRangeChange()">
+                                    </div>
+                                    <div>
+                                        <label style="font-size:12px;color:#666;">Bis</label>
+                                        <input type="time" class="form-input" id="entryTimeEnd" style="width:110px;" oninput="app.onTimeRangeChange()">
+                                    </div>
+                                    <span id="timeRangePreview" style="font-size:13px;color:var(--text-secondary);"></span>
                                 </div>
                             </div>
                         </div>

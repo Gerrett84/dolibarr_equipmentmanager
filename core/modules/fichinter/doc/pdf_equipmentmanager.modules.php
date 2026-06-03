@@ -203,8 +203,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $curY = $tab_top + 7;
             $nexY = $tab_top + 7;
 
-            // Get linked equipments
-            $sql = "SELECT DISTINCT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
+            // Get linked equipments with link_type
+            $sql = "SELECT fk_equipment, link_type FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
             $sql .= " WHERE fk_intervention = ".(int)$object->id;
             $sql .= " ORDER BY rowid ASC";
 
@@ -217,6 +217,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $obj = $this->db->fetch_object($resql);
                     $equipment = new Equipment($this->db);
                     if ($equipment->fetch($obj->fk_equipment) > 0) {
+                        $equipment->link_type = $obj->link_type;
                         $equipment_list[] = $equipment;
                     }
                 }
@@ -259,8 +260,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $equipment_material_total = InterventionMaterial::getTotalForEquipment($this->db, $object->id, $equipment->id);
                     $total_material += $equipment_material_total;
 
-                    // Add work duration from ALL entries (exclude maintenance equipment)
-                    if (empty($equipment->maintenance_month)) {
+                    // Add work duration only for service entries
+                    if ($equipment->link_type === 'service') {
                         $equipment_duration = $detailHelper->getTotalDuration($object->id, $equipment->id);
                         $total_duration += $equipment_duration;
                     }
@@ -798,12 +799,21 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             $duration_text = '';
-            if ($entry->work_duration > 0 && empty($equipment->maintenance_month)) {
-                $hours = floor($entry->work_duration / 60);
-                $minutes = $entry->work_duration % 60;
-                $duration_text = $hours." Std.";
-                if ($minutes > 0) {
-                    $duration_text .= " ".$minutes." min.";
+            if (isset($equipment->link_type) && $equipment->link_type === 'service') {
+                if (!empty($entry->work_start_time) && !empty($entry->work_end_time)) {
+                    $duration_text = substr($entry->work_start_time, 0, 5).' – '.substr($entry->work_end_time, 0, 5).' Uhr';
+                    if ($entry->work_duration > 0) {
+                        $hours = floor($entry->work_duration / 60);
+                        $minutes = $entry->work_duration % 60;
+                        $duration_text .= ' ('.$hours.' Std.'.($minutes > 0 ? ' '.$minutes.' min.' : '').')';
+                    }
+                } elseif ($entry->work_duration > 0) {
+                    $hours = floor($entry->work_duration / 60);
+                    $minutes = $entry->work_duration % 60;
+                    $duration_text = $hours." Std.";
+                    if ($minutes > 0) {
+                        $duration_text .= " ".$minutes." min.";
+                    }
                 }
             }
 
@@ -1006,7 +1016,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             $duration_text = '';
-            if ($entry->work_duration > 0) {
+            if (!empty($entry->work_start_time) && !empty($entry->work_end_time)) {
+                $duration_text = substr($entry->work_start_time, 0, 5).' – '.substr($entry->work_end_time, 0, 5).' Uhr';
+                if ($entry->work_duration > 0) {
+                    $hours = floor($entry->work_duration / 60);
+                    $minutes = $entry->work_duration % 60;
+                    $duration_text .= ' ('.$hours.' Std.'.($minutes > 0 ? ' '.$minutes.' min.' : '').')';
+                }
+            } elseif ($entry->work_duration > 0) {
                 $hours = floor($entry->work_duration / 60);
                 $minutes = $entry->work_duration % 60;
                 $duration_text = $hours." Std.";

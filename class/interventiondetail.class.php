@@ -21,6 +21,8 @@ class InterventionDetail extends CommonObject
     public $recommendations;
     public $notes;
     public $work_date;
+    public $work_start_time;
+    public $work_end_time;
     public $work_duration;
     public $photo;
     // Commissioning and acceptance fields (v4.5)
@@ -67,6 +69,8 @@ class InterventionDetail extends CommonObject
         $sql .= "recommendations,";
         $sql .= "notes,";
         $sql .= "work_date,";
+        $sql .= "work_start_time,";
+        $sql .= "work_end_time,";
         $sql .= "work_duration,";
         $sql .= "photo,";
         $sql .= "commissioning_done,";
@@ -90,6 +94,8 @@ class InterventionDetail extends CommonObject
         $sql .= ($this->recommendations ? "'".$this->db->escape($this->recommendations)."'" : "NULL").",";
         $sql .= ($this->notes ? "'".$this->db->escape($this->notes)."'" : "NULL").",";
         $sql .= ($this->work_date ? "'".$this->db->idate($this->work_date)."'" : "NULL").",";
+        $sql .= ($this->work_start_time ? "'".$this->db->escape($this->work_start_time)."'" : "NULL").",";
+        $sql .= ($this->work_end_time ? "'".$this->db->escape($this->work_end_time)."'" : "NULL").",";
         $sql .= ($this->work_duration ? (int)$this->work_duration : "0").",";
         $sql .= ($this->photo ? "'".$this->db->escape($this->photo)."'" : "NULL").",";
         $sql .= (int)$this->commissioning_done.",";
@@ -219,6 +225,8 @@ class InterventionDetail extends CommonObject
         $this->recommendations = $obj->recommendations;
         $this->notes = $obj->notes;
         $this->work_date = $this->db->jdate($obj->work_date);
+        $this->work_start_time = $obj->work_start_time ?? null;
+        $this->work_end_time = $obj->work_end_time ?? null;
         $this->work_duration = $obj->work_duration;
         $this->photo = $obj->photo ?? null;
         // Commissioning and acceptance fields (v4.5)
@@ -319,6 +327,8 @@ class InterventionDetail extends CommonObject
         $sql .= " recommendations = ".($this->recommendations ? "'".$this->db->escape($this->recommendations)."'" : "NULL").",";
         $sql .= " notes = ".($this->notes ? "'".$this->db->escape($this->notes)."'" : "NULL").",";
         $sql .= " work_date = ".($this->work_date ? "'".$this->db->idate($this->work_date)."'" : "NULL").",";
+        $sql .= " work_start_time = ".($this->work_start_time ? "'".$this->db->escape($this->work_start_time)."'" : "NULL").",";
+        $sql .= " work_end_time = ".($this->work_end_time ? "'".$this->db->escape($this->work_end_time)."'" : "NULL").",";
         $sql .= " work_duration = ".($this->work_duration ? (int)$this->work_duration : "0").",";
         $sql .= " photo = ".($this->photo ? "'".$this->db->escape($this->photo)."'" : "NULL").",";
         $sql .= " commissioning_done = ".(int)$this->commissioning_done.",";

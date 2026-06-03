@@ -939,7 +939,7 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " e.smoke_detector_install_month, e.smoke_detector_install_year, e.smoke_detector_replacement_cycle,";
     $sql .= " l.link_type,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
-    $sql .= " d.notes, d.work_date, d.work_duration,";
+    $sql .= " d.notes, d.work_date, d.work_start_time, d.work_end_time, d.work_duration,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
     $sql .= " d.acceptance_done, d.acceptance_date, d.acceptance_defect_free, d.acceptance_note,";
     $sql .= " d.instruction_done, d.testbook_handed";
@@ -983,6 +983,8 @@ function getInterventionEquipment($intervention_id) {
                     'recommendations' => $obj->recommendations,
                     'notes' => $obj->notes,
                     'work_date' => $obj->work_date,
+                    'work_start_time' => $obj->work_start_time ? substr($obj->work_start_time, 0, 5) : null,
+                    'work_end_time' => $obj->work_end_time ? substr($obj->work_end_time, 0, 5) : null,
                     'work_duration' => (int)$obj->work_duration,
                     'commissioning_done' => (int)$obj->commissioning_done,
                     'commissioning_date' => $obj->commissioning_date,
@@ -1156,6 +1158,8 @@ function handleDetail($method, $parts, $input) {
                 'work_done' => $entry->work_done,
                 'issues_found' => $entry->issues_found,
                 'work_date' => $entry->work_date ? dol_print_date($entry->work_date, 'dayrfc') : null,
+                'work_start_time' => $entry->work_start_time ? substr($entry->work_start_time, 0, 5) : null,
+                'work_end_time' => $entry->work_end_time ? substr($entry->work_end_time, 0, 5) : null,
                 'work_duration' => (int)$entry->work_duration,
                 'photo' => $entry->photo,
                 'materials' => $materialsData,
@@ -1230,7 +1234,23 @@ function handleDetail($method, $parts, $input) {
         $detail->recommendations = $input['recommendations'] ?? '';
         $detail->notes = $input['notes'] ?? '';
         $detail->work_date = !empty($input['work_date']) ? strtotime($input['work_date']) : null;
-        $detail->work_duration = (int)($input['work_duration'] ?? 0);
+        // Time-range mode: store start/end times
+        $rawStart = $input['work_start_time'] ?? null;
+        $rawEnd   = $input['work_end_time'] ?? null;
+        if ($rawStart && $rawEnd && preg_match('/^\d{2}:\d{2}$/', $rawStart) && preg_match('/^\d{2}:\d{2}$/', $rawEnd)) {
+            $detail->work_start_time = $rawStart.':00';
+            $detail->work_end_time   = $rawEnd.':00';
+            list($sh, $sm) = explode(':', $rawStart);
+            list($eh, $em) = explode(':', $rawEnd);
+            $startMin = (int)$sh * 60 + (int)$sm;
+            $endMin   = (int)$eh * 60 + (int)$em;
+            if ($endMin < $startMin) $endMin += 24 * 60;
+            $detail->work_duration = $endMin - $startMin;
+        } else {
+            $detail->work_start_time = null;
+            $detail->work_end_time   = null;
+            $detail->work_duration = (int)($input['work_duration'] ?? 0);
+        }
 
         // Commissioning and acceptance fields (v4.5)
         $detail->commissioning_done = (int)($input['commissioning_done'] ?? 0);
@@ -1371,7 +1391,22 @@ function handleSync($method, $input) {
                     $detail->recommendations = $data['recommendations'] ?? '';
                     $detail->notes = $data['notes'] ?? '';
                     $detail->work_date = !empty($data['work_date']) ? strtotime($data['work_date']) : null;
-                    $detail->work_duration = (int)($data['work_duration'] ?? 0);
+                    $rawStart = $data['work_start_time'] ?? null;
+                    $rawEnd   = $data['work_end_time'] ?? null;
+                    if ($rawStart && $rawEnd && preg_match('/^\d{2}:\d{2}$/', $rawStart) && preg_match('/^\d{2}:\d{2}$/', $rawEnd)) {
+                        $detail->work_start_time = $rawStart.':00';
+                        $detail->work_end_time   = $rawEnd.':00';
+                        list($sh, $sm) = explode(':', $rawStart);
+                        list($eh, $em) = explode(':', $rawEnd);
+                        $startMin = (int)$sh * 60 + (int)$sm;
+                        $endMin   = (int)$eh * 60 + (int)$em;
+                        if ($endMin < $startMin) $endMin += 24 * 60;
+                        $detail->work_duration = $endMin - $startMin;
+                    } else {
+                        $detail->work_start_time = null;
+                        $detail->work_end_time   = null;
+                        $detail->work_duration = (int)($data['work_duration'] ?? 0);
+                    }
 
                     $result = $detail->createOrUpdate($user);
 
