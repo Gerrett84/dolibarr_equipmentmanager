@@ -798,12 +798,21 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             $duration_text = '';
-            if ($entry->work_duration > 0 && empty($equipment->maintenance_month)) {
-                $hours = floor($entry->work_duration / 60);
-                $minutes = $entry->work_duration % 60;
-                $duration_text = $hours." Std.";
-                if ($minutes > 0) {
-                    $duration_text .= " ".$minutes." min.";
+            if (empty($equipment->maintenance_month)) {
+                if (!empty($entry->work_start_time) && !empty($entry->work_end_time)) {
+                    $duration_text = substr($entry->work_start_time, 0, 5).' – '.substr($entry->work_end_time, 0, 5).' Uhr';
+                    if ($entry->work_duration > 0) {
+                        $hours = floor($entry->work_duration / 60);
+                        $minutes = $entry->work_duration % 60;
+                        $duration_text .= ' ('.$hours.'h'.($minutes > 0 ? ' '.$minutes.'min' : '').')';
+                    }
+                } elseif ($entry->work_duration > 0) {
+                    $hours = floor($entry->work_duration / 60);
+                    $minutes = $entry->work_duration % 60;
+                    $duration_text = $hours." Std.";
+                    if ($minutes > 0) {
+                        $duration_text .= " ".$minutes." min.";
+                    }
                 }
             }
 

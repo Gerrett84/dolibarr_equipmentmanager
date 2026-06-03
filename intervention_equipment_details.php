@@ -78,10 +78,30 @@ if ($action == 'save_entry' && $permissiontoadd && $equipment_id >= 0) {
     // Datum
     $detail->work_date = dol_mktime(0, 0, 0, GETPOST('work_datemonth', 'int'), GETPOST('work_dateday', 'int'), GETPOST('work_dateyear', 'int'));
 
-    // Arbeitszeit (in Minuten)
-    $hours = GETPOST('work_hours', 'int');
-    $minutes = GETPOST('work_minutes', 'int');
-    $detail->work_duration = ($hours * 60) + $minutes;
+    // Arbeitszeit: Dauer-Modus oder Zeitraum-Modus
+    $time_mode = GETPOST('time_mode', 'alpha'); // 'duration' or 'range'
+    if ($time_mode === 'range') {
+        $start = GETPOST('work_start_time', 'alpha');
+        $end   = GETPOST('work_end_time', 'alpha');
+        // Validate HH:MM format
+        if (preg_match('/^\d{2}:\d{2}$/', $start) && preg_match('/^\d{2}:\d{2}$/', $end)) {
+            $detail->work_start_time = $start.':00';
+            $detail->work_end_time   = $end.':00';
+            list($sh, $sm) = explode(':', $start);
+            list($eh, $em) = explode(':', $end);
+            $startMin = (int)$sh * 60 + (int)$sm;
+            $endMin   = (int)$eh * 60 + (int)$em;
+            // Handle overnight (e.g. 22:00 – 02:00)
+            if ($endMin < $startMin) $endMin += 24 * 60;
+            $detail->work_duration = $endMin - $startMin;
+        }
+    } else {
+        $detail->work_start_time = null;
+        $detail->work_end_time   = null;
+        $hours = GETPOST('work_hours', 'int');
+        $minutes = GETPOST('work_minutes', 'int');
+        $detail->work_duration = ($hours * 60) + $minutes;
+    }
 
     // Handle photo upload/delete (v4.2)
     $photoDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($object->ref) . '';
@@ -855,16 +875,57 @@ if ($object->id > 0) {
         print $form->selectDate($work_date, 'work_date', 0, 0, 0, '', 1, 0);
         print '</td></tr>';
 
-        // Arbeitszeit
+        // Arbeitszeit — toggle zwischen Dauer und Zeitraum
+        $useRange = ($editEntry && !empty($editEntry->work_start_time));
         print '<tr><td>'.$langs->trans('WorkDuration').'</td><td>';
+        print '<input type="hidden" name="time_mode" id="time_mode" value="'.($useRange ? 'range' : 'duration').'">';
+        // Toggle buttons
+        print '<div style="display:inline-flex;border:1px solid #ccc;border-radius:4px;margin-bottom:8px;">';
+        print '<button type="button" id="btn_mode_duration" onclick="switchTimeMode(\'duration\')" style="padding:3px 10px;border:none;cursor:pointer;'.(!$useRange ? 'background:#0d8ccd;color:#fff;' : 'background:#f5f5f5;').'">'.$langs->trans('WorkDuration').'</button>';
+        print '<button type="button" id="btn_mode_range" onclick="switchTimeMode(\'range\')" style="padding:3px 10px;border:none;cursor:pointer;border-left:1px solid #ccc;'.($useRange ? 'background:#0d8ccd;color:#fff;' : 'background:#f5f5f5;').'">'.$langs->trans('TimeRange').'</button>';
+        print '</div><br>';
+        // Dauer-Modus
         $hours = $editEntry ? floor($editEntry->work_duration / 60) : 0;
         $minutes = $editEntry ? $editEntry->work_duration % 60 : 0;
-
-        print '<input type="number" name="work_hours" value="'.$hours.'" min="0" max="24" class="flat" style="width: 60px;"> ';
+        print '<span id="span_duration" style="'.($useRange ? 'display:none;' : '').'">';
+        print '<input type="number" name="work_hours" id="work_hours" value="'.$hours.'" min="0" max="24" class="flat" style="width: 60px;"> ';
         print $langs->trans('Hours');
-        print ' <input type="number" name="work_minutes" value="'.$minutes.'" min="0" max="59" class="flat" style="width: 60px;"> ';
+        print ' <input type="number" name="work_minutes" id="work_minutes" value="'.$minutes.'" min="0" max="59" class="flat" style="width: 60px;"> ';
         print $langs->trans('Minutes');
+        print '</span>';
+        // Zeitraum-Modus
+        $startVal = ($editEntry && !empty($editEntry->work_start_time)) ? substr($editEntry->work_start_time, 0, 5) : '';
+        $endVal   = ($editEntry && !empty($editEntry->work_end_time))   ? substr($editEntry->work_end_time, 0, 5)   : '';
+        print '<span id="span_range" style="'.(!$useRange ? 'display:none;' : '').'">';
+        print $langs->trans('From').' <input type="time" name="work_start_time" id="work_start_time" value="'.$startVal.'" class="flat" style="width:90px;"> ';
+        print $langs->trans('To').' <input type="time" name="work_end_time" id="work_end_time" value="'.$endVal.'" class="flat" style="width:90px;">';
+        print ' <span id="range_duration_preview" style="margin-left:8px;color:#666;font-size:12px;"></span>';
+        print '</span>';
         print '</td></tr>';
+        // JavaScript for toggle + live preview
+        print '<script>
+function switchTimeMode(mode) {
+    document.getElementById("time_mode").value = mode;
+    document.getElementById("span_duration").style.display = mode === "duration" ? "" : "none";
+    document.getElementById("span_range").style.display = mode === "range" ? "" : "none";
+    document.getElementById("btn_mode_duration").style.cssText = "padding:3px 10px;border:none;cursor:pointer;" + (mode==="duration" ? "background:#0d8ccd;color:#fff;" : "background:#f5f5f5;");
+    document.getElementById("btn_mode_range").style.cssText = "padding:3px 10px;border:none;cursor:pointer;border-left:1px solid #ccc;" + (mode==="range" ? "background:#0d8ccd;color:#fff;" : "background:#f5f5f5;");
+}
+function updateRangePreview() {
+    var s = document.getElementById("work_start_time").value;
+    var e = document.getElementById("work_end_time").value;
+    var el = document.getElementById("range_duration_preview");
+    if (!s || !e) { el.textContent = ""; return; }
+    var sm = parseInt(s)*60 + parseInt(s.split(":")[1]);
+    var em = parseInt(e)*60 + parseInt(e.split(":")[1]);
+    if (em < sm) em += 24*60;
+    var diff = em - sm;
+    var h = Math.floor(diff/60), m = diff%60;
+    el.textContent = "= " + h + "h" + (m>0 ? " " + m + "min" : "");
+}
+document.getElementById("work_start_time") && document.getElementById("work_start_time").addEventListener("change", updateRangePreview);
+document.getElementById("work_end_time") && document.getElementById("work_end_time").addEventListener("change", updateRangePreview);
+</script>';
 
         // Work done
         print '<tr><td class="tdtop">'.$langs->trans('WorkDone').'</td><td>';
@@ -992,7 +1053,16 @@ if ($object->id > 0) {
 
             // Duration
             print '<td class="center">';
-            if ($entry->work_duration > 0) {
+            if (!empty($entry->work_start_time) && !empty($entry->work_end_time)) {
+                $tStart = substr($entry->work_start_time, 0, 5);
+                $tEnd   = substr($entry->work_end_time, 0, 5);
+                print '<span style="white-space:nowrap;">'.$tStart.' – '.$tEnd.'</span><br>';
+                if ($entry->work_duration > 0) {
+                    $h = floor($entry->work_duration / 60);
+                    $m = $entry->work_duration % 60;
+                    print '<small>('.$h.'h'.($m > 0 ? ' '.$m.'min' : '').')</small>';
+                }
+            } elseif ($entry->work_duration > 0) {
                 $h = floor($entry->work_duration / 60);
                 $m = $entry->work_duration % 60;
                 print $h.'h '.($m > 0 ? $m.'min' : '');
