@@ -337,7 +337,7 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 4: Preisliste
+        // Überschrift 4: Preisliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -345,8 +345,42 @@ class modEquipmentManager extends DolibarrModules
             'type' => 'left',
             'titre' => 'PriceList',
             'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_pricelist',
+            'url' => '/equipmentmanager/pricelist.php?tab=rate',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Verrechnungssätze
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_pricelist',
+            'type' => 'left',
+            'titre' => 'PriceListRate',
+            'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
-            'url' => '/equipmentmanager/pricelist.php',
+            'url' => '/equipmentmanager/pricelist.php?tab=rate',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Wartungspreise
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_pricelist',
+            'type' => 'left',
+            'titre' => 'PriceListMaintenance',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/pricelist.php?tab=maintenance',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
