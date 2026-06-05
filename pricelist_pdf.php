@@ -129,11 +129,13 @@ function drawHeader(&$pdf, $fsz, $font, $outputlangs, $mysoc, $mg_left, $mg_righ
     $posy = max($posy + $logo_h, $pdf->GetY()) + 5;
 
     // Title bar — matching blue of table header
+    $de_months = array(1=>'Januar',2=>'Februar',3=>'März',4=>'April',5=>'Mai',6=>'Juni',7=>'Juli',8=>'August',9=>'September',10=>'Oktober',11=>'November',12=>'Dezember');
+    $title_full = $list_title.' '.$de_months[(int)date('n')].' '.date('Y');
     $pdf->SetFont($font, 'B', $fsz + 3);
     $pdf->SetTextColor(255, 255, 255);
     $pdf->SetFillColor(50, 80, 120);
     $pdf->SetXY($mg_left, $posy);
-    $pdf->Cell($content_w, 10, ps($list_title, $outputlangs), 1, 1, 'C', true);
+    $pdf->Cell($content_w, 10, ps($title_full, $outputlangs), 1, 1, 'C', true);
     $pdf->SetTextColor(30, 30, 30);
     $posy += 12;
 
