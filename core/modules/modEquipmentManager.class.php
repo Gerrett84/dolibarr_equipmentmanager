@@ -336,6 +336,25 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // ============================================
+        // Überschrift 4: Preisliste
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'PriceList',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/pricelist.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
         // Tabs
         $this->tabs = array(
             // Equipment tab auf Intervention
