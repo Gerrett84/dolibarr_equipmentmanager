@@ -183,7 +183,7 @@ function drawTableHeader(&$pdf, $fsz, $font, $mg_left, $content_w, $col_pos, $co
 {
     $pdf->SetFont($font, 'B', $fsz - 1);
     $pdf->SetTextColor(255, 255, 255);
-    $pdf->SetFillColor(50, 80, 120);
+    $pdf->SetFillColor(80, 125, 175);
     $pdf->SetXY($mg_left, $posy);
     $pdf->Cell($col_pos,  7, 'Pos.',        'B', 0, 'C', true);
     $pdf->Cell($col_lbl,  7, 'Leistung',    'B', 0, 'L', true);
