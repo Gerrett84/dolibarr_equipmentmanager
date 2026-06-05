@@ -240,14 +240,15 @@ foreach ($current_items as $i => $it) {
     print '<td style="text-align:center"><small>'.$vat.'</small></td>';
     print '<td style="white-space:nowrap;text-align:right">';
     if ($user->rights->equipmentmanager->equipment->write) {
+        $tok = newToken();
         if ($i > 0) {
-            print '<a href="'.$base.'?action=move_up&tab='.$tab.'&item_id='.$it->rowid.'" title="'.$langs->trans('Up').'">'.img_picto('', 'uparrow').'</a> ';
+            print '<a href="'.$base.'?action=move_up&tab='.$tab.'&item_id='.$it->rowid.'&token='.$tok.'" title="'.$langs->trans('Up').'">'.img_picto('', 'uparrow').'</a> ';
         }
         if ($i < count($current_items) - 1) {
-            print '<a href="'.$base.'?action=move_down&tab='.$tab.'&item_id='.$it->rowid.'" title="'.$langs->trans('Down').'">'.img_picto('', 'downarrow').'</a> ';
+            print '<a href="'.$base.'?action=move_down&tab='.$tab.'&item_id='.$it->rowid.'&token='.$tok.'" title="'.$langs->trans('Down').'">'.img_picto('', 'downarrow').'</a> ';
         }
-        print '<a href="'.$base.'?action=edit_item&tab='.$tab.'&item_id='.$it->rowid.'">'.img_picto('', 'edit').'</a> ';
-        print '<a href="'.$base.'?action=delete_item&tab='.$tab.'&item_id='.$it->rowid.'" onclick="return confirm(\''.dol_escape_js($langs->trans('ConfirmDeletePriceListItem')).'\')">'.img_picto('', 'delete').'</a>';
+        print '<a href="'.$base.'?action=edit_item&tab='.$tab.'&item_id='.$it->rowid.'&token='.$tok.'">'.img_picto('', 'edit').'</a> ';
+        print '<a href="'.$base.'?action=delete_item&tab='.$tab.'&item_id='.$it->rowid.'&token='.$tok.'" onclick="return confirm(\''.dol_escape_js($langs->trans('ConfirmDeletePriceListItem')).'\')">'.img_picto('', 'delete').'</a>';
     }
     print '</td></tr>';
 }
