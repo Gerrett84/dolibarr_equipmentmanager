@@ -127,10 +127,10 @@ function drawHeader(&$pdf, $fsz, $font, $outputlangs, $mysoc, $mg_left, $mg_righ
 
     $posy = max($posy + $logo_h, $pdf->GetY()) + 5;
 
-    // Title bar
+    // Title bar — same gray as service report PDF
     $pdf->SetFont($font, 'B', $fsz + 3);
-    $pdf->SetTextColor(0, 0, 60);
-    $pdf->SetFillColor(225, 230, 240);
+    $pdf->SetTextColor(0, 0, 0);
+    $pdf->SetFillColor(240, 240, 240);
     $pdf->SetXY($mg_left, $posy);
     $pdf->Cell($content_w, 10, ps($list_title, $outputlangs), 1, 1, 'C', true);
     $posy += 12;
@@ -226,7 +226,7 @@ foreach ($items as $idx => $item) {
         $pdf->SetFont($font, 'I', $fsz - 2);
         $dsc_h = $pdf->getStringHeight($col_lbl - 3, $desc);
     }
-    $row_h = max($min_row, $lbl_h + $dsc_h + 2);
+    $row_h = max($min_row, $lbl_h + $dsc_h + $pad * 3);
 
     // Page break?
     if ($posy + $row_h > $page_h - $mg_bottom - $footer_h) {
