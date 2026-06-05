@@ -87,6 +87,7 @@ function ps($str, $ol) {
 function fmtPrc($price, $disc = 0) {
     if ($price === null || $price === '') return '–';
     $p = (float)$price * (1 - $disc / 100);
+    if ($p <= 0) return '–';
     return number_format($p, 2, ',', '.') . ' €';
 }
 
@@ -127,12 +128,13 @@ function drawHeader(&$pdf, $fsz, $font, $outputlangs, $mysoc, $mg_left, $mg_righ
 
     $posy = max($posy + $logo_h, $pdf->GetY()) + 5;
 
-    // Title bar — same gray as service report PDF
+    // Title bar — matching blue of table header
     $pdf->SetFont($font, 'B', $fsz + 3);
-    $pdf->SetTextColor(0, 0, 0);
-    $pdf->SetFillColor(240, 240, 240);
+    $pdf->SetTextColor(255, 255, 255);
+    $pdf->SetFillColor(50, 80, 120);
     $pdf->SetXY($mg_left, $posy);
     $pdf->Cell($content_w, 10, ps($list_title, $outputlangs), 1, 1, 'C', true);
+    $pdf->SetTextColor(30, 30, 30);
     $posy += 12;
 
     // Date right
