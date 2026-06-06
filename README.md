@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.2.4** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.3.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,17 @@
 -----
 
 ## Features
+
+### NEU in v5.3.0: Preislisten
+
+- **Zwei konfigurierbare Preislisten** – „Verrechnungssätze" (Stundensatz, Anfahrt etc.) und „Wartungspreise" als eigenständige Untermenüpunkte in der Seitenleiste
+- **Positionen aus Produktkatalog** – Leistungen direkt aus dem Dolibarr-Produktkatalog auswählen; Bezeichnung, Beschreibung und Einheit werden automatisch übernommen (AJAX)
+- **Dauerhaft gespeichert** – Positionen werden in der Datenbank gespeichert und sind jederzeit bearbeitbar; Reihenfolge per Pfeil-Buttons änderbar
+- **PDF Vorschau** – Preisliste als PDF im Browser öffnen (Titelbalken mit Monat/Jahr, AGB-Text aus Dolibarr-Konstante `INVOICE_FREE_TEXT` im Footer)
+- **PDF erstellen & speichern** – Aktuelle Preisliste archivieren; gespeicherte Versionen mit Datum und Ersteller jederzeit abrufbar (Vorschau + Download)
+- **Kunden-Preisliste** – Individuelle PDF mit Kundenauswahl und Rabatt in Prozent; klassisches Brieflayout mit Kundenadresse links, Firmenadresse rechts; Sonderkonditionen farbig hervorgehoben
+- **Kunden-PDFs archivierbar** – Auch kundenspezifische Preislisten können gespeichert werden; Archivtabelle zeigt Kunde, Rabatt, Ersteller und Datum
+- **DB-Migration** – Neue Tabellen `llx_equipmentmanager_pricelist_item` und `llx_equipmentmanager_pricelist_archive` (SQL: `sql/llx_equipmentmanager_v5.3.0_pricelist.sql`, `sql/llx_equipmentmanager_v5.3.0_pricelist_archive.sql`)
 
 ### NEU in v5.2.4: Zeitraum-Eingabe für Arbeitseinträge
 
