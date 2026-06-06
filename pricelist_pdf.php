@@ -19,9 +19,30 @@ if (!$user->rights->equipmentmanager->equipment->read) accessforbidden();
 
 $langs->loadLangs(array("equipmentmanager@equipmentmanager", "companies", "main"));
 
-$list_type = GETPOST('list_type', 'aZ09') ?: 'rate';
-$fk_soc    = (int) GETPOST('fk_soc', 'int');
-$discount  = max(0, min(99, (float) GETPOST('discount', 'alpha')));
+$list_type  = GETPOST('list_type', 'aZ09') ?: 'rate';
+$fk_soc     = (int) GETPOST('fk_soc', 'int');
+$discount   = max(0, min(99, (float) GETPOST('discount', 'alpha')));
+$do_save    = ((int) GETPOST('save', 'int') === 1);
+$archive_id = (int) GETPOST('archive_id', 'int');
+
+// ─── Serve archived PDF ───────────────────────────────────────────────────────
+
+if ($archive_id > 0) {
+    $dl    = ((int) GETPOST('dl', 'int') === 1);
+    $sql_a = "SELECT * FROM ".MAIN_DB_PREFIX."equipmentmanager_pricelist_archive WHERE rowid=".$archive_id;
+    $res_a = $db->query($sql_a);
+    if ($res_a && ($arc = $db->fetch_object($res_a))) {
+        $fpath = DOL_DATA_ROOT.'/equipmentmanager/pricelist/'.$arc->pdf_filename;
+        if (is_readable($fpath)) {
+            $disp = $dl ? 'attachment' : 'inline';
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: '.$disp.'; filename="'.basename($arc->pdf_filename).'"');
+            readfile($fpath);
+            exit;
+        }
+    }
+    accessforbidden('File not found');
+}
 
 // ─── Load items ──────────────────────────────────────────────────────────────
 
@@ -77,6 +98,11 @@ $line_h   = 5.5;  // normal row line height
 $desc_h   = 4.0;  // description line height
 $min_row  = 7.0;  // minimum row height
 
+// ─── AGB text ─────────────────────────────────────────────────────────────────
+
+$agb_raw  = getDolGlobalString('INVOICE_FREE_TEXT');
+$agb_text = trim(html_entity_decode(strip_tags(str_replace(array('<br>','<br/>','<br />','</p>','</li>'), ' ', $agb_raw)), ENT_QUOTES, 'UTF-8'));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function ps($str, $ol) {
@@ -95,9 +121,12 @@ function fmtPrc($price, $disc = 0) {
 
 function drawHeader(&$pdf, $fsz, $font, $outputlangs, $mysoc, $mg_left, $mg_right, $mg_top, $content_w, $list_title, $customer, $discount, $conf)
 {
-    $posy = $mg_top;
+    $posy       = $mg_top;
+    $addr_w     = 72; // right column (company address) width
+    $addr_x     = $mg_left + $content_w - $addr_w;
+    $left_w     = $content_w - $addr_w - 4; // left column width
 
-    // Logo left
+    // ── Logo (top-left) ────────────────────────────────────────────────────
     $logo_h = 0;
     $logo = $conf->mycompany->dir_output.'/logos/'.$mysoc->logo;
     if (!empty($mysoc->logo) && is_readable($logo)) {
@@ -107,28 +136,61 @@ function drawHeader(&$pdf, $fsz, $font, $outputlangs, $mysoc, $mg_left, $mg_righ
     } else {
         $pdf->SetFont($font, 'B', $fsz + 1);
         $pdf->SetXY($mg_left, $posy);
-        $pdf->Cell(70, 6, ps($mysoc->name, $outputlangs), 0, 0, 'L');
+        $pdf->Cell($left_w, 6, ps($mysoc->name, $outputlangs), 0, 0, 'L');
         $logo_h = 7;
     }
 
-    // Company address right
-    $addr_x = $mg_left + $content_w - 70;
+    // ── Company address (top-right) ────────────────────────────────────────
     $pdf->SetFont($font, 'B', $fsz);
     $pdf->SetTextColor(0, 0, 60);
     $pdf->SetXY($addr_x, $posy);
-    $pdf->Cell(70, 5, ps($mysoc->name, $outputlangs), 0, 1, 'R');
+    $pdf->Cell($addr_w, 5, ps($mysoc->name, $outputlangs), 0, 1, 'R');
     $pdf->SetFont($font, '', $fsz - 1);
     $pdf->SetTextColor(80, 80, 80);
     foreach (array($mysoc->address, ($mysoc->zip ? trim($mysoc->zip.' '.$mysoc->town) : ''), ($mysoc->phone ? 'Tel: '.$mysoc->phone : ''), $mysoc->email) as $line) {
         if (!empty($line)) {
             $pdf->SetX($addr_x);
-            $pdf->Cell(70, 4, ps($line, $outputlangs), 0, 1, 'R');
+            $pdf->Cell($addr_w, 4, ps($line, $outputlangs), 0, 1, 'R');
         }
     }
+    $right_end_y = $pdf->GetY();
 
-    $posy = max($posy + $logo_h, $pdf->GetY()) + 5;
+    // ── Customer block (below logo, left column) ───────────────────────────
+    $left_end_y = $posy + $logo_h;
+    if ($customer) {
+        $cy    = $left_end_y + 3;
+        $lines = array($customer->name);
+        foreach (explode("\n", $customer->address ?? '') as $l) { if (trim($l)) $lines[] = trim($l); }
+        if ($customer->zip || $customer->town) $lines[] = trim($customer->zip.' '.$customer->town);
 
-    // Title bar — matching blue of table header
+        $pdf->SetFont($font, '', $fsz - 2);
+        $pdf->SetTextColor(130, 130, 130);
+        $pdf->SetXY($mg_left, $cy);
+        $pdf->Cell($left_w, 3.5, 'Erstellt für:', 0, 1, 'L');
+
+        $pdf->SetFont($font, 'B', $fsz);
+        $pdf->SetTextColor(20, 20, 60);
+        $pdf->SetXY($mg_left, $pdf->GetY());
+        $pdf->Cell($left_w, 5, ps($lines[0], $outputlangs), 0, 1, 'L');
+
+        $pdf->SetFont($font, '', $fsz - 1);
+        $pdf->SetTextColor(50, 50, 50);
+        for ($ci = 1; $ci < count($lines); $ci++) {
+            $pdf->SetXY($mg_left, $pdf->GetY());
+            $pdf->Cell($left_w, 4, ps($lines[$ci], $outputlangs), 0, 1, 'L');
+        }
+        if ($discount > 0) {
+            $pdf->SetFont($font, 'B', $fsz - 1);
+            $pdf->SetTextColor(140, 20, 20);
+            $pdf->SetXY($mg_left, $pdf->GetY() + 1);
+            $pdf->Cell($left_w, 4.5, 'Sonderkonditionen: '.number_format($discount, 1, ',', '.').' % Rabatt', 0, 1, 'L');
+        }
+        $left_end_y = $pdf->GetY();
+    }
+
+    $posy = max($left_end_y, $right_end_y) + 6;
+
+    // ── Title bar ──────────────────────────────────────────────────────────
     $de_months = array(1=>'Januar',2=>'Februar',3=>'März',4=>'April',5=>'Mai',6=>'Juni',7=>'Juli',8=>'August',9=>'September',10=>'Oktober',11=>'November',12=>'Dezember');
     $title_full = $list_title.' '.$de_months[(int)date('n')].' '.date('Y');
     $pdf->SetFont($font, 'B', $fsz + 3);
@@ -139,38 +201,12 @@ function drawHeader(&$pdf, $fsz, $font, $outputlangs, $mysoc, $mg_left, $mg_righ
     $pdf->SetTextColor(30, 30, 30);
     $posy += 12;
 
-    // Date right
+    // ── Stand: date ────────────────────────────────────────────────────────
     $pdf->SetFont($font, '', $fsz - 1);
     $pdf->SetTextColor(100, 100, 100);
     $pdf->SetXY($mg_left, $posy);
     $pdf->Cell($content_w, 5, 'Stand: '.date('d.m.Y'), 0, 1, 'R');
     $posy += 6;
-
-    // Customer box
-    if ($customer) {
-        $lines = array($customer->name);
-        foreach (explode("\n", $customer->address ?? '') as $l) { if (trim($l)) $lines[] = trim($l); }
-        if ($customer->zip || $customer->town) $lines[] = trim($customer->zip.' '.$customer->town);
-        $box_h = count($lines) * 4.5 + 8 + ($discount > 0 ? 6 : 0);
-        $box_x = $mg_left + $content_w - 90;
-        $pdf->SetDrawColor(200, 200, 200);
-        $pdf->SetFillColor(248, 248, 250);
-        $pdf->Rect($box_x, $posy, 90, $box_h, 'DF');
-        $pdf->SetFont($font, 'B', $fsz - 1);
-        $pdf->SetTextColor(0, 0, 60);
-        $pdf->SetXY($box_x + 2, $posy + 2);
-        $pdf->Cell(86, 4.5, 'Für:', 0, 1, 'L');
-        $pdf->SetFont($font, '', $fsz - 1);
-        $pdf->SetTextColor(40, 40, 40);
-        foreach ($lines as $l) { $pdf->SetX($box_x + 2); $pdf->Cell(86, 4.5, ps($l, $outputlangs), 0, 1, 'L'); }
-        if ($discount > 0) {
-            $pdf->SetFont($font, 'B', $fsz - 1);
-            $pdf->SetTextColor(160, 20, 20);
-            $pdf->SetX($box_x + 2);
-            $pdf->Cell(86, 5, 'Sonderkonditionen: '.number_format($discount, 1, ',', '.').' % Rabatt', 0, 1, 'L');
-        }
-        $posy = max($posy + $box_h, $pdf->GetY()) + 4;
-    }
 
     $pdf->SetTextColor(30, 30, 30);
     $pdf->SetDrawColor(0, 0, 0);
@@ -209,7 +245,7 @@ $posy = drawTableHeader($pdf, $fsz, $font, $mg_left, $content_w, $col_pos, $col_
 
 $page_num   = 1;
 $row_fill   = false;
-$footer_h   = 14; // space reserved at bottom for footer note
+$footer_h   = !empty($agb_text) ? 20 : 14; // space reserved at bottom for footer
 
 // ─── Rows ─────────────────────────────────────────────────────────────────────
 
@@ -302,6 +338,13 @@ $footer_note = 'Alle Preise netto zzgl. gesetzlicher MwSt.';
 if ($discount > 0) $footer_note .= '   |   Kundenpreise inkl. '.number_format($discount, 1, ',', '.').' % Rabatt';
 $pdf->Cell($content_w, 4.5, $footer_note, 0, 1, 'C');
 
+if (!empty($agb_text)) {
+    $pdf->SetFont($font, 'I', $fsz - 2);
+    $pdf->SetTextColor(130, 130, 130);
+    $pdf->SetXY($mg_left, $pdf->GetY() + 1);
+    $pdf->Cell($content_w, 4.5, ps($agb_text, $outputlangs), 0, 1, 'C');
+}
+
 // Page number (bottom right)
 $pdf->SetXY($mg_left, $page_h - $mg_bottom - 5);
 $pdf->Cell($content_w, 4, 'Seite '.$page_num, 0, 0, 'R');
@@ -311,6 +354,28 @@ $pdf->Cell($content_w, 4, 'Seite '.$page_num, 0, 0, 'R');
 $filename = 'Preisliste_'.($list_type === 'maintenance' ? 'Wartung' : 'Verrechnungssatz');
 if ($customer) $filename .= '_'.dol_sanitizeFileName($customer->name);
 $filename .= '_'.date('Y-m-d').'.pdf';
+
+if ($do_save) {
+    $save_dir = DOL_DATA_ROOT.'/equipmentmanager/pricelist';
+    if (!is_dir($save_dir)) dol_mkdir($save_dir);
+    $type_slug     = ($list_type === 'maintenance') ? 'Wartungspreise' : 'Verrechnungssaetze';
+    $base_name     = $type_slug.($customer ? '_'.dol_sanitizeFileName($customer->name) : '').'_'.date('Y-m-d');
+    $save_filename = $base_name.'.pdf';
+    $counter = 1;
+    while (file_exists($save_dir.'/'.$save_filename)) {
+        $save_filename = $base_name.'_'.$counter.'.pdf';
+        $counter++;
+    }
+    $pdf->Output($save_dir.'/'.$save_filename, 'F');
+    // DB record
+    $sql_ins = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_pricelist_archive"
+        ." (list_type, fk_soc, discount, saved_date, pdf_filename, fk_user_creat, tms)"
+        ." VALUES ('".$db->escape($list_type)."', ".($fk_soc > 0 ? $fk_soc : 'NULL').", ".(float)$discount.", '".date('Y-m-d')."', '".$db->escape($save_filename)."', ".(int)$user->id.", NOW())";
+    $db->query($sql_ins);
+    setEventMessages($langs->trans('PriceListArchived'), null, 'mesgs');
+    header("Location: pricelist.php?tab=".$list_type);
+    exit;
+}
 
 if (ob_get_length()) ob_end_clean();
 $pdf->Output($filename, 'I');

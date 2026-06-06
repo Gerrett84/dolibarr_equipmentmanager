@@ -111,11 +111,33 @@ if ($action === 'move_down' && $item_id > 0) {
     exit;
 }
 
+if ($action === 'delete_archive' && $item_id > 0 && $user->rights->equipmentmanager->equipment->write) {
+    $sql_da = "SELECT pdf_filename FROM ".MAIN_DB_PREFIX."equipmentmanager_pricelist_archive WHERE rowid=".$item_id;
+    $res_da = $db->query($sql_da);
+    if ($res_da && ($obj_da = $db->fetch_object($res_da))) {
+        $fpath = DOL_DATA_ROOT.'/equipmentmanager/pricelist/'.$obj_da->pdf_filename;
+        if (is_file($fpath)) @unlink($fpath);
+        $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pricelist_archive WHERE rowid=".$item_id);
+    }
+    header("Location: ".$_SERVER["PHP_SELF"]."?tab=".$tab);
+    exit;
+}
+
 // ─── Load data ──────────────────────────────────────────────────────────────
 
 $proto      = new PriceListItem($db);
 $items_rate = $proto->fetchAllByType('rate');
 $items_mnt  = $proto->fetchAllByType('maintenance');
+
+$archives = array();
+$sql_arc = "SELECT a.rowid, a.list_type, a.fk_soc, a.discount, a.saved_date, a.pdf_filename, u.login, s.nom AS customer_name"
+    ." FROM ".MAIN_DB_PREFIX."equipmentmanager_pricelist_archive a"
+    ." LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = a.fk_user_creat"
+    ." LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = a.fk_soc"
+    ." WHERE a.list_type = '".$db->escape($tab)."'"
+    ." ORDER BY a.saved_date DESC, a.rowid DESC";
+$res_arc = $db->query($sql_arc);
+if ($res_arc) { while ($obj = $db->fetch_object($res_arc)) $archives[] = $obj; }
 
 $edit_item = null;
 $scroll_to_form = false;
@@ -139,17 +161,14 @@ llxHeader('', $title);
 
 print load_fiche_titre($title, '', 'price');
 
-// Tabs
-$tabs = array(
-    'rate'        => $langs->trans('PriceListRate'),
-    'maintenance' => $langs->trans('PriceListMaintenance'),
-);
-print '<div class="tabs"><ul>';
-foreach ($tabs as $key => $label) {
-    $active = ($tab === $key) ? ' active' : '';
-    print '<li class="tab'.$active.'"><a href="'.$_SERVER["PHP_SELF"].'?tab='.$key.'">'.$label.'</a></li>';
-}
-print '</ul></div><br>';
+$head = array();
+$head[0][0] = $_SERVER['PHP_SELF'].'?tab=rate';
+$head[0][1] = $langs->trans('PriceListRate');
+$head[0][2] = 'rate';
+$head[1][0] = $_SERVER['PHP_SELF'].'?tab=maintenance';
+$head[1][1] = $langs->trans('PriceListMaintenance');
+$head[1][2] = 'maintenance';
+print dol_get_fiche_head($head, $tab, '', -1);
 
 $current_items = ($tab === 'maintenance') ? $items_mnt : $items_rate;
 
@@ -157,22 +176,30 @@ $current_items = ($tab === 'maintenance') ? $items_mnt : $items_rate;
 print '<div class="tabsAction">';
 print '<a class="butAction" href="pricelist_pdf.php?list_type='.$tab.'" target="_blank">'.img_picto('', 'pdf').' '.$langs->trans('PriceListGeneratePDF').'</a>';
 print ' <a class="butAction" id="btnCustomerPdf" href="#">'.img_picto('', 'company').' '.$langs->trans('PriceListCustomerPDF').'</a>';
+if ($user->rights->equipmentmanager->equipment->write) {
+    print ' <a class="butAction" href="pricelist_pdf.php?list_type='.$tab.'&save=1&token='.newToken().'" onclick="return confirm(\''.dol_escape_js($langs->trans('PriceListArchiveConfirm')).'\')">'.img_picto('', 'bookmark').' '.$langs->trans('PriceListArchive').'</a>';
+}
 print '</div>';
 
-// ─── Customer PDF modal ───────────────────────────────────────────────────────
-print '<div id="customerPdfModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">';
-print '<div style="background:var(--colorbackbody,#fff);border-radius:8px;padding:28px 32px;min-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18);">';
-print '<h3 style="margin:0 0 16px">'.$langs->trans('PriceListCustomerPDF').'</h3>';
-print '<form id="customerPdfForm" method="GET" action="pricelist_pdf.php" target="_blank">';
+// ─── Inline customer PDF panel ────────────────────────────────────────────────
+print '<div id="customerPdfPanel" style="display:none;border:1px solid var(--colorborderlight,#ddd);border-radius:4px;padding:14px 18px;margin-bottom:14px;background:var(--colorbacktitle1,#f8f8f8)">';
+print '<strong>'.img_picto('', 'company').' '.$langs->trans('PriceListCustomerPDF').'</strong>';
+print '<form id="custPdfForm" method="GET" action="pricelist_pdf.php" target="_blank" style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-top:10px">';
 print '<input type="hidden" name="list_type" value="'.$tab.'">';
-print '<div style="margin-bottom:12px"><label style="display:block;margin-bottom:4px;font-weight:600">'.$langs->trans('Customer').'</label>';
+print '<input type="hidden" name="save" id="custPdfSaveInput" value="0">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<div><label style="display:block;font-size:.85em;margin-bottom:3px;font-weight:600">'.$langs->trans('Customer').'</label>';
 print $formComp->select_company('', 'fk_soc', '', $langs->trans('SelectCustomer'), 0, 0, array(), 0, 'maxwidth300');
 print '</div>';
-print '<div style="margin-bottom:16px"><label style="display:block;margin-bottom:4px;font-weight:600">'.$langs->trans('PriceListDiscount').' (%)</label>';
-print '<input type="number" name="discount" min="0" max="99" step="0.5" value="0" class="maxwidth100"> %</div>';
-print '<button type="submit" class="button">'.$langs->trans('PriceListGeneratePDF').'</button>';
-print ' <button type="button" class="button button-cancel" id="btnCancelCustomerPdf">'.$langs->trans('Cancel').'</button>';
-print '</form></div></div>';
+print '<div><label style="display:block;font-size:.85em;margin-bottom:3px;font-weight:600">'.$langs->trans('PriceListDiscount').' (%)</label>';
+print '<input type="number" name="discount" min="0" max="99" step="0.5" value="0" style="width:80px"> %</div>';
+print '<div style="padding-top:2px;display:flex;flex-wrap:wrap;gap:6px">';
+print '<button type="submit" id="custPdfBtnView" class="button">'.img_picto('', 'pdf').' '.$langs->trans('PriceListGeneratePDF').'</button>';
+if ($user->rights->equipmentmanager->equipment->write) {
+    print ' <button type="submit" id="custPdfBtnArchive" class="button">'.img_picto('', 'bookmark').' '.$langs->trans('PriceListArchive').'</button>';
+}
+print ' <button type="button" class="button button-cancel" id="btnCancelCustomerPdf">'.$langs->trans('Close').'</button>';
+print '</div></form></div>';
 
 // ─── Add / Edit form ──────────────────────────────────────────────────────────
 $is_edit      = ($edit_item !== null);
@@ -254,21 +281,66 @@ foreach ($current_items as $i => $it) {
 }
 print '</table>';
 
+// ─── Archive history ──────────────────────────────────────────────────────────
+print '<br>';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre">';
+print '<th>'.$langs->trans('Date').'</th>';
+print '<th>'.$langs->trans('Customer').'</th>';
+print '<th>'.$langs->trans('PriceListDiscount').'</th>';
+print '<th>'.$langs->trans('CreatedBy').'</th>';
+print '<th></th>';
+print '</tr>';
+if (empty($archives)) {
+    print '<tr><td colspan="5" class="opacitymedium" style="padding:12px">'.$langs->trans('PriceListArchiveEmpty').'</td></tr>';
+} else {
+    foreach ($archives as $arc) {
+        $tok2 = newToken();
+        print '<tr class="oddeven">';
+        print '<td>'.dol_print_date(strtotime($arc->saved_date), '%d.%m.%Y').'</td>';
+        print '<td>'.dol_escape_htmltag($arc->customer_name ?? '–').'</td>';
+        print '<td>'.($arc->discount > 0 ? number_format((float)$arc->discount, 1, ',', '.').' %' : '–').'</td>';
+        print '<td>'.dol_escape_htmltag($arc->login ?? '').'</td>';
+        print '<td style="text-align:right;white-space:nowrap">';
+        print '<a href="pricelist_pdf.php?archive_id='.(int)$arc->rowid.'&token='.$tok2.'" target="_blank">'.img_picto('', 'search').' '.$langs->trans('Preview').'</a>';
+        print ' &nbsp; <a href="pricelist_pdf.php?archive_id='.(int)$arc->rowid.'&dl=1&token='.$tok2.'">'.img_picto('', 'download').' '.$langs->trans('Download').'</a>';
+        if ($user->rights->equipmentmanager->equipment->write) {
+            print ' &nbsp; <a href="'.$_SERVER["PHP_SELF"].'?action=delete_archive&tab='.$tab.'&item_id='.(int)$arc->rowid.'&token='.$tok2.'" onclick="return confirm(\''.dol_escape_js($langs->trans('PriceListArchiveConfirmDelete')).'\')">'.img_picto('', 'delete').'</a>';
+        }
+        print '</td></tr>';
+    }
+}
+print '</table>';
+
+print dol_get_fiche_end();
+
 // ─── JavaScript ──────────────────────────────────────────────────────────────
 $ajax_url = dol_buildpath('/equipmentmanager/pricelist.php', 1).'?action=get_product_json&token='.newToken();
 
 print '<script>
 (function(){
-    // ── Customer PDF modal ───────────────────────────────────────────────
+    // ── Customer PDF inline panel ────────────────────────────────────────
     document.getElementById("btnCustomerPdf").addEventListener("click", function(e){
         e.preventDefault();
-        document.getElementById("customerPdfModal").style.display = "flex";
+        var p = document.getElementById("customerPdfPanel");
+        p.style.display = (p.style.display === "none") ? "block" : "none";
+        if (p.style.display === "block") p.scrollIntoView({behavior:"smooth", block:"nearest"});
     });
     document.getElementById("btnCancelCustomerPdf").addEventListener("click", function(){
-        document.getElementById("customerPdfModal").style.display = "none";
+        document.getElementById("customerPdfPanel").style.display = "none";
     });
-    document.getElementById("customerPdfModal").addEventListener("click", function(e){
-        if (e.target === this) this.style.display = "none";
+    // View button: open in new tab, no save
+    var btnView = document.getElementById("custPdfBtnView");
+    if (btnView) btnView.addEventListener("click", function(){
+        document.getElementById("custPdfSaveInput").value = "0";
+        document.getElementById("custPdfForm").target = "_blank";
+    });
+    // Archive button: save on server, redirect back
+    var btnArchive = document.getElementById("custPdfBtnArchive");
+    if (btnArchive) btnArchive.addEventListener("click", function(){
+        if (!confirm('.json_encode($langs->trans('PriceListArchiveConfirm')).')) { return false; }
+        document.getElementById("custPdfSaveInput").value = "1";
+        document.getElementById("custPdfForm").target = "_self";
     });
 
     // ── Scroll to form if editing ────────────────────────────────────────
