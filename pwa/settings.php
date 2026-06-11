@@ -127,6 +127,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
         }
     }
 
+    // Generate PWA token so client can store token instead of password
+    $pwaToken = null;
+    $plainToken = bin2hex(random_bytes(32));
+    $validUntil = dol_now() + (90 * 24 * 3600);
+
+    $sqlDel = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$tmpuser->id;
+    $db->query($sqlDel);
+    $sqlIns = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_pwa_token"
+        ." (fk_user, token, valid_until, date_creation, last_use)"
+        ." VALUES (".(int)$tmpuser->id.",'".$db->escape(hash('sha256', $plainToken))."',"
+        ."'".$db->idate($validUntil)."','".$db->idate(dol_now())."','".$db->idate(dol_now())."')";
+    if ($db->query($sqlIns)) {
+        $pwaToken = $plainToken;
+    }
+
     // Success!
     echo json_encode([
         'status' => 'ok',
@@ -136,6 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
             'login' => $tmpuser->login,
             'name' => $tmpuser->getFullName($langs)
         ],
+        'pwa_token' => $pwaToken,
         'trusted_device' => $trustedInfo
     ]);
     exit;
@@ -622,10 +638,13 @@ if (!empty($conf->totp2fa->enabled)) {
                 const result = await response.json();
 
                 if (result.status === 'ok') {
-                    // Save credentials
+                    // Save token (not password) for future auto-login
+                    if (result.pwa_token) {
+                        await offlineDB.setMeta('pwa_token', result.pwa_token);
+                    }
+                    // Keep username for display purposes only (no password)
                     await offlineDB.setMeta('credentials', {
                         username: username,
-                        password: password,
                         saved_at: Date.now()
                     });
 

@@ -517,6 +517,7 @@ print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list
         fd.append('date_end',   elDateE.value);
         fd.append('time_end',   elAllDay.checked ? '' : elTimeE.value);
         fd.append('allday',     elAllDay.checked ? '1' : '0');
+        fd.append('token',      '<?php print currentToken(); ?>');
 
         fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function(r) { return r.json(); })

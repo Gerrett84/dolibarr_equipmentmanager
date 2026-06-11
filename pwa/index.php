@@ -118,10 +118,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
                     $_SESSION['totp2fa_verified'] = $tmpuser->id;
                 }
 
+                // Generate PWA token so client stores token instead of password
+                $pwaTokenPlain = null;
+                $pwaTokenPlainVal = bin2hex(random_bytes(32));
+                $pwaValidUntil = dol_now() + (90 * 24 * 3600);
+                $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$tmpuser->id);
+                $sqlPwa = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_pwa_token"
+                    ." (fk_user, token, valid_until, date_creation, last_use) VALUES ("
+                    .(int)$tmpuser->id.",'".$db->escape(hash('sha256', $pwaTokenPlainVal))."',"
+                    ."'".$db->idate($pwaValidUntil)."','".$db->idate(dol_now())."','".$db->idate(dol_now())."')";
+                if ($db->query($sqlPwa)) {
+                    $pwaTokenPlain = $pwaTokenPlainVal;
+                }
+
                 header('Content-Type: application/json');
                 echo json_encode([
                     'status' => 'ok',
                     'message' => 'Login successful',
+                    'pwa_token' => $pwaTokenPlain,
                     'user' => [
                         'id' => (int)$tmpuser->id,
                         'login' => $tmpuser->login,
