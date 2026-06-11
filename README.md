@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.3.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.3.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -274,6 +274,16 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.3.1 (2026-06-11)
+
+- **Sicherheit: PWA-Token-Authentifizierung** – Passwörter werden nicht mehr im Browser gespeichert; Login generiert einen sicheren Token, der für alle API-Anfragen und Auto-Login verwendet wird
+- **Sicherheit: CSRF-Schutz** – AJAX-Endpunkt `ajax/update_schedule.php` prüft jetzt Session-Token (kein `NOCSRFCHECK` mehr)
+- **Sicherheit: XSS-Schutz** – Formularwerte in HTML-Attributen korrekt mit `dol_escape_htmltag()` escaped
+- **Sicherheit: CORS** – `Access-Control-Allow-Origin` wird aus `MAIN_URL_ROOT` gesetzt statt Wildcard; OPTIONS-Preflight früh beantwortet
+- **Sicherheit: Keine DB-Fehlerdetails in API-Antworten** – Fehler werden nur noch in `dol_syslog` geschrieben, nicht an den Client gesendet
+- **Sicherheit: Path-Traversal-Schutz** – `CONTEXT_DOCUMENT_ROOT`-Include-Pfade aus allen PHP-Dateien entfernt
+- **Bugfix: PWA dauerhaft online** – CORS-Fix hatte einen Fatal Error verursacht (`getDolGlobalString` vor `main.inc.php`); korrekt behoben
 
 ### v5.2.4 (2026-06-03)
 
@@ -626,6 +636,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.2.4
+**Current Version:** 5.3.1
 **Released:** Juni 2026
 **Compatibility:** Dolibarr 16.0+

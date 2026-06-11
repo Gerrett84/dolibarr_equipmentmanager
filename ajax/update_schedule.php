@@ -3,7 +3,7 @@
  * AJAX: update intervention schedule (dateo/datee), bypasses validation lock.
  */
 
-define('NOCSRFCHECK', '1'); // internal AJAX, permission check replaces CSRF guard
+define('NOTOKENRENEWAL', '1'); // Disable token renewal for AJAX
 
 ini_set('display_errors', 0);
 error_reporting(0);
@@ -24,6 +24,15 @@ if (!$res) {
 }
 
 header('Content-Type: application/json');
+
+// CSRF check
+$token = GETPOST('token', 'alpha');
+$sessionToken = isset($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (isset($_SESSION['token']) ? $_SESSION['token'] : '');
+if (empty($token) || $token !== $sessionToken) {
+    http_response_code(403);
+    echo json_encode(array('error' => 'Invalid security token'));
+    exit;
+}
 
 if (!$user->hasRight('ficheinter', 'creer')) {
     echo json_encode(array('error' => 'Permission denied'));

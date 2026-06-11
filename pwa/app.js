@@ -72,6 +72,12 @@ class ServiceReportApp {
     }
 
     async checkAuth() {
+        // Load saved PWA token into memory on every startup
+        const savedToken = await offlineDB.getMeta('pwa_token');
+        if (savedToken) {
+            this.pwaToken = savedToken;
+        }
+
         // If server says we're authenticated, cache the auth data
         if (CONFIG.isAuthenticated && CONFIG.authData) {
             this.user = CONFIG.authData;
@@ -83,18 +89,14 @@ class ServiceReportApp {
             return true;
         }
 
-        // Not authenticated on server - try auto-login with saved credentials
-        const savedCredentials = await offlineDB.getMeta('credentials');
-
-        if (this.isOnline && savedCredentials) {
-            // Try auto-login
-            const loginResult = await this.tryAutoLogin(savedCredentials.username, savedCredentials.password);
+        // Not authenticated on server - try auto-login via saved PWA token
+        if (this.isOnline && this.pwaToken) {
+            const loginResult = await this.tryAutoLogin(null, null);
             if (loginResult) {
                 this.showToast('Automatisch angemeldet');
                 return true;
             }
-            // Auto-login failed - credentials might be wrong
-            console.warn('Auto-login failed with saved credentials');
+            console.warn('Auto-login via token failed');
         }
 
         // Fallback to cached auth (for offline mode or when auto-login failed)
@@ -106,9 +108,10 @@ class ServiceReportApp {
                 this.user = cachedAuth;
                 this.showToast('Offline-Modus: ' + cachedAuth.name);
                 return true;
-            } else if (savedCredentials) {
-                // Have credentials but no cached auth - allow limited offline access
-                this.user = { name: savedCredentials.username, offline: true };
+            } else if (this.pwaToken) {
+                // Have token but no cached auth - allow limited offline access
+                const savedCredentials = await offlineDB.getMeta('credentials');
+                this.user = { name: savedCredentials?.username || 'Offline', offline: true };
                 this.showToast('Offline-Modus (begrenzt)');
                 return true;
             } else {
@@ -118,7 +121,7 @@ class ServiceReportApp {
         }
 
         // Online but not authenticated and auto-login failed
-        // Show login form with pre-filled credentials if available
+        const savedCredentials = await offlineDB.getMeta('credentials');
         this.showLoginForm(savedCredentials);
         return false;
     }
@@ -127,9 +130,8 @@ class ServiceReportApp {
     showLoginForm(savedCredentials = null) {
         document.getElementById('interventionsLoading').style.display = 'none';
 
-        const hasCredentials = savedCredentials && savedCredentials.username && savedCredentials.password;
-        const usernameValue = hasCredentials ? savedCredentials.username : '';
-        const passwordValue = hasCredentials ? savedCredentials.password : '';
+        const usernameValue = savedCredentials?.username || '';
+        const passwordValue = '';
 
         document.getElementById('interventionsList').innerHTML = `
             <div class="login-form" style="padding: 20px;">
@@ -211,11 +213,14 @@ class ServiceReportApp {
             if (response.ok) {
                 const result = await response.json();
                 if (result.status === 'ok') {
-                    // Save credentials if "remember" is checked
+                    // Save token (not password) and username for future auto-login
                     if (remember) {
+                        if (result.pwa_token) {
+                            await offlineDB.setMeta('pwa_token', result.pwa_token);
+                            this.pwaToken = result.pwa_token;
+                        }
                         await offlineDB.setMeta('credentials', {
                             username: username,
-                            password: password,
                             saved_at: Date.now()
                         });
                     }
@@ -261,37 +266,31 @@ class ServiceReportApp {
         }
     }
 
-    // Try auto-login with saved credentials
+    // Try auto-login using saved PWA token
     async tryAutoLogin(username, password) {
+        if (!this.pwaToken) return false;
         try {
-            const formData = new FormData();
-            formData.append('pwa_autologin', '1');
-            formData.append('username', username);
-            formData.append('password', password);
-
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
+            const response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
+                method: 'GET',
+                headers: { 'X-PWA-Token': this.pwaToken }
             });
 
             if (response.ok) {
                 const result = await response.json();
-                if (result.status === 'ok') {
-                    // Update auth data - don't reload, just continue
+                if (result.status === 'ok' && result.user_id) {
                     this.user = {
-                        id: result.user.id,
-                        login: result.user.login,
-                        name: result.user.name,
+                        id: result.user_id,
+                        login: result.user_login,
+                        name: result.user_login,
                         valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
                     };
                     await offlineDB.setMeta('auth', this.user);
-                    return true; // No reload - session is set, API calls will work
+                    return true;
                 }
             }
             return false;
         } catch (err) {
-            console.error('Auto-login failed:', err);
+            console.error('Token auto-login failed:', err);
             return false;
         }
     }
@@ -547,10 +546,13 @@ class ServiceReportApp {
             try {
                 const controller = new AbortController();
                 const tid = setTimeout(() => controller.abort(), 5000);
+                const pingHeaders = {};
+                if (this.pwaToken) pingHeaders['X-PWA-Token'] = this.pwaToken;
                 const response = await fetch(CONFIG.apiBase + '?route=ping&_=' + Date.now(), {
                     credentials: 'same-origin',
                     cache: 'no-store',
-                    signal: controller.signal
+                    signal: controller.signal,
+                    headers: pingHeaders
                 });
                 clearTimeout(tid);
 
@@ -604,12 +606,11 @@ class ServiceReportApp {
         }
     }
 
-    // Try to refresh session using saved credentials
+    // Try to refresh session using saved PWA token
     async _trySessionRefresh() {
         try {
-            const credentials = await offlineDB.getMeta('credentials');
-            if (!credentials || !credentials.username || !credentials.password) return false;
-            return await this.tryAutoLogin(credentials.username, credentials.password);
+            if (!this.pwaToken) return false;
+            return await this.tryAutoLogin(null, null);
         } catch (e) {
             return false;
         }
