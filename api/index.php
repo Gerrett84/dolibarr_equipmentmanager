@@ -16,7 +16,12 @@ if (!defined('NOLOGIN')) define('NOLOGIN', '1');
 
 // Prevent direct browser access without proper headers
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+$allowedOrigin = getDolGlobalString('MAIN_URL_ROOT');
+if (empty($allowedOrigin)) {
+    $allowedOrigin = (isset($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+}
+header('Access-Control-Allow-Origin: '.$allowedOrigin);
+header('Vary: Origin');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-PWA-Token');
 
@@ -273,7 +278,7 @@ function handleInterventions($method, $parts, $input) {
 
     if (!$resql) {
         http_response_code(500);
-        echo json_encode(['error' => 'Database error: ' . $db->lasterror()]);
+        dol_syslog('API error: '.$db->lasterror(), LOG_ERR); echo json_encode(['error' => 'Database error']);
         return;
     }
 
@@ -609,14 +614,9 @@ function handleIntervention($method, $parts, $input) {
                 'affected_rows' => $affectedRows
             ]);
         } else {
+            dol_syslog('API unreleased error: '.$db->lasterror(), LOG_ERR);
             http_response_code(500);
-            echo json_encode([
-                'error' => 'Failed to unreleased intervention',
-                'details' => $db->lasterror(),
-                'sql' => $sql,
-                'affected_rows' => $affectedRows,
-                'actual_signed_status' => $actualSignedStatus
-            ]);
+            echo json_encode(['error' => 'Failed to unreleased intervention']);
         }
         return;
     }
@@ -921,8 +921,9 @@ function handleSchedule($method, $parts, $input) {
             'date_end'   => $ts_end ? $db->idate($ts_end) : null,
         ]);
     } else {
+        dol_syslog('API schedule update error: '.$db->lasterror(), LOG_ERR);
         http_response_code(500);
-        echo json_encode(['error' => $db->lasterror()]);
+        echo json_encode(['error' => 'Database error']);
     }
 }
 
@@ -1579,7 +1580,7 @@ function handleMaterial($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to create material: ' . $db->lasterror()]);
+            dol_syslog('API error: '.$db->lasterror(), LOG_ERR); echo json_encode(['error' => 'Database error']);
         }
     } elseif ($method === 'DELETE') {
         // Delete material
@@ -1795,7 +1796,7 @@ function handleLinkEquipment($method, $parts, $input) {
         } else {
             $db->rollback();
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to unlink equipment: ' . $db->lasterror()]);
+            dol_syslog('API error: '.$db->lasterror(), LOG_ERR); echo json_encode(['error' => 'Database error']);
         }
         return;
     }
@@ -1840,7 +1841,7 @@ function handleLinkEquipment($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to link equipment: ' . $db->lasterror()]);
+            dol_syslog('API error: '.$db->lasterror(), LOG_ERR); echo json_encode(['error' => 'Database error']);
         }
     }
 }
@@ -2797,7 +2798,7 @@ function handlePwaToken($method, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to create token: ' . $db->lasterror()]);
+            dol_syslog('API error: '.$db->lasterror(), LOG_ERR); echo json_encode(['error' => 'Database error']);
         }
     } elseif ($method === 'GET') {
         // Check token validity (user must be authenticated somehow)
@@ -3788,7 +3789,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $resql = $db->query($sql);
     if (!$resql) {
         http_response_code(500);
-        echo json_encode(['error' => 'Database error: ' . $db->lasterror()]);
+        dol_syslog('API error: '.$db->lasterror(), LOG_ERR); echo json_encode(['error' => 'Database error']);
         return;
     }
 

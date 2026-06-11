@@ -3,9 +3,6 @@
 
 // Load Dolibarr environment
 $res = 0;
-if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) {
-    $res = @include $_SERVER["CONTEXT_DOCUMENT_ROOT"]."/main.inc.php";
-}
 if (!$res && file_exists("../main.inc.php")) {
     $res = @include "../main.inc.php";
 }
@@ -325,7 +322,7 @@ if (($id || $ref) && $action == 'edit') {
     // Equipment Number
     print '<tr id="equipment_number_field" style="display:'.($current_mode == 'manual' ? 'table-row' : 'none').';">'; 
     print '<td class="fieldrequired">'.$langs->trans("EquipmentNumber").'</td><td>';
-    print '<input type="text" name="equipment_number" id="equipment_number" size="30" value="'.$object->equipment_number.'"'.($current_mode == 'manual' ? ' required' : '').'>';
+    print '<input type="text" name="equipment_number" id="equipment_number" size="30" value="'.dol_escape_htmltag($object->equipment_number).'"'.($current_mode == 'manual' ? ' required' : '').'>';
     print '</td></tr>';
     
     // Label

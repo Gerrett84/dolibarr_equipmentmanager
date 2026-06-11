@@ -48,7 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
     $tmpuser->fetch('', $login);
 
     if ($tmpuser->id <= 0) {
-        echo json_encode(['status' => 'error', 'message' => 'Benutzer nicht gefunden']);
+        // Same message as wrong password to avoid username enumeration
+        echo json_encode(['status' => 'error', 'message' => 'Benutzername oder Passwort falsch']);
         exit;
     }
 
