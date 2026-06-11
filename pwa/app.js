@@ -546,10 +546,13 @@ class ServiceReportApp {
             try {
                 const controller = new AbortController();
                 const tid = setTimeout(() => controller.abort(), 5000);
+                const pingHeaders = {};
+                if (this.pwaToken) pingHeaders['X-PWA-Token'] = this.pwaToken;
                 const response = await fetch(CONFIG.apiBase + '?route=ping&_=' + Date.now(), {
                     credentials: 'same-origin',
                     cache: 'no-store',
-                    signal: controller.signal
+                    signal: controller.signal,
+                    headers: pingHeaders
                 });
                 clearTimeout(tid);
 
@@ -603,12 +606,11 @@ class ServiceReportApp {
         }
     }
 
-    // Try to refresh session using saved credentials
+    // Try to refresh session using saved PWA token
     async _trySessionRefresh() {
         try {
-            const credentials = await offlineDB.getMeta('credentials');
-            if (!credentials || !credentials.username || !credentials.password) return false;
-            return await this.tryAutoLogin(credentials.username, credentials.password);
+            if (!this.pwaToken) return false;
+            return await this.tryAutoLogin(null, null);
         } catch (e) {
             return false;
         }

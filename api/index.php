@@ -16,17 +16,13 @@ if (!defined('NOLOGIN')) define('NOLOGIN', '1');
 
 // Prevent direct browser access without proper headers
 header('Content-Type: application/json; charset=utf-8');
-$allowedOrigin = getDolGlobalString('MAIN_URL_ROOT');
-if (empty($allowedOrigin)) {
-    $allowedOrigin = (isset($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
-}
-header('Access-Control-Allow-Origin: '.$allowedOrigin);
-header('Vary: Origin');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-PWA-Token');
 
-// Handle preflight
+// Handle preflight before loading Dolibarr (no environment needed)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    $preflightOrigin = (isset($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+    header('Access-Control-Allow-Origin: '.$preflightOrigin);
     http_response_code(200);
     exit;
 }
@@ -44,6 +40,14 @@ if (!$res) {
     echo json_encode(['error' => 'Dolibarr environment not found']);
     exit;
 }
+
+// Set CORS origin now that Dolibarr is loaded and getDolGlobalString is available
+$allowedOrigin = getDolGlobalString('MAIN_URL_ROOT');
+if (empty($allowedOrigin)) {
+    $allowedOrigin = (isset($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+}
+header('Access-Control-Allow-Origin: '.$allowedOrigin);
+header('Vary: Origin');
 
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php';
