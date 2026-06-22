@@ -331,10 +331,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             transition: background-color 0.3s;
         }
 
-        .card-status-open     { border-left: 4px solid #9e9e9e; }
-        .card-status-released { border-left: 4px solid #f59e0b; }
-        .card-status-signed   { border-left: 4px solid #22c55e; }
-        .card-status-done     { border-left: 4px solid #22c55e; }
+        .card-status-open     { border-left: 4px solid #1565c0; }
+        .card-status-released { border-left: 4px solid #e65100; }
+        .card-status-signed   { border-left: 4px solid #2e7d32; }
+        .card-status-done     { border-left: 4px solid #2e7d32; }
 
         .card-header {
             padding: 12px 16px;
