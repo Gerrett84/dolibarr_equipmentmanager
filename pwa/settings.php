@@ -158,7 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
     exit;
 }
 
-$title = 'PWA Einstellungen';
+$title = 'Einstellungen';
+$dolibarrUrl = dol_buildpath('/', 1);
 
 // Get trusted device info
 $trustedDeviceInfo = null;
@@ -228,16 +229,35 @@ if (!empty($conf->totp2fa->enabled)) {
         .header {
             background: var(--header-bg);
             color: white;
-            padding: 10px 16px;
-            text-align: center;
+            padding: 12px 16px;
             position: sticky;
             top: 0;
             z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         .header h1 {
             margin: 0;
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 500;
+            flex: 1;
+        }
+        .header-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .header-btn:active {
+            background: rgba(255,255,255,0.2);
         }
         .content {
             padding: 12px;
@@ -383,7 +403,9 @@ if (!empty($conf->totp2fa->enabled)) {
 </head>
 <body>
     <div class="header">
-        <h1>PWA Einstellungen</h1>
+        <a href="index.php" class="header-btn" title="Zurück">&#8592;</a>
+        <h1><?php echo $title; ?></h1>
+        <button class="header-btn" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';">&#127968;</button>
     </div>
 
     <div class="content">
@@ -472,7 +494,6 @@ if (!empty($conf->totp2fa->enabled)) {
             </p>
         </div>
 
-        <a href="index.php" class="back-link">← Zurück zur PWA</a>
     </div>
 
     <script src="db.js"></script>
