@@ -144,7 +144,7 @@ class ServiceReportApp {
                 </div>
 
                 ${!hasCredentials ? `
-                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;margin-bottom:20px;">
+                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#1e40af;color:white;margin-bottom:20px;">
                     ⚙️ Einstellungen öffnen
                 </a>
                 ` : ''}
@@ -1108,7 +1108,7 @@ class ServiceReportApp {
                     <div class="empty-icon">⚠️</div>
                     <p>Fehler beim Laden</p>
                     <p style="font-size:12px;">${err.message}</p>
-                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#263c5c;color:white;cursor:pointer;">
+                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#1e40af;color:white;cursor:pointer;">
                         Erneut versuchen
                     </button>
                 </div>
@@ -1118,7 +1118,7 @@ class ServiceReportApp {
 
     createInterventionCard(intervention) {
         const card = document.createElement('div');
-        card.className = 'card card-clickable';
+        card.className = `card card-clickable card-status-${statusClass}`;
 
         // Determine status based on both status and signed_status
         // signed_status: 0 = not released, 1 = released for signature, 3 = signed
