@@ -4479,11 +4479,12 @@ class ServiceReportApp {
                 const markerColor = icon._color;
                 const typeLabel = intervention.primary_type === 'maintenance' ? 'Wartung' : 'Service';
 
+                const objectName = addr?.name || intervention.customer?.name || '';
                 const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);
                 marker.bindPopup(
                     '<div class="map-popup-ref">' + this.escapeHtml(intervention.ref) +
                     ' <span style="font-size:10px;color:' + markerColor + '">' + typeLabel + '</span></div>' +
-                    '<div class="map-popup-customer">' + this.escapeHtml(intervention.customer?.name || '') + '</div>' +
+                    '<div class="map-popup-customer">' + this.escapeHtml(objectName) + '</div>' +
                     '<div class="map-popup-addr">' + this.escapeHtml(addrLine) + '</div>' +
                     '<a class="map-popup-link" onclick="app.openInterventionFromMap(' + intervention.id + ')">Auftrag öffnen →</a>'
                 );

@@ -1378,18 +1378,27 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         /* Map View */
         #viewMap {
-            padding: 0 !important;
+            padding: 10px !important;
+            background: var(--bg-primary) !important;
             position: fixed !important;
             top: 56px;
             left: 0;
             right: 0;
             bottom: 60px;
             overflow: hidden;
+            box-sizing: border-box;
         }
 
         #interventionMap {
             width: 100%;
             height: 100%;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
 
         .map-popup-ref {
