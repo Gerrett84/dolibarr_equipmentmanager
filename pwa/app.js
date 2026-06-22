@@ -1191,7 +1191,6 @@ class ServiceReportApp {
             typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
             rightBorderColor = '#1565c0';
         }
-        if (rightBorderColor) card.style.borderRight = `4px solid ${rightBorderColor}`;
 
         card.innerHTML = `
             <div class="card-header">
