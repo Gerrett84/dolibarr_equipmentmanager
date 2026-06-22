@@ -324,14 +324,8 @@ if (!empty($conf->totp2fa->enabled)) {
             color: #1565c0;
         }
         .status {
-            text-align: center;
-            padding: 16px;
             color: var(--text-secondary);
             font-size: 14px;
-        }
-        .status-icon {
-            font-size: 48px;
-            margin-bottom: 8px;
         }
         .help-text {
             font-size: 13px;
@@ -582,22 +576,24 @@ if (!empty($conf->totp2fa->enabled)) {
                 if (savedCredentials && savedCredentials.username) {
                     const savedAt = new Date(savedCredentials.saved_at);
                     statusEl.innerHTML = `
-                        <div class="status-icon">✅</div>
-                        <p><strong>${savedCredentials.username}</strong></p>
-                        <p style="font-size:12px;color:#999;">
-                            Gespeichert: ${savedAt.toLocaleDateString('de-DE')} ${savedAt.toLocaleTimeString('de-DE')}
-                        </p>
-                        <button type="button" class="btn btn-danger" onclick="deleteCredentials()" style="margin-top:12px;">
-                            Löschen
-                        </button>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:22px;">✅</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:600;font-size:14px;">${savedCredentials.username}</div>
+                                <div style="font-size:12px;color:var(--text-muted);">Gespeichert: ${savedAt.toLocaleDateString('de-DE')} ${savedAt.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}</div>
+                            </div>
+                            <button type="button" onclick="deleteCredentials()" style="padding:5px 10px;background:#f44336;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">Löschen</button>
+                        </div>
                     `;
 
                     // Pre-fill username
                     document.getElementById('username').value = savedCredentials.username;
                 } else {
                     statusEl.innerHTML = `
-                        <div class="status-icon">❌</div>
-                        <p>Keine Daten gespeichert</p>
+                        <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);">
+                            <span>❌</span>
+                            <span style="font-size:14px;">Keine Daten gespeichert</span>
+                        </div>
                     `;
                 }
             } catch (err) {

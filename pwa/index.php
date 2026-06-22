@@ -1174,6 +1174,15 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         /* Card Content Styles for Dark Mode */
+        .card-ref {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .card-date {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
         .customer-name {
             margin: 0;
             font-size: 14px;
