@@ -191,7 +191,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?php echo $title; ?>">
-    <meta name="theme-color" content="#1d4e8f">
+    <meta name="theme-color" content="#1a3f6e">
 
     <title><?php echo $title; ?></title>
 
@@ -222,11 +222,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --text-secondary: #666666;
             --text-muted: #999999;
             --border-color: #e0e0e0;
-            --header-bg: #1d4e8f;
+            --header-bg: #1a3f6e;
             --shadow: 0 1px 3px rgba(0,0,0,0.1);
             --input-bg: #ffffff;
             --input-border: #dddddd;
-            --primary-color: #1d4e8f;
+            --primary-color: #1a3f6e;
             --primary-light: rgba(38, 60, 92, 0.1);
             --success-color: #28a745;
             --warning-color: #ffc107;
@@ -331,10 +331,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             transition: background-color 0.3s;
         }
 
-        .card-status-open     { border-left: 4px solid #1565c0; }
-        .card-status-released { border-left: 4px solid #e65100; }
-        .card-status-signed   { border-left: 4px solid #2e7d32; }
-        .card-status-done     { border-left: 4px solid #2e7d32; }
+        .card-status-open     { border-left: 4px solid #bbdefb; }
+        .card-status-released { border-left: 4px solid #fff3e0; }
+        .card-status-signed   { border-left: 4px solid #c8e6c9; }
+        .card-status-done     { border-left: 4px solid #c8e6c9; }
 
         .card-header {
             padding: 12px 16px;
@@ -348,7 +348,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: 600;
             font-size: 16px;
             margin: 0;
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .card-title {
@@ -421,13 +421,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .filter-tab:hover {
             background: var(--bg-primary);
-            border-color: #1d4e8f;
+            border-color: #1a3f6e;
         }
 
         .filter-tab.active {
-            background: #1d4e8f;
+            background: #1a3f6e;
             color: white;
-            border-color: #1d4e8f;
+            border-color: #1a3f6e;
         }
 
         .filter-count {
@@ -484,7 +484,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .time-range-select:focus {
             outline: none;
-            border-color: #1d4e8f;
+            border-color: #1a3f6e;
         }
 
         /* Form Elements */
@@ -519,7 +519,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .form-input:focus, .form-textarea:focus {
             outline: none;
-            border-color: #1d4e8f;
+            border-color: #1a3f6e;
         }
 
         /* Buttons */
@@ -538,7 +538,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .btn-primary {
-            background: #1d4e8f;
+            background: #1a3f6e;
             color: white;
         }
 
@@ -635,7 +635,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .nav-item.active {
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .nav-item.active {
@@ -659,7 +659,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             width: 30px;
             height: 30px;
             border: 3px solid #ddd;
-            border-top-color: #1d4e8f;
+            border-top-color: #1a3f6e;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -845,7 +845,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .material-price {
             font-weight: 600;
-            color: #1d4e8f;
+            color: #1a3f6e;
             margin-left: 12px;
         }
 
@@ -941,7 +941,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .product-ref {
             font-weight: 600;
             font-size: 13px;
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         .product-label {
@@ -1057,7 +1057,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .document-info:active .document-name {
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         .doc-action {
@@ -1142,7 +1142,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         /* Info Section Styles for Dark Mode */
         .info-heading {
             margin: 0 0 8px 0;
-            color: #1d4e8f;
+            color: #1a3f6e;
             font-size: 14px;
             font-weight: 600;
         }
@@ -1385,7 +1385,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .map-popup-ref {
             font-weight: 600;
             font-size: 13px;
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         .map-popup-customer {
@@ -1404,7 +1404,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: inline-block;
             margin-top: 6px;
             font-size: 12px;
-            color: #1d4e8f;
+            color: #1a3f6e;
             font-weight: 600;
             text-decoration: none;
             cursor: pointer;
@@ -1514,7 +1514,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: 600;
             font-size: 13px;
             border-bottom: 1px solid var(--border-color);
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .address-header {
@@ -1549,7 +1549,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             border-bottom: 1px solid var(--border-color);
             font-weight: 600;
             font-size: 14px;
-            color: #1d4e8f;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .checklist-section-header {

@@ -144,7 +144,7 @@ class ServiceReportApp {
                 </div>
 
                 ${!hasCredentials ? `
-                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#1d4e8f;color:white;margin-bottom:20px;">
+                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#1a3f6e;color:white;margin-bottom:20px;">
                     ⚙️ Einstellungen öffnen
                 </a>
                 ` : ''}
@@ -1108,7 +1108,7 @@ class ServiceReportApp {
                     <div class="empty-icon">⚠️</div>
                     <p>Fehler beim Laden</p>
                     <p style="font-size:12px;">${err.message}</p>
-                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#1d4e8f;color:white;cursor:pointer;">
+                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#1a3f6e;color:white;cursor:pointer;">
                         Erneut versuchen
                     </button>
                 </div>
