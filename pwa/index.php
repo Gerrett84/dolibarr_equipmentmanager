@@ -958,18 +958,19 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            padding: 16px;
-            background: #e8f5e9;
-            border: 2px dashed #4caf50;
+            gap: 6px;
+            padding: 9px 12px;
+            font-size: 13px;
+            background: var(--primary-light);
+            border: 1.5px dashed var(--primary-color);
             border-radius: 8px;
-            color: #2e7d32;
+            color: var(--primary-color);
             cursor: pointer;
             margin-bottom: 12px;
         }
 
         .add-equipment-btn:active {
-            background: #c8e6c9;
+            opacity: 0.7;
         }
 
         /* Link Type Badge */

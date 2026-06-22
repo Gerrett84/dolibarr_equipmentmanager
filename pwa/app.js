@@ -4214,7 +4214,7 @@ class ServiceReportApp {
         // Historie-Button (nur wenn Objekt vorhanden)
         const histBtn = document.createElement('button');
         histBtn.textContent = '🕒 Objekt-Historie';
-        histBtn.style.cssText = 'margin-top:12px;width:100%;padding:10px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;color:var(--text,#000);font-size:14px;cursor:pointer;text-align:left;';
+        histBtn.style.cssText = 'margin-top:10px;background:none;border:none;color:var(--text-muted,#999);font-size:13px;cursor:pointer;padding:2px 0;text-align:left;display:block;';
         histBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.showHistoryModal(intervention);
@@ -4653,6 +4653,7 @@ class ServiceReportApp {
 
                 const groupEl = document.createElement('div');
                 groupEl.className = 'maint-group';
+                groupEl.style.borderLeft = `4px solid ${groupColor}`;
 
                 const headerEl = document.createElement('div');
                 headerEl.className = 'maint-group-header';
