@@ -2200,7 +2200,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         <h1 id="headerTitle"><?php echo $title; ?></h1>
         <span class="sync-status" id="syncStatus">Offline</span>
         <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
-        <a href="<?php echo $dolibarrUrl; ?>" class="header-btn" id="btnDolibarr" title="Dolibarr öffnen" style="text-decoration:none;color:white;">&#127968;</a>
+        <button class="header-btn" id="btnDolibarr" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';" style="color:white;">&#127968;</button>
         <button class="header-btn" id="btnSync" title="Synchronisieren">&#8635;</button>
     </div>
 

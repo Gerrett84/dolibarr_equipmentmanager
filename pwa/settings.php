@@ -245,17 +245,17 @@ if (!empty($conf->totp2fa->enabled)) {
             background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-bottom: 16px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
             transition: background-color 0.3s;
         }
         .card h2 {
-            margin: 0 0 16px 0;
-            font-size: 18px;
+            margin: 0 0 10px 0;
+            font-size: 16px;
             color: var(--text-primary);
         }
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 10px;
         }
         .form-label {
             display: block;
@@ -265,10 +265,10 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .form-input {
             width: 100%;
-            padding: 12px;
+            padding: 9px 12px;
             border: 1px solid var(--input-border);
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-family: inherit;
             background: var(--input-bg);
             color: var(--text-primary);
@@ -276,21 +276,21 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .form-input:focus {
             outline: none;
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
         .btn {
             display: block;
             width: 100%;
-            padding: 14px;
+            padding: 10px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .btn-primary {
-            background: #263c5c;
+            background: #1a3f6e;
             color: white;
         }
         .btn-success {

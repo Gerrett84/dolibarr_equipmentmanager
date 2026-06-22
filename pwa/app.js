@@ -1418,7 +1418,7 @@ class ServiceReportApp {
                 // Check if equipment has been processed (has detail with work_done)
                 const isProcessed = eq.detail && eq.detail.work_done;
                 const statusIcon = isProcessed ? '✅' : '🚪';
-                const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
+
 
                 const hasData = eq.detail && (eq.detail.work_done || eq.detail.issues_found || eq.detail.notes || eq.detail.recommendations);
                 const removeBtn = document.createElement('button');
@@ -1448,9 +1448,6 @@ class ServiceReportApp {
                     ${linkTypeBadge}
                 `;
                 item.appendChild(removeBtn);
-                if (isProcessed) {
-                    item.style.borderLeft = '3px solid #4caf50';
-                }
 
                 item.addEventListener('click', () => {
                     this.currentEquipment = eq;
