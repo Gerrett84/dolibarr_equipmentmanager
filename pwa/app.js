@@ -1118,7 +1118,7 @@ class ServiceReportApp {
 
     createInterventionCard(intervention) {
         const card = document.createElement('div');
-        card.className = `card card-clickable card-status-${statusClass}`;
+        card.className = 'card card-clickable';
 
         // Determine status based on both status and signed_status
         // signed_status: 0 = not released, 1 = released for signature, 3 = signed
@@ -1141,6 +1141,7 @@ class ServiceReportApp {
             statusClass = 'done';
             statusText = 'Abgeschlossen';
         }
+        card.classList.add(`card-status-${statusClass}`);
 
         // Format object addresses with clickable maps link
         let objectAddressHtml = '';
