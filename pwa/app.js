@@ -4202,6 +4202,16 @@ class ServiceReportApp {
             body.appendChild(sec);
         }
 
+        // Historie-Button (nur wenn Objekt vorhanden)
+        const histBtn = document.createElement('button');
+        histBtn.textContent = '🕒 Objekt-Historie';
+        histBtn.style.cssText = 'margin-top:12px;width:100%;padding:10px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;color:var(--text,#000);font-size:14px;cursor:pointer;text-align:left;';
+        histBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showHistoryModal(intervention);
+        });
+        body.appendChild(histBtn);
+
         // Toggle logic
         summary.addEventListener('click', () => {
             const isOpen = body.classList.toggle('open');
@@ -4211,6 +4221,109 @@ class ServiceReportApp {
         card.appendChild(summary);
         card.appendChild(body);
         return card;
+    }
+
+    async showHistoryModal(intervention) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+
+        const sheet = document.createElement('div');
+        sheet.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:75vh;display:flex;flex-direction:column;box-shadow:0 -4px 24px rgba(0,0,0,.2);';
+
+        const titleRow = document.createElement('div');
+        titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-shrink:0;';
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin:0;font-size:18px;';
+        title.textContent = '🕒 Objekt-Historie';
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted,#888);padding:4px;';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        titleRow.appendChild(title);
+        titleRow.appendChild(closeBtn);
+
+        const objName = intervention.object_addresses?.[0]?.name || intervention.customer?.name || '';
+        const subtitle = document.createElement('div');
+        subtitle.style.cssText = 'font-size:13px;color:var(--text-muted,#888);margin-bottom:14px;flex-shrink:0;';
+        subtitle.textContent = objName ? `Objekt: ${objName}` : 'Alle Serviceaufträge an dieser Liegenschaft';
+
+        const listWrap = document.createElement('div');
+        listWrap.style.cssText = 'overflow-y:auto;flex:1;';
+        listWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Wird geladen…</div>';
+
+        sheet.appendChild(titleRow);
+        sheet.appendChild(subtitle);
+        sheet.appendChild(listWrap);
+        overlay.appendChild(sheet);
+        document.body.appendChild(overlay);
+
+        const statusLabel = (s, ss) => {
+            if (ss >= 3) return { text: 'Unterschrieben', color: '#4caf50' };
+            if (s === 3)  return { text: 'Abgeschlossen',  color: '#4caf50' };
+            if (s === 1)  return { text: 'Freigegeben',    color: '#2196f3' };
+            return { text: 'Entwurf', color: '#9e9e9e' };
+        };
+
+        try {
+            const data = await this.apiCall(`intervention/${intervention.id}/history`);
+            const history = data.history || [];
+
+            if (history.length === 0) {
+                listWrap.innerHTML = data.no_obj_contact
+                    ? '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Kein Objekt (OBJ-Kontakt) hinterlegt</div>'
+                    : '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Keine früheren Aufträge für dieses Objekt</div>';
+                return;
+            }
+
+            listWrap.innerHTML = '';
+            history.forEach(item => {
+                const row = document.createElement('div');
+                row.style.cssText = 'padding:12px 0;border-bottom:1px solid var(--border,#eee);cursor:pointer;display:flex;align-items:flex-start;gap:10px;';
+
+                const sl = statusLabel(item.status, item.signed_status);
+                const badge = document.createElement('span');
+                badge.textContent = sl.text;
+                badge.style.cssText = `flex-shrink:0;font-size:11px;font-weight:600;color:#fff;background:${sl.color};border-radius:4px;padding:2px 6px;margin-top:2px;`;
+
+                const info = document.createElement('div');
+                info.style.flex = '1';
+
+                const refLine = document.createElement('div');
+                refLine.style.cssText = 'font-weight:600;font-size:15px;';
+                refLine.textContent = item.ref;
+
+                const dateLine = document.createElement('div');
+                dateLine.style.cssText = 'font-size:13px;color:var(--text-muted,#888);margin-top:2px;';
+                dateLine.textContent = item.date_start ? this.formatDate(item.date_start) : '—';
+                if (item.technician) dateLine.textContent += ' · ' + item.technician;
+
+                if (item.description) {
+                    const desc = document.createElement('div');
+                    desc.style.cssText = 'font-size:13px;color:var(--text-muted,#888);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;';
+                    desc.textContent = item.description;
+                    info.appendChild(refLine);
+                    info.appendChild(dateLine);
+                    info.appendChild(desc);
+                } else {
+                    info.appendChild(refLine);
+                    info.appendChild(dateLine);
+                }
+
+                row.appendChild(badge);
+                row.appendChild(info);
+
+                row.addEventListener('click', async () => {
+                    overlay.remove();
+                    this.currentIntervention = item;
+                    await this.loadEquipment(item);
+                });
+
+                listWrap.appendChild(row);
+            });
+        } catch (err) {
+            listWrap.innerHTML = `<div style="text-align:center;padding:20px;color:#f44336;">Fehler: ${this.escapeHtml(err.message)}</div>`;
+        }
     }
 
     closeInfoModal() {

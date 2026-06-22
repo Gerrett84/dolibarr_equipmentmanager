@@ -697,6 +697,51 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
+    // GET /intervention/{id}/history — previous interventions at same Objekt (OBJ contact)
+    if (isset($parts[2]) && $parts[2] === 'history' && $method === 'GET') {
+        $sqlObj  = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
+        $sqlObj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+        $sqlObj .= " WHERE ec.element_id = ".(int)$id;
+        $sqlObj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
+        $resObj = $db->query($sqlObj);
+
+        if (!$resObj || !($objRow = $db->fetch_object($resObj))) {
+            echo json_encode(['history' => [], 'no_obj_contact' => true]);
+            return;
+        }
+        $objContactId = (int)$objRow->fk_socpeople;
+
+        $sqlHist  = "SELECT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
+        $sqlHist .= " f.fk_statut AS status, f.description, f.signed_status,";
+        $sqlHist .= " u.lastname, u.firstname";
+        $sqlHist .= " FROM ".MAIN_DB_PREFIX."fichinter f";
+        $sqlHist .= " JOIN ".MAIN_DB_PREFIX."element_contact ec ON ec.element_id = f.rowid";
+        $sqlHist .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+        $sqlHist .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_author";
+        $sqlHist .= " WHERE ec.fk_socpeople = ".(int)$objContactId;
+        $sqlHist .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ'";
+        $sqlHist .= " AND f.rowid != ".(int)$id;
+        $sqlHist .= " ORDER BY COALESCE(f.dateo, f.tms) DESC LIMIT 50";
+
+        $resHist = $db->query($sqlHist);
+        $history = [];
+        while ($resHist && $row = $db->fetch_object($resHist)) {
+            $history[] = [
+                'id'           => (int)$row->rowid,
+                'ref'          => $row->ref,
+                'date_start'   => $row->date_start,
+                'date_end'     => $row->date_end,
+                'status'       => (int)$row->status,
+                'signed_status' => (int)$row->signed_status,
+                'description'  => $row->description,
+                'technician'   => trim($row->lastname . ' ' . $row->firstname),
+            ];
+        }
+
+        echo json_encode(['history' => $history]);
+        return;
+    }
+
     // Document operations - check method-specific routes first
 
     // Delete a specific document (must be before GET check)
