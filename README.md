@@ -536,6 +536,31 @@ Jahreswechsel: Januar-Wartung zeigt ab Dezember
 - **In Bearbeitung** - Serviceauftrag zugeordnet (Status 1-2)
 - **Erledigt** - Serviceauftrag abgeschlossen (Status 3)
 
+### Techniker-Benutzer einrichten (Multi-User)
+
+Damit ein Techniker nur seine eigenen Serviceaufträge in der PWA sieht und zugewiesene Aufträge korrekt angezeigt bekommt, sind diese Schritte erforderlich:
+
+**1. Benutzer anlegen**
+In Dolibarr: *Benutzer & Gruppen → Neuer Benutzer*
+
+**2. Kontakt/Person anlegen (oder vorhandenen nutzen)**
+In Dolibarr: *Drittes → Kontakte/Adressen → Neuer Kontakt*
+
+**3. Benutzer mit Kontakt verknüpfen** *(Pflicht!)*
+Im Benutzerprofil unter *„Weitere Informationen"* → *„Verlinkter Kontakt"* → Kontakt aus Schritt 2 auswählen und speichern.
+
+**4. Techniker einem Serviceauftrag zuweisen**
+Im Serviceauftrag: Tab *„Kontakte/Adressen"* → Kontakt hinzufügen → Typ **„Techniker (TECH)"** wählen.
+
+Ab diesem Zeitpunkt sieht der Techniker diesen Serviceauftrag in der PWA — inklusive aller Details, Dateien, Fotos und Checklisten.
+
+> **Hinweis:** Fehlt die Verknüpfung in Schritt 3 (`llx_user.contact_id`), sieht der Techniker nur Aufträge, bei denen er selbst der Ersteller ist. Zur Prüfung:
+> ```sql
+> SELECT login, contact_id FROM llx_user WHERE login = 'techniker_login';
+> ```
+
+---
+
 ### Checklisten-Admin
 
 Setup -> Equipment Manager -> Checklisten
