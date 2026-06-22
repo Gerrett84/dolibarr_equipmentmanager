@@ -1151,32 +1151,8 @@ class ServiceReportApp {
         }
         card.classList.add(`card-status-${statusClass}`);
 
-        // Format object addresses with clickable maps link
-        let objectAddressHtml = '';
-        if (intervention.object_addresses && intervention.object_addresses.length > 0) {
-            const addr = intervention.object_addresses[0];
-            objectAddressHtml = `
-                <div class="object-address-divider">
-                    <p class="object-address-label">📍 Objektadresse</p>
-                    <p class="object-address-name">
-                        ${addr.name || ''}
-                    </p>
-                    <p class="object-address-details">
-                        ${this.renderAddressLink(addr.address, addr.zip, addr.town)}
-                    </p>
-                    ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:4px 0 0; font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
-                </div>
-            `;
-        }
-
-        // Customer address with clickable maps link
-        const customerAddressHtml = intervention.customer?.address || intervention.customer?.zip || intervention.customer?.town
-            ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
-            : '';
-
         // Type badge
         let typeBadgeHtml = '';
-        let rightBorderColor = '';
         if (intervention.primary_type === 'maintenance') {
             const maintColors = {
                 overdue: { bg: '#ffcdd2', text: '#c62828' },
@@ -1186,26 +1162,34 @@ class ServiceReportApp {
             };
             const c = maintColors[intervention.maintenance_status] || maintColors.none;
             typeBadgeHtml = `<span class="badge" style="background:${c.bg};color:${c.text}">Wartung</span>`;
-            rightBorderColor = c.text;
         } else if (intervention.primary_type === 'service') {
             typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
-            rightBorderColor = '#1565c0';
         }
+
+        // Compact card data
+        const firstObj = intervention.object_addresses?.[0];
+        const objName  = firstObj?.name || '';
+        const addrStreet = firstObj?.address || intervention.customer?.address || '';
+        const addrZipTown = [
+            firstObj?.zip  || intervention.customer?.zip,
+            firstObj?.town || intervention.customer?.town
+        ].filter(Boolean).join(' ');
+        const addrLine = [addrStreet, addrZipTown].filter(Boolean).join(', ');
+        const customerName = intervention.customer?.name || '';
+        const dateStr = intervention.date_start ? this.formatDate(intervention.date_start) : '';
 
         card.innerHTML = `
             <div class="card-header">
-                <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
+                <h3 class="card-title">${this.escapeHtml(intervention.ref || 'Intervention')}</h3>
                 ${typeBadgeHtml || ''}
             </div>
-            <div class="card-body">
-                <p class="customer-name">
-                    ${intervention.customer?.name || 'Kunde'}
-                </p>
-                <p class="customer-address">
-                    ${customerAddressHtml}
-                </p>
-                ${objectAddressHtml}
-                ${intervention.date_start ? `<p class="date-text">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
+            <div class="card-body" style="padding-top:10px;padding-bottom:10px;">
+                ${objName ? `<p class="card-obj-name">${this.escapeHtml(objName)}</p>` : ''}
+                ${addrLine ? `<p class="customer-address" style="margin:${objName ? '3px' : '0'} 0 0;">${addrLine}</p>` : ''}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                    <span style="font-size:12px;color:var(--text-muted);">${this.escapeHtml(customerName)}</span>
+                    ${dateStr ? `<span style="font-size:12px;color:var(--text-muted);">${dateStr}</span>` : ''}
+                </div>
             </div>
         `;
 
@@ -4074,26 +4058,28 @@ class ServiceReportApp {
         const body = document.createElement('div');
         body.className = 'info-collapse-body';
 
-        // Kunde
+        // Auftraggeber (Name + Adresse)
         if (intervention.customer) {
             const sec = document.createElement('div');
             sec.className = 'info-collapse-section';
             const lbl = document.createElement('div');
             lbl.className = 'info-collapse-label';
-            lbl.textContent = 'Kunde';
+            lbl.textContent = 'Auftraggeber';
             const val = document.createElement('div');
             val.className = 'info-collapse-value';
             const mapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
+            let html = intervention.customer.name ? `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>` : '';
             let addrHtml = '';
             if (intervention.customer.address) addrHtml += this.escapeHtml(intervention.customer.address) + '<br>';
             if (intervention.customer.zip || intervention.customer.town) {
                 addrHtml += this.escapeHtml((intervention.customer.zip || '') + ' ' + (intervention.customer.town || '')).trim();
             }
             if (mapsUrl && addrHtml) {
-                val.innerHTML = `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
+                html += `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
             } else {
-                val.innerHTML = addrHtml || '—';
+                html += addrHtml;
             }
+            val.innerHTML = html || '—';
             sec.appendChild(lbl);
             sec.appendChild(val);
             body.appendChild(sec);
@@ -4173,7 +4159,7 @@ class ServiceReportApp {
             sec.className = 'info-collapse-section';
             const lbl = document.createElement('div');
             lbl.className = 'info-collapse-label';
-            lbl.textContent = 'Auftragsbeschreibung';
+            lbl.textContent = 'Beschreibung';
             const val = document.createElement('div');
             val.className = 'info-collapse-value';
             val.innerHTML = this.escapeHtml(intervention.description).replace(/\n/g, '<br>');
@@ -4182,7 +4168,22 @@ class ServiceReportApp {
             body.appendChild(sec);
         }
 
-        // Öffentliche Anmerkung
+        // Interne Anmerkung (note_private)
+        if (intervention.note_private) {
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Interne Anmerkung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
+        }
+
+        // Öffentliche Anmerkung (note_public)
         if (intervention.note_public) {
             const sec = document.createElement('div');
             sec.className = 'info-collapse-section';
@@ -4192,21 +4193,6 @@ class ServiceReportApp {
             const val = document.createElement('div');
             val.className = 'info-collapse-value';
             val.innerHTML = this.escapeHtml(intervention.note_public).replace(/\n/g, '<br>');
-            sec.appendChild(lbl);
-            sec.appendChild(val);
-            body.appendChild(sec);
-        }
-
-        // Private Anmerkung
-        if (intervention.note_private) {
-            const sec = document.createElement('div');
-            sec.className = 'info-collapse-section';
-            const lbl = document.createElement('div');
-            lbl.className = 'info-collapse-label';
-            lbl.textContent = 'Private Anmerkung';
-            const val = document.createElement('div');
-            val.className = 'info-collapse-value';
-            val.innerHTML = this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>');
             sec.appendChild(lbl);
             sec.appendChild(val);
             body.appendChild(sec);

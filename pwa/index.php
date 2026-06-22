@@ -1183,6 +1183,16 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-size: 12px;
             color: var(--text-muted);
         }
+        .card-obj-name {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         .customer-name {
             margin: 0;
             font-size: 14px;
