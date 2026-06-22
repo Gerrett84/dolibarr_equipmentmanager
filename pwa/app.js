@@ -1155,13 +1155,17 @@ class ServiceReportApp {
         let objectAddressHtml = '';
         if (intervention.object_addresses && intervention.object_addresses.length > 0) {
             const addr = intervention.object_addresses[0];
-            const addrText = this.renderAddressLink(addr.address, addr.zip, addr.town);
-            const namePart = addr.name ? `<strong>${addr.name}</strong> · ` : '';
             objectAddressHtml = `
-                <p class="object-address-details" style="margin:6px 0 0;">
-                    📍 ${namePart}${addrText}
-                </p>
-                ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:2px 0 0;font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere</p>` : ''}
+                <div class="object-address-divider">
+                    <p class="object-address-label">📍 Objektadresse</p>
+                    <p class="object-address-name">
+                        ${addr.name || ''}
+                    </p>
+                    <p class="object-address-details">
+                        ${this.renderAddressLink(addr.address, addr.zip, addr.town)}
+                    </p>
+                    ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:4px 0 0; font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
+                </div>
             `;
         }
 
@@ -1170,7 +1174,7 @@ class ServiceReportApp {
             ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
             : '';
 
-        // Type badge + right border
+        // Type badge
         let typeBadgeHtml = '';
         let rightBorderColor = '';
         if (intervention.primary_type === 'maintenance') {
@@ -1188,23 +1192,21 @@ class ServiceReportApp {
             rightBorderColor = '#1565c0';
         }
 
-        const hasBody = customerAddressHtml || objectAddressHtml;
         card.innerHTML = `
             <div class="card-header">
-                <div style="flex:1;min-width:0;overflow:hidden;">
-                    <h3 class="card-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${intervention.customer?.name || 'Kunde'}</h3>
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;">
-                        <span class="card-ref">${intervention.ref || ''}</span>
-                        ${intervention.date_start ? `<span class="card-date">${this.formatDate(intervention.date_start)}</span>` : ''}
-                    </div>
-                </div>
-                ${typeBadgeHtml ? `<div style="margin-left:10px;flex-shrink:0;">${typeBadgeHtml}</div>` : ''}
+                <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
+                ${typeBadgeHtml || ''}
             </div>
-            ${hasBody ? `
-            <div class="card-body" style="padding-top:10px;padding-bottom:10px;">
-                ${customerAddressHtml ? `<p class="customer-address" style="margin:0;">${customerAddressHtml}</p>` : ''}
+            <div class="card-body">
+                <p class="customer-name">
+                    ${intervention.customer?.name || 'Kunde'}
+                </p>
+                <p class="customer-address">
+                    ${customerAddressHtml}
+                </p>
                 ${objectAddressHtml}
-            </div>` : ''}
+                ${intervention.date_start ? `<p class="date-text">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
+            </div>
         `;
 
         card.addEventListener('click', () => {

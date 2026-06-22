@@ -228,16 +228,16 @@ if (!empty($conf->totp2fa->enabled)) {
         .header {
             background: var(--header-bg);
             color: white;
-            padding: 16px;
+            padding: 10px 16px;
             text-align: center;
         }
         .header h1 {
             margin: 0;
-            font-size: 20px;
+            font-size: 17px;
             font-weight: 500;
         }
         .content {
-            padding: 16px;
+            padding: 12px;
             max-width: 400px;
             margin: 0 auto;
         }
@@ -245,7 +245,7 @@ if (!empty($conf->totp2fa->enabled)) {
             background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 14px 16px;
+            padding: 12px 14px;
             margin-bottom: 12px;
             transition: background-color 0.3s;
         }
@@ -339,7 +339,7 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .theme-option {
             flex: 1;
-            padding: 12px 8px;
+            padding: 8px 6px;
             border: 2px solid var(--border-color);
             border-radius: 8px;
             background: var(--bg-card);
@@ -348,18 +348,18 @@ if (!empty($conf->totp2fa->enabled)) {
             transition: all 0.2s;
         }
         .theme-option:hover {
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
         .theme-option.active {
-            border-color: #263c5c;
-            background: rgba(38, 60, 92, 0.1);
+            border-color: #1a3f6e;
+            background: rgba(26, 63, 110, 0.1);
         }
         .theme-option-icon {
-            font-size: 24px;
-            margin-bottom: 4px;
+            font-size: 18px;
+            margin-bottom: 2px;
         }
         .theme-option-label {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             color: var(--text-primary);
         }
