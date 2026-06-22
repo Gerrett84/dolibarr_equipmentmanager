@@ -951,9 +951,6 @@ class ServiceReportApp {
                     Erledigt <span class="filter-count">${counts.signed}</span>
                 </button>
             </div>
-            <div style="text-align:right;margin:-4px 0 6px;">
-                <button id="btnStatusLegend" style="background:none;border:none;font-size:13px;color:var(--text-muted,#999);cursor:pointer;padding:2px 4px;">ⓘ Legende</button>
-            </div>
             ${timeRangeOptions}
         `;
     }
@@ -1026,8 +1023,6 @@ class ServiceReportApp {
             });
         });
 
-        const legendBtn = document.getElementById('btnStatusLegend');
-        if (legendBtn) legendBtn.addEventListener('click', () => this.showStatusLegend());
 
         // Add time range select listener
         const timeRangeSelect = document.getElementById('timeRangeSelect');
@@ -1041,6 +1036,13 @@ class ServiceReportApp {
         filtered.forEach(intervention => {
             listEl.appendChild(this.createInterventionCard(intervention));
         });
+
+        // Legend link at the bottom
+        const legendLink = document.createElement('div');
+        legendLink.style.cssText = 'text-align:center;padding:12px 0 4px;';
+        legendLink.innerHTML = '<button id="btnStatusLegend" style="background:none;border:none;font-size:13px;color:var(--text-muted,#999);cursor:pointer;padding:4px 8px;">ⓘ Farb-Legende</button>';
+        listEl.appendChild(legendLink);
+        document.getElementById('btnStatusLegend').addEventListener('click', () => this.showStatusLegend());
     }
 
     // Load interventions
