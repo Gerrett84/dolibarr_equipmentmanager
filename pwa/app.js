@@ -940,19 +940,19 @@ class ServiceReportApp {
         ` : '';
 
         return `
-            <div style="display:flex;align-items:center;gap:6px;">
-                <div class="filter-tabs" style="flex:1;">
-                    <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
-                        Offen <span class="filter-count">${counts.open}</span>
-                    </button>
-                    <button class="filter-tab ${this.interventionFilter === 'released' ? 'active' : ''}" data-filter="released">
-                        Freigegeben <span class="filter-count">${counts.released}</span>
-                    </button>
-                    <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
-                        Erledigt <span class="filter-count">${counts.signed}</span>
-                    </button>
-                </div>
-                <button id="btnStatusLegend" style="flex-shrink:0;background:none;border:none;font-size:18px;color:var(--text-muted,#999);cursor:pointer;padding:4px 6px;line-height:1;" title="Farb-Legende">ⓘ</button>
+            <div class="filter-tabs">
+                <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
+                    Offen <span class="filter-count">${counts.open}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'released' ? 'active' : ''}" data-filter="released">
+                    Freigegeben <span class="filter-count">${counts.released}</span>
+                </button>
+                <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
+                    Erledigt <span class="filter-count">${counts.signed}</span>
+                </button>
+            </div>
+            <div style="text-align:right;margin:-4px 0 6px;">
+                <button id="btnStatusLegend" style="background:none;border:none;font-size:13px;color:var(--text-muted,#999);cursor:pointer;padding:2px 4px;">ⓘ Legende</button>
             </div>
             ${timeRangeOptions}
         `;

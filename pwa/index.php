@@ -333,8 +333,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .card-status-open     { border-left: 4px solid #bbdefb; }
         .card-status-released { border-left: 4px solid #e65100; }
-        .card-status-signed   { border-left: 4px solid #c8e6c9; }
-        .card-status-done     { border-left: 4px solid #c8e6c9; }
+        .card-status-signed   { border-left: 4px solid #2e7d32; }
+        .card-status-done     { border-left: 4px solid #2e7d32; }
 
         .card-header {
             padding: 12px 16px;
