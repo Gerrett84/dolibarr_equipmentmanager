@@ -940,16 +940,19 @@ class ServiceReportApp {
         ` : '';
 
         return `
-            <div class="filter-tabs">
-                <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
-                    Offen <span class="filter-count">${counts.open}</span>
-                </button>
-                <button class="filter-tab ${this.interventionFilter === 'released' ? 'active' : ''}" data-filter="released">
-                    Freigegeben <span class="filter-count">${counts.released}</span>
-                </button>
-                <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
-                    Erledigt <span class="filter-count">${counts.signed}</span>
-                </button>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <div class="filter-tabs" style="flex:1;">
+                    <button class="filter-tab ${this.interventionFilter === 'open' ? 'active' : ''}" data-filter="open">
+                        Offen <span class="filter-count">${counts.open}</span>
+                    </button>
+                    <button class="filter-tab ${this.interventionFilter === 'released' ? 'active' : ''}" data-filter="released">
+                        Freigegeben <span class="filter-count">${counts.released}</span>
+                    </button>
+                    <button class="filter-tab ${this.interventionFilter === 'signed' ? 'active' : ''}" data-filter="signed">
+                        Erledigt <span class="filter-count">${counts.signed}</span>
+                    </button>
+                </div>
+                <button id="btnStatusLegend" style="flex-shrink:0;background:none;border:none;font-size:18px;color:var(--text-muted,#999);cursor:pointer;padding:4px 6px;line-height:1;" title="Farb-Legende">ⓘ</button>
             </div>
             ${timeRangeOptions}
         `;
@@ -1022,6 +1025,9 @@ class ServiceReportApp {
                 this.setFilter(tab.dataset.filter);
             });
         });
+
+        const legendBtn = document.getElementById('btnStatusLegend');
+        if (legendBtn) legendBtn.addEventListener('click', () => this.showStatusLegend());
 
         // Add time range select listener
         const timeRangeSelect = document.getElementById('timeRangeSelect');
@@ -1187,7 +1193,6 @@ class ServiceReportApp {
                     <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
                     ${typeBadgeHtml ? '<div style="margin-top:4px;">' + typeBadgeHtml + '</div>' : ''}
                 </div>
-                <span class="badge badge-${statusClass}">${statusText}</span>
             </div>
             <div class="card-body">
                 <p class="customer-name">
@@ -4325,6 +4330,62 @@ class ServiceReportApp {
         } catch (err) {
             listWrap.innerHTML = `<div style="text-align:center;padding:20px;color:#f44336;">Fehler: ${this.escapeHtml(err.message)}</div>`;
         }
+    }
+
+    showStatusLegend() {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        const sheet = document.createElement('div');
+        sheet.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;box-shadow:0 -4px 24px rgba(0,0,0,.2);';
+
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin:0 0 16px;font-size:18px;';
+        title.textContent = 'Status-Legende';
+
+        const items = [
+            { color: '#bbdefb', label: 'Offen',          desc: 'Auftrag noch nicht freigegeben' },
+            { color: '#e65100', label: 'Freigegeben',     desc: 'Zur Unterschrift bereit' },
+            { color: '#c8e6c9', label: 'Unterschrieben',  desc: 'Vom Kunden unterschrieben' },
+            { color: '#c8e6c9', label: 'Abgeschlossen',   desc: 'Auftrag vollständig erledigt' },
+        ];
+
+        const list = document.createElement('div');
+        list.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;';
+
+            const swatch = document.createElement('div');
+            swatch.style.cssText = `width:4px;height:36px;border-radius:2px;background:${item.color};flex-shrink:0;`;
+
+            const text = document.createElement('div');
+            const labelEl = document.createElement('div');
+            labelEl.style.cssText = 'font-weight:600;font-size:15px;';
+            labelEl.textContent = item.label;
+            const descEl = document.createElement('div');
+            descEl.style.cssText = 'font-size:13px;color:var(--text-muted,#888);';
+            descEl.textContent = item.desc;
+            text.appendChild(labelEl);
+            text.appendChild(descEl);
+
+            row.appendChild(swatch);
+            row.appendChild(text);
+            list.appendChild(row);
+        });
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Schließen';
+        closeBtn.style.cssText = 'margin-top:20px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--primary-color,#1a3f6e);color:#fff;font-size:15px;font-weight:600;cursor:pointer;';
+        closeBtn.addEventListener('click', () => overlay.remove());
+
+        sheet.appendChild(title);
+        sheet.appendChild(list);
+        sheet.appendChild(closeBtn);
+        overlay.appendChild(sheet);
+        document.body.appendChild(overlay);
     }
 
     closeInfoModal() {
