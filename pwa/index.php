@@ -1407,6 +1407,18 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             border-radius: 10px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
+        [data-theme="dark"] .leaflet-popup-content-wrapper {
+            background: #2d2d2d;
+            color: #e0e0e0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+        [data-theme="dark"] .leaflet-popup-tip {
+            background: #2d2d2d;
+        }
+        [data-theme="dark"] .map-popup-ref { color: #60a5fa; }
+        [data-theme="dark"] .map-popup-customer { color: #b0b0b0; }
+        [data-theme="dark"] .map-popup-addr { color: #808080; }
+        [data-theme="dark"] .map-popup-link { color: #60a5fa; }
 
         .map-popup-ref {
             font-weight: 600;
@@ -2225,7 +2237,6 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         <h1 id="headerTitle"><?php echo $title; ?></h1>
         <span class="sync-status" id="syncStatus">Offline</span>
         <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
-        <button class="header-btn" id="btnDolibarr" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';" style="color:white;">&#127968;</button>
         <button class="header-btn" id="btnSync" title="Synchronisieren">&#8635;</button>
     </div>
 

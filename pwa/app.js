@@ -4400,16 +4400,32 @@ class ServiceReportApp {
         return icon;
     }
 
+    isDarkMode() {
+        const stored = localStorage.getItem('pwa_theme');
+        if (stored === 'dark') return true;
+        if (stored === 'light') return false;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
     async showMap() {
         this.showView('viewMap');
 
-        // Init Leaflet map only once
+        const dark = this.isDarkMode();
+        const tileUrl = dark
+            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const attribution = dark
+            ? '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>'
+            : '© OpenStreetMap contributors';
+
         if (!this.leafletMap) {
             this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(this.leafletMap);
+            this.mapTileLayer = L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(this.leafletMap);
+            this.mapCurrentDark = dark;
+        } else if (this.mapCurrentDark !== dark) {
+            this.mapTileLayer.remove();
+            this.mapTileLayer = L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(this.leafletMap);
+            this.mapCurrentDark = dark;
         }
 
         // Clear existing markers
