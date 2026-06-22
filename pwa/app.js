@@ -1174,27 +1174,29 @@ class ServiceReportApp {
             ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
             : '';
 
-        // Type badge (only when equipment is linked) — same style as status badges
+        // Type badge + right border
         let typeBadgeHtml = '';
+        let rightBorderColor = '';
         if (intervention.primary_type === 'maintenance') {
-            const maintStyles = {
-                overdue: 'background:#ffcdd2;color:#c62828',
-                soon:    'background:#ffe0b2;color:#e65100',
-                ok:      'background:#c8e6c9;color:#2e7d32',
-                none:    'background:#ffe0b2;color:#e65100'
+            const maintColors = {
+                overdue: { bg: '#ffcdd2', text: '#c62828' },
+                soon:    { bg: '#ffe0b2', text: '#e65100' },
+                ok:      { bg: '#c8e6c9', text: '#2e7d32' },
+                none:    { bg: '#ffe0b2', text: '#e65100' },
             };
-            const style = maintStyles[intervention.maintenance_status] || maintStyles.none;
-            typeBadgeHtml = '<span class="badge" style="' + style + '">Wartung</span>';
+            const c = maintColors[intervention.maintenance_status] || maintColors.none;
+            typeBadgeHtml = `<span class="badge" style="background:${c.bg};color:${c.text}">Wartung</span>`;
+            rightBorderColor = c.text;
         } else if (intervention.primary_type === 'service') {
             typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
+            rightBorderColor = '#1565c0';
         }
+        if (rightBorderColor) card.style.borderRight = `4px solid ${rightBorderColor}`;
 
         card.innerHTML = `
             <div class="card-header">
-                <div>
-                    <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
-                    ${typeBadgeHtml ? '<div style="margin-top:4px;">' + typeBadgeHtml + '</div>' : ''}
-                </div>
+                <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
+                ${typeBadgeHtml || ''}
             </div>
             <div class="card-body">
                 <p class="customer-name">
