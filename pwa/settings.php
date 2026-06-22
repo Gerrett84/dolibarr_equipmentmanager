@@ -230,6 +230,9 @@ if (!empty($conf->totp2fa->enabled)) {
             color: white;
             padding: 10px 16px;
             text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         .header h1 {
             margin: 0;
