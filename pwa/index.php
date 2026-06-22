@@ -332,7 +332,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .card-status-open     { border-left: 4px solid #bbdefb; }
-        .card-status-released { border-left: 4px solid #fff3e0; }
+        .card-status-released { border-left: 4px solid #e65100; }
         .card-status-signed   { border-left: 4px solid #c8e6c9; }
         .card-status-done     { border-left: 4px solid #c8e6c9; }
 
