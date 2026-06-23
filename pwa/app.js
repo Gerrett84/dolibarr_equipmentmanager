@@ -4966,7 +4966,7 @@ class ServiceReportApp {
             }
             bccEl.value = info.bcc || '';
             if (info.attachments && info.attachments.length > 0) {
-                attachNote.innerHTML = info.attachments.map(name => `📎 <span style="font-family:monospace;font-size:11px;">${escapeHtml(name)}</span>`).join('<br>');
+                attachNote.innerHTML = info.attachments.map(name => `📎 <span style="font-family:monospace;font-size:11px;">${this.escapeHtml(name)}</span>`).join('<br>');
             } else {
                 attachNote.textContent = '📎 PDF wird automatisch angehängt';
             }
