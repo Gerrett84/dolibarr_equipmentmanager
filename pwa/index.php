@@ -178,7 +178,7 @@ if ($isAuthenticated && !empty($conf->totp2fa->enabled)) {
     }
 }
 
-$title = 'Serviceberichte';
+$title = 'Serviceaufträge';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature.min.js';
 $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
@@ -2235,9 +2235,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
     <div class="header">
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
         <h1 id="headerTitle"><?php echo $title; ?></h1>
-        <span class="sync-status" id="syncStatus">Offline</span>
+        <span class="sync-status" id="syncStatus" title="Tippen zum Synchronisieren" style="cursor:pointer;">Offline</span>
         <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
-        <button class="header-btn" id="btnSync" title="Synchronisieren">&#8635;</button>
     </div>
 
     <!-- Trusted Device Info Banner -->

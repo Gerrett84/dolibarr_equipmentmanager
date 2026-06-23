@@ -371,15 +371,20 @@ class ServiceReportApp {
         document.getElementById('btnBack').addEventListener('click', () => this.goBack());
 
         // Sync button — try to reconnect first if currently offline
-        document.getElementById('btnSync').addEventListener('click', async () => {
+        document.getElementById('syncStatus').addEventListener('click', async () => {
+            const badge = document.getElementById('syncStatus');
+            const prev = badge.textContent;
+            badge.textContent = '↻';
             if (!this.isOnline) {
                 const online = await this.checkConnectivity(true, 2, true);
                 if (!online) {
+                    badge.textContent = prev;
                     this.showToast('Keine Verbindung möglich');
                     return;
                 }
             }
             await this.syncData();
+            badge.textContent = prev;
         });
 
         // Entry form submit (v1.7)
