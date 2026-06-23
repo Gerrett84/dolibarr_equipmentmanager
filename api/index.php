@@ -3907,10 +3907,13 @@ function handleMaintenanceOverview($method, $parts, $input) {
     // Done check 1: last_maintenance_date in current year near maintenance_month
     // Done check 2: closed maintenance intervention (fk_statut=3) in current year near maintenance_month
     $sql .= "  WHEN (";
+    // Done check 1: last_maintenance_date in current year within ±1 month of scheduled month (with Jan/Dec wrap)
     $sql .= "   (e.last_maintenance_date IS NOT NULL";
     $sql .= "    AND YEAR(e.last_maintenance_date) = YEAR(CURDATE())";
-    $sql .= "    AND (MONTH(e.last_maintenance_date) >= e.maintenance_month - 1";
-    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(e.last_maintenance_date) = 12)))";
+    $sql .= "    AND (MONTH(e.last_maintenance_date) = e.maintenance_month";
+    $sql .= "     OR MONTH(e.last_maintenance_date) = IF(e.maintenance_month = 1, 12, e.maintenance_month - 1)";
+    $sql .= "     OR MONTH(e.last_maintenance_date) = IF(e.maintenance_month = 12, 1, e.maintenance_month + 1)))";
+    // Done check 2: closed maintenance intervention in current year within ±1 month (with Jan/Dec wrap)
     $sql .= "   OR EXISTS (";
     $sql .= "    SELECT 1 FROM ".MAIN_DB_PREFIX."fichinter f3";
     $sql .= "    JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il3 ON il3.fk_intervention = f3.rowid";
@@ -3918,8 +3921,8 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= "    AND f3.fk_statut = 3";
     $sql .= "    AND YEAR(f3.date_valid) = YEAR(CURDATE())";
     $sql .= "    AND (MONTH(f3.date_valid) = e.maintenance_month";
-    $sql .= "     OR MONTH(f3.date_valid) = e.maintenance_month - 1";
-    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(f3.date_valid) = 12))";
+    $sql .= "     OR MONTH(f3.date_valid) = IF(e.maintenance_month = 1, 12, e.maintenance_month - 1)";
+    $sql .= "     OR MONTH(f3.date_valid) = IF(e.maintenance_month = 12, 1, e.maintenance_month + 1))";
     $sql .= "   )";
     $sql .= "  ) THEN 'done'";
     $sql .= "  WHEN e.maintenance_month < MONTH(CURDATE()) THEN 'overdue'";
