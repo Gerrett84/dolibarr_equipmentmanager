@@ -228,6 +228,38 @@ try {
 }
 
 /**
+ * Check if the current user may access a given intervention.
+ * Admins always pass. Others pass if they are the author or assigned as TECH contact.
+ */
+function userCanAccessIntervention($intervention_id) {
+    global $db, $user;
+    if ($user->admin) return true;
+
+    $sql  = "SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
+    $sql .= " WHERE f.rowid = ".(int)$intervention_id;
+    $sql .= " AND (f.fk_user_author = ".(int)$user->id;
+    if (!empty($user->contact_id)) {
+        $sql .= " OR EXISTS (";
+        $sql .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec";
+        $sql .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+        $sql .= "  WHERE ec.element_id = f.rowid AND ec.fk_socpeople = ".(int)$user->contact_id;
+        $sql .= "  AND tc.element = 'fichinter' AND tc.code = 'TECH'";
+        $sql .= " )";
+    }
+    $sql .= ")";
+
+    $resql = $db->query($sql);
+    return ($resql && $db->num_rows($resql) > 0);
+}
+
+/** Send 403 and terminate. */
+function denyAccess() {
+    http_response_code(403);
+    echo json_encode(['error' => 'Access denied']);
+    exit;
+}
+
+/**
  * GET /interventions - List interventions for current user
  */
 function handleInterventions($method, $parts, $input) {
@@ -256,7 +288,21 @@ function handleInterventions($method, $parts, $input) {
     $sql .= "  WHERE il2.fk_intervention = f.rowid AND il2.link_type = 'maintenance') as maintenance_status";
     $sql .= " FROM ".MAIN_DB_PREFIX."fichinter f";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
-    $sql .= " WHERE 1=1"; // Remove entity filter temporarily
+    $sql .= " WHERE 1=1";
+
+    // Non-admins only see interventions they authored or are assigned to as TECH contact
+    if (!$user->admin) {
+        $sql .= " AND (f.fk_user_author = ".(int)$user->id;
+        if (!empty($user->contact_id)) {
+            $sql .= " OR EXISTS (";
+            $sql .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec2";
+            $sql .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc2 ON tc2.rowid = ec2.fk_c_type_contact";
+            $sql .= "  WHERE ec2.element_id = f.rowid AND ec2.fk_socpeople = ".(int)$user->contact_id;
+            $sql .= "  AND tc2.element = 'fichinter' AND tc2.code = 'TECH'";
+            $sql .= " )";
+        }
+        $sql .= ")";
+    }
 
     // Filter by status (draft=0, validated=1, closed=3)
     if (isset($_GET['status'])) {
@@ -354,6 +400,8 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
+    if (!userCanAccessIntervention($id)) denyAccess();
+
     // GET /intervention/{id}/email-info — suggested recipient + subject for send-email modal
     if (isset($parts[2]) && $parts[2] === 'email-info' && $method === 'GET') {
         $fichinter->fetch_thirdparty();
@@ -385,6 +433,7 @@ function handleIntervention($method, $parts, $input) {
         $template = $formmail->getEMailTemplate($db, 'fichinter_send', $user, $langs, 0, 1, '', -1);
         $subject = '';
         $body    = '';
+        $rawBody = '';
         if (is_object($template) && $template->id > 0) {
             $subst = getCommonSubstitutionArray($langs, 0, null, $fichinter);
             complete_substitutions_array($subst, $langs, $fichinter);
@@ -411,13 +460,32 @@ function handleIntervention($method, $parts, $input) {
             $body = trim(implode("\n", $collapsed));
         }
 
+        // Check which PDF attachments exist
+        $docDir  = getFichinterDocDir();
+        $refSafe = dol_sanitizeFileName($fichinter->ref);
+        $refDir  = $docDir . '/' . $refSafe . '/';
+        $attachments = [];
+        if (file_exists($refDir . $refSafe . '_signed.pdf')) {
+            $attachments[] = $refSafe . '_signed.pdf';
+        } elseif (file_exists($refDir . $refSafe . '.pdf')) {
+            $attachments[] = $refSafe . '.pdf';
+        }
+        if (file_exists($refDir . 'Checklisten_' . $refSafe . '.pdf')) {
+            $attachments[] = 'Checklisten_' . $refSafe . '.pdf';
+        }
+        if (file_exists($refDir . 'Abnahmeprotokoll_' . $refSafe . '.pdf')) {
+            $attachments[] = 'Abnahmeprotokoll_' . $refSafe . '.pdf';
+        }
+
         echo json_encode([
             'status'         => 'ok',
             'email'          => $recipientEmail,
             'recipient_name' => $recipientName,
             'subject'        => $subject,
             'body'           => $body,
-            'bcc'            => $user->email ?: ''
+            'body_html'      => isset($rawBody) ? $rawBody : '',
+            'bcc'            => $user->email ?: '',
+            'attachments'    => $attachments
         ]);
         return;
     }
@@ -464,37 +532,43 @@ function handleIntervention($method, $parts, $input) {
         $subject = $customSubject ?: (is_object($template) && $template->id > 0
             ? make_substitutions($template->topic, $subst) : $fichinter->ref);
         if ($customBody) {
-            // Client sent an edited plain-text body — convert newlines to <br>
-            $message = nl2br(dol_htmlentitiesbr($customBody));
+            // Client sent HTML body (from contenteditable) — use as-is
+            $message = $customBody;
         } else {
             $message = is_object($template) && $template->id > 0
                 ? make_substitutions($template->content, $subst) : '';
         }
 
-        // Find PDF: prefer signed, fallback to main
-        $docDir    = getFichinterDocDir($fichinter);
-        $signedPdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/' . dol_sanitizeFileName($fichinter->ref) . '_signed.pdf';
-        $mainPdf   = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+        // Build list of candidate attachments (Servicebericht: signed preferred over unsigned)
+        $docDir  = getFichinterDocDir();
+        $refSafe = dol_sanitizeFileName($fichinter->ref);
+        $refPath = $docDir . '/' . $refSafe . '/';
+
+        $candidates = [];
+        if (file_exists($refPath . $refSafe . '_signed.pdf')) {
+            $candidates[$refSafe . '_signed.pdf'] = $refPath . $refSafe . '_signed.pdf';
+        } elseif (file_exists($refPath . $refSafe . '.pdf')) {
+            $candidates[$refSafe . '.pdf'] = $refPath . $refSafe . '.pdf';
+        }
+        if (file_exists($refPath . 'Checklisten_' . $refSafe . '.pdf')) {
+            $candidates['Checklisten_' . $refSafe . '.pdf'] = $refPath . 'Checklisten_' . $refSafe . '.pdf';
+        }
+        if (file_exists($refPath . 'Abnahmeprotokoll_' . $refSafe . '.pdf')) {
+            $candidates['Abnahmeprotokoll_' . $refSafe . '.pdf'] = $refPath . 'Abnahmeprotokoll_' . $refSafe . '.pdf';
+        }
+
+        // Filter by user selection (if provided); null/empty = attach all
+        $allowedNames = (isset($input['attachments']) && is_array($input['attachments']))
+            ? array_map('strval', $input['attachments']) : null;
 
         $attachPaths = [];
         $attachMimes = [];
         $attachNames = [];
-        if (file_exists($signedPdf)) {
-            $attachPaths[] = $signedPdf;
+        foreach ($candidates as $name => $path) {
+            if ($allowedNames !== null && !in_array($name, $allowedNames, true)) continue;
+            $attachPaths[] = $path;
             $attachMimes[] = 'application/pdf';
-            $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '_signed.pdf';
-        } elseif (file_exists($mainPdf)) {
-            $attachPaths[] = $mainPdf;
-            $attachMimes[] = 'application/pdf';
-            $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '.pdf';
-        }
-
-        // Attach combined checklists PDF if it exists (generated at release)
-        $combinedChecklistPdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
-        if (file_exists($combinedChecklistPdf)) {
-            $attachPaths[] = $combinedChecklistPdf;
-            $attachMimes[] = 'application/pdf';
-            $attachNames[] = 'Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+            $attachNames[] = $name;
         }
 
         // From address
@@ -646,6 +720,51 @@ function handleIntervention($method, $parts, $input) {
             'online_sign_url' => $onlineSignUrl,
             'signed_status' => $signedStatus
         ]);
+        return;
+    }
+
+    // GET /intervention/{id}/history — previous interventions at same Objekt (OBJ contact)
+    if (isset($parts[2]) && $parts[2] === 'history' && $method === 'GET') {
+        $sqlObj  = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
+        $sqlObj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+        $sqlObj .= " WHERE ec.element_id = ".(int)$id;
+        $sqlObj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
+        $resObj = $db->query($sqlObj);
+
+        if (!$resObj || !($objRow = $db->fetch_object($resObj))) {
+            echo json_encode(['history' => [], 'no_obj_contact' => true]);
+            return;
+        }
+        $objContactId = (int)$objRow->fk_socpeople;
+
+        $sqlHist  = "SELECT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
+        $sqlHist .= " f.fk_statut AS status, f.description, f.signed_status,";
+        $sqlHist .= " u.lastname, u.firstname";
+        $sqlHist .= " FROM ".MAIN_DB_PREFIX."fichinter f";
+        $sqlHist .= " JOIN ".MAIN_DB_PREFIX."element_contact ec ON ec.element_id = f.rowid";
+        $sqlHist .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+        $sqlHist .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_author";
+        $sqlHist .= " WHERE ec.fk_socpeople = ".(int)$objContactId;
+        $sqlHist .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ'";
+        $sqlHist .= " AND f.rowid != ".(int)$id;
+        $sqlHist .= " ORDER BY COALESCE(f.dateo, f.tms) DESC LIMIT 50";
+
+        $resHist = $db->query($sqlHist);
+        $history = [];
+        while ($resHist && $row = $db->fetch_object($resHist)) {
+            $history[] = [
+                'id'           => (int)$row->rowid,
+                'ref'          => $row->ref,
+                'date_start'   => $row->date_start,
+                'date_end'     => $row->date_end,
+                'status'       => (int)$row->status,
+                'signed_status' => (int)$row->signed_status,
+                'description'  => $row->description,
+                'technician'   => trim($row->lastname . ' ' . $row->firstname),
+            ];
+        }
+
+        echo json_encode(['history' => $history]);
         return;
     }
 
@@ -890,6 +1009,8 @@ function handleSchedule($method, $parts, $input) {
         return;
     }
 
+    if (!userCanAccessIntervention($id)) denyAccess();
+
     $dateStart = isset($input['date_start']) ? trim($input['date_start']) : '';
     $timeStart = isset($input['time_start']) ? trim($input['time_start']) : '00:00';
     $dateEnd   = isset($input['date_end'])   ? trim($input['date_end'])   : '';
@@ -1125,6 +1246,8 @@ function handleDetail($method, $parts, $input) {
         echo json_encode(['error' => 'Intervention ID required']);
         return;
     }
+
+    if (!userCanAccessIntervention($intervention_id)) denyAccess();
 
     // equipment_id = 0 means "general entries" (without equipment link)
     $equipment_id_or_null = $equipment_id > 0 ? $equipment_id : null;
@@ -1388,6 +1511,10 @@ function handleSync($method, $input) {
         try {
             switch ($type) {
                 case 'detail':
+                    if (!userCanAccessIntervention((int)($data['intervention_id'] ?? 0))) {
+                        $errors[] = "Access denied for intervention ".($data['intervention_id'] ?? 0);
+                        break;
+                    }
                     $detail = new InterventionDetail($db);
                     $detail->fk_intervention = (int)$data['intervention_id'];
                     $detail->fk_equipment = (int)$data['equipment_id'];
@@ -1425,6 +1552,10 @@ function handleSync($method, $input) {
                     break;
 
                 case 'material':
+                    if (!userCanAccessIntervention((int)($data['intervention_id'] ?? 0))) {
+                        $errors[] = "Access denied for intervention ".($data['intervention_id'] ?? 0);
+                        break;
+                    }
                     // Handle material sync
                     $material = new InterventionMaterial($db);
                     $material->fk_intervention = (int)$data['intervention_id'];
@@ -1452,6 +1583,10 @@ function handleSync($method, $input) {
                 case 'signature':
                     // Handle signature sync - calls the same logic as the signature endpoint
                     $intervention_id = (int)$data['intervention_id'];
+                    if (!userCanAccessIntervention($intervention_id)) {
+                        $errors[] = "Access denied for intervention ".$intervention_id;
+                        break;
+                    }
                     $signatureData = $data['signature'] ?? '';
                     $signerName = $data['signer_name'] ?? '';
 
@@ -1508,6 +1643,8 @@ function handleSignature($method, $parts, $input) {
         echo json_encode(['error' => 'Intervention ID required']);
         return;
     }
+
+    if (!userCanAccessIntervention($intervention_id)) denyAccess();
 
     if (empty($input['signature'])) {
         http_response_code(400);
@@ -1593,6 +1730,13 @@ function handleMaterial($method, $parts, $input) {
             http_response_code(400);
             echo json_encode(['error' => 'Material ID required']);
             return;
+        }
+
+        // Ownership check: resolve the intervention this material belongs to
+        $sqlOwn = "SELECT fk_intervention FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_material WHERE rowid = ".(int)$id;
+        $resOwn = $db->query($sqlOwn);
+        if ($resOwn && $objOwn = $db->fetch_object($resOwn)) {
+            if (!userCanAccessIntervention((int)$objOwn->fk_intervention)) denyAccess();
         }
 
         $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_material";
@@ -1752,6 +1896,8 @@ function handleLinkEquipment($method, $parts, $input) {
     $intervention_id = (int)($input['intervention_id'] ?? 0);
     $equipment_id = (int)($input['equipment_id'] ?? 0);
     $link_type = $input['link_type'] ?? 'service';
+
+    if ($intervention_id && !userCanAccessIntervention($intervention_id)) denyAccess();
 
     // DELETE: remove equipment from intervention (cascade detail + materials + checklists)
     if ($method === 'DELETE') {
@@ -2901,6 +3047,7 @@ function handleChecklist($method, $parts, $input) {
         $checklist_id = $intervention_id; // In DELETE, first param is checklist_id
         $checklist = new ChecklistResult($db);
         if ($checklist->fetch($checklist_id) > 0) {
+            if (!userCanAccessIntervention((int)$checklist->fk_intervention)) denyAccess();
             $result = $checklist->delete($user);
             if ($result > 0) {
                 echo json_encode(['status' => 'ok', 'message' => 'Checklist deleted']);
@@ -2920,6 +3067,8 @@ function handleChecklist($method, $parts, $input) {
         echo json_encode(['error' => 'Intervention ID and Equipment ID required']);
         return;
     }
+
+    if (!userCanAccessIntervention($intervention_id)) denyAccess();
 
     // Get equipment intervention link ID
     $sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -3230,6 +3379,25 @@ function handleEquipment($method, $parts, $input) {
         ]);
 
     } elseif ($method === 'PUT' || $method === 'POST') {
+        // Non-admins may only edit equipment linked to one of their own interventions
+        if (!$user->admin) {
+            $sqlEqOwn  = "SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
+            $sqlEqOwn .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il ON il.fk_intervention = f.rowid";
+            $sqlEqOwn .= " WHERE il.fk_equipment = ".(int)$equipment_id;
+            $sqlEqOwn .= " AND f.fk_user_author = ".(int)$user->id;
+            if (!empty($user->contact_id)) {
+                $sqlEqOwn .= " OR EXISTS (";
+                $sqlEqOwn .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec3";
+                $sqlEqOwn .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc3 ON tc3.rowid = ec3.fk_c_type_contact";
+                $sqlEqOwn .= "  WHERE ec3.element_id = f.rowid AND ec3.fk_socpeople = ".(int)$user->contact_id;
+                $sqlEqOwn .= "  AND tc3.element = 'fichinter' AND tc3.code = 'TECH'";
+                $sqlEqOwn .= " )";
+            }
+            $sqlEqOwn .= " LIMIT 1";
+            $resEqOwn = $db->query($sqlEqOwn);
+            if (!$resEqOwn || $db->num_rows($resEqOwn) == 0) denyAccess();
+        }
+
         // Update equipment - only specific fields allowed from PWA
         $allowed_fields = ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number',
             'battery_install_month', 'battery_install_year', 'battery_replacement_cycle',
@@ -3313,6 +3481,7 @@ function handleDefectPhoto($method, $parts, $input) {
 
         if ($intervention_id > 0) {
             $fichinter->fetch($intervention_id);
+            if (!userCanAccessIntervention($intervention_id)) denyAccess();
         }
 
         $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '/defect_photos';
@@ -3364,6 +3533,7 @@ function handleDefectPhoto($method, $parts, $input) {
 
     if ($intervention_id > 0) {
         $fichinter->fetch($intervention_id);
+        if (!userCanAccessIntervention($intervention_id)) denyAccess();
     }
 
     // Photo directory: ficheinter/{ref}/defect_photos/
@@ -3532,6 +3702,8 @@ function handleEntryPhoto($method, $parts, $input) {
             return;
         }
 
+        if (!userCanAccessIntervention($intervention_id)) denyAccess();
+
         // Create directory if needed
         $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '';
         if (!is_dir($docDir)) {
@@ -3629,6 +3801,8 @@ function handleEntryPhoto($method, $parts, $input) {
         return;
     }
 
+    if (!userCanAccessIntervention($intervention_id)) denyAccess();
+
     $docDir = $conf->ficheinter->dir_output . '/' . dol_sanitizeFileName($fichinter->ref) . '';
     $filepath = $docDir . '/' . $filename;
 
@@ -3717,6 +3891,12 @@ function handleDefectMaterial($method, $parts, $input) {
     if ($method === 'DELETE' && $id > 0) {
         $mat = new DefectMaterial($db);
         if ($mat->fetch($id) > 0) {
+            // Resolve intervention for ownership check
+            $sqlOwnDM = "SELECT d.fk_intervention FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d WHERE d.rowid = ".(int)$mat->fk_intervention_detail;
+            $resOwnDM = $db->query($sqlOwnDM);
+            if ($resOwnDM && $objOwnDM = $db->fetch_object($resOwnDM)) {
+                if (!userCanAccessIntervention((int)$objOwnDM->fk_intervention)) denyAccess();
+            }
             $mat->delete($user);
             echo json_encode(['success' => true]);
         } else {
@@ -3753,10 +3933,13 @@ function handleMaintenanceOverview($method, $parts, $input) {
     // Done check 1: last_maintenance_date in current year near maintenance_month
     // Done check 2: closed maintenance intervention (fk_statut=3) in current year near maintenance_month
     $sql .= "  WHEN (";
+    // Done check 1: last_maintenance_date in current year within ±1 month of scheduled month (with Jan/Dec wrap)
     $sql .= "   (e.last_maintenance_date IS NOT NULL";
     $sql .= "    AND YEAR(e.last_maintenance_date) = YEAR(CURDATE())";
-    $sql .= "    AND (MONTH(e.last_maintenance_date) >= e.maintenance_month - 1";
-    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(e.last_maintenance_date) = 12)))";
+    $sql .= "    AND (MONTH(e.last_maintenance_date) = e.maintenance_month";
+    $sql .= "     OR MONTH(e.last_maintenance_date) = IF(e.maintenance_month = 1, 12, e.maintenance_month - 1)";
+    $sql .= "     OR MONTH(e.last_maintenance_date) = IF(e.maintenance_month = 12, 1, e.maintenance_month + 1)))";
+    // Done check 2: closed maintenance intervention in current year within ±1 month (with Jan/Dec wrap)
     $sql .= "   OR EXISTS (";
     $sql .= "    SELECT 1 FROM ".MAIN_DB_PREFIX."fichinter f3";
     $sql .= "    JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il3 ON il3.fk_intervention = f3.rowid";
@@ -3764,8 +3947,8 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= "    AND f3.fk_statut = 3";
     $sql .= "    AND YEAR(f3.date_valid) = YEAR(CURDATE())";
     $sql .= "    AND (MONTH(f3.date_valid) = e.maintenance_month";
-    $sql .= "     OR MONTH(f3.date_valid) = e.maintenance_month - 1";
-    $sql .= "     OR (e.maintenance_month = 1 AND MONTH(f3.date_valid) = 12))";
+    $sql .= "     OR MONTH(f3.date_valid) = IF(e.maintenance_month = 1, 12, e.maintenance_month - 1)";
+    $sql .= "     OR MONTH(f3.date_valid) = IF(e.maintenance_month = 12, 1, e.maintenance_month + 1))";
     $sql .= "   )";
     $sql .= "  ) THEN 'done'";
     $sql .= "  WHEN e.maintenance_month < MONTH(CURDATE()) THEN 'overdue'";

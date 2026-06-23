@@ -178,7 +178,7 @@ if ($isAuthenticated && !empty($conf->totp2fa->enabled)) {
     }
 }
 
-$title = 'Serviceberichte';
+$title = 'Serviceaufträge';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature.min.js';
 $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
@@ -191,7 +191,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?php echo $title; ?>">
-    <meta name="theme-color" content="#263c5c">
+    <meta name="theme-color" content="#1a3f6e">
 
     <title><?php echo $title; ?></title>
 
@@ -222,11 +222,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --text-secondary: #666666;
             --text-muted: #999999;
             --border-color: #e0e0e0;
-            --header-bg: #263c5c;
+            --header-bg: #1a3f6e;
             --shadow: 0 1px 3px rgba(0,0,0,0.1);
             --input-bg: #ffffff;
             --input-border: #dddddd;
-            --primary-color: #263c5c;
+            --primary-color: #1a3f6e;
             --primary-light: rgba(38, 60, 92, 0.1);
             --success-color: #28a745;
             --warning-color: #ffc107;
@@ -241,11 +241,11 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             --text-secondary: #b0b0b0;
             --text-muted: #808080;
             --border-color: #404040;
-            --header-bg: #1e2d3d;
+            --header-bg: #1e3a8a;
             --shadow: 0 1px 3px rgba(0,0,0,0.3);
             --input-bg: #3d3d3d;
             --input-border: #505050;
-            --primary-color: #4a90d9;
+            --primary-color: #60a5fa;
             --primary-light: rgba(74, 144, 217, 0.2);
             --success-color: #28a745;
             --warning-color: #ffc107;
@@ -324,12 +324,17 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         /* Cards */
         .card {
             background: var(--bg-card);
-            border-radius: 8px;
+            border-radius: 12px;
             box-shadow: var(--shadow);
             margin-bottom: 12px;
             overflow: hidden;
             transition: background-color 0.3s;
         }
+
+        .card-status-open     { border-left: 4px solid #bbdefb; }
+        .card-status-released { border-left: 4px solid #e65100; }
+        .card-status-signed   { border-left: 4px solid #c8e6c9; }
+        .card-status-done     { border-left: 4px solid #c8e6c9; }
 
         .card-header {
             padding: 12px 16px;
@@ -343,7 +348,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: 600;
             font-size: 16px;
             margin: 0;
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .card-title {
@@ -416,13 +421,13 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .filter-tab:hover {
             background: var(--bg-primary);
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
 
         .filter-tab.active {
-            background: #263c5c;
+            background: #1a3f6e;
             color: white;
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
 
         .filter-count {
@@ -479,7 +484,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .time-range-select:focus {
             outline: none;
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
 
         /* Form Elements */
@@ -514,7 +519,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .form-input:focus, .form-textarea:focus {
             outline: none;
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
 
         /* Buttons */
@@ -533,7 +538,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .btn-primary {
-            background: #263c5c;
+            background: #1a3f6e;
             color: white;
         }
 
@@ -630,7 +635,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .nav-item.active {
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .nav-item.active {
@@ -654,7 +659,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             width: 30px;
             height: 30px;
             border: 3px solid #ddd;
-            border-top-color: #263c5c;
+            border-top-color: #1a3f6e;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -840,7 +845,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 
         .material-price {
             font-weight: 600;
-            color: #263c5c;
+            color: #1a3f6e;
             margin-left: 12px;
         }
 
@@ -936,7 +941,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         .product-ref {
             font-weight: 600;
             font-size: 13px;
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         .product-label {
@@ -953,18 +958,19 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            padding: 16px;
-            background: #e8f5e9;
-            border: 2px dashed #4caf50;
+            gap: 6px;
+            padding: 9px 12px;
+            font-size: 13px;
+            background: var(--primary-light);
+            border: 1.5px dashed var(--primary-color);
             border-radius: 8px;
-            color: #2e7d32;
+            color: var(--primary-color);
             cursor: pointer;
             margin-bottom: 12px;
         }
 
         .add-equipment-btn:active {
-            background: #c8e6c9;
+            opacity: 0.7;
         }
 
         /* Link Type Badge */
@@ -1052,7 +1058,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         .document-info:active .document-name {
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         .doc-action {
@@ -1137,7 +1143,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         /* Info Section Styles for Dark Mode */
         .info-heading {
             margin: 0 0 8px 0;
-            color: #263c5c;
+            color: #1a3f6e;
             font-size: 14px;
             font-weight: 600;
         }
@@ -1168,6 +1174,25 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
 
         /* Card Content Styles for Dark Mode */
+        .card-ref {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .card-date {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .card-obj-name {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         .customer-name {
             margin: 0;
             font-size: 14px;
@@ -1370,6 +1395,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             right: 0;
             bottom: 60px;
             overflow: hidden;
+            border-radius: 14px;
         }
 
         #interventionMap {
@@ -1377,10 +1403,27 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             height: 100%;
         }
 
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        [data-theme="dark"] .leaflet-popup-content-wrapper {
+            background: #2d2d2d;
+            color: #e0e0e0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+        [data-theme="dark"] .leaflet-popup-tip {
+            background: #2d2d2d;
+        }
+        [data-theme="dark"] .map-popup-ref { color: #60a5fa; }
+        [data-theme="dark"] .map-popup-customer { color: #b0b0b0; }
+        [data-theme="dark"] .map-popup-addr { color: #808080; }
+        [data-theme="dark"] .map-popup-link { color: #60a5fa; }
+
         .map-popup-ref {
             font-weight: 600;
             font-size: 13px;
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         .map-popup-customer {
@@ -1399,7 +1442,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             display: inline-block;
             margin-top: 6px;
             font-size: 12px;
-            color: #263c5c;
+            color: #1a3f6e;
             font-weight: 600;
             text-decoration: none;
             cursor: pointer;
@@ -1509,7 +1552,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             font-weight: 600;
             font-size: 13px;
             border-bottom: 1px solid var(--border-color);
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .address-header {
@@ -1544,7 +1587,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             border-bottom: 1px solid var(--border-color);
             font-weight: 600;
             font-size: 14px;
-            color: #263c5c;
+            color: #1a3f6e;
         }
 
         [data-theme="dark"] .checklist-section-header {
@@ -2192,10 +2235,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
     <div class="header">
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
         <h1 id="headerTitle"><?php echo $title; ?></h1>
-        <span class="sync-status" id="syncStatus">Offline</span>
+        <span class="sync-status" id="syncStatus" title="Tippen zum Synchronisieren" style="cursor:pointer;">Offline</span>
         <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
-        <a href="<?php echo $dolibarrUrl; ?>" class="header-btn" id="btnDolibarr" title="Dolibarr öffnen" style="text-decoration:none;color:white;">&#127968;</a>
-        <button class="header-btn" id="btnSync" title="Synchronisieren">&#8635;</button>
     </div>
 
     <!-- Trusted Device Info Banner -->
@@ -2803,7 +2844,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             <div id="emailModalAttachNote" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
             <div id="emailModalBodyRow" style="display:none;margin-top:12px;">
                 <label class="form-label">E-Mail Inhalt</label>
-                <textarea id="emailModalBody" class="form-input" rows="6" style="resize:vertical;font-size:13px;line-height:1.5;"></textarea>
+                <div id="emailModalBody" contenteditable="true"
+                    style="min-height:120px;max-height:300px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;background:var(--bg-card);color:var(--text-primary);outline:none;"></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:20px;">
                 <button type="button" class="btn" id="btnEmailModalCancel" style="flex:1;background:var(--bg-secondary);color:var(--text-primary);">Abbrechen</button>

@@ -158,7 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
     exit;
 }
 
-$title = 'PWA Einstellungen';
+$title = 'Einstellungen';
+$dolibarrUrl = dol_buildpath('/', 1);
 
 // Get trusted device info
 $trustedDeviceInfo = null;
@@ -228,16 +229,38 @@ if (!empty($conf->totp2fa->enabled)) {
         .header {
             background: var(--header-bg);
             color: white;
-            padding: 16px;
-            text-align: center;
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         .header h1 {
             margin: 0;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 500;
+            flex: 1;
+        }
+        .header-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .header-btn:active {
+            background: rgba(255,255,255,0.2);
         }
         .content {
-            padding: 16px;
+            padding: 12px;
             max-width: 400px;
             margin: 0 auto;
         }
@@ -245,17 +268,17 @@ if (!empty($conf->totp2fa->enabled)) {
             background: var(--bg-card);
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-bottom: 16px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
             transition: background-color 0.3s;
         }
         .card h2 {
-            margin: 0 0 16px 0;
-            font-size: 18px;
+            margin: 0 0 10px 0;
+            font-size: 16px;
             color: var(--text-primary);
         }
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 10px;
         }
         .form-label {
             display: block;
@@ -265,10 +288,10 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .form-input {
             width: 100%;
-            padding: 12px;
+            padding: 9px 12px;
             border: 1px solid var(--input-border);
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-family: inherit;
             background: var(--input-bg);
             color: var(--text-primary);
@@ -276,21 +299,21 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .form-input:focus {
             outline: none;
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
         .btn {
             display: block;
             width: 100%;
-            padding: 14px;
+            padding: 10px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .btn-primary {
-            background: #263c5c;
+            background: #1a3f6e;
             color: white;
         }
         .btn-success {
@@ -324,14 +347,8 @@ if (!empty($conf->totp2fa->enabled)) {
             color: #1565c0;
         }
         .status {
-            text-align: center;
-            padding: 16px;
             color: var(--text-secondary);
             font-size: 14px;
-        }
-        .status-icon {
-            font-size: 48px;
-            margin-bottom: 8px;
         }
         .help-text {
             font-size: 13px;
@@ -345,7 +362,7 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .theme-option {
             flex: 1;
-            padding: 12px 8px;
+            padding: 8px 6px;
             border: 2px solid var(--border-color);
             border-radius: 8px;
             background: var(--bg-card);
@@ -354,18 +371,18 @@ if (!empty($conf->totp2fa->enabled)) {
             transition: all 0.2s;
         }
         .theme-option:hover {
-            border-color: #263c5c;
+            border-color: #1a3f6e;
         }
         .theme-option.active {
-            border-color: #263c5c;
-            background: rgba(38, 60, 92, 0.1);
+            border-color: #1a3f6e;
+            background: rgba(26, 63, 110, 0.1);
         }
         .theme-option-icon {
-            font-size: 24px;
-            margin-bottom: 4px;
+            font-size: 18px;
+            margin-bottom: 2px;
         }
         .theme-option-label {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             color: var(--text-primary);
         }
@@ -386,7 +403,9 @@ if (!empty($conf->totp2fa->enabled)) {
 </head>
 <body>
     <div class="header">
-        <h1>PWA Einstellungen</h1>
+        <a href="index.php" class="header-btn" title="Zurück">&#8592;</a>
+        <h1><?php echo $title; ?></h1>
+        <button class="header-btn" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';">&#127968;</button>
     </div>
 
     <div class="content">
@@ -475,7 +494,6 @@ if (!empty($conf->totp2fa->enabled)) {
             </p>
         </div>
 
-        <a href="index.php" class="back-link">← Zurück zur PWA</a>
     </div>
 
     <script src="db.js"></script>
@@ -558,8 +576,8 @@ if (!empty($conf->totp2fa->enabled)) {
             ));
             list.appendChild(buildToggleRow(
                 'pwa_email_show_body',
-                'E-Mail Inhalt anzeigen <span style="font-size:11px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">Beta</span>',
-                'Vorschau und Bearbeitung – Formatierung kann abweichen',
+                'E-Mail Inhalt anzeigen',
+                'Vorlage im Modal anzeigen und bearbeiten',
                 false
             ));
         }
@@ -582,22 +600,24 @@ if (!empty($conf->totp2fa->enabled)) {
                 if (savedCredentials && savedCredentials.username) {
                     const savedAt = new Date(savedCredentials.saved_at);
                     statusEl.innerHTML = `
-                        <div class="status-icon">✅</div>
-                        <p><strong>${savedCredentials.username}</strong></p>
-                        <p style="font-size:12px;color:#999;">
-                            Gespeichert: ${savedAt.toLocaleDateString('de-DE')} ${savedAt.toLocaleTimeString('de-DE')}
-                        </p>
-                        <button type="button" class="btn btn-danger" onclick="deleteCredentials()" style="margin-top:12px;">
-                            Löschen
-                        </button>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:22px;">✅</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:600;font-size:14px;">${savedCredentials.username}</div>
+                                <div style="font-size:12px;color:var(--text-muted);">Gespeichert: ${savedAt.toLocaleDateString('de-DE')} ${savedAt.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}</div>
+                            </div>
+                            <button type="button" onclick="deleteCredentials()" style="padding:5px 10px;background:#f44336;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">Löschen</button>
+                        </div>
                     `;
 
                     // Pre-fill username
                     document.getElementById('username').value = savedCredentials.username;
                 } else {
                     statusEl.innerHTML = `
-                        <div class="status-icon">❌</div>
-                        <p>Keine Daten gespeichert</p>
+                        <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);">
+                            <span>❌</span>
+                            <span style="font-size:14px;">Keine Daten gespeichert</span>
+                        </div>
                     `;
                 }
             } catch (err) {

@@ -144,7 +144,7 @@ class ServiceReportApp {
                 </div>
 
                 ${!hasCredentials ? `
-                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#263c5c;color:white;margin-bottom:20px;">
+                <a href="settings.php" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;border-radius:8px;background:#1a3f6e;color:white;margin-bottom:20px;">
                     ⚙️ Einstellungen öffnen
                 </a>
                 ` : ''}
@@ -371,15 +371,20 @@ class ServiceReportApp {
         document.getElementById('btnBack').addEventListener('click', () => this.goBack());
 
         // Sync button — try to reconnect first if currently offline
-        document.getElementById('btnSync').addEventListener('click', async () => {
+        document.getElementById('syncStatus').addEventListener('click', async () => {
+            const badge = document.getElementById('syncStatus');
+            const prev = badge.textContent;
+            badge.textContent = '↻';
             if (!this.isOnline) {
                 const online = await this.checkConnectivity(true, 2, true);
                 if (!online) {
+                    badge.textContent = prev;
                     this.showToast('Keine Verbindung möglich');
                     return;
                 }
             }
             await this.syncData();
+            badge.textContent = prev;
         });
 
         // Entry form submit (v1.7)
@@ -1023,6 +1028,7 @@ class ServiceReportApp {
             });
         });
 
+
         // Add time range select listener
         const timeRangeSelect = document.getElementById('timeRangeSelect');
         if (timeRangeSelect) {
@@ -1035,6 +1041,13 @@ class ServiceReportApp {
         filtered.forEach(intervention => {
             listEl.appendChild(this.createInterventionCard(intervention));
         });
+
+        // Legend link at the bottom
+        const legendLink = document.createElement('div');
+        legendLink.style.cssText = 'text-align:center;padding:12px 0 4px;';
+        legendLink.innerHTML = '<button id="btnStatusLegend" style="background:none;border:none;font-size:13px;color:var(--text-muted,#999);cursor:pointer;padding:4px 8px;">ⓘ Farb-Legende</button>';
+        listEl.appendChild(legendLink);
+        document.getElementById('btnStatusLegend').addEventListener('click', () => this.showStatusLegend());
     }
 
     // Load interventions
@@ -1108,7 +1121,7 @@ class ServiceReportApp {
                     <div class="empty-icon">⚠️</div>
                     <p>Fehler beim Laden</p>
                     <p style="font-size:12px;">${err.message}</p>
-                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#263c5c;color:white;cursor:pointer;">
+                    <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#1a3f6e;color:white;cursor:pointer;">
                         Erneut versuchen
                     </button>
                 </div>
@@ -1141,62 +1154,47 @@ class ServiceReportApp {
             statusClass = 'done';
             statusText = 'Abgeschlossen';
         }
+        card.classList.add(`card-status-${statusClass}`);
 
-        // Format object addresses with clickable maps link
-        let objectAddressHtml = '';
-        if (intervention.object_addresses && intervention.object_addresses.length > 0) {
-            const addr = intervention.object_addresses[0]; // Show first address
-            objectAddressHtml = `
-                <div class="object-address-divider">
-                    <p class="object-address-label">📍 Objektadresse</p>
-                    <p class="object-address-name">
-                        ${addr.name || ''}
-                    </p>
-                    <p class="object-address-details">
-                        ${this.renderAddressLink(addr.address, addr.zip, addr.town)}
-                    </p>
-                    ${intervention.object_addresses.length > 1 ? `<p class="info-text-muted" style="margin:4px 0 0; font-size:11px;">+ ${intervention.object_addresses.length - 1} weitere Adresse(n)</p>` : ''}
-                </div>
-            `;
-        }
-
-        // Customer address with clickable maps link
-        const customerAddressHtml = intervention.customer?.address || intervention.customer?.zip || intervention.customer?.town
-            ? this.renderAddressLink(intervention.customer?.address, intervention.customer?.zip, intervention.customer?.town)
-            : '';
-
-        // Type badge (only when equipment is linked) — same style as status badges
+        // Type badge
         let typeBadgeHtml = '';
         if (intervention.primary_type === 'maintenance') {
-            const maintStyles = {
-                overdue: 'background:#ffcdd2;color:#c62828',
-                soon:    'background:#ffe0b2;color:#e65100',
-                ok:      'background:#c8e6c9;color:#2e7d32',
-                none:    'background:#ffe0b2;color:#e65100'
+            const maintColors = {
+                overdue: { bg: '#ffcdd2', text: '#c62828' },
+                soon:    { bg: '#ffe0b2', text: '#e65100' },
+                ok:      { bg: '#c8e6c9', text: '#2e7d32' },
+                none:    { bg: '#ffe0b2', text: '#e65100' },
             };
-            const style = maintStyles[intervention.maintenance_status] || maintStyles.none;
-            typeBadgeHtml = '<span class="badge" style="' + style + '">Wartung</span>';
+            const c = maintColors[intervention.maintenance_status] || maintColors.none;
+            typeBadgeHtml = `<span class="badge" style="background:${c.bg};color:${c.text}">Wartung</span>`;
         } else if (intervention.primary_type === 'service') {
             typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
         }
 
+        // Compact card data
+        const firstObj = intervention.object_addresses?.[0];
+        const objName  = firstObj?.name || '';
+        const addrStreet = firstObj?.address || intervention.customer?.address || '';
+        const addrZipTown = [
+            firstObj?.zip  || intervention.customer?.zip,
+            firstObj?.town || intervention.customer?.town
+        ].filter(Boolean).join(' ');
+        const addrLine = [addrStreet, addrZipTown].filter(Boolean).join(', ');
+        const customerName = intervention.customer?.name || '';
+        const dateStr = intervention.date_start ? this.formatDate(intervention.date_start) : '';
+
         card.innerHTML = `
             <div class="card-header">
-                <div>
-                    <h3 class="card-title">${intervention.ref || 'Intervention'}</h3>
-                    ${typeBadgeHtml ? '<div style="margin-top:4px;">' + typeBadgeHtml + '</div>' : ''}
-                </div>
-                <span class="badge badge-${statusClass}">${statusText}</span>
+                <h3 class="card-title">${this.escapeHtml(intervention.ref || 'Intervention')}</h3>
+                ${typeBadgeHtml || ''}
             </div>
-            <div class="card-body">
-                <p class="customer-name">
-                    ${intervention.customer?.name || 'Kunde'}
-                </p>
-                <p class="customer-address">
-                    ${customerAddressHtml}
-                </p>
-                ${objectAddressHtml}
-                ${intervention.date_start ? `<p class="date-text">📅 ${this.formatDate(intervention.date_start)}</p>` : ''}
+            <div class="card-body" style="padding-top:10px;padding-bottom:10px;">
+                ${objName ? `<p class="card-obj-name">${this.escapeHtml(objName)}</p>` : ''}
+                ${addrLine ? `<p class="customer-address" style="margin:${objName ? '3px' : '0'} 0 0;">${addrLine}</p>` : ''}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                    <span style="font-size:12px;color:var(--text-muted);">${this.escapeHtml(customerName)}</span>
+                    ${dateStr ? `<span style="font-size:12px;color:var(--text-muted);">${dateStr}</span>` : ''}
+                </div>
             </div>
         `;
 
@@ -1408,8 +1406,8 @@ class ServiceReportApp {
 
                 // Check if equipment has been processed (has detail with work_done)
                 const isProcessed = eq.detail && eq.detail.work_done;
-                const statusIcon = isProcessed ? '✅' : '🚪';
-                const processedStyle = isProcessed ? 'border-left: 3px solid #4caf50;' : '';
+                const statusIcon = '🚪';
+
 
                 const hasData = eq.detail && (eq.detail.work_done || eq.detail.issues_found || eq.detail.notes || eq.detail.recommendations);
                 const removeBtn = document.createElement('button');
@@ -1439,6 +1437,7 @@ class ServiceReportApp {
                     ${linkTypeBadge}
                 `;
                 item.appendChild(removeBtn);
+
                 if (isProcessed) {
                     item.style.borderLeft = '3px solid #4caf50';
                 }
@@ -4064,26 +4063,28 @@ class ServiceReportApp {
         const body = document.createElement('div');
         body.className = 'info-collapse-body';
 
-        // Kunde
+        // Auftraggeber (Name + Adresse)
         if (intervention.customer) {
             const sec = document.createElement('div');
             sec.className = 'info-collapse-section';
             const lbl = document.createElement('div');
             lbl.className = 'info-collapse-label';
-            lbl.textContent = 'Kunde';
+            lbl.textContent = 'Auftraggeber';
             const val = document.createElement('div');
             val.className = 'info-collapse-value';
             const mapsUrl = this.getMapsUrl(intervention.customer.address, intervention.customer.zip, intervention.customer.town);
+            let html = intervention.customer.name ? `<strong>${this.escapeHtml(intervention.customer.name)}</strong><br>` : '';
             let addrHtml = '';
             if (intervention.customer.address) addrHtml += this.escapeHtml(intervention.customer.address) + '<br>';
             if (intervention.customer.zip || intervention.customer.town) {
                 addrHtml += this.escapeHtml((intervention.customer.zip || '') + ' ' + (intervention.customer.town || '')).trim();
             }
             if (mapsUrl && addrHtml) {
-                val.innerHTML = `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
+                html += `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link">${addrHtml}</a>`;
             } else {
-                val.innerHTML = addrHtml || '—';
+                html += addrHtml;
             }
+            val.innerHTML = html || '—';
             sec.appendChild(lbl);
             sec.appendChild(val);
             body.appendChild(sec);
@@ -4163,7 +4164,7 @@ class ServiceReportApp {
             sec.className = 'info-collapse-section';
             const lbl = document.createElement('div');
             lbl.className = 'info-collapse-label';
-            lbl.textContent = 'Auftragsbeschreibung';
+            lbl.textContent = 'Beschreibung';
             const val = document.createElement('div');
             val.className = 'info-collapse-value';
             val.innerHTML = this.escapeHtml(intervention.description).replace(/\n/g, '<br>');
@@ -4172,7 +4173,22 @@ class ServiceReportApp {
             body.appendChild(sec);
         }
 
-        // Öffentliche Anmerkung
+        // Interne Anmerkung (note_private)
+        if (intervention.note_private) {
+            const sec = document.createElement('div');
+            sec.className = 'info-collapse-section';
+            const lbl = document.createElement('div');
+            lbl.className = 'info-collapse-label';
+            lbl.textContent = 'Interne Anmerkung';
+            const val = document.createElement('div');
+            val.className = 'info-collapse-value';
+            val.innerHTML = this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>');
+            sec.appendChild(lbl);
+            sec.appendChild(val);
+            body.appendChild(sec);
+        }
+
+        // Öffentliche Anmerkung (note_public)
         if (intervention.note_public) {
             const sec = document.createElement('div');
             sec.className = 'info-collapse-section';
@@ -4187,20 +4203,15 @@ class ServiceReportApp {
             body.appendChild(sec);
         }
 
-        // Private Anmerkung
-        if (intervention.note_private) {
-            const sec = document.createElement('div');
-            sec.className = 'info-collapse-section';
-            const lbl = document.createElement('div');
-            lbl.className = 'info-collapse-label';
-            lbl.textContent = 'Private Anmerkung';
-            const val = document.createElement('div');
-            val.className = 'info-collapse-value';
-            val.innerHTML = this.escapeHtml(intervention.note_private).replace(/\n/g, '<br>');
-            sec.appendChild(lbl);
-            sec.appendChild(val);
-            body.appendChild(sec);
-        }
+        // Historie-Button (nur wenn Objekt vorhanden)
+        const histBtn = document.createElement('button');
+        histBtn.textContent = '🕒 Objekt-Historie';
+        histBtn.style.cssText = 'margin-top:10px;background:none;border:none;color:var(--text-muted,#999);font-size:13px;cursor:pointer;padding:2px 0;text-align:left;display:block;';
+        histBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showHistoryModal(intervention);
+        });
+        body.appendChild(histBtn);
 
         // Toggle logic
         summary.addEventListener('click', () => {
@@ -4211,6 +4222,165 @@ class ServiceReportApp {
         card.appendChild(summary);
         card.appendChild(body);
         return card;
+    }
+
+    async showHistoryModal(intervention) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+
+        const sheet = document.createElement('div');
+        sheet.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:75vh;display:flex;flex-direction:column;box-shadow:0 -4px 24px rgba(0,0,0,.2);';
+
+        const titleRow = document.createElement('div');
+        titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-shrink:0;';
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin:0;font-size:18px;';
+        title.textContent = '🕒 Objekt-Historie';
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted,#888);padding:4px;';
+        closeBtn.addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        titleRow.appendChild(title);
+        titleRow.appendChild(closeBtn);
+
+        const objName = intervention.object_addresses?.[0]?.name || intervention.customer?.name || '';
+        const subtitle = document.createElement('div');
+        subtitle.style.cssText = 'font-size:13px;color:var(--text-muted,#888);margin-bottom:14px;flex-shrink:0;';
+        subtitle.textContent = objName ? `Objekt: ${objName}` : 'Alle Serviceaufträge an dieser Liegenschaft';
+
+        const listWrap = document.createElement('div');
+        listWrap.style.cssText = 'overflow-y:auto;flex:1;';
+        listWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Wird geladen…</div>';
+
+        sheet.appendChild(titleRow);
+        sheet.appendChild(subtitle);
+        sheet.appendChild(listWrap);
+        overlay.appendChild(sheet);
+        document.body.appendChild(overlay);
+
+        const statusLabel = (s, ss) => {
+            if (ss >= 3) return { text: 'Unterschrieben', color: '#4caf50' };
+            if (s === 3)  return { text: 'Abgeschlossen',  color: '#4caf50' };
+            if (s === 1)  return { text: 'Freigegeben',    color: '#2196f3' };
+            return { text: 'Entwurf', color: '#9e9e9e' };
+        };
+
+        try {
+            const data = await this.apiCall(`intervention/${intervention.id}/history`);
+            const history = data.history || [];
+
+            if (history.length === 0) {
+                listWrap.innerHTML = data.no_obj_contact
+                    ? '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Kein Objekt (OBJ-Kontakt) hinterlegt</div>'
+                    : '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Keine früheren Aufträge für dieses Objekt</div>';
+                return;
+            }
+
+            listWrap.innerHTML = '';
+            history.forEach(item => {
+                const row = document.createElement('div');
+                row.style.cssText = 'padding:12px 0;border-bottom:1px solid var(--border,#eee);cursor:pointer;display:flex;align-items:flex-start;gap:10px;';
+
+                const sl = statusLabel(item.status, item.signed_status);
+                const badge = document.createElement('span');
+                badge.textContent = sl.text;
+                badge.style.cssText = `flex-shrink:0;font-size:11px;font-weight:600;color:#fff;background:${sl.color};border-radius:4px;padding:2px 6px;margin-top:2px;`;
+
+                const info = document.createElement('div');
+                info.style.flex = '1';
+
+                const refLine = document.createElement('div');
+                refLine.style.cssText = 'font-weight:600;font-size:15px;';
+                refLine.textContent = item.ref;
+
+                const dateLine = document.createElement('div');
+                dateLine.style.cssText = 'font-size:13px;color:var(--text-muted,#888);margin-top:2px;';
+                dateLine.textContent = item.date_start ? this.formatDate(item.date_start) : '—';
+                if (item.technician) dateLine.textContent += ' · ' + item.technician;
+
+                if (item.description) {
+                    const desc = document.createElement('div');
+                    desc.style.cssText = 'font-size:13px;color:var(--text-muted,#888);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;';
+                    desc.textContent = item.description;
+                    info.appendChild(refLine);
+                    info.appendChild(dateLine);
+                    info.appendChild(desc);
+                } else {
+                    info.appendChild(refLine);
+                    info.appendChild(dateLine);
+                }
+
+                row.appendChild(badge);
+                row.appendChild(info);
+
+                row.addEventListener('click', async () => {
+                    overlay.remove();
+                    this.currentIntervention = item;
+                    await this.loadEquipment(item);
+                });
+
+                listWrap.appendChild(row);
+            });
+        } catch (err) {
+            listWrap.innerHTML = `<div style="text-align:center;padding:20px;color:#f44336;">Fehler: ${this.escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    showStatusLegend() {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        const sheet = document.createElement('div');
+        sheet.style.cssText = 'background:var(--card-bg,#fff);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;box-shadow:0 -4px 24px rgba(0,0,0,.2);';
+
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin:0 0 16px;font-size:18px;';
+        title.textContent = 'Status-Legende';
+
+        const items = [
+            { color: '#bbdefb', label: 'Offen',          desc: 'Auftrag noch nicht freigegeben' },
+            { color: '#e65100', label: 'Freigegeben',     desc: 'Zur Unterschrift bereit' },
+            { color: '#c8e6c9', label: 'Unterschrieben',  desc: 'Vom Kunden unterschrieben' },
+            { color: '#c8e6c9', label: 'Abgeschlossen',   desc: 'Auftrag vollständig erledigt' },
+        ];
+
+        const list = document.createElement('div');
+        list.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:12px;';
+
+            const swatch = document.createElement('div');
+            swatch.style.cssText = `width:4px;height:36px;border-radius:2px;background:${item.color};flex-shrink:0;`;
+
+            const text = document.createElement('div');
+            const labelEl = document.createElement('div');
+            labelEl.style.cssText = 'font-weight:600;font-size:15px;';
+            labelEl.textContent = item.label;
+            const descEl = document.createElement('div');
+            descEl.style.cssText = 'font-size:13px;color:var(--text-muted,#888);';
+            descEl.textContent = item.desc;
+            text.appendChild(labelEl);
+            text.appendChild(descEl);
+
+            row.appendChild(swatch);
+            row.appendChild(text);
+            list.appendChild(row);
+        });
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Schließen';
+        closeBtn.style.cssText = 'margin-top:20px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--primary-color,#1a3f6e);color:#fff;font-size:15px;font-weight:600;cursor:pointer;';
+        closeBtn.addEventListener('click', () => overlay.remove());
+
+        sheet.appendChild(title);
+        sheet.appendChild(list);
+        sheet.appendChild(closeBtn);
+        overlay.appendChild(sheet);
+        document.body.appendChild(overlay);
     }
 
     closeInfoModal() {
@@ -4235,16 +4405,40 @@ class ServiceReportApp {
         return icon;
     }
 
+    isDarkMode() {
+        const stored = localStorage.getItem('pwa_theme');
+        if (stored === 'dark') return true;
+        if (stored === 'light') return false;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
     async showMap() {
         this.showView('viewMap');
 
-        // Init Leaflet map only once
-        if (!this.leafletMap) {
-            this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const dark = this.isDarkMode();
+
+        const getTileLayer = (isDark) => {
+            if (isDark) {
+                return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                });
+            }
+            return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: 19
-            }).addTo(this.leafletMap);
+            });
+        };
+
+        if (!this.leafletMap) {
+            this.leafletMap = L.map('interventionMap').setView([51.1657, 10.4515], 6);
+            this.mapTileLayer = getTileLayer(dark).addTo(this.leafletMap);
+            this.mapCurrentDark = dark;
+        } else if (this.mapCurrentDark !== dark) {
+            this.mapTileLayer.remove();
+            this.mapTileLayer = getTileLayer(dark).addTo(this.leafletMap);
+            this.mapCurrentDark = dark;
         }
 
         // Clear existing markers
@@ -4300,11 +4494,12 @@ class ServiceReportApp {
                 const markerColor = icon._color;
                 const typeLabel = intervention.primary_type === 'maintenance' ? 'Wartung' : 'Service';
 
+                const objectName = addr?.name || intervention.customer?.name || '';
                 const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);
                 marker.bindPopup(
                     '<div class="map-popup-ref">' + this.escapeHtml(intervention.ref) +
                     ' <span style="font-size:10px;color:' + markerColor + '">' + typeLabel + '</span></div>' +
-                    '<div class="map-popup-customer">' + this.escapeHtml(intervention.customer?.name || '') + '</div>' +
+                    '<div class="map-popup-customer">' + this.escapeHtml(objectName) + '</div>' +
                     '<div class="map-popup-addr">' + this.escapeHtml(addrLine) + '</div>' +
                     '<a class="map-popup-link" onclick="app.openInterventionFromMap(' + intervention.id + ')">Auftrag öffnen →</a>'
                 );
@@ -4475,6 +4670,7 @@ class ServiceReportApp {
 
                 const groupEl = document.createElement('div');
                 groupEl.className = 'maint-group';
+                groupEl.style.borderLeft = `4px solid ${groupColor}`;
 
                 const headerEl = document.createElement('div');
                 headerEl.className = 'maint-group-header';
@@ -4764,26 +4960,45 @@ class ServiceReportApp {
             const info = await this.apiCall(`intervention/${this.currentIntervention.id}/email-info`);
             recipientEl.value = info.email || '';
             subjectEl.value   = info.subject || this.currentIntervention.ref || '';
-            bodyEl.value      = info.body || '';
-            bccEl.value       = info.bcc || '';
-            attachNote.textContent = '📎 PDF wird automatisch angehängt';
+            // Populate contenteditable div with rendered HTML
+            if (showBody) {
+                bodyEl.innerHTML = info.body_html || info.body || '';
+            }
+            bccEl.value = info.bcc || '';
+            if (info.attachments && info.attachments.length > 0) {
+                attachNote.innerHTML = info.attachments.map((name, i) =>
+                    `<label style="display:flex;align-items:center;gap:7px;margin-top:5px;cursor:pointer;">
+                        <input type="checkbox" data-filename="${this.escapeHtml(name)}" checked
+                            style="width:16px;height:16px;accent-color:var(--primary-color);flex-shrink:0;">
+                        <span style="font-size:12px;color:var(--text-primary);">📎 ${this.escapeHtml(name)}</span>
+                    </label>`
+                ).join('');
+            } else {
+                attachNote.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">Kein PDF vorhanden</span>';
+            }
         } catch (err) {
             subjectEl.value = this.currentIntervention.ref || '';
-            attachNote.textContent = '';
+            attachNote.innerHTML = '';
         }
         sendBtn.disabled = false;
 
-        cancelBtn.onclick = () => { modal.style.display = 'none'; };
-        sendBtn.onclick   = () => this.sendEmailReport(
-            recipientEl.value.trim(),
-            subjectEl.value.trim(),
-            ccEl.value.trim(),
-            showBody ? bodyEl.value.trim() : '',
-            bccEl.value.trim()
-        );
+        cancelBtn.onclick = () => { modal.style.display = 'none'; bodyEl.innerHTML = ''; };
+        sendBtn.onclick   = () => {
+            const htmlBody = showBody ? bodyEl.innerHTML.trim() : '';
+            const selectedAttachments = [...attachNote.querySelectorAll('input[type=checkbox]:checked')]
+                .map(cb => cb.dataset.filename);
+            this.sendEmailReport(
+                recipientEl.value.trim(),
+                subjectEl.value.trim(),
+                ccEl.value.trim(),
+                htmlBody,
+                bccEl.value.trim(),
+                selectedAttachments
+            );
+        };
     }
 
-    async sendEmailReport(email, subject, cc = '', body = '', bcc = '') {
+    async sendEmailReport(email, subject, cc = '', body = '', bcc = '', attachments = []) {
         if (!email) {
             this.showToast('Bitte E-Mail-Adresse eingeben');
             return;
@@ -4794,7 +5009,7 @@ class ServiceReportApp {
         sendBtn.textContent = 'Sende…';
 
         try {
-            const payload = { email, subject };
+            const payload = { email, subject, attachments };
             if (cc)   payload.cc   = cc;
             if (bcc)  payload.bcc  = bcc;
             if (body) payload.body = body;
