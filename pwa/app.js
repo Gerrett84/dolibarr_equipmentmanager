@@ -4558,20 +4558,22 @@ class ServiceReportApp {
         container.innerHTML = '';
 
         const statusColors = {
-            overdue: '#f44336',
-            due:     '#ff9800',
-            soon:    '#ffd54f',
-            future:  '#4caf50',
-            done:    '#4caf50',
-            none:    '#9e9e9e'
+            overdue:   '#f44336',
+            due:       '#ff9800',
+            soon:      '#ffd54f',
+            future:    '#4caf50',
+            done:      '#4caf50',
+            next_year: '#29b6f6',
+            none:      '#9e9e9e'
         };
         const statusLabels = {
-            overdue: 'Überfällig',
-            due:     'Fällig',
-            soon:    'Nächster Monat',
-            future:  'Geplant',
-            done:    'Erledigt',
-            none:    'Kein Monat'
+            overdue:   'Überfällig',
+            due:       'Fällig',
+            soon:      'Nächster Monat',
+            future:    'Geplant',
+            done:      'Erledigt',
+            next_year: `Fällig ${nextYear}`,
+            none:      'Kein Monat'
         };
 
         // Filter dropdown — same style as signed time-range selector
@@ -4594,19 +4596,25 @@ class ServiceReportApp {
         // Filter based on maintenance_month — same logic as backend maintenance dashboard
         const today = new Date();
         const currentMonth = today.getMonth() + 1; // 1-12
+        const nextYear = today.getFullYear() + 1;
 
         const filteredGroups = groups.map(group => {
-            const equipment = group.equipment.filter(eq => {
+            const equipment = group.equipment.map(eq => {
                 const s = eq.maint_status;
-                if (s === 'done') return false; // done this year — hide
-                if (s === 'overdue' || s === 'due') return true; // always show
-                if (s === 'none') return true; // no month set — always show
+                // Done this year → check if next occurrence (next year) falls within window
+                if (s === 'done') {
+                    if (!eq.maintenance_month) return null;
+                    const monthsUntilNext = (eq.maintenance_month + 12) - currentMonth;
+                    return monthsUntilNext <= monthsAhead ? { ...eq, displayStatus: 'next_year' } : null;
+                }
+                if (s === 'overdue' || s === 'due') return { ...eq, displayStatus: s };
+                if (s === 'none') return { ...eq, displayStatus: s };
                 // 'soon' or 'future': show if maintenance_month falls within filter range
-                if (!eq.maintenance_month) return true;
+                if (!eq.maintenance_month) return { ...eq, displayStatus: s };
                 let monthsUntil = eq.maintenance_month - currentMonth;
-                if (monthsUntil <= 0) monthsUntil += 12; // wrap to next calendar year
-                return monthsUntil <= monthsAhead;
-            });
+                if (monthsUntil <= 0) monthsUntil += 12;
+                return monthsUntil <= monthsAhead ? { ...eq, displayStatus: s } : null;
+            }).filter(Boolean);
             return { ...group, equipment };
         }).filter(g => g.equipment.length > 0);
 
@@ -4619,7 +4627,7 @@ class ServiceReportApp {
         }
 
         const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-        const statusRank = { overdue: 1, due: 2, soon: 3, future: 4, none: 5, done: 6 };
+        const statusRank = { overdue: 1, due: 2, soon: 3, future: 4, none: 5, done: 6, next_year: 7 };
 
         // Group filtered equipment by maintenance_month across all address groups
         const byMonth = {}; // month (0=none) → { month, addressGroups: { key → {label, equipment[]} } }
@@ -4646,8 +4654,8 @@ class ServiceReportApp {
             let worstStatus = 'none';
             Object.values(monthData.addressGroups).forEach(ag => {
                 ag.equipment.forEach(eq => {
-                    if ((statusRank[eq.maint_status] || 5) < (statusRank[worstStatus] || 5)) {
-                        worstStatus = eq.maint_status;
+                    if ((statusRank[eq.displayStatus] || 5) < (statusRank[worstStatus] || 5)) {
+                        worstStatus = eq.displayStatus;
                     }
                 });
             });
@@ -4665,7 +4673,7 @@ class ServiceReportApp {
             // Address groups within this month
             Object.values(monthData.addressGroups).forEach(group => {
                 const groupWorst = group.equipment.reduce((w, eq) =>
-                    (statusRank[eq.maint_status] || 5) < (statusRank[w] || 5) ? eq.maint_status : w, 'none');
+                    (statusRank[eq.displayStatus] || 5) < (statusRank[w] || 5) ? eq.displayStatus : w, 'none');
                 const groupColor = statusColors[groupWorst] || '#9e9e9e';
 
                 const groupEl = document.createElement('div');
@@ -4687,9 +4695,9 @@ class ServiceReportApp {
                 bodyEl.className = 'maint-group-body';
 
                 group.equipment.forEach(eq => {
-                    const color = statusColors[eq.maint_status] || '#9e9e9e';
+                    const color = statusColors[eq.displayStatus] || '#9e9e9e';
                     const typeLabel = (this.equipmentTypeLabels || {})[eq.type] || eq.type || '';
-                    const statusLabel = statusLabels[eq.maint_status] || '';
+                    const statusLabel = statusLabels[eq.displayStatus] || '';
 
                     const itemEl = document.createElement('div');
                     itemEl.className = 'maint-eq-item';
