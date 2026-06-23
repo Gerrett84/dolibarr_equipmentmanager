@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.3.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.4.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,17 @@
 -----
 
 ## Features
+
+### NEU in v5.4.0: PWA-Verbesserungen & E-Mail
+
+- **Karte Dark Mode** – Automatischer Wechsel auf CartoDB Dark Matter Kacheln; Popup zeigt Objektname statt Kundenname
+- **Auftragsliste** – Kompakteres Kartendesign: Objektname oben, Adresse + Kunde/Datum klein darunter; kein Abschneiden langer Namen mehr
+- **Info-Header** – Auftraggeber als erster Abschnitt; Reihenfolge überarbeitet; „Interne Anmerkung" statt „Private"
+- **Einstellungen** – Kopfleiste mit Zurück-Pfeil und Home-Button; kompakteres Layout; Backend-Button nur noch hier
+- **Sync per Badge** – Klick auf Online/Offline-Badge löst Synchronisation aus; separater Reload-Button entfernt
+- **E-Mail – Anhänge wählbar** – Servicebericht, Checkliste und Abnahmeprotokoll als einzeln abwählbare Checkboxen im E-Mail-Modal
+- **E-Mail – HTML-Bearbeitung** – E-Mail-Body in `contenteditable`-Div; Formatierung bleibt beim Bearbeiten erhalten
+- **Bugfixes** – Wartungsübersicht Januar/März-Fehler behoben; Abnahmeprotokoll-Anhang im E-Mail-Versand ergänzt
 
 ### NEU in v5.3.0: Preislisten
 
@@ -275,7 +286,7 @@ chmod -R 755 equipmentmanager
 
 ## Changelog
 
-### v5.3.2 (2026-06-23)
+### v5.4.0 (2026-06-23)
 
 - **PWA: Karte – Dark Mode** – Kartenansicht wechselt automatisch auf CartoDB Dark Matter Kacheln im Dunkelmodus; Wechsel auch bei Theme-Änderung ohne Neustart
 - **PWA: Karte – Popup** – Popup zeigt Objektname (statt Kundenname) + Adresse; Popup-Wrapper mit runden Ecken und Dark-Mode-Styling
@@ -679,6 +690,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.3.2
+**Current Version:** 5.4.0
 **Released:** Juni 2026
 **Compatibility:** Dolibarr 16.0+
