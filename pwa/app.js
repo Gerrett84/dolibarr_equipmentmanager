@@ -4966,31 +4966,39 @@ class ServiceReportApp {
             }
             bccEl.value = info.bcc || '';
             if (info.attachments && info.attachments.length > 0) {
-                attachNote.innerHTML = info.attachments.map(name => `📎 <span style="font-family:monospace;font-size:11px;">${this.escapeHtml(name)}</span>`).join('<br>');
+                attachNote.innerHTML = info.attachments.map((name, i) =>
+                    `<label style="display:flex;align-items:center;gap:7px;margin-top:5px;cursor:pointer;">
+                        <input type="checkbox" data-filename="${this.escapeHtml(name)}" checked
+                            style="width:16px;height:16px;accent-color:var(--primary-color);flex-shrink:0;">
+                        <span style="font-size:12px;color:var(--text-primary);">📎 ${this.escapeHtml(name)}</span>
+                    </label>`
+                ).join('');
             } else {
-                attachNote.textContent = '📎 PDF wird automatisch angehängt';
+                attachNote.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">Kein PDF vorhanden</span>';
             }
         } catch (err) {
             subjectEl.value = this.currentIntervention.ref || '';
-            attachNote.textContent = '';
+            attachNote.innerHTML = '';
         }
         sendBtn.disabled = false;
 
         cancelBtn.onclick = () => { modal.style.display = 'none'; bodyEl.innerHTML = ''; };
         sendBtn.onclick   = () => {
-            // Send innerHTML (HTML with formatting intact, even after editing)
             const htmlBody = showBody ? bodyEl.innerHTML.trim() : '';
+            const selectedAttachments = [...attachNote.querySelectorAll('input[type=checkbox]:checked')]
+                .map(cb => cb.dataset.filename);
             this.sendEmailReport(
                 recipientEl.value.trim(),
                 subjectEl.value.trim(),
                 ccEl.value.trim(),
                 htmlBody,
-                bccEl.value.trim()
+                bccEl.value.trim(),
+                selectedAttachments
             );
         };
     }
 
-    async sendEmailReport(email, subject, cc = '', body = '', bcc = '') {
+    async sendEmailReport(email, subject, cc = '', body = '', bcc = '', attachments = []) {
         if (!email) {
             this.showToast('Bitte E-Mail-Adresse eingeben');
             return;
@@ -5001,7 +5009,7 @@ class ServiceReportApp {
         sendBtn.textContent = 'Sende…';
 
         try {
-            const payload = { email, subject };
+            const payload = { email, subject, attachments };
             if (cc)   payload.cc   = cc;
             if (bcc)  payload.bcc  = bcc;
             if (body) payload.body = body;

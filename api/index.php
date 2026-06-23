@@ -539,38 +539,36 @@ function handleIntervention($method, $parts, $input) {
                 ? make_substitutions($template->content, $subst) : '';
         }
 
-        // Find PDF: prefer signed, fallback to main
-        $docDir    = getFichinterDocDir($fichinter);
-        $signedPdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/' . dol_sanitizeFileName($fichinter->ref) . '_signed.pdf';
-        $mainPdf   = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+        // Build list of candidate attachments (Servicebericht: signed preferred over unsigned)
+        $docDir  = getFichinterDocDir();
+        $refSafe = dol_sanitizeFileName($fichinter->ref);
+        $refPath = $docDir . '/' . $refSafe . '/';
+
+        $candidates = [];
+        if (file_exists($refPath . $refSafe . '_signed.pdf')) {
+            $candidates[$refSafe . '_signed.pdf'] = $refPath . $refSafe . '_signed.pdf';
+        } elseif (file_exists($refPath . $refSafe . '.pdf')) {
+            $candidates[$refSafe . '.pdf'] = $refPath . $refSafe . '.pdf';
+        }
+        if (file_exists($refPath . 'Checklisten_' . $refSafe . '.pdf')) {
+            $candidates['Checklisten_' . $refSafe . '.pdf'] = $refPath . 'Checklisten_' . $refSafe . '.pdf';
+        }
+        if (file_exists($refPath . 'Abnahmeprotokoll_' . $refSafe . '.pdf')) {
+            $candidates['Abnahmeprotokoll_' . $refSafe . '.pdf'] = $refPath . 'Abnahmeprotokoll_' . $refSafe . '.pdf';
+        }
+
+        // Filter by user selection (if provided); null/empty = attach all
+        $allowedNames = (isset($input['attachments']) && is_array($input['attachments']) && count($input['attachments']) > 0)
+            ? array_map('strval', $input['attachments']) : null;
 
         $attachPaths = [];
         $attachMimes = [];
         $attachNames = [];
-        if (file_exists($signedPdf)) {
-            $attachPaths[] = $signedPdf;
+        foreach ($candidates as $name => $path) {
+            if ($allowedNames !== null && !in_array($name, $allowedNames, true)) continue;
+            $attachPaths[] = $path;
             $attachMimes[] = 'application/pdf';
-            $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '_signed.pdf';
-        } elseif (file_exists($mainPdf)) {
-            $attachPaths[] = $mainPdf;
-            $attachMimes[] = 'application/pdf';
-            $attachNames[] = dol_sanitizeFileName($fichinter->ref) . '.pdf';
-        }
-
-        // Attach combined checklists PDF if it exists (generated at release)
-        $combinedChecklistPdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
-        if (file_exists($combinedChecklistPdf)) {
-            $attachPaths[] = $combinedChecklistPdf;
-            $attachMimes[] = 'application/pdf';
-            $attachNames[] = 'Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
-        }
-
-        // Attach Abnahmeprotokoll if it exists
-        $abnahmePdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/Abnahmeprotokoll_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
-        if (file_exists($abnahmePdf)) {
-            $attachPaths[] = $abnahmePdf;
-            $attachMimes[] = 'application/pdf';
-            $attachNames[] = 'Abnahmeprotokoll_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+            $attachNames[] = $name;
         }
 
         // From address
