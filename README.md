@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.3.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.3.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -274,6 +274,24 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.3.2 (2026-06-23)
+
+- **PWA: Karte – Dark Mode** – Kartenansicht wechselt automatisch auf CartoDB Dark Matter Kacheln im Dunkelmodus; Wechsel auch bei Theme-Änderung ohne Neustart
+- **PWA: Karte – Popup** – Popup zeigt Objektname (statt Kundenname) + Adresse; Popup-Wrapper mit runden Ecken und Dark-Mode-Styling
+- **PWA: Auftragsliste – kompakteres Design** – Objektname prominent oben (2-zeilig, kein harter Abschnitt), Adresse einzeilig, Kunde + Datum klein darunter; keine Kürzung durch ellipsis mehr
+- **PWA: Info-Header** – Auftraggeber (Name + Adresse) als erster Abschnitt; Reihenfolge: Auftraggeber → Objektadresse → Termin → Beschreibung → Interne Anmerkung → Öffentliche Anmerkung; „Private" umbenannt in „Interne Anmerkung"
+- **PWA: Einstellungen – Header** – Einstellungsseite erhält dieselbe Kopfleiste wie die Hauptapp (Zurück-Pfeil, Titel, Home-Button zum Dolibarr-Backend)
+- **PWA: Home-Button** – Backend-Button nur noch in den Einstellungen; aus dem Haupt-Header entfernt
+- **PWA: Titel** – „Serviceberichte" → „Serviceaufträge"
+- **PWA: Sync per Badge** – Klick auf das Online/Offline-Badge löst Synchronisation aus; separater Reload-Button entfernt
+- **PWA: Einstellungen – kompakter** – Statusbereich, Theme-Optionen und „Gespeicherte Daten" platzsparender dargestellt
+- **PWA: E-Mail – Anhänge wählbar** – Jeder PDF-Anhang (Servicebericht, Checkliste, Abnahmeprotokoll) wird als Checkbox angezeigt; standardmäßig alle aktiv, einzeln abwählbar vor dem Versand
+- **PWA: E-Mail – vorhandene Anhänge** – Modal zeigt nur Dateien, die tatsächlich existieren; Dateinamen statt generischem Hinweistext
+- **PWA: E-Mail – Beta-Label entfernt** – „Beta"-Badge und Formatierungshinweis aus Einstellungen und Modal entfernt
+- **Fix: E-Mail – Abnahmeprotokoll nicht angehängt** – `send-email`-Endpunkt hat Abnahmeprotokoll-PDF nie angehängt; nachgezogen
+- **Fix: Wartungsübersicht Januar/März** – SQL-Bug: `MONTH >= maintenance_month - 1` für Januar ergab `>= 0` (immer wahr) → alle Anlagen als erledigt markiert; behoben mit exaktem Monatsvergleich inkl. Jahresübergang-Wrap
+- **Fix: E-Mail-Formatierung** – E-Mail-Body wechselt von `<textarea>` (Plaintext) auf `contenteditable`-Div; Formatierung bleibt beim Bearbeiten vollständig erhalten; API liefert `body_html` (HTML) zusätzlich zu `body` (Plaintext)
 
 ### v5.3.1 (2026-06-11)
 
@@ -661,6 +679,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.3.1
+**Current Version:** 5.3.2
 **Released:** Juni 2026
 **Compatibility:** Dolibarr 16.0+
