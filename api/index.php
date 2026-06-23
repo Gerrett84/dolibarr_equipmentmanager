@@ -558,7 +558,7 @@ function handleIntervention($method, $parts, $input) {
         }
 
         // Filter by user selection (if provided); null/empty = attach all
-        $allowedNames = (isset($input['attachments']) && is_array($input['attachments']) && count($input['attachments']) > 0)
+        $allowedNames = (isset($input['attachments']) && is_array($input['attachments']))
             ? array_map('strval', $input['attachments']) : null;
 
         $attachPaths = [];
