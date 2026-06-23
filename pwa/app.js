@@ -4956,11 +4956,14 @@ class ServiceReportApp {
         bodyEl.value = '';
         sendBtn.disabled = true;
 
+        let originalBody = '';
+
         try {
             const info = await this.apiCall(`intervention/${this.currentIntervention.id}/email-info`);
             recipientEl.value = info.email || '';
             subjectEl.value   = info.subject || this.currentIntervention.ref || '';
             bodyEl.value      = info.body || '';
+            originalBody      = info.body || '';
             bccEl.value       = info.bcc || '';
             attachNote.textContent = '📎 PDF wird automatisch angehängt';
         } catch (err) {
@@ -4970,13 +4973,18 @@ class ServiceReportApp {
         sendBtn.disabled = false;
 
         cancelBtn.onclick = () => { modal.style.display = 'none'; };
-        sendBtn.onclick   = () => this.sendEmailReport(
-            recipientEl.value.trim(),
-            subjectEl.value.trim(),
-            ccEl.value.trim(),
-            showBody ? bodyEl.value.trim() : '',
-            bccEl.value.trim()
-        );
+        sendBtn.onclick   = () => {
+            // Only send custom body if user actually edited it — otherwise API uses HTML template
+            const editedBody = showBody ? bodyEl.value.trim() : '';
+            const bodyChanged = editedBody !== originalBody.trim();
+            this.sendEmailReport(
+                recipientEl.value.trim(),
+                subjectEl.value.trim(),
+                ccEl.value.trim(),
+                bodyChanged ? editedBody : '',
+                bccEl.value.trim()
+            );
+        };
     }
 
     async sendEmailReport(email, subject, cc = '', body = '', bcc = '') {
