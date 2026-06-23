@@ -461,7 +461,7 @@ function handleIntervention($method, $parts, $input) {
         }
 
         // Check which PDF attachments exist
-        $docDir  = getFichinterDocDir($fichinter);
+        $docDir  = getFichinterDocDir();
         $refSafe = dol_sanitizeFileName($fichinter->ref);
         $refDir  = $docDir . '/' . $refSafe . '/';
         $attachments = [];
@@ -563,6 +563,14 @@ function handleIntervention($method, $parts, $input) {
             $attachPaths[] = $combinedChecklistPdf;
             $attachMimes[] = 'application/pdf';
             $attachNames[] = 'Checklisten_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+        }
+
+        // Attach Abnahmeprotokoll if it exists
+        $abnahmePdf = $docDir . '/' . dol_sanitizeFileName($fichinter->ref) . '/Abnahmeprotokoll_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
+        if (file_exists($abnahmePdf)) {
+            $attachPaths[] = $abnahmePdf;
+            $attachMimes[] = 'application/pdf';
+            $attachNames[] = 'Abnahmeprotokoll_' . dol_sanitizeFileName($fichinter->ref) . '.pdf';
         }
 
         // From address
