@@ -4557,6 +4557,8 @@ class ServiceReportApp {
         container = container || document.getElementById('maintenanceList');
         container.innerHTML = '';
 
+        const nextYear = new Date().getFullYear() + 1;
+
         const statusColors = {
             overdue:   '#f44336',
             due:       '#ff9800',
