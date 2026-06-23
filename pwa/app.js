@@ -4965,7 +4965,11 @@ class ServiceReportApp {
                 bodyEl.innerHTML = info.body_html || info.body || '';
             }
             bccEl.value = info.bcc || '';
-            attachNote.textContent = '📎 PDF wird automatisch angehängt';
+            if (info.attachments && info.attachments.length > 0) {
+                attachNote.innerHTML = info.attachments.map(name => `📎 <span style="font-family:monospace;font-size:11px;">${escapeHtml(name)}</span>`).join('<br>');
+            } else {
+                attachNote.textContent = '📎 PDF wird automatisch angehängt';
+            }
         } catch (err) {
             subjectEl.value = this.currentIntervention.ref || '';
             attachNote.textContent = '';

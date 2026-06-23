@@ -460,6 +460,23 @@ function handleIntervention($method, $parts, $input) {
             $body = trim(implode("\n", $collapsed));
         }
 
+        // Check which PDF attachments exist
+        $docDir  = getFichinterDocDir($fichinter);
+        $refSafe = dol_sanitizeFileName($fichinter->ref);
+        $refDir  = $docDir . '/' . $refSafe . '/';
+        $attachments = [];
+        if (file_exists($refDir . $refSafe . '_signed.pdf')) {
+            $attachments[] = $refSafe . '_signed.pdf';
+        } elseif (file_exists($refDir . $refSafe . '.pdf')) {
+            $attachments[] = $refSafe . '.pdf';
+        }
+        if (file_exists($refDir . 'Checklisten_' . $refSafe . '.pdf')) {
+            $attachments[] = 'Checklisten_' . $refSafe . '.pdf';
+        }
+        if (file_exists($refDir . 'Abnahmeprotokoll_' . $refSafe . '.pdf')) {
+            $attachments[] = 'Abnahmeprotokoll_' . $refSafe . '.pdf';
+        }
+
         echo json_encode([
             'status'         => 'ok',
             'email'          => $recipientEmail,
@@ -467,7 +484,8 @@ function handleIntervention($method, $parts, $input) {
             'subject'        => $subject,
             'body'           => $body,
             'body_html'      => isset($rawBody) ? $rawBody : '',
-            'bcc'            => $user->email ?: ''
+            'bcc'            => $user->email ?: '',
+            'attachments'    => $attachments
         ]);
         return;
     }
