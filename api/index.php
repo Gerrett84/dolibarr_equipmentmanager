@@ -433,6 +433,7 @@ function handleIntervention($method, $parts, $input) {
         $template = $formmail->getEMailTemplate($db, 'fichinter_send', $user, $langs, 0, 1, '', -1);
         $subject = '';
         $body    = '';
+        $rawBody = '';
         if (is_object($template) && $template->id > 0) {
             $subst = getCommonSubstitutionArray($langs, 0, null, $fichinter);
             complete_substitutions_array($subst, $langs, $fichinter);
@@ -465,6 +466,7 @@ function handleIntervention($method, $parts, $input) {
             'recipient_name' => $recipientName,
             'subject'        => $subject,
             'body'           => $body,
+            'body_html'      => isset($rawBody) ? $rawBody : '',
             'bcc'            => $user->email ?: ''
         ]);
         return;
@@ -512,8 +514,8 @@ function handleIntervention($method, $parts, $input) {
         $subject = $customSubject ?: (is_object($template) && $template->id > 0
             ? make_substitutions($template->topic, $subst) : $fichinter->ref);
         if ($customBody) {
-            // Client sent an edited plain-text body — convert newlines to <br>
-            $message = nl2br(dol_htmlentitiesbr($customBody));
+            // Client sent HTML body (from contenteditable) — use as-is
+            $message = $customBody;
         } else {
             $message = is_object($template) && $template->id > 0
                 ? make_substitutions($template->content, $subst) : '';

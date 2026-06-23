@@ -2843,8 +2843,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             </div>
             <div id="emailModalAttachNote" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
             <div id="emailModalBodyRow" style="display:none;margin-top:12px;">
-                <label class="form-label">E-Mail Inhalt</label>
-                <textarea id="emailModalBody" class="form-input" rows="6" style="resize:vertical;font-size:13px;line-height:1.5;"></textarea>
+                <label class="form-label">E-Mail Inhalt <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(direkt bearbeitbar)</span></label>
+                <div id="emailModalBody" contenteditable="true"
+                    style="min-height:120px;max-height:300px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;background:var(--bg-card);color:var(--text-primary);outline:none;"></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:20px;">
                 <button type="button" class="btn" id="btnEmailModalCancel" style="flex:1;background:var(--bg-secondary);color:var(--text-primary);">Abbrechen</button>

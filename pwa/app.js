@@ -4956,15 +4956,15 @@ class ServiceReportApp {
         bodyEl.value = '';
         sendBtn.disabled = true;
 
-        let originalBody = '';
-
         try {
             const info = await this.apiCall(`intervention/${this.currentIntervention.id}/email-info`);
             recipientEl.value = info.email || '';
             subjectEl.value   = info.subject || this.currentIntervention.ref || '';
-            bodyEl.value      = info.body || '';
-            originalBody      = info.body || '';
-            bccEl.value       = info.bcc || '';
+            // Populate contenteditable div with rendered HTML
+            if (showBody) {
+                bodyEl.innerHTML = info.body_html || info.body || '';
+            }
+            bccEl.value = info.bcc || '';
             attachNote.textContent = '📎 PDF wird automatisch angehängt';
         } catch (err) {
             subjectEl.value = this.currentIntervention.ref || '';
@@ -4972,16 +4972,15 @@ class ServiceReportApp {
         }
         sendBtn.disabled = false;
 
-        cancelBtn.onclick = () => { modal.style.display = 'none'; };
+        cancelBtn.onclick = () => { modal.style.display = 'none'; bodyEl.innerHTML = ''; };
         sendBtn.onclick   = () => {
-            // Only send custom body if user actually edited it — otherwise API uses HTML template
-            const editedBody = showBody ? bodyEl.value.trim() : '';
-            const bodyChanged = editedBody !== originalBody.trim();
+            // Send innerHTML (HTML with formatting intact, even after editing)
+            const htmlBody = showBody ? bodyEl.innerHTML.trim() : '';
             this.sendEmailReport(
                 recipientEl.value.trim(),
                 subjectEl.value.trim(),
                 ccEl.value.trim(),
-                bodyChanged ? editedBody : '',
+                htmlBody,
                 bccEl.value.trim()
             );
         };
