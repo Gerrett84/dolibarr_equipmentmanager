@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.4.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.4.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,10 @@
 -----
 
 ## Features
+
+### NEU in v5.4.1: Wartungsübersicht-Fix
+
+- **Wartungsübersicht PWA** – Anlagen die in diesem Jahr gewartet wurden erscheinen bei 12-Monaten-Filter korrekt als „Fällig 2027"; SW-Cache-Bypass über Query-Param (`?v=5.4.2`) verhindert Ausliefern alter JS-Versionen
 
 ### NEU in v5.4.0: PWA-Verbesserungen & E-Mail
 
@@ -285,6 +289,11 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.4.1 (2026-06-23)
+
+- **Fix: Wartungsübersicht** – Anlagen mit `maint_status = done` erscheinen bei 12-Monaten-Filter korrekt als „Fällig 2027" (nächster Jahres-Termin); wirklich überfällige Anlagen bleiben weiterhin dauerhaft als „Überfällig" sichtbar
+- **Fix: SW-Cache** – Query-Param `?v=5.4.2` in `index.php` verhindert dass der Service Worker veraltetes `app.js` aus dem Cache ausliefert
 
 ### v5.4.0 (2026-06-23)
 

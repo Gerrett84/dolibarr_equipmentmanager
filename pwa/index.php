@@ -2807,8 +2807,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
-    <script src="db.js?v=5.4.1"></script>
-    <script src="app.js?v=5.4.1"></script>
+    <script src="db.js?v=5.4.2"></script>
+    <script src="app.js?v=5.4.2"></script>
 
     <?php if (file_exists('sw.js')): ?>
     <script>
