@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.4.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.4.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,13 @@
 -----
 
 ## Features
+
+### NEU in v5.4.2: PWA Auto-Login & Session-Fix
+
+- **Multi-Device-Token** – Login auf Desktop/neuem Browser löscht nicht mehr den Token anderer Geräte; jedes Gerät behält seinen eigenen gültigen Token
+- **Rolling Token-Erneuerung** – Token-Gültigkeit wird bei jeder Nutzung automatisch um 90 Tage verlängert; läuft nur noch ab nach 90 Tagen kompletter Inaktivität
+- **Auth-Expired-Banner** – Sitzungs-Ablauf wird jetzt sichtbar angezeigt (roter Banner mit Anmelde-Link); bisher wurde „Online" ohne Sync angezeigt ohne Hinweis
+- **Foreground-Sync** – Beim Wechsel in den Vordergrund nach >5 Minuten Pause wird automatisch ein Sync ausgelöst (auch wenn App bereits „Online" war)
 
 ### NEU in v5.4.1: Wartungsübersicht-Fix
 
@@ -289,6 +296,13 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.4.2 (2026-06-29)
+
+- **Fix: Multi-Device PWA-Token** – Neuer Login löscht nur noch abgelaufene Tokens, nicht alle; verhindert Invalidierung anderer Geräte
+- **Fix: Rolling Token-Renewal** – `valid_until` wird bei jeder Nutzung um 90 Tage verlängert (statt festes Ablaufdatum)
+- **Fix: Auth-Expired-Banner** – Sichtbarer roter Banner mit Anmelde-Link wenn Token-Erneuerung fehlschlägt (statt stilles „Online" ohne Sync)
+- **Fix: Foreground-Sync** – Automatischer Sync beim App-Vordergrund-Wechsel wenn letzter Sync >5 Minuten her
 
 ### v5.4.1 (2026-06-23)
 
