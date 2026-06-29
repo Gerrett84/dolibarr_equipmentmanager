@@ -89,41 +89,43 @@ class ServiceReportApp {
             return true;
         }
 
-        // Not authenticated on server - try auto-login via saved PWA token
-        if (this.isOnline && this.pwaToken) {
-            const loginResult = await this.tryAutoLogin(null, null);
-            if (loginResult) {
-                this.showToast('Automatisch angemeldet');
-                return true;
-            }
-            console.warn('Auto-login via token failed');
-        }
-
-        // Fallback to cached auth (for offline mode or when auto-login failed)
-        const cachedAuth = await offlineDB.getMeta('auth');
-
-        // Offline mode - use cached auth if available (even if expired, allow offline access)
-        if (!this.isOnline) {
-            if (cachedAuth) {
-                this.user = cachedAuth;
-                this.showToast('Offline-Modus: ' + cachedAuth.name);
-                return true;
-            } else if (this.pwaToken) {
-                // Have token but no cached auth - allow limited offline access
+        // Try token auth — always attempt if token exists, regardless of isOnline state.
+        // Network errors (offline) are caught and fall through to cached auth.
+        if (this.pwaToken) {
+            try {
+                const loginResult = await this.tryAutoLogin(null, null);
+                if (loginResult) {
+                    this.showToast('Automatisch angemeldet');
+                    return true;
+                }
+                // Server responded but token is invalid — clear it, show login form
+                await offlineDB.removeMeta('pwa_token');
+                await offlineDB.removeMeta('auth');
+                this.pwaToken = null;
+                this.user = null;
                 const savedCredentials = await offlineDB.getMeta('credentials');
-                this.user = { name: savedCredentials?.username || 'Offline', offline: true };
-                this.showToast('Offline-Modus (begrenzt)');
-                return true;
-            } else {
-                this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
+                this.showLoginForm(savedCredentials);
                 return false;
+            } catch (e) {
+                // Network error — device is offline, fall through to cached auth
             }
         }
 
-        // Online but not authenticated and auto-login failed
-        const savedCredentials = await offlineDB.getMeta('credentials');
-        this.showLoginForm(savedCredentials);
-        return false;
+        // Offline fallback — use cached auth if available
+        const cachedAuth = await offlineDB.getMeta('auth');
+        if (cachedAuth) {
+            this.user = cachedAuth;
+            this.showToast('Offline-Modus: ' + cachedAuth.name);
+            return true;
+        } else if (this.pwaToken) {
+            const savedCredentials = await offlineDB.getMeta('credentials');
+            this.user = { name: savedCredentials?.username || 'Offline', offline: true };
+            this.showToast('Offline-Modus (begrenzt)');
+            return true;
+        } else {
+            this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
+            return false;
+        }
     }
 
     // Show login form - with optional pre-filled credentials
@@ -266,33 +268,31 @@ class ServiceReportApp {
         }
     }
 
-    // Try auto-login using saved PWA token
+    // Try auto-login using saved PWA token.
+    // Returns true on success, false if server says token is invalid.
+    // Throws on network errors (caller distinguishes offline from auth failure).
     async tryAutoLogin(username, password) {
         if (!this.pwaToken) return false;
-        try {
-            const response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
-                method: 'GET',
-                headers: { 'X-PWA-Token': this.pwaToken }
-            });
+        // No try-catch here — let network errors propagate to caller
+        const response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
+            method: 'GET',
+            headers: { 'X-PWA-Token': this.pwaToken }
+        });
 
-            if (response.ok) {
-                const result = await response.json();
-                if (result.status === 'ok' && result.user_id) {
-                    this.user = {
-                        id: result.user_id,
-                        login: result.user_login,
-                        name: result.user_login,
-                        valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
-                    };
-                    await offlineDB.setMeta('auth', this.user);
-                    return true;
-                }
+        if (response.ok) {
+            const result = await response.json();
+            if (result.status === 'ok' && result.user_id) {
+                this.user = {
+                    id: result.user_id,
+                    login: result.user_login,
+                    name: result.user_login,
+                    valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
+                };
+                await offlineDB.setMeta('auth', this.user);
+                return true;
             }
-            return false;
-        } catch (err) {
-            console.error('Token auto-login failed:', err);
-            return false;
         }
+        return false; // Server reachable but token is not valid
     }
 
     // Show trusted device info banner
@@ -334,6 +334,17 @@ class ServiceReportApp {
     }
 
     setupEventListeners() {
+        // Reload token when page is restored from bfcache (e.g. after visiting settings.php)
+        window.addEventListener('pageshow', async (e) => {
+            if (e.persisted) {
+                const freshToken = await offlineDB.getMeta('pwa_token');
+                if (freshToken) this.pwaToken = freshToken;
+                const banner = document.getElementById('authExpiredBanner');
+                if (banner) banner.remove();
+                this.checkConnectivity(true, 2);
+            }
+        });
+
         // Online/Offline events
         window.addEventListener('online', () => {
             // Browser reports network — verify server is actually reachable
@@ -618,9 +629,12 @@ class ServiceReportApp {
         }
     }
 
-    // Try to refresh session using saved PWA token
+    // Try to refresh session using saved PWA token.
+    // Always reloads token from IndexedDB first — settings page may have saved a new one.
     async _trySessionRefresh() {
         try {
+            const freshToken = await offlineDB.getMeta('pwa_token');
+            if (freshToken) this.pwaToken = freshToken;
             if (!this.pwaToken) return false;
             return await this.tryAutoLogin(null, null);
         } catch (e) {
