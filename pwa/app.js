@@ -355,7 +355,15 @@ class ServiceReportApp {
         // Use 3 retries (× 1.5s) because network may not be immediately available after wakeup
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                this.checkConnectivity(true, 3);
+                const now = Date.now();
+                const lastSync = this._lastSyncTime || 0;
+                const minutesSinceSync = (now - lastSync) / 60000;
+                if (this.isOnline && minutesSinceSync > 5) {
+                    // Already online but data is stale — force refresh
+                    this.syncData();
+                } else {
+                    this.checkConnectivity(true, 3);
+                }
             }
         });
 
@@ -578,11 +586,10 @@ class ServiceReportApp {
                         await this._goOnline(silent, skipAutoSync);
                         return true;
                     }
-                    // No credentials / refresh failed — online but can't auth, don't sync
-                    if (!this.isOnline) {
-                        this.isOnline = true;
-                        this.updateOnlineStatus();
-                    }
+                    // Auth failed — show notification and login option
+                    this.isOnline = true;
+                    this.updateOnlineStatus();
+                    this._showAuthExpiredBanner();
                     return true;
                 }
             } catch (e) {
@@ -619,6 +626,17 @@ class ServiceReportApp {
         } catch (e) {
             return false;
         }
+    }
+
+    // Show sticky banner when auth has expired and token refresh failed
+    _showAuthExpiredBanner() {
+        if (document.getElementById('authExpiredBanner')) return; // already shown
+        const banner = document.createElement('div');
+        banner.id = 'authExpiredBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#d32f2f;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+        banner.innerHTML = '<span>⚠️ Sitzung abgelaufen – bitte neu anmelden</span>' +
+            '<a href="index.php" style="color:#fff;font-weight:bold;text-decoration:underline;white-space:nowrap;margin-left:12px;">Anmelden</a>';
+        document.body.prepend(banner);
     }
 
     showView(viewId, title = null) {
@@ -2768,6 +2786,7 @@ class ServiceReportApp {
             // 3. Prefetch ALL data for offline use
             await this.prefetchAllData();
 
+            this._lastSyncTime = Date.now();
             this.showToast('Alle Daten synchronisiert');
 
         } catch (err) {

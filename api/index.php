@@ -2920,8 +2920,8 @@ function handlePwaToken($method, $input) {
         // First check if table exists, create if not
         createPwaTokenTableIfNeeded($db);
 
-        // Delete existing tokens for this user (one token per user)
-        $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$user->id;
+        // Clean up expired tokens for this user (keep valid tokens from other devices)
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$user->id." AND valid_until < '".$db->idate(dol_now())."'";
         $db->query($sql);
 
         // Insert new token
@@ -2999,9 +2999,10 @@ function validatePwaToken($token, $db, &$user) {
         $user->fetch($userId);
 
         if ($user->id > 0) {
-            // Update last use timestamp
+            // Update last use and extend validity (rolling 90-day window)
+            $newValidUntil = dol_now() + (90 * 24 * 3600);
             $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
-            $sqlUpdate .= " SET last_use = '".$db->idate(dol_now())."'";
+            $sqlUpdate .= " SET last_use = '".$db->idate(dol_now())."', valid_until = '".$db->idate($newValidUntil)."'";
             $sqlUpdate .= " WHERE token = '".$db->escape($hashedToken)."'";
             $db->query($sqlUpdate);
 
