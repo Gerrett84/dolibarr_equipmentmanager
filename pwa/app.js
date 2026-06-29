@@ -126,6 +126,7 @@ class ServiceReportApp {
     showLoginForm(savedCredentials = null) {
         document.getElementById('interventionsLoading').style.display = 'none';
 
+        const hasCredentials = !!(savedCredentials && savedCredentials.username);
         const usernameValue = savedCredentials?.username || '';
         const passwordValue = '';
 
@@ -230,9 +231,8 @@ class ServiceReportApp {
                     };
                     await offlineDB.setMeta('auth', this.user);
 
-                    // Success! Load interventions directly (no reload needed)
-                    this.showToast('Anmeldung erfolgreich');
-                    await this.loadInterventions();
+                    // Reload so init() runs fully with the new token
+                    window.location.reload();
                     return;
                 }
             }
