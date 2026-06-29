@@ -89,43 +89,37 @@ class ServiceReportApp {
             return true;
         }
 
-        // Try token auth — always attempt if token exists, regardless of isOnline state.
-        // Network errors (offline) are caught and fall through to cached auth.
+        // Token auth — always try if token exists (regardless of isOnline).
+        // Network errors → offline fallback. Server 401 → login form.
         if (this.pwaToken) {
             try {
-                const loginResult = await this.tryAutoLogin(null, null);
-                if (loginResult) {
+                if (await this.tryAutoLogin(null, null)) {
                     this.showToast('Automatisch angemeldet');
                     return true;
                 }
-                // Server responded but token is invalid — clear it, show login form
+                // Server responded but token is invalid → clear it, fall through to login form
                 await offlineDB.removeMeta('pwa_token');
-                await offlineDB.removeMeta('auth');
                 this.pwaToken = null;
-                this.user = null;
-                const savedCredentials = await offlineDB.getMeta('credentials');
-                this.showLoginForm(savedCredentials);
-                return false;
             } catch (e) {
-                // Network error — device is offline, fall through to cached auth
+                // Network error → device is offline → use cached auth
+                const cachedAuth = await offlineDB.getMeta('auth');
+                if (cachedAuth) {
+                    this.user = cachedAuth;
+                    this.showToast('Offline-Modus: ' + cachedAuth.name);
+                    return true;
+                }
+                const creds = await offlineDB.getMeta('credentials');
+                this.user = { name: creds?.username || 'Offline', offline: true };
+                this.showToast('Offline-Modus (begrenzt)');
+                return true;
             }
         }
 
-        // Offline fallback — use cached auth if available
-        const cachedAuth = await offlineDB.getMeta('auth');
-        if (cachedAuth) {
-            this.user = cachedAuth;
-            this.showToast('Offline-Modus: ' + cachedAuth.name);
-            return true;
-        } else if (this.pwaToken) {
-            const savedCredentials = await offlineDB.getMeta('credentials');
-            this.user = { name: savedCredentials?.username || 'Offline', offline: true };
-            this.showToast('Offline-Modus (begrenzt)');
-            return true;
-        } else {
-            this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
-            return false;
-        }
+        // No valid token (or just cleared) → show login form.
+        // Cached auth is NOT used here — it would allow access but block sync silently.
+        const savedCredentials = await offlineDB.getMeta('credentials');
+        this.showLoginForm(savedCredentials);
+        return false;
     }
 
     // Show login form - with optional pre-filled credentials
