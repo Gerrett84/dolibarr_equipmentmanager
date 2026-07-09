@@ -1828,7 +1828,7 @@ function handleAvailableEquipment($method, $parts, $input) {
         return;
     }
 
-    // Get the thirdparty (customer) of this intervention
+    // Get the thirdparty (customer) and OBJ contact of this intervention
     $sql_inter = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$intervention_id;
     $res_inter = $db->query($sql_inter);
     if (!$res_inter || !$db->num_rows($res_inter)) {
@@ -1839,12 +1839,27 @@ function handleAvailableEquipment($method, $parts, $input) {
     $inter = $db->fetch_object($res_inter);
     $socid = (int)$inter->fk_soc;
 
-    // Get all equipment for this customer that is NOT yet linked to this intervention
+    // Check for linked object address (OBJ contact)
+    $obj_address_id = 0;
+    $sql_obj = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
+    $sql_obj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+    $sql_obj .= " WHERE ec.element_id = ".(int)$intervention_id;
+    $sql_obj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
+    $res_obj = $db->query($sql_obj);
+    if ($res_obj && ($obj_row = $db->fetch_object($res_obj))) {
+        $obj_address_id = (int)$obj_row->fk_socpeople;
+    }
+
+    // Get available equipment not yet linked to this intervention.
+    // If the intervention has an object address (OBJ), restrict to equipment at that address.
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
     $sql .= " sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
     $sql .= " WHERE e.fk_soc = ".(int)$socid;
+    if ($obj_address_id > 0) {
+        $sql .= " AND e.fk_address = ".(int)$obj_address_id;
+    }
     $sql .= " AND e.rowid NOT IN (";
     $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= "   WHERE fk_intervention = ".(int)$intervention_id;
