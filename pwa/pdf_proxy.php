@@ -23,7 +23,8 @@ if (empty($pwaToken) || !validateProxyPwaToken($pwaToken, $db)) {
 }
 
 // Validate and resolve file path — only allow files inside DOL_DATA_ROOT
-$file = GETPOST('file', 'alpha');
+// Use $_GET directly; security is handled by realpath + DOL_DATA_ROOT prefix check below
+$file = isset($_GET['file']) ? $_GET['file'] : '';
 if (empty($file)) { http_response_code(400); exit('Missing file parameter'); }
 
 $realDataRoot = realpath(DOL_DATA_ROOT);

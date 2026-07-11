@@ -16,13 +16,13 @@ if (!$res) {
     exit('Environment not found');
 }
 
-// Only allow relative URLs within this module (prevent open redirect)
-$url = GETPOST('url', 'alpha');
-if (empty($url) || preg_match('/^https?:\/\//i', $url)) {
+// Only allow relative URLs within this module (prevent open redirect + XSS)
+$rawUrl = isset($_GET['url']) ? $_GET['url'] : '';
+if (empty($rawUrl) || preg_match('/^https?:\/\//i', $rawUrl) || strpos($rawUrl, '..') !== false) {
     http_response_code(400);
     exit('Invalid URL');
 }
-$safeUrl = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+$safeUrl = htmlspecialchars($rawUrl, ENT_QUOTES, 'UTF-8');
 
 $theme = GETPOST('theme', 'alpha');
 $isDark = ($theme === 'dark');
@@ -43,12 +43,12 @@ $textColor = $isDark ? '#e0e0e0' : '#ffffff';
             background: <?php echo $bgColor; ?>;
             color: <?php echo $textColor; ?>;
         }
-        embed {
+        iframe {
             display: block;
             width: 100%;
             height: 100%;
+            border: none;
         }
-        /* Fallback message if embed not supported */
         .fallback {
             display: none;
             padding: 20px;
@@ -56,11 +56,10 @@ $textColor = $isDark ? '#e0e0e0' : '#ffffff';
             font-family: sans-serif;
             font-size: 15px;
         }
-        embed:not([src]) + .fallback { display: block; }
     </style>
 </head>
 <body>
-    <embed src="<?php echo $safeUrl; ?>" type="application/pdf" width="100%" height="100%">
+    <iframe src="<?php echo $safeUrl; ?>" width="100%" height="100%" allowfullscreen></iframe>
     <div class="fallback">PDF kann nicht angezeigt werden.<br>
         <a href="<?php echo $safeUrl; ?>" style="color:<?php echo $textColor; ?>">PDF herunterladen</a>
     </div>
