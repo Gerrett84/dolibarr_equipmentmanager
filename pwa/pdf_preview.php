@@ -19,7 +19,23 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 
-// Check authentication
+// Authenticate: session or PWA token (query param for iframe/tab contexts)
+if (!$user->id) {
+    $pwaToken = GETPOST('pwa_token', 'alpha') ?: ($_SERVER['HTTP_X_PWA_TOKEN'] ?? '');
+    if (!empty($pwaToken)) {
+        $hashed = hash('sha256', $pwaToken);
+        $sqlTok = "SELECT fk_user FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token"
+                . " WHERE token = '".$db->escape($hashed)."'"
+                . " AND valid_until > '".$db->idate(dol_now())."'";
+        $resTok = $db->query($sqlTok);
+        if ($resTok && $db->num_rows($resTok)) {
+            $tokObj = $db->fetch_object($resTok);
+            require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+            $user = new User($db);
+            $user->fetch((int)$tokObj->fk_user);
+        }
+    }
+}
 if (!$user->id) {
     http_response_code(401);
     die('Not authenticated');

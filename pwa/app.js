@@ -3898,8 +3898,14 @@ class ServiceReportApp {
                 const item = document.createElement('div');
                 item.className = 'document-item';
 
-                // Create preview URL (add &attachment=0 for inline display)
-                const previewUrl = doc.url + '&attachment=0';
+                // Convert document.php URL to token-auth proxy URL
+                const proxyBase = 'pdf_proxy.php';
+                const docUrlObj = new URL(doc.url, window.location.href);
+                const fileParam = docUrlObj.searchParams.get('file') || '';
+                const proxyUrl = fileParam
+                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`
+                    : doc.url;
+                const previewUrl = proxyUrl + '&attachment=0';
 
                 // Determine icon and filename for delete
                 let icon = '📄';
@@ -3915,7 +3921,7 @@ class ServiceReportApp {
                 if (this.isOnline) {
                     item.innerHTML = `
                         <div class="document-icon">${icon}</div>
-                        <a href="${doc.url}" class="document-info" target="_blank" title="Download">
+                        <a href="${proxyUrl}&attachment=1" class="document-info" target="_blank" title="Download">
                             <div class="document-name">${doc.name}</div>
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
@@ -4005,7 +4011,7 @@ class ServiceReportApp {
             return;
         }
 
-        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
         this.openPdfViewer(previewUrl, 'Servicebericht');
     }
 
@@ -4022,7 +4028,7 @@ class ServiceReportApp {
         }
 
         // Pass current equipment ID so only that one appears in the protocol
-        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
         if (this.currentEquipment && this.currentEquipment.id) {
             protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
         }
@@ -6066,7 +6072,7 @@ class ServiceReportApp {
         // Build URL to generate PDF using module URL from config
         // preview=1 means PDF is just displayed, not saved to documents
         const previewParam = preview ? '&preview=1' : '';
-        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}`;
+        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
 
         this.openPdfViewer(pdfUrl, 'Checkliste');
     }
