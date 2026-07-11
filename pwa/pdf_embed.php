@@ -5,11 +5,12 @@
  * scales to fit the device width (especially on iOS Safari PWA).
  */
 
-// Load Dolibarr environment
+// No session needed — the embedded URL carries its own auth (pwa_token).
+define('NOLOGIN', '1');
+
 $res = 0;
-if (!$res && file_exists("../../../main.inc.php")) {
-    $res = include "../../../main.inc.php";
-}
+if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) $res = @include $_SERVER["CONTEXT_DOCUMENT_ROOT"]."/main.inc.php";
+if (!$res && file_exists("../../../main.inc.php")) $res = @include "../../../main.inc.php";
 if (!$res) {
     http_response_code(503);
     exit('Environment not found');
