@@ -2228,6 +2228,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
         #pdfViewerFrame {
             flex: 1;
+            min-height: 0;
             width: 100%;
             border: none;
         }
@@ -2817,8 +2818,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
-    <script src="db.js?v=5.4.9"></script>
-    <script src="app.js?v=5.4.9"></script>
+    <script src="db.js?v=5.5.0"></script>
+    <script src="app.js?v=5.5.0"></script>
 
     <?php if (file_exists('sw.js')): ?>
     <script>

@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.4.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,14 @@
 -----
 
 ## Features
+
+### NEU in v5.5.0: HTTPS-Fixes & PDF-Viewer
+
+- **Fix: PWA permanent offline via HTTPS** – OpenResty/NPM auf ZimaOS cachte `sw.js` mit `max-age` und ignorierte `Cache-Control`-Header von Apache; Proxy-Caching für `service.kurina.net` deaktiviert; `sw.js` wird jetzt korrekt mit `no-cache, no-store, must-revalidate` ausgeliefert
+- **Fix: Font Awesome Icons fehlen auf HTTPS** – NPM-Cache filterte CORS-Header (`Access-Control-Allow-Origin: *`) für Webfonts heraus; behoben zusammen mit dem Proxy-Caching-Fix
+- **Fix: PDF-Viewer Skalierung auf iOS 26** – `<embed>` wird unter iOS 26 nicht mehr unterstützt; iOS PDF-Viewer rendert PDFs immer in natürlicher Breite (A4 = 595px) unabhängig von der iframe-Breite; PDF-Embed-Wrapper setzt inneren iframe auf 595px und skaliert per `transform: scale(deviceWidth/595)` auf Gerätebreite
+- **Fix: TOTP-Feld fehlt auf HTTPS** – Login-Injektion via jQuery `.clone()` kopierte eingebetteten `<script nonce="...">` des Passwort-Toggles; auf HTTPS schlug die DOM-Injektion lautlos fehl; auf Vanilla-JS `createElement` umgeschrieben (TOTP-Modul v1.4.4)
+- **Fix: mod_headers** – Apache-Modul `mod_headers` auf CT 100 und CT 104 aktiviert für `.htaccess`-Header-Direktiven
 
 ### NEU in v5.4.2: PWA Auto-Login & Session-Fix
 
@@ -296,6 +304,14 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.5.0 (2026-07-12)
+
+- **Fix: PWA permanent offline via HTTPS** – NPM/OpenResty cachte `sw.js` mit `max-age` und ignorierte `no-cache`-Header von Apache; Proxy-Caching deaktiviert
+- **Fix: Icons fehlen auf HTTPS** – NPM-Cache filterte CORS-Header für Webfonts heraus; durch Proxy-Caching-Fix behoben
+- **Fix: PDF-Viewer Skalierung iOS 26** – iOS PDF-Viewer rendert PDFs in natürlicher Breite; `pdf_embed.php` skaliert inneren iframe per `transform: scale()` auf Gerätebreite
+- **Fix: TOTP-Feld auf HTTPS** – jQuery `.clone()` kopierte `<script nonce>` → DOM-Injektion fehlschlug; auf Vanilla-JS `createElement` umgeschrieben
+- **Fix: mod_headers** – Apache `mod_headers` auf CT 100 & CT 104 aktiviert
 
 ### v5.4.2 (2026-06-29)
 

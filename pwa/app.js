@@ -3983,7 +3983,6 @@ class ServiceReportApp {
     openPdfViewer(url, title = 'Dokument') {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
-        // Wrap in pdf_embed.php so the PDF scales to device width on iOS
         const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
         const isDark = storedTheme === 'dark' ||
             (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
