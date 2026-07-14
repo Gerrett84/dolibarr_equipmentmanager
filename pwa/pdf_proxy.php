@@ -27,8 +27,19 @@ if (empty($pwaToken) || !validateProxyPwaToken($pwaToken, $db)) {
 $file = isset($_GET['file']) ? $_GET['file'] : '';
 if (empty($file)) { http_response_code(400); exit('Missing file parameter'); }
 
+// Map modulepart to its subdirectory under DOL_DATA_ROOT
+$modulepart = isset($_GET['modulepart']) ? preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['modulepart'])) : '';
+$moduleDirMap = [
+    'fichinter'     => 'ficheinter',
+    'ficheinter'    => 'ficheinter',
+    'equipmentmanager' => 'equipmentmanager',
+];
+// Default to ficheinter — all documents served by this proxy are from ficheinter
+$moduleSubdir = isset($moduleDirMap[$modulepart]) ? $moduleDirMap[$modulepart] : 'ficheinter';
+
 $realDataRoot = realpath(DOL_DATA_ROOT);
-$fullPath     = realpath($realDataRoot . '/' . ltrim($file, '/'));
+$basePath  = $realDataRoot . '/' . $moduleSubdir;
+$fullPath  = realpath($basePath . '/' . ltrim($file, '/'));
 
 if ($fullPath === false || strpos($fullPath, $realDataRoot) !== 0 || !is_file($fullPath)) {
     http_response_code(404);

@@ -3902,8 +3902,9 @@ class ServiceReportApp {
                 const proxyBase = 'pdf_proxy.php';
                 const docUrlObj = new URL(doc.url, window.location.href);
                 const fileParam = docUrlObj.searchParams.get('file') || '';
+                const modulePart = docUrlObj.searchParams.get('modulepart') || '';
                 const proxyUrl = fileParam
-                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`
+                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&modulepart=${encodeURIComponent(modulePart)}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`
                     : doc.url;
                 const previewUrl = proxyUrl + '&attachment=0';
 

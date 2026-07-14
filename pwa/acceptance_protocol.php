@@ -5,6 +5,8 @@
  * Two-column layout: Inbetriebnahme | Abnahme (equal height)
  */
 
+define('NOLOGIN', '1');
+
 // Load Dolibarr environment
 $res = 0;
 if (!$res && file_exists("../../../main.inc.php")) {
@@ -38,6 +40,7 @@ if (!$user->id) {
             require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
             $user = new User($db);
             $user->fetch((int)$tokObj->fk_user);
+            $user->getrights();
         }
     }
 }

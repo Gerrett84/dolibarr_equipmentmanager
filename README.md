@@ -19,6 +19,8 @@
 - **Fix: PDF-Viewer Skalierung auf iOS 26** – `<embed>` wird unter iOS 26 nicht mehr unterstützt; iOS PDF-Viewer rendert PDFs immer in natürlicher Breite (A4 = 595px) unabhängig von der iframe-Breite; PDF-Embed-Wrapper setzt inneren iframe auf 595px und skaliert per `transform: scale(deviceWidth/595)` auf Gerätebreite
 - **Fix: TOTP-Feld fehlt auf HTTPS** – Login-Injektion via jQuery `.clone()` kopierte eingebetteten `<script nonce="...">` des Passwort-Toggles; auf HTTPS schlug die DOM-Injektion lautlos fehl; auf Vanilla-JS `createElement` umgeschrieben (TOTP-Modul v1.4.4)
 - **Fix: mod_headers** – Apache-Modul `mod_headers` auf CT 100 und CT 104 aktiviert für `.htaccess`-Header-Direktiven
+- **Fix: PDF-Dokumente „File not found"** – `pdf_proxy.php` suchte Dateien direkt unter `DOL_DATA_ROOT` ohne `ficheinter/`-Unterverzeichnis; `modulepart`-zu-Verzeichnis-Mapping ergänzt, `ficheinter/` als Standard-Subverzeichnis gesetzt
+- **Fix: PDF-Viewer verlangt Dolibarr-Login** – `pdf_preview.php` und `acceptance_protocol.php` fehlte `NOLOGIN`; Dolibarr leitete auf Login-Seite um; `define('NOLOGIN', '1')` ergänzt + `$user->getrights()` nach Token-Authentifizierung damit Berechtigungsprüfung korrekt funktioniert
 
 ### NEU in v5.4.2: PWA Auto-Login & Session-Fix
 
@@ -312,6 +314,8 @@ chmod -R 755 equipmentmanager
 - **Fix: PDF-Viewer Skalierung iOS 26** – iOS PDF-Viewer rendert PDFs in natürlicher Breite; `pdf_embed.php` skaliert inneren iframe per `transform: scale()` auf Gerätebreite
 - **Fix: TOTP-Feld auf HTTPS** – jQuery `.clone()` kopierte `<script nonce>` → DOM-Injektion fehlschlug; auf Vanilla-JS `createElement` umgeschrieben
 - **Fix: mod_headers** – Apache `mod_headers` auf CT 100 & CT 104 aktiviert
+- **Fix: PDF-Dokumente „File not found"** – `pdf_proxy.php` baute Dateipfad ohne `ficheinter/`-Unterverzeichnis; `modulepart`-Mapping + Fallback auf `ficheinter/` ergänzt; auch `modulepart` wird jetzt von `app.js` an den Proxy weitergegeben
+- **Fix: PDF-Viewer verlangt Dolibarr-Login** – `define('NOLOGIN', '1')` in `pdf_preview.php` und `acceptance_protocol.php` ergänzt; `$user->getrights()` nach Token-Authentifizierung für korrekte `hasRight()`-Prüfung
 
 ### v5.4.2 (2026-06-29)
 
@@ -729,6 +733,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.4.0
-**Released:** Juni 2026
+**Current Version:** 5.5.0
+**Released:** Juli 2026
 **Compatibility:** Dolibarr 16.0+
