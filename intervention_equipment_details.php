@@ -47,6 +47,22 @@ if ($id > 0 || !empty($ref)) {
     }
 }
 
+// Authenticate via PWA token if no session (iframe/tab context from PWA)
+if (!$user->id) {
+    $pwaToken = GETPOST('pwa_token', 'alpha') ?: ($_SERVER['HTTP_X_PWA_TOKEN'] ?? '');
+    if (!empty($pwaToken)) {
+        $hashed = hash('sha256', $pwaToken);
+        $sqlTok = "SELECT fk_user FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token"
+                . " WHERE token = '".$db->escape($hashed)."'"
+                . " AND valid_until > '".$db->idate(dol_now())."'";
+        $resTok = $db->query($sqlTok);
+        if ($resTok && $db->num_rows($resTok)) {
+            $tokObj = $db->fetch_object($resTok);
+            $user->fetch((int)$tokObj->fk_user);
+        }
+    }
+}
+
 $permissiontoread = $user->hasRight('ficheinter', 'lire');
 $permissiontoadd = $user->hasRight('ficheinter', 'creer');
 

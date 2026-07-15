@@ -4,6 +4,42 @@
  */
 
 $res = 0;
+if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) $res = @include $_SERVER["CONTEXT_DOCUMENT_ROOT"]."/main.inc.php";
+if (!$res && file_exists("../main.inc.php")) $res = @include "../main.inc.php";
+if (!$res && file_exists("../../main.inc.php")) $res = @include "../../main.inc.php";
+if (!$res && file_exists("../../../main.inc.php")) $res = @include "../../../main.inc.php";
+if (!$res) die("Include of main fails");
+
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
+dol_include_once('/equipmentmanager/class/pricelistitem.class.php');
+
+$langs->loadLangs(array("equipmentmanager@equipmentmanager", "products", "companies"));
+
+if (!$user->rights->equipmentmanager->equipment->read) accessforbidden();
+
+$action  = GETPOST('action', 'aZ09');
+$tab     = GETPOST('tab', 'aZ09') ?: 'rate';
+$item_id = (int) GETPOST('item_id', 'int');
+
+// ─── AJAX: product data ──────────────────────────────────────────────────────
+
+if ($action === 'get_product_json') {
+    $pid = (int) GETPOST('product_id', 'int');
+    $data = array('label' => '', 'description' => '', 'unit' => '');
+    if ($pid > 0) {
+        $sql = "SELECT p.label, p.description, p.duration, u.label AS unit_label"
+            ." FROM ".MAIN_DB_PREFIX."product p"
+            ." LEFT JOIN ".MAIN_DB_PREFIX."c_units u ON u.rowid = p.fk_unit"
+            ." WHERE p.rowid = ".(int)$pid;
+        $res2 = $db->query($sql);
+        if ($res2 && ($obj = $db->fetch_object($res2))) {
+            $data['label'] = $obj->label;
+            $clean = trim(strip_tags(str_replace(array('<br>', '<br/>', '<br />', '</p>', '</li>'), "\n", $obj->description ?? '')));
+            $lines = array_filter(array_map('trim', explode("\n", $clean)));
+            $data['description'] = implode(' ', array_slice(array_values($lines), 0, 3));
+            if (!empty($obj->unit_label)) {
+                $data['unit'] = $obj->unit_label;
+            } elseif (!empty($obj->duration)) {
                 $dur = strtolower(trim($obj->duration));
                 if (strpos($dur, 'h') !== false) $data['unit'] = 'Std.';
                 elseif (strpos($dur, 'd') !== false) $data['unit'] = 'Tag';

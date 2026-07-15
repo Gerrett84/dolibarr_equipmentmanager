@@ -4,6 +4,42 @@
  */
 
 $res = 0;
+if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) $res = @include $_SERVER["CONTEXT_DOCUMENT_ROOT"]."/main.inc.php";
+if (!$res && file_exists("../main.inc.php")) $res = @include "../main.inc.php";
+if (!$res && file_exists("../../main.inc.php")) $res = @include "../../main.inc.php";
+if (!$res && file_exists("../../../main.inc.php")) $res = @include "../../../main.inc.php";
+if (!$res) die("Include of main fails");
+
+require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+dol_include_once('/equipmentmanager/class/pricelistitem.class.php');
+
+if (!$user->rights->equipmentmanager->equipment->read) accessforbidden();
+
+$langs->loadLangs(array("equipmentmanager@equipmentmanager", "companies", "main"));
+
+$list_type  = GETPOST('list_type', 'aZ09') ?: 'rate';
+$fk_soc     = (int) GETPOST('fk_soc', 'int');
+$discount   = max(0, min(99, (float) GETPOST('discount', 'alpha')));
+$do_save    = ((int) GETPOST('save', 'int') === 1);
+$archive_id = (int) GETPOST('archive_id', 'int');
+
+// ─── Serve archived PDF ───────────────────────────────────────────────────────
+
+if ($archive_id > 0) {
+    $dl    = ((int) GETPOST('dl', 'int') === 1);
+    $sql_a = "SELECT * FROM ".MAIN_DB_PREFIX."equipmentmanager_pricelist_archive WHERE rowid=".$archive_id;
+    $res_a = $db->query($sql_a);
+    if ($res_a && ($arc = $db->fetch_object($res_a))) {
+        $fpath = DOL_DATA_ROOT.'/equipmentmanager/pricelist/'.$arc->pdf_filename;
+        if (is_readable($fpath)) {
+            $disp = $dl ? 'attachment' : 'inline';
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: '.$disp.'; filename="'.basename($arc->pdf_filename).'"');
+            readfile($fpath);
+            exit;
+        }
     }
     accessforbidden('File not found');
 }

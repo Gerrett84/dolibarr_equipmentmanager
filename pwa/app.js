@@ -89,38 +89,34 @@ class ServiceReportApp {
             return true;
         }
 
-        // Not authenticated on server - try auto-login via saved PWA token
-        if (this.isOnline && this.pwaToken) {
-            const loginResult = await this.tryAutoLogin(null, null);
-            if (loginResult) {
-                this.showToast('Automatisch angemeldet');
-                return true;
-            }
-            console.warn('Auto-login via token failed');
-        }
-
-        // Fallback to cached auth (for offline mode or when auto-login failed)
-        const cachedAuth = await offlineDB.getMeta('auth');
-
-        // Offline mode - use cached auth if available (even if expired, allow offline access)
-        if (!this.isOnline) {
-            if (cachedAuth) {
-                this.user = cachedAuth;
-                this.showToast('Offline-Modus: ' + cachedAuth.name);
-                return true;
-            } else if (this.pwaToken) {
-                // Have token but no cached auth - allow limited offline access
-                const savedCredentials = await offlineDB.getMeta('credentials');
-                this.user = { name: savedCredentials?.username || 'Offline', offline: true };
+        // Token auth — always try if token exists (regardless of isOnline).
+        // Network errors → offline fallback. Server 401 → login form.
+        if (this.pwaToken) {
+            try {
+                if (await this.tryAutoLogin(null, null)) {
+                    this.showToast('Automatisch angemeldet');
+                    return true;
+                }
+                // Server responded but token is invalid → clear it, fall through to login form
+                await offlineDB.removeMeta('pwa_token');
+                this.pwaToken = null;
+            } catch (e) {
+                // Network error → device is offline → use cached auth
+                const cachedAuth = await offlineDB.getMeta('auth');
+                if (cachedAuth) {
+                    this.user = cachedAuth;
+                    this.showToast('Offline-Modus: ' + cachedAuth.name);
+                    return true;
+                }
+                const creds = await offlineDB.getMeta('credentials');
+                this.user = { name: creds?.username || 'Offline', offline: true };
                 this.showToast('Offline-Modus (begrenzt)');
                 return true;
-            } else {
-                this.showAuthError('Offline - Keine gespeicherte Anmeldung vorhanden.');
-                return false;
             }
         }
 
-        // Online but not authenticated and auto-login failed
+        // No valid token (or just cleared) → show login form.
+        // Cached auth is NOT used here — it would allow access but block sync silently.
         const savedCredentials = await offlineDB.getMeta('credentials');
         this.showLoginForm(savedCredentials);
         return false;
@@ -130,6 +126,7 @@ class ServiceReportApp {
     showLoginForm(savedCredentials = null) {
         document.getElementById('interventionsLoading').style.display = 'none';
 
+        const hasCredentials = !!(savedCredentials && savedCredentials.username);
         const usernameValue = savedCredentials?.username || '';
         const passwordValue = '';
 
@@ -234,9 +231,8 @@ class ServiceReportApp {
                     };
                     await offlineDB.setMeta('auth', this.user);
 
-                    // Success! Load interventions directly (no reload needed)
-                    this.showToast('Anmeldung erfolgreich');
-                    await this.loadInterventions();
+                    // Reload so init() runs fully with the new token
+                    window.location.reload();
                     return;
                 }
             }
@@ -266,33 +262,31 @@ class ServiceReportApp {
         }
     }
 
-    // Try auto-login using saved PWA token
+    // Try auto-login using saved PWA token.
+    // Returns true on success, false if server says token is invalid.
+    // Throws on network errors (caller distinguishes offline from auth failure).
     async tryAutoLogin(username, password) {
         if (!this.pwaToken) return false;
-        try {
-            const response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
-                method: 'GET',
-                headers: { 'X-PWA-Token': this.pwaToken }
-            });
+        // No try-catch here — let network errors propagate to caller
+        const response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
+            method: 'GET',
+            headers: { 'X-PWA-Token': this.pwaToken }
+        });
 
-            if (response.ok) {
-                const result = await response.json();
-                if (result.status === 'ok' && result.user_id) {
-                    this.user = {
-                        id: result.user_id,
-                        login: result.user_login,
-                        name: result.user_login,
-                        valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
-                    };
-                    await offlineDB.setMeta('auth', this.user);
-                    return true;
-                }
+        if (response.ok) {
+            const result = await response.json();
+            if (result.status === 'ok' && result.user_id) {
+                this.user = {
+                    id: result.user_id,
+                    login: result.user_login,
+                    name: result.user_login,
+                    valid_until: (Date.now() / 1000) + (90 * 24 * 3600)
+                };
+                await offlineDB.setMeta('auth', this.user);
+                return true;
             }
-            return false;
-        } catch (err) {
-            console.error('Token auto-login failed:', err);
-            return false;
         }
+        return false; // Server reachable but token is not valid
     }
 
     // Show trusted device info banner
@@ -334,6 +328,17 @@ class ServiceReportApp {
     }
 
     setupEventListeners() {
+        // Reload token when page is restored from bfcache (e.g. after visiting settings.php)
+        window.addEventListener('pageshow', async (e) => {
+            if (e.persisted) {
+                const freshToken = await offlineDB.getMeta('pwa_token');
+                if (freshToken) this.pwaToken = freshToken;
+                const banner = document.getElementById('authExpiredBanner');
+                if (banner) banner.remove();
+                this.checkConnectivity(true, 2);
+            }
+        });
+
         // Online/Offline events
         window.addEventListener('online', () => {
             // Browser reports network — verify server is actually reachable
@@ -355,7 +360,15 @@ class ServiceReportApp {
         // Use 3 retries (× 1.5s) because network may not be immediately available after wakeup
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                this.checkConnectivity(true, 3);
+                const now = Date.now();
+                const lastSync = this._lastSyncTime || 0;
+                const minutesSinceSync = (now - lastSync) / 60000;
+                if (this.isOnline && minutesSinceSync > 5) {
+                    // Already online but data is stale — force refresh
+                    this.syncData();
+                } else {
+                    this.checkConnectivity(true, 3);
+                }
             }
         });
 
@@ -578,11 +591,10 @@ class ServiceReportApp {
                         await this._goOnline(silent, skipAutoSync);
                         return true;
                     }
-                    // No credentials / refresh failed — online but can't auth, don't sync
-                    if (!this.isOnline) {
-                        this.isOnline = true;
-                        this.updateOnlineStatus();
-                    }
+                    // Auth failed — show notification and login option
+                    this.isOnline = true;
+                    this.updateOnlineStatus();
+                    this._showAuthExpiredBanner();
                     return true;
                 }
             } catch (e) {
@@ -611,14 +623,28 @@ class ServiceReportApp {
         }
     }
 
-    // Try to refresh session using saved PWA token
+    // Try to refresh session using saved PWA token.
+    // Always reloads token from IndexedDB first — settings page may have saved a new one.
     async _trySessionRefresh() {
         try {
+            const freshToken = await offlineDB.getMeta('pwa_token');
+            if (freshToken) this.pwaToken = freshToken;
             if (!this.pwaToken) return false;
             return await this.tryAutoLogin(null, null);
         } catch (e) {
             return false;
         }
+    }
+
+    // Show sticky banner when auth has expired and token refresh failed
+    _showAuthExpiredBanner() {
+        if (document.getElementById('authExpiredBanner')) return; // already shown
+        const banner = document.createElement('div');
+        banner.id = 'authExpiredBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#d32f2f;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+        banner.innerHTML = '<span>⚠️ Sitzung abgelaufen – bitte neu anmelden</span>' +
+            '<a href="index.php" style="color:#fff;font-weight:bold;text-decoration:underline;white-space:nowrap;margin-left:12px;">Anmelden</a>';
+        document.body.prepend(banner);
     }
 
     showView(viewId, title = null) {
@@ -2768,6 +2794,7 @@ class ServiceReportApp {
             // 3. Prefetch ALL data for offline use
             await this.prefetchAllData();
 
+            this._lastSyncTime = Date.now();
             this.showToast('Alle Daten synchronisiert');
 
         } catch (err) {
@@ -3871,8 +3898,15 @@ class ServiceReportApp {
                 const item = document.createElement('div');
                 item.className = 'document-item';
 
-                // Create preview URL (add &attachment=0 for inline display)
-                const previewUrl = doc.url + '&attachment=0';
+                // Convert document.php URL to token-auth proxy URL
+                const proxyBase = 'pdf_proxy.php';
+                const docUrlObj = new URL(doc.url, window.location.href);
+                const fileParam = docUrlObj.searchParams.get('file') || '';
+                const modulePart = docUrlObj.searchParams.get('modulepart') || '';
+                const proxyUrl = fileParam
+                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&modulepart=${encodeURIComponent(modulePart)}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`
+                    : doc.url;
+                const previewUrl = proxyUrl + '&attachment=0';
 
                 // Determine icon and filename for delete
                 let icon = '📄';
@@ -3888,7 +3922,7 @@ class ServiceReportApp {
                 if (this.isOnline) {
                     item.innerHTML = `
                         <div class="document-icon">${icon}</div>
-                        <a href="${doc.url}" class="document-info" target="_blank" title="Download">
+                        <a href="${proxyUrl}&attachment=1" class="document-info" target="_blank" title="Download">
                             <div class="document-name">${doc.name}</div>
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
@@ -3950,7 +3984,6 @@ class ServiceReportApp {
     openPdfViewer(url, title = 'Dokument') {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
-        // Wrap in pdf_embed.php so the PDF scales to device width on iOS
         const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
         const isDark = storedTheme === 'dark' ||
             (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -3978,7 +4011,7 @@ class ServiceReportApp {
             return;
         }
 
-        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}`;
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
         this.openPdfViewer(previewUrl, 'Servicebericht');
     }
 
@@ -3995,7 +4028,7 @@ class ServiceReportApp {
         }
 
         // Pass current equipment ID so only that one appears in the protocol
-        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}`;
+        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
         if (this.currentEquipment && this.currentEquipment.id) {
             protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
         }
@@ -6040,7 +6073,7 @@ class ServiceReportApp {
         // Build URL to generate PDF using module URL from config
         // preview=1 means PDF is just displayed, not saved to documents
         const previewParam = preview ? '&preview=1' : '';
-        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}`;
+        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
 
         this.openPdfViewer(pdfUrl, 'Checkliste');
     }

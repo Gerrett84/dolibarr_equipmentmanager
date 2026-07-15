@@ -119,10 +119,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['pwa_autologin'])) {
                 }
 
                 // Generate PWA token so client stores token instead of password
+                $db->query("CREATE TABLE IF NOT EXISTS ".MAIN_DB_PREFIX."equipmentmanager_pwa_token ("
+                    ."rowid INT AUTO_INCREMENT PRIMARY KEY,"
+                    ."fk_user INT NOT NULL,"
+                    ."token VARCHAR(64) NOT NULL,"
+                    ."valid_until DATETIME NOT NULL,"
+                    ."date_creation DATETIME NOT NULL,"
+                    ."last_use DATETIME,"
+                    ."UNIQUE KEY uk_token (token),"
+                    ."KEY idx_user (fk_user)"
+                    .") ENGINE=InnoDB");
                 $pwaTokenPlain = null;
                 $pwaTokenPlainVal = bin2hex(random_bytes(32));
                 $pwaValidUntil = dol_now() + (90 * 24 * 3600);
-                $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$tmpuser->id);
+                $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$tmpuser->id." AND valid_until < '".$db->idate(dol_now())."'");
                 $sqlPwa = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_pwa_token"
                     ." (fk_user, token, valid_until, date_creation, last_use) VALUES ("
                     .(int)$tmpuser->id.",'".$db->escape(hash('sha256', $pwaTokenPlainVal))."',"
@@ -2218,6 +2228,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         }
         #pdfViewerFrame {
             flex: 1;
+            min-height: 0;
             width: 100%;
             border: none;
         }
@@ -2807,8 +2818,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
-    <script src="db.js?v=5.4.2"></script>
-    <script src="app.js?v=5.4.2"></script>
+    <script src="db.js?v=5.5.0"></script>
+    <script src="app.js?v=5.5.0"></script>
 
     <?php if (file_exists('sw.js')): ?>
     <script>

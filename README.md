@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.4.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,23 @@
 -----
 
 ## Features
+
+### NEU in v5.5.0: HTTPS-Fixes & PDF-Viewer
+
+- **Fix: PWA permanent offline via HTTPS** – OpenResty/NPM auf ZimaOS cachte `sw.js` mit `max-age` und ignorierte `Cache-Control`-Header von Apache; Proxy-Caching für `service.kurina.net` deaktiviert; `sw.js` wird jetzt korrekt mit `no-cache, no-store, must-revalidate` ausgeliefert
+- **Fix: Font Awesome Icons fehlen auf HTTPS** – NPM-Cache filterte CORS-Header (`Access-Control-Allow-Origin: *`) für Webfonts heraus; behoben zusammen mit dem Proxy-Caching-Fix
+- **Fix: PDF-Viewer Skalierung auf iOS 26** – `<embed>` wird unter iOS 26 nicht mehr unterstützt; iOS PDF-Viewer rendert PDFs immer in natürlicher Breite (A4 = 595px) unabhängig von der iframe-Breite; PDF-Embed-Wrapper setzt inneren iframe auf 595px und skaliert per `transform: scale(deviceWidth/595)` auf Gerätebreite
+- **Fix: TOTP-Feld fehlt auf HTTPS** – Login-Injektion via jQuery `.clone()` kopierte eingebetteten `<script nonce="...">` des Passwort-Toggles; auf HTTPS schlug die DOM-Injektion lautlos fehl; auf Vanilla-JS `createElement` umgeschrieben (TOTP-Modul v1.4.4)
+- **Fix: mod_headers** – Apache-Modul `mod_headers` auf CT 100 und CT 104 aktiviert für `.htaccess`-Header-Direktiven
+- **Fix: PDF-Dokumente „File not found"** – `pdf_proxy.php` suchte Dateien direkt unter `DOL_DATA_ROOT` ohne `ficheinter/`-Unterverzeichnis; `modulepart`-zu-Verzeichnis-Mapping ergänzt, `ficheinter/` als Standard-Subverzeichnis gesetzt
+- **Fix: PDF-Viewer verlangt Dolibarr-Login** – `pdf_preview.php` und `acceptance_protocol.php` fehlte `NOLOGIN`; Dolibarr leitete auf Login-Seite um; `define('NOLOGIN', '1')` ergänzt + `$user->getrights()` nach Token-Authentifizierung damit Berechtigungsprüfung korrekt funktioniert
+
+### NEU in v5.4.2: PWA Auto-Login & Session-Fix
+
+- **Multi-Device-Token** – Login auf Desktop/neuem Browser löscht nicht mehr den Token anderer Geräte; jedes Gerät behält seinen eigenen gültigen Token
+- **Rolling Token-Erneuerung** – Token-Gültigkeit wird bei jeder Nutzung automatisch um 90 Tage verlängert; läuft nur noch ab nach 90 Tagen kompletter Inaktivität
+- **Auth-Expired-Banner** – Sitzungs-Ablauf wird jetzt sichtbar angezeigt (roter Banner mit Anmelde-Link); bisher wurde „Online" ohne Sync angezeigt ohne Hinweis
+- **Foreground-Sync** – Beim Wechsel in den Vordergrund nach >5 Minuten Pause wird automatisch ein Sync ausgelöst (auch wenn App bereits „Online" war)
 
 ### NEU in v5.4.1: Wartungsübersicht-Fix
 
@@ -289,6 +306,23 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.5.0 (2026-07-12)
+
+- **Fix: PWA permanent offline via HTTPS** – NPM/OpenResty cachte `sw.js` mit `max-age` und ignorierte `no-cache`-Header von Apache; Proxy-Caching deaktiviert
+- **Fix: Icons fehlen auf HTTPS** – NPM-Cache filterte CORS-Header für Webfonts heraus; durch Proxy-Caching-Fix behoben
+- **Fix: PDF-Viewer Skalierung iOS 26** – iOS PDF-Viewer rendert PDFs in natürlicher Breite; `pdf_embed.php` skaliert inneren iframe per `transform: scale()` auf Gerätebreite
+- **Fix: TOTP-Feld auf HTTPS** – jQuery `.clone()` kopierte `<script nonce>` → DOM-Injektion fehlschlug; auf Vanilla-JS `createElement` umgeschrieben
+- **Fix: mod_headers** – Apache `mod_headers` auf CT 100 & CT 104 aktiviert
+- **Fix: PDF-Dokumente „File not found"** – `pdf_proxy.php` baute Dateipfad ohne `ficheinter/`-Unterverzeichnis; `modulepart`-Mapping + Fallback auf `ficheinter/` ergänzt; auch `modulepart` wird jetzt von `app.js` an den Proxy weitergegeben
+- **Fix: PDF-Viewer verlangt Dolibarr-Login** – `define('NOLOGIN', '1')` in `pdf_preview.php` und `acceptance_protocol.php` ergänzt; `$user->getrights()` nach Token-Authentifizierung für korrekte `hasRight()`-Prüfung
+
+### v5.4.2 (2026-06-29)
+
+- **Fix: Multi-Device PWA-Token** – Neuer Login löscht nur noch abgelaufene Tokens, nicht alle; verhindert Invalidierung anderer Geräte
+- **Fix: Rolling Token-Renewal** – `valid_until` wird bei jeder Nutzung um 90 Tage verlängert (statt festes Ablaufdatum)
+- **Fix: Auth-Expired-Banner** – Sichtbarer roter Banner mit Anmelde-Link wenn Token-Erneuerung fehlschlägt (statt stilles „Online" ohne Sync)
+- **Fix: Foreground-Sync** – Automatischer Sync beim App-Vordergrund-Wechsel wenn letzter Sync >5 Minuten her
 
 ### v5.4.1 (2026-06-23)
 
@@ -699,6 +733,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.4.0
-**Released:** Juni 2026
+**Current Version:** 5.5.0
+**Released:** Juli 2026
 **Compatibility:** Dolibarr 16.0+
