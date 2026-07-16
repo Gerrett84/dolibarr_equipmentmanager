@@ -6135,33 +6135,37 @@ class ServiceReportApp {
             if (p.equipment_number) parts.push('Equipment-Nr.: ' + p.equipment_number);
             if (p.serial_number)    parts.push('Serien-Nr.: '    + p.serial_number);
             if (p.manufacturer)     parts.push('Hersteller: '    + p.manufacturer);
-            if (p.soc_name)         parts.push('Auftraggeber: '  + p.soc_name);
+            if (p.obj_address)      parts.push('Objektadresse: ' + p.obj_address);
             if (p.fichinter_ref)    parts.push('Auftrag: '       + p.fichinter_ref);
             if (p.techniker_name)   parts.push('Techniker: '     + p.techniker_name);
             infoEl.textContent = parts.join(' · ');
         }
 
-        // Checkboxes from form_data (already an object from API)
+        // Checkboxes – form_data uses nested structure matching PDF path keys
         const fd = (a.form_data && typeof a.form_data === 'object') ? a.form_data : {};
-        const checkIds = [
-            'sa_schliesfahrt_lichtvorhang',
-            'sa_quetschen_schutz',  'sa_quetschen_abstand',  'sa_quetschen_vertikal',
-            'sa_anstossen_schutz',  'sa_anstossen_abstand',  'sa_anstossen_vertikal',
-            'sa_scheren_schutz',    'sa_scheren_abstand',    'sa_scheren_vertikal',
-            'sa_einziehen_schutz',  'sa_einziehen_abstand',
-        ];
-        checkIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.checked = !!fd[id];
-        });
+        const sf = fd.schliesfahrt     || {};
+        const of = fd.oeffnungsfahrt   || {};
+        const chk = (obj, ...keys) => { let v = obj; for (const k of keys) v = (v || {})[k]; return !!v; };
+        const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+
+        setChk('sa_schliesfahrt_lichtvorhang', chk(sf, 'lichtvorhang'));
+        setChk('sa_quetschen_schutz',   chk(of, 'quetschen',  'schutzeinrichtung'));
+        setChk('sa_quetschen_abstand',  chk(of, 'quetschen',  'sicherheitsabstaende'));
+        setChk('sa_quetschen_vertikal', chk(of, 'quetschen',  'vertikale'));
+        setChk('sa_anstossen_schutz',   chk(of, 'anstossen',  'schutzeinrichtung'));
+        setChk('sa_anstossen_abstand',  chk(of, 'anstossen',  'sicherheitsabstaende'));
+        setChk('sa_anstossen_vertikal', chk(of, 'anstossen',  'vertikale'));
+        setChk('sa_scheren_schutz',     chk(of, 'scheren',    'schutzeinrichtung'));
+        setChk('sa_scheren_abstand',    chk(of, 'scheren',    'sicherheitsabstaende'));
+        setChk('sa_scheren_vertikal',   chk(of, 'scheren',    'vertikale'));
+        setChk('sa_einziehen_schutz',   chk(of, 'einziehen',  'schutzeinrichtung'));
+        setChk('sa_einziehen_abstand',  chk(of, 'einziehen',  'sicherheitsabstaende'));
 
         // Signature name/ort fields
         document.getElementById('sa_ersteller_name').value = a.sig_ersteller_name || p.techniker_name || '';
         document.getElementById('sa_ersteller_ort').value  = a.sig_ersteller_ort  || '';
         document.getElementById('sa_monteur_name').value   = a.sig_monteur_name   || '';
         document.getElementById('sa_monteur_ort').value    = a.sig_monteur_ort    || '';
-        document.getElementById('sa_kunde_name').value     = a.sig_kunde_name     || '';
-        document.getElementById('sa_kunde_ort').value      = a.sig_kunde_ort      || '';
     }
 
     saStep(direction) {
@@ -6188,22 +6192,38 @@ class ServiceReportApp {
     }
 
     collectSaFormData() {
-        const checkIds = [
-            'sa_schliesfahrt_lichtvorhang',
-            'sa_quetschen_schutz',  'sa_quetschen_abstand',  'sa_quetschen_vertikal',
-            'sa_anstossen_schutz',  'sa_anstossen_abstand',  'sa_anstossen_vertikal',
-            'sa_scheren_schutz',    'sa_scheren_abstand',    'sa_scheren_vertikal',
-            'sa_einziehen_schutz',  'sa_einziehen_abstand',
-        ];
-        const fd = {};
-        checkIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) fd[id] = el.checked;
-        });
-
+        const g = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
         const canvasBase64 = (id) => {
             const c = document.getElementById(id);
             return c ? c.toDataURL('image/png') : '';
+        };
+
+        // Nested structure matches $fd() paths in safety_analysis_pdf.php
+        const form_data = {
+            schliesfahrt: {
+                lichtvorhang: g('sa_schliesfahrt_lichtvorhang'),
+            },
+            oeffnungsfahrt: {
+                quetschen: {
+                    schutzeinrichtung:     g('sa_quetschen_schutz'),
+                    sicherheitsabstaende:  g('sa_quetschen_abstand'),
+                    vertikale:             g('sa_quetschen_vertikal'),
+                },
+                anstossen: {
+                    schutzeinrichtung:     g('sa_anstossen_schutz'),
+                    sicherheitsabstaende:  g('sa_anstossen_abstand'),
+                    vertikale:             g('sa_anstossen_vertikal'),
+                },
+                scheren: {
+                    schutzeinrichtung:     g('sa_scheren_schutz'),
+                    sicherheitsabstaende:  g('sa_scheren_abstand'),
+                    vertikale:             g('sa_scheren_vertikal'),
+                },
+                einziehen: {
+                    schutzeinrichtung:     g('sa_einziehen_schutz'),
+                    sicherheitsabstaende:  g('sa_einziehen_abstand'),
+                },
+            },
         };
 
         return {
@@ -6212,16 +6232,13 @@ class ServiceReportApp {
             durchgangshoehe:        parseInt(document.getElementById('sa_hoehe').value)   || null,
             durchgangsbreite:       parseInt(document.getElementById('sa_breite').value)  || null,
             bauliche_gegebenheiten: document.getElementById('sa_baulich').value.trim(),
-            form_data:              fd,                             // object, not string
+            form_data,
             sig_ersteller:          canvasBase64('saCanvasErsteller'),
             sig_ersteller_name:     document.getElementById('sa_ersteller_name').value.trim(),
             sig_ersteller_ort:      document.getElementById('sa_ersteller_ort').value.trim(),
             sig_monteur:            canvasBase64('saCanvasMonteur'),
             sig_monteur_name:       document.getElementById('sa_monteur_name').value.trim(),
             sig_monteur_ort:        document.getElementById('sa_monteur_ort').value.trim(),
-            sig_kunde:              canvasBase64('saCanvasKunde'),
-            sig_kunde_name:         document.getElementById('sa_kunde_name').value.trim(),
-            sig_kunde_ort:          document.getElementById('sa_kunde_ort').value.trim(),
             fk_fichinter:           this.currentIntervention ? this.currentIntervention.id : 0,
             id:                     this.saCurrentData ? (this.saCurrentData.id || null) : null,
         };
@@ -6282,7 +6299,7 @@ class ServiceReportApp {
     }
 
     setupSaCanvases() {
-        ['Ersteller', 'Monteur', 'Kunde'].forEach(role => {
+        ['Ersteller', 'Monteur'].forEach(role => {
             const old = document.getElementById('saCanvas' + role);
             if (!old) return;
 

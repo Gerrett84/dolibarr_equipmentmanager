@@ -415,27 +415,16 @@ $y += 10;
 $pdf->SetFont('helvetica', '', 8);
 $pdf->SetDrawColor(160, 160, 160);
 $sigBoxH = 22;
-$sigW    = $cw / 2 - 3;
 
-// Kasten Ersteller
+// Volle Breite für Ersteller-Unterschrift
 $pdf->SetFillColor(252, 252, 252);
-$pdf->Rect($lm, $y, $sigW, $sigBoxH, 'DF');
+$pdf->Rect($lm, $y, $cw, $sigBoxH, 'DF');
 if (!empty($a->sig_ersteller) && strpos($a->sig_ersteller, 'data:image') === 0) {
     $pdf->Image('@'.base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $a->sig_ersteller)),
-        $lm + 2, $y + 2, $sigW - 4, $sigBoxH - 8);
+        $lm + 2, $y + 2, $cw - 4, $sigBoxH - 8);
 }
 $pdf->SetXY($lm, $y + $sigBoxH - 5);
-$pdf->Cell($sigW, 4, 'Unterschrift Ersteller', 0, 0, 'C');
-
-// Kasten Auftraggeber (leer – wird nach Abschluss ausgefüllt)
-$rx2 = $lm + $sigW + 6;
-$pdf->Rect($rx2, $y, $sigW, $sigBoxH, 'DF');
-if (!empty($a->sig_kunde) && strpos($a->sig_kunde, 'data:image') === 0) {
-    $pdf->Image('@'.base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $a->sig_kunde)),
-        $rx2 + 2, $y + 2, $sigW - 4, $sigBoxH - 8);
-}
-$pdf->SetXY($rx2, $y + $sigBoxH - 5);
-$pdf->Cell($sigW, 4, 'Unterschrift Auftraggeber', 0, 0, 'C');
+$pdf->Cell($cw, 4, 'Unterschrift Ersteller', 0, 0, 'C');
 $y += $sigBoxH + 4;
 
 // Bestätigung

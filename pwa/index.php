@@ -3021,23 +3021,6 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                     <button type="button" onclick="app.clearSaCanvas('Monteur')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
                 </div>
 
-                <!-- Auftraggeber/Kunde -->
-                <div class="sa-sig-block" id="saSigKundeBlock" style="margin-top:16px;">
-                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Unterschrift Auftraggeber (nach Abschluss)</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-                        <div>
-                            <label class="form-label">Name</label>
-                            <input type="text" class="form-input" id="sa_kunde_name">
-                        </div>
-                        <div>
-                            <label class="form-label">Ort</label>
-                            <input type="text" class="form-input" id="sa_kunde_ort">
-                        </div>
-                    </div>
-                    <canvas id="saCanvasKunde" width="480" height="120"
-                        style="width:100%;height:100px;border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
-                    <button type="button" onclick="app.clearSaCanvas('Kunde')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
-                </div>
             </div>
 
             <!-- Buttons -->
