@@ -2349,6 +2349,10 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                         </div>
                     </div>
                 </div>
+                <!-- Sicherheitsanalyse Button (nur door_sliding) -->
+                <div id="btnOpenSafetyAnalysis" style="display:none;margin:8px 12px 0;padding:10px 14px;background:var(--primary);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;text-align:center;" onclick="app.openSafetyModal()">
+                    🛡️ Sicherheitsanalyse erstellen
+                </div>
                 <div class="card-body" style="padding:0;">
                     <!-- Add Entry Button -->
                     <div class="add-equipment-btn" id="btnAddEntry" style="margin:12px;border-radius:6px;">
@@ -2864,5 +2868,194 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
             </div>
         </div>
     </div>
+
+    <!-- ── Sicherheitsanalyse Modal ─────────────────────────────────────── -->
+    <div id="safetyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;overflow-y:auto;padding:16px;">
+        <div style="background:var(--bg-primary);border-radius:12px;max-width:520px;margin:0 auto;padding:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h3 style="margin:0;font-size:16px;">Sicherheitsanalyse</h3>
+                <button type="button" onclick="app.closeSafetyModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);">×</button>
+            </div>
+
+            <!-- Step Indicator -->
+            <div id="saStepBar" style="display:flex;gap:4px;margin-bottom:20px;">
+                <div class="sa-step active" data-step="1">1 Türdaten</div>
+                <div class="sa-step" data-step="2">2 Schutz&shy;maßnahmen</div>
+                <div class="sa-step" data-step="3">3 Unterschriften</div>
+            </div>
+
+            <!-- Step 1: Türdaten -->
+            <div id="saStep1" class="sa-step-content">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label class="form-label">Einbauort</label>
+                        <input type="text" class="form-input" id="sa_einbauort" placeholder="z.B. Haupteingang EG">
+                    </div>
+                    <div>
+                        <label class="form-label">Antriebstyp</label>
+                        <input type="text" class="form-input" id="sa_antriebstyp" placeholder="z.B. Slimdrive SL">
+                    </div>
+                    <div>
+                        <label class="form-label">Durchgangshöhe (mm)</label>
+                        <input type="number" class="form-input" id="sa_hoehe" placeholder="2100">
+                    </div>
+                    <div>
+                        <label class="form-label">Durchgangsbreite (mm)</label>
+                        <input type="number" class="form-input" id="sa_breite" placeholder="1200">
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <label class="form-label">Besondere bauliche Gegebenheiten</label>
+                    <textarea class="form-input" id="sa_baulich" rows="2" placeholder="z.B. Hindernis vor Türflügel, hohe Windlasten..."></textarea>
+                </div>
+                <div style="margin-top:10px;padding:10px;background:var(--bg-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">
+                    <div id="sa_prefill_info"></div>
+                </div>
+            </div>
+
+            <!-- Step 2: Schutzmaßnahmen -->
+            <div id="saStep2" class="sa-step-content" style="display:none;">
+                <!-- I. Schließfahrt -->
+                <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary);">
+                        I. Schließfahrt – Hauptschließkante (HSK)
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">gegen Anstoßen / Quetschen</div>
+                    <div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;background:var(--bg-primary);">
+                        <div style="text-align:center;font-size:20px;min-width:48px;">
+                            <svg width="48" height="32" viewBox="0 0 48 32">
+                                <rect x="2" y="8" width="14" height="16" fill="#bcd4f0" stroke="#555" stroke-width="0.8"/>
+                                <rect x="32" y="8" width="14" height="16" fill="#bcd4f0" stroke="#555" stroke-width="0.8"/>
+                                <line x1="16" y1="16" x2="20" y2="16" stroke="#333" stroke-width="1.2"/>
+                                <polygon points="20,14 23,16 20,18" fill="#333"/>
+                                <line x1="32" y1="16" x2="28" y2="16" stroke="#333" stroke-width="1.2"/>
+                                <polygon points="28,14 25,16 28,18" fill="#333"/>
+                                <polygon points="22,10 26,10 24,6" fill="#f5c518" stroke="#e08000" stroke-width="0.5"/>
+                            </svg>
+                        </div>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
+                            <input type="checkbox" id="sa_schliesfahrt_lichtvorhang" style="width:18px;height:18px;">
+                            <span style="font-size:13px;">Lichtvorhang beidseitig über die komplette Durchgangsbreite</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- II. Öffnungsfahrt -->
+                <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:10px;color:var(--primary);">
+                        II. Öffnungsfahrt – Nebenschließkante (NSK)
+                    </div>
+
+                    <?php
+                    $saCheckGroups = [
+                        ['key'=>'quetschen','label'=>'gegen Quetschen','icon'=>'↔','note'=>'Y ≥ 200 mm, x ≤ 100 mm'],
+                        ['key'=>'anstossen','label'=>'gegen Anstoßen','icon'=>'→|','note'=>'x ≤ 100 mm (oder ≤ 150 mit Kraftbegrenzung)'],
+                        ['key'=>'scheren','label'=>'gegen Scheren','icon'=>'⊐⊏','note'=>'S ≤ 8 → t = 0; S > 8 → t ≥ 25 mm'],
+                        ['key'=>'einziehen','label'=>'gegen Einziehen','icon'=>'|→|','note'=>'x ≤ 8 mm'],
+                    ];
+                    foreach ($saCheckGroups as $grp):
+                    ?>
+                    <div style="margin-bottom:10px;padding:8px;background:var(--bg-primary);border-radius:6px;">
+                        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">
+                            <?= htmlspecialchars($grp['label']) ?>
+                            <span style="font-size:10px;color:var(--text-muted);font-weight:normal;"> – <?= htmlspecialchars($grp['note']) ?></span>
+                        </div>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;">
+                            <input type="checkbox" id="sa_<?= $grp['key'] ?>_schutz" style="width:16px;height:16px;">
+                            <span style="font-size:12px;">Trennende Schutzeinrichtung (z. B. Schutzflügel)</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;">
+                            <input type="checkbox" id="sa_<?= $grp['key'] ?>_abstand" style="width:16px;height:16px;">
+                            <span style="font-size:12px;">Sicherheitsabstände eingehalten</span>
+                        </label>
+                        <?php if ($grp['key'] !== 'einziehen'): ?>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;">
+                            <input type="checkbox" id="sa_<?= $grp['key'] ?>_vertikal" style="width:16px;height:16px;">
+                            <span style="font-size:12px;">Vertikale berührungslos wirkende Schutzeinrichtungen</span>
+                        </label>
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Step 3: Unterschriften -->
+            <div id="saStep3" class="sa-step-content" style="display:none;">
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+                    Drei Unterschriften erforderlich: Ersteller (jetzt), Auftraggeber + Monteur (nach Abschluss).
+                </div>
+
+                <!-- Ersteller -->
+                <div class="sa-sig-block" id="saSigErstellerBlock">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Unterschrift Ersteller</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                        <div>
+                            <label class="form-label">Name (Druckschrift)</label>
+                            <input type="text" class="form-input" id="sa_ersteller_name">
+                        </div>
+                        <div>
+                            <label class="form-label">Ort</label>
+                            <input type="text" class="form-input" id="sa_ersteller_ort">
+                        </div>
+                    </div>
+                    <canvas id="saCanvasErsteller" width="480" height="120"
+                        style="width:100%;height:100px;border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
+                    <button type="button" onclick="app.clearSaCanvas('Ersteller')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
+                </div>
+
+                <!-- Monteur -->
+                <div class="sa-sig-block" id="saSigMonteurBlock" style="margin-top:16px;">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Unterschrift Monteur (nach Abschluss)</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                        <div>
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-input" id="sa_monteur_name">
+                        </div>
+                        <div>
+                            <label class="form-label">Ort</label>
+                            <input type="text" class="form-input" id="sa_monteur_ort">
+                        </div>
+                    </div>
+                    <canvas id="saCanvasMonteur" width="480" height="120"
+                        style="width:100%;height:100px;border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
+                    <button type="button" onclick="app.clearSaCanvas('Monteur')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
+                </div>
+
+                <!-- Auftraggeber/Kunde -->
+                <div class="sa-sig-block" id="saSigKundeBlock" style="margin-top:16px;">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Unterschrift Auftraggeber (nach Abschluss)</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                        <div>
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-input" id="sa_kunde_name">
+                        </div>
+                        <div>
+                            <label class="form-label">Ort</label>
+                            <input type="text" class="form-input" id="sa_kunde_ort">
+                        </div>
+                    </div>
+                    <canvas id="saCanvasKunde" width="480" height="120"
+                        style="width:100%;height:100px;border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
+                    <button type="button" onclick="app.clearSaCanvas('Kunde')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;">
+                <button type="button" id="btnSaPrev" onclick="app.saStep(-1)" style="display:none;flex:1;min-width:80px;" class="btn">← Zurück</button>
+                <button type="button" id="btnSaPreview" onclick="app.saPreview()" style="display:none;flex:1;min-width:80px;" class="btn">🔍 Vorschau</button>
+                <button type="button" id="btnSaNext" onclick="app.saStep(1)" class="btn btn-primary" style="flex:2;min-width:120px;">Weiter →</button>
+                <button type="button" id="btnSaSave" onclick="app.saveSafetyAnalysis()" style="display:none;flex:2;min-width:120px;" class="btn btn-primary">✓ Speichern &amp; Abschließen</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    .sa-step { flex:1; padding:6px 4px; text-align:center; font-size:11px; border-radius:6px;
+               background:var(--bg-secondary); color:var(--text-muted); }
+    .sa-step.active { background:var(--primary); color:#fff; font-weight:600; }
+    .sa-step-content { }
+    .sa-sig-block { padding:12px; background:var(--bg-secondary); border-radius:8px; }
+    </style>
 </body>
 </html>

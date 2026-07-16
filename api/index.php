@@ -218,6 +218,10 @@ try {
             handleSchedule($method, $parts, $input);
             break;
 
+        case 'safety-analysis':
+            handleSafetyAnalysis($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -4062,4 +4066,190 @@ function handleMaintenanceOverview($method, $parts, $input) {
     }
 
     echo json_encode(['status' => 'ok', 'groups' => $result]);
+}
+
+/**
+ * GET  /safety-analysis/{equipment_id}          – neueste Analyse für Anlage laden
+ * POST /safety-analysis/{equipment_id}          – Analyse speichern (Entwurf oder final)
+ * POST /safety-analysis/{equipment_id}/sign     – Unterschrift hinzufügen
+ */
+function handleSafetyAnalysis($method, $parts, $input) {
+    global $db, $user, $mysoc, $conf;
+
+    $equipment_id = (int)($parts[1] ?? 0);
+    if (!$equipment_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'equipment_id required']);
+        return;
+    }
+
+    $subaction = $parts[2] ?? '';
+
+    // ── GET: Analyse laden ──────────────────────────────────────────────────
+    if ($method === 'GET') {
+        $fichinter_id = (int)($_GET['fichinter_id'] ?? 0);
+
+        // Equipment + Kunde immer laden (für Prefill)
+        $res_eq = $db->query(
+            "SELECT e.*, s.nom as soc_name FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e"
+            . " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = e.fk_soc"
+            . " WHERE e.rowid = ".(int)$equipment_id
+        );
+        $eq = ($res_eq && $db->num_rows($res_eq)) ? $db->fetch_object($res_eq) : null;
+
+        // Fichinter-Referenz laden
+        $fichinter_ref = '';
+        if ($fichinter_id) {
+            $res_f = $db->query("SELECT ref FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = $fichinter_id");
+            if ($res_f && $db->num_rows($res_f)) {
+                $fichinter_ref = $db->fetch_object($res_f)->ref;
+            }
+        }
+
+        // OBJ-Kontakt aus Fichinter laden
+        $obj = null;
+        if ($fichinter_id) {
+            $sql_obj = "SELECT sp.address, sp.zip, sp.town"
+                     . " FROM ".MAIN_DB_PREFIX."element_contact ec"
+                     . " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact"
+                     . " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople"
+                     . " WHERE ec.element_id = $fichinter_id AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
+            $res_obj = $db->query($sql_obj);
+            if ($res_obj && $db->num_rows($res_obj)) $obj = $db->fetch_object($res_obj);
+        }
+
+        $prefill = [
+            'equipment_number' => $eq ? (string)$eq->equipment_number : '',
+            'serial_number'    => $eq ? (string)$eq->serial_number    : '',
+            'manufacturer'     => $eq ? (string)$eq->manufacturer     : '',
+            'door_wings'       => $eq ? (string)$eq->door_wings       : '',
+            'soc_name'         => $eq ? (string)$eq->soc_name         : '',
+            'obj_address'      => $obj ? trim($obj->address.', '.$obj->zip.' '.$obj->town) : '',
+            'fichinter_ref'    => $fichinter_ref,
+            'techniker_name'   => $user->getFullName($user->langs ?? null) ?: $user->login,
+            'firma_name'       => (string)$mysoc->name,
+        ];
+
+        // Neueste Analyse für diese Anlage laden
+        $sql = "SELECT * FROM ".MAIN_DB_PREFIX."equipmentmanager_safety_analysis"
+             . " WHERE fk_equipment = ".(int)$equipment_id
+             . " ORDER BY date_creation DESC LIMIT 1";
+        $res = $db->query($sql);
+        if (!$res || !$db->num_rows($res)) {
+            echo json_encode(['status' => 'ok', 'analysis' => null, 'prefill' => $prefill]);
+            return;
+        }
+        $row = $db->fetch_object($res);
+
+        echo json_encode([
+            'status'   => 'ok',
+            'prefill'  => $prefill,
+            'analysis' => [
+                'id'                     => (int)$row->rowid,
+                'fk_equipment'           => (int)$row->fk_equipment,
+                'fk_fichinter'           => (int)$row->fk_fichinter,
+                'status'                 => (int)$row->status,
+                'einbauort'              => (string)$row->einbauort,
+                'antriebstyp'            => (string)$row->antriebstyp,
+                'durchgangshoehe'        => $row->durchgangshoehe !== null ? (int)$row->durchgangshoehe : null,
+                'durchgangsbreite'       => $row->durchgangsbreite !== null ? (int)$row->durchgangsbreite : null,
+                'bauliche_gegebenheiten' => (string)$row->bauliche_gegebenheiten,
+                'form_data'              => $row->form_data ? json_decode($row->form_data, true) : null,
+                'sig_ersteller_name'     => (string)$row->sig_ersteller_name,
+                'sig_ersteller_ort'      => (string)$row->sig_ersteller_ort,
+                'sig_monteur_name'       => (string)$row->sig_monteur_name,
+                'sig_monteur_ort'        => (string)$row->sig_monteur_ort,
+                'sig_kunde_name'         => (string)$row->sig_kunde_name,
+                'sig_kunde_ort'          => (string)$row->sig_kunde_ort,
+                'has_sig_ersteller'      => !empty($row->sig_ersteller),
+                'has_sig_monteur'        => !empty($row->sig_monteur),
+                'has_sig_kunde'          => !empty($row->sig_kunde),
+            ],
+        ]);
+        return;
+    }
+
+    // ── POST: Analyse speichern / aktualisieren (inkl. Signaturen) ──────────
+    if ($method === 'POST' && $subaction === '') {
+        $fk_fichinter = (int)($input['fk_fichinter'] ?? 0);
+        if (!$fk_fichinter) {
+            http_response_code(400);
+            echo json_encode(['error' => 'fk_fichinter required']);
+            return;
+        }
+
+        $existing_id = (int)($input['id'] ?? 0);
+        $form_data   = json_encode($input['form_data'] ?? []);
+        $status      = (int)($input['status'] ?? 0);
+
+        $sig_e = $db->escape($input['sig_ersteller'] ?? '');
+        $sig_m = $db->escape($input['sig_monteur']   ?? '');
+        $sig_k = $db->escape($input['sig_kunde']     ?? '');
+
+        $fields = [
+            'fk_equipment'           => $equipment_id,
+            'fk_fichinter'           => $fk_fichinter,
+            'einbauort'              => $db->escape($input['einbauort']              ?? ''),
+            'antriebstyp'            => $db->escape($input['antriebstyp']            ?? ''),
+            'durchgangshoehe'        => (int)($input['durchgangshoehe']  ?? 0) ?: 'NULL',
+            'durchgangsbreite'       => (int)($input['durchgangsbreite'] ?? 0) ?: 'NULL',
+            'bauliche_gegebenheiten' => $db->escape($input['bauliche_gegebenheiten'] ?? ''),
+            'form_data'              => $db->escape($form_data),
+            'status'                 => $status,
+            'sig_ersteller'          => $sig_e,
+            'sig_ersteller_name'     => $db->escape($input['sig_ersteller_name'] ?? ''),
+            'sig_ersteller_ort'      => $db->escape($input['sig_ersteller_ort']  ?? ''),
+            'sig_ersteller_date'     => $existing_id ? null : date('Y-m-d'),
+            'sig_monteur'            => $sig_m,
+            'sig_monteur_name'       => $db->escape($input['sig_monteur_name'] ?? ''),
+            'sig_monteur_ort'        => $db->escape($input['sig_monteur_ort']  ?? ''),
+            'sig_kunde'              => $sig_k,
+            'sig_kunde_name'         => $db->escape($input['sig_kunde_name'] ?? ''),
+            'sig_kunde_ort'          => $db->escape($input['sig_kunde_ort']  ?? ''),
+        ];
+
+        // sig_ersteller_date: set on insert; don't overwrite on update
+        if ($existing_id) {
+            unset($fields['sig_ersteller_date']);
+        }
+
+        if ($existing_id) {
+            $set = [];
+            foreach ($fields as $k => $v) {
+                if ($v === null) continue;
+                $set[] = "`$k` = " . (is_numeric($v) || $v === 'NULL' ? $v : "'$v'");
+            }
+            $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_safety_analysis"
+                 . " SET ".implode(', ', $set)
+                 . " WHERE rowid = $existing_id AND fk_equipment = ".(int)$equipment_id;
+            if (!$db->query($sql)) {
+                http_response_code(500);
+                echo json_encode(['error' => $db->lasterror()]);
+                return;
+            }
+            echo json_encode(['status' => 'ok', 'id' => $existing_id]);
+        } else {
+            $cols = [];
+            $vals = [];
+            foreach ($fields as $k => $v) {
+                if ($v === null) continue;
+                $cols[] = "`$k`";
+                $vals[] = is_numeric($v) || $v === 'NULL' ? $v : "'$v'";
+            }
+            $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_safety_analysis"
+                 . " (fk_user_creat, date_creation, ".implode(', ', $cols).")"
+                 . " VALUES (".(int)$user->id.", NOW(), ".implode(', ', $vals).")";
+            if (!$db->query($sql)) {
+                http_response_code(500);
+                echo json_encode(['error' => $db->lasterror()]);
+                return;
+            }
+            $new_id = $db->last_insert_id(MAIN_DB_PREFIX.'equipmentmanager_safety_analysis');
+            echo json_encode(['status' => 'ok', 'id' => (int)$new_id]);
+        }
+        return;
+    }
+
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
 }

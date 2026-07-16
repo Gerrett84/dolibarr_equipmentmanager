@@ -4887,6 +4887,10 @@ class ServiceReportApp {
             smokeRow.style.display = 'none';
             smokeCycleRow.style.display = 'none';
         }
+
+        // Sicherheitsanalyse button: only for automatic sliding doors
+        const saBtn = document.getElementById('btnOpenSafetyAnalysis');
+        if (saBtn) saBtn.style.display = (type === 'door_sliding') ? '' : 'none';
     }
 
     // Edit install date (month+year) for battery or smoke_detector
@@ -6075,6 +6079,256 @@ class ServiceReportApp {
         const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
 
         this.openPdfViewer(pdfUrl, 'Checkliste');
+    }
+
+    // ── Sicherheitsanalyse (v6.0) ──────────────────────────────────────────
+
+    async openSafetyModal() {
+        if (!this.isOnline) {
+            this.showToast('Sicherheitsanalyse nur online verfügbar');
+            return;
+        }
+        if (!this.currentEquipment) {
+            this.showToast('Kein Equipment ausgewählt');
+            return;
+        }
+
+        const eqId = this.currentEquipment.id;
+        const fichinterId = this.currentIntervention ? this.currentIntervention.id : 0;
+
+        let analysis = null, prefill = {};
+        try {
+            const resp = await this.apiCall(`safety-analysis/${eqId}?fichinter_id=${fichinterId}`);
+            analysis = resp.analysis || null;
+            prefill  = resp.prefill  || {};
+        } catch (e) {
+            // Proceed with empty form
+        }
+
+        this.saCurrentData = analysis ? { id: analysis.id } : {};
+        this.saFillForm(analysis, prefill);
+
+        this.saUpdateStep(1);
+        document.getElementById('safetyModal').style.display = 'block';
+        this.setupSaCanvases();
+    }
+
+    closeSafetyModal() {
+        document.getElementById('safetyModal').style.display = 'none';
+        this.saCurrentData = null;
+    }
+
+    saFillForm(analysis, prefill) {
+        const a = analysis || {};
+        const p = prefill  || {};
+
+        document.getElementById('sa_einbauort').value   = a.einbauort              || '';
+        document.getElementById('sa_antriebstyp').value = a.antriebstyp            || '';
+        document.getElementById('sa_hoehe').value        = a.durchgangshoehe        || '';
+        document.getElementById('sa_breite').value       = a.durchgangsbreite       || '';
+        document.getElementById('sa_baulich').value      = a.bauliche_gegebenheiten || '';
+
+        // Prefill info text (always shown)
+        const infoEl = document.getElementById('sa_prefill_info');
+        if (infoEl) {
+            const parts = [];
+            if (p.equipment_number) parts.push('Equipment-Nr.: ' + p.equipment_number);
+            if (p.serial_number)    parts.push('Serien-Nr.: '    + p.serial_number);
+            if (p.manufacturer)     parts.push('Hersteller: '    + p.manufacturer);
+            if (p.soc_name)         parts.push('Auftraggeber: '  + p.soc_name);
+            if (p.fichinter_ref)    parts.push('Auftrag: '       + p.fichinter_ref);
+            if (p.techniker_name)   parts.push('Techniker: '     + p.techniker_name);
+            infoEl.textContent = parts.join(' · ');
+        }
+
+        // Checkboxes from form_data (already an object from API)
+        const fd = (a.form_data && typeof a.form_data === 'object') ? a.form_data : {};
+        const checkIds = [
+            'sa_schliesfahrt_lichtvorhang',
+            'sa_quetschen_schutz',  'sa_quetschen_abstand',  'sa_quetschen_vertikal',
+            'sa_anstossen_schutz',  'sa_anstossen_abstand',  'sa_anstossen_vertikal',
+            'sa_scheren_schutz',    'sa_scheren_abstand',    'sa_scheren_vertikal',
+            'sa_einziehen_schutz',  'sa_einziehen_abstand',
+        ];
+        checkIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.checked = !!fd[id];
+        });
+
+        // Signature name/ort fields
+        document.getElementById('sa_ersteller_name').value = a.sig_ersteller_name || p.techniker_name || '';
+        document.getElementById('sa_ersteller_ort').value  = a.sig_ersteller_ort  || '';
+        document.getElementById('sa_monteur_name').value   = a.sig_monteur_name   || '';
+        document.getElementById('sa_monteur_ort').value    = a.sig_monteur_ort    || '';
+        document.getElementById('sa_kunde_name').value     = a.sig_kunde_name     || '';
+        document.getElementById('sa_kunde_ort').value      = a.sig_kunde_ort      || '';
+    }
+
+    saStep(direction) {
+        const next = (this.saCurrentStep || 1) + direction;
+        if (next < 1 || next > 3) return;
+        this.saUpdateStep(next);
+    }
+
+    saUpdateStep(step) {
+        this.saCurrentStep = step;
+
+        [1, 2, 3].forEach(s => {
+            document.getElementById('saStep' + s).style.display = (s === step) ? '' : 'none';
+        });
+
+        document.querySelectorAll('#saStepBar .sa-step').forEach(el => {
+            el.classList.toggle('active', parseInt(el.dataset.step) === step);
+        });
+
+        document.getElementById('btnSaPrev').style.display    = step > 1     ? '' : 'none';
+        document.getElementById('btnSaNext').style.display    = step < 3     ? '' : 'none';
+        document.getElementById('btnSaSave').style.display    = step === 3   ? '' : 'none';
+        document.getElementById('btnSaPreview').style.display = step === 3   ? '' : 'none';
+    }
+
+    collectSaFormData() {
+        const checkIds = [
+            'sa_schliesfahrt_lichtvorhang',
+            'sa_quetschen_schutz',  'sa_quetschen_abstand',  'sa_quetschen_vertikal',
+            'sa_anstossen_schutz',  'sa_anstossen_abstand',  'sa_anstossen_vertikal',
+            'sa_scheren_schutz',    'sa_scheren_abstand',    'sa_scheren_vertikal',
+            'sa_einziehen_schutz',  'sa_einziehen_abstand',
+        ];
+        const fd = {};
+        checkIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) fd[id] = el.checked;
+        });
+
+        const canvasBase64 = (id) => {
+            const c = document.getElementById(id);
+            return c ? c.toDataURL('image/png') : '';
+        };
+
+        return {
+            einbauort:              document.getElementById('sa_einbauort').value.trim(),
+            antriebstyp:            document.getElementById('sa_antriebstyp').value.trim(),
+            durchgangshoehe:        parseInt(document.getElementById('sa_hoehe').value)   || null,
+            durchgangsbreite:       parseInt(document.getElementById('sa_breite').value)  || null,
+            bauliche_gegebenheiten: document.getElementById('sa_baulich').value.trim(),
+            form_data:              fd,                             // object, not string
+            sig_ersteller:          canvasBase64('saCanvasErsteller'),
+            sig_ersteller_name:     document.getElementById('sa_ersteller_name').value.trim(),
+            sig_ersteller_ort:      document.getElementById('sa_ersteller_ort').value.trim(),
+            sig_monteur:            canvasBase64('saCanvasMonteur'),
+            sig_monteur_name:       document.getElementById('sa_monteur_name').value.trim(),
+            sig_monteur_ort:        document.getElementById('sa_monteur_ort').value.trim(),
+            sig_kunde:              canvasBase64('saCanvasKunde'),
+            sig_kunde_name:         document.getElementById('sa_kunde_name').value.trim(),
+            sig_kunde_ort:          document.getElementById('sa_kunde_ort').value.trim(),
+            fk_fichinter:           this.currentIntervention ? this.currentIntervention.id : 0,
+            id:                     this.saCurrentData ? (this.saCurrentData.id || null) : null,
+        };
+    }
+
+    async saPreview() {
+        if (!this.isOnline) {
+            this.showToast('Vorschau nur online verfügbar');
+            return;
+        }
+        try {
+            const eqId = this.currentEquipment.id;
+            const data = this.collectSaFormData();
+            const resp = await this.apiCall(`safety-analysis/${eqId}`, {
+                method: 'POST',
+                body: JSON.stringify(data),
+            });
+            const saId = resp.id || (this.saCurrentData && this.saCurrentData.id);
+            if (!saId) { this.showToast('Fehler beim Zwischenspeichern'); return; }
+            if (this.saCurrentData) this.saCurrentData.id = saId;
+            const url = `safety_analysis_pdf.php?id=${saId}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+            this.openPdfViewer(url, 'Sicherheitsanalyse Vorschau');
+        } catch (e) {
+            this.showToast('Fehler: ' + (e.message || 'Unbekannt'));
+        }
+    }
+
+    async saveSafetyAnalysis() {
+        if (!this.isOnline) {
+            this.showToast('Speichern nur online verfügbar');
+            return;
+        }
+        try {
+            const eqId = this.currentEquipment.id;
+            const data = this.collectSaFormData();
+            data.status = 1;
+            const resp = await this.apiCall(`safety-analysis/${eqId}`, {
+                method: 'POST',
+                body: JSON.stringify(data),
+            });
+            const saId = resp.id || (this.saCurrentData && this.saCurrentData.id);
+            this.closeSafetyModal();
+            this.showToast('Sicherheitsanalyse gespeichert');
+            if (saId) {
+                const url = `safety_analysis_pdf.php?id=${saId}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+                this.openPdfViewer(url, 'Sicherheitsanalyse');
+            }
+        } catch (e) {
+            this.showToast('Fehler: ' + (e.message || 'Unbekannt'));
+        }
+    }
+
+    clearSaCanvas(role) {
+        const canvas = document.getElementById('saCanvas' + role);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    setupSaCanvases() {
+        ['Ersteller', 'Monteur', 'Kunde'].forEach(role => {
+            const old = document.getElementById('saCanvas' + role);
+            if (!old) return;
+
+            // Clone to strip old listeners, preserve id + attributes
+            const canvas = old.cloneNode(true);
+            old.parentNode.replaceChild(canvas, old);
+
+            const ctx = canvas.getContext('2d');
+            let drawing = false;
+            let lastX = 0, lastY = 0;
+
+            const getPos = (e) => {
+                const r = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / r.width;
+                const scaleY = canvas.height / r.height;
+                const src = e.touches ? e.touches[0] : e;
+                return [(src.clientX - r.left) * scaleX, (src.clientY - r.top) * scaleY];
+            };
+            const onStart = (e) => {
+                e.preventDefault();
+                drawing = true;
+                [lastX, lastY] = getPos(e);
+            };
+            const onMove = (e) => {
+                if (!drawing) return;
+                e.preventDefault();
+                const [x, y] = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                [lastX, lastY] = [x, y];
+            };
+            const onEnd = () => { drawing = false; };
+
+            canvas.addEventListener('mousedown',  onStart);
+            canvas.addEventListener('mousemove',  onMove);
+            canvas.addEventListener('mouseup',    onEnd);
+            canvas.addEventListener('mouseleave', onEnd);
+            canvas.addEventListener('touchstart', onStart, { passive: false });
+            canvas.addEventListener('touchmove',  onMove,  { passive: false });
+            canvas.addEventListener('touchend',   onEnd);
+        });
     }
 }
 
