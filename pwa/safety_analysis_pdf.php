@@ -57,17 +57,24 @@ $fd = function($path, $default = false) use ($form_data) {
     return $val;
 };
 
-// OBJ-Adresse laden
+// OBJ-Kontakt laden (Objektname, Adresse, Ansprechpartner, Telefon)
+$obj_name    = '';
 $obj_address = '';
-$sqlObj = "SELECT sp.address, sp.zip, sp.town FROM ".MAIN_DB_PREFIX."element_contact ec"
+$obj_contact = '';
+$obj_phone   = '';
+$sqlObj = "SELECT sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone"
+        . " FROM ".MAIN_DB_PREFIX."element_contact ec"
         . " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact"
         . " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople"
         . " WHERE ec.element_id = ".(int)$a->fk_fichinter
         . " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
 $resObj = $db->query($sqlObj);
 if ($resObj && $db->num_rows($resObj)) {
-    $obj = $db->fetch_object($resObj);
+    $obj         = $db->fetch_object($resObj);
+    $obj_name    = trim($obj->lastname);
+    $obj_contact = trim($obj->firstname);
     $obj_address = trim($obj->address.', '.$obj->zip.' '.$obj->town);
+    $obj_phone   = $obj->phone ?? '';
 }
 
 // ── PDF setup ─────────────────────────────────────────────────────────────
@@ -369,22 +376,33 @@ $y += 7;
 // Objektdaten
 $pdf->SetDrawColor(200, 200, 200);
 $pdf->SetFillColor(248, 248, 248);
-$pdf->Rect($lm, $y, $cw, 28, 'DF');
+$pdf->Rect($lm, $y, $cw, 34, 'DF');
 $pdf->SetFont('helvetica', 'B', 8);
 $pdf->SetXY($lm + 2, $y + 1);
 $pdf->Cell($cw - 4, 4, 'Objektdaten:', 0, 1, 'L');
 $y += 6;
 
-labelField($pdf, $lm + 2,    $y, 25, $hw - 27, 'Anschrift:', $obj_address ?: $a->soc_addr ?? '');
+// Zeile 1: Objektname | Auftrags-Nr.
+$fdObjName = $fd('objektdaten.objektname');
+labelField($pdf, $lm + 2,       $y, 25, $hw - 27, 'Objektname:', $fdObjName !== false ? $fdObjName : $obj_name);
 labelField($pdf, $lm + $hw + 4, $y, 25, $hw - 25, 'Auftrags-Nr.:', $a->fichinter_ref);
 $y += 6;
 
-labelField($pdf, $lm + 2,    $y, 25, $hw - 27, 'Ansprechpartner:', $a->soc_name ?? '');
+// Zeile 2: Objektadresse | Equipment-Nr.
+$fdObjAddr = $fd('objektdaten.adresse');
+labelField($pdf, $lm + 2,       $y, 25, $hw - 27, 'Anschrift:', $fdObjAddr !== false ? $fdObjAddr : $obj_address);
 labelField($pdf, $lm + $hw + 4, $y, 25, $hw - 25, 'Equipment-Nr.:', $a->equipment_number.($a->serial_number ? ' / '.$a->serial_number : ''));
 $y += 6;
 
-labelField($pdf, $lm + 2,    $y, 25, $hw - 27, 'Telefon:', $a->soc_phone ?? '');
+// Zeile 3: Ansprechpartner | Hersteller
+$fdAnsprech = $fd('objektdaten.ansprechpartner');
+labelField($pdf, $lm + 2,       $y, 25, $hw - 27, 'Ansprechpartner:', $fdAnsprech !== false ? $fdAnsprech : $obj_contact);
 labelField($pdf, $lm + $hw + 4, $y, 25, $hw - 25, 'Hersteller:', $a->manufacturer ?? '');
+$y += 6;
+
+// Zeile 4: Telefon OBJ
+$fdPhone = $fd('objektdaten.telefon');
+labelField($pdf, $lm + 2,       $y, 25, $hw - 27, 'Telefon:', $fdPhone !== false ? $fdPhone : $obj_phone);
 $y += 8;
 
 // Bauliche Gegebenheiten
@@ -415,6 +433,8 @@ $y += 10;
 $pdf->SetFont('helvetica', '', 8);
 $pdf->SetDrawColor(160, 160, 160);
 $sigBoxH = 22;
+$sigW    = $cw / 2 - 3;
+$rx2     = $lm + $sigW + 6;
 
 // Volle Breite für Ersteller-Unterschrift
 $pdf->SetFillColor(252, 252, 252);

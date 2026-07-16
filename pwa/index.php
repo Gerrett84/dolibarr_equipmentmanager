@@ -2908,8 +2908,28 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                     <label class="form-label">Besondere bauliche Gegebenheiten</label>
                     <textarea class="form-input" id="sa_baulich" rows="2" placeholder="z.B. Hindernis vor Türflügel, hohe Windlasten..."></textarea>
                 </div>
-                <div style="margin-top:10px;padding:10px;background:var(--bg-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">
-                    <div id="sa_prefill_info"></div>
+                <!-- Objektdaten (aus Auftrag vorbelegt, editierbar) -->
+                <div style="margin-top:12px;padding:10px;background:var(--bg-secondary);border-radius:8px;">
+                    <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">Objektdaten (aus Auftrag übernommen – bearbeitbar)</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div style="grid-column:span 2;">
+                            <label class="form-label" style="font-size:11px;">Objektname</label>
+                            <input type="text" class="form-input" id="sa_objname" placeholder="z.B. Gebäude / Objekt">
+                        </div>
+                        <div style="grid-column:span 2;">
+                            <label class="form-label" style="font-size:11px;">Objektadresse</label>
+                            <input type="text" class="form-input" id="sa_objaddress" placeholder="Straße, PLZ Ort">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size:11px;">Ansprechpartner</label>
+                            <input type="text" class="form-input" id="sa_ansprechpartner" placeholder="Name">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size:11px;">Telefon</label>
+                            <input type="text" class="form-input" id="sa_obj_telefon" placeholder="+49 ...">
+                        </div>
+                    </div>
+                    <div style="margin-top:6px;font-size:10px;color:var(--text-muted);" id="sa_prefill_info"></div>
                 </div>
             </div>
 

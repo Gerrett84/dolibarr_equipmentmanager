@@ -6128,14 +6128,24 @@ class ServiceReportApp {
         document.getElementById('sa_breite').value       = a.durchgangsbreite       || '';
         document.getElementById('sa_baulich').value      = a.bauliche_gegebenheiten || '';
 
-        // Prefill info text (always shown)
+        // Objektdaten-Felder vorbelegen (nur wenn noch kein gespeicherter Wert vorhanden)
+        const od = (a.form_data && typeof a.form_data === 'object') ? (a.form_data.objektdaten || {}) : {};
+        const setVal = (id, saved, fallback) => {
+            const el = document.getElementById(id);
+            if (el) el.value = saved || fallback || '';
+        };
+        setVal('sa_objname',        od.objektname,      p.obj_name    || '');
+        setVal('sa_objaddress',     od.adresse,         p.obj_address || '');
+        setVal('sa_ansprechpartner',od.ansprechpartner, p.obj_contact || '');
+        setVal('sa_obj_telefon',    od.telefon,         p.obj_phone   || '');
+
+        // Info-Zeile: zeigt fixe Werte aus dem Auftrag (nicht editierbar)
         const infoEl = document.getElementById('sa_prefill_info');
         if (infoEl) {
             const parts = [];
             if (p.equipment_number) parts.push('Equipment-Nr.: ' + p.equipment_number);
             if (p.serial_number)    parts.push('Serien-Nr.: '    + p.serial_number);
             if (p.manufacturer)     parts.push('Hersteller: '    + p.manufacturer);
-            if (p.obj_address)      parts.push('Objektadresse: ' + p.obj_address);
             if (p.fichinter_ref)    parts.push('Auftrag: '       + p.fichinter_ref);
             if (p.techniker_name)   parts.push('Techniker: '     + p.techniker_name);
             infoEl.textContent = parts.join(' · ');
@@ -6200,6 +6210,12 @@ class ServiceReportApp {
 
         // Nested structure matches $fd() paths in safety_analysis_pdf.php
         const form_data = {
+            objektdaten: {
+                objektname:      document.getElementById('sa_objname')?.value.trim()         || '',
+                adresse:         document.getElementById('sa_objaddress')?.value.trim()      || '',
+                ansprechpartner: document.getElementById('sa_ansprechpartner')?.value.trim() || '',
+                telefon:         document.getElementById('sa_obj_telefon')?.value.trim()     || '',
+            },
             schliesfahrt: {
                 lichtvorhang: g('sa_schliesfahrt_lichtvorhang'),
             },

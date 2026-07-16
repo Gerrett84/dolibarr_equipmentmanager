@@ -4106,10 +4106,10 @@ function handleSafetyAnalysis($method, $parts, $input) {
             }
         }
 
-        // OBJ-Kontakt aus Fichinter laden
+        // OBJ-Kontakt aus Fichinter laden (Objektname=lastname, Ansprechpartner=firstname, Adresse, Telefon)
         $obj = null;
         if ($fichinter_id) {
-            $sql_obj = "SELECT sp.address, sp.zip, sp.town"
+            $sql_obj = "SELECT sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone"
                      . " FROM ".MAIN_DB_PREFIX."element_contact ec"
                      . " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact"
                      . " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople"
@@ -4119,15 +4119,17 @@ function handleSafetyAnalysis($method, $parts, $input) {
         }
 
         $prefill = [
-            'equipment_number' => $eq ? (string)$eq->equipment_number : '',
-            'serial_number'    => $eq ? (string)$eq->serial_number    : '',
-            'manufacturer'     => $eq ? (string)$eq->manufacturer     : '',
-            'door_wings'       => $eq ? (string)$eq->door_wings       : '',
-            'soc_name'         => $eq ? (string)$eq->soc_name         : '',
-            'obj_address'      => $obj ? trim($obj->address.', '.$obj->zip.' '.$obj->town) : '',
-            'fichinter_ref'    => $fichinter_ref,
-            'techniker_name'   => $user->getFullName($user->langs ?? null) ?: $user->login,
-            'firma_name'       => (string)$mysoc->name,
+            'equipment_number'  => $eq ? (string)$eq->equipment_number : '',
+            'serial_number'     => $eq ? (string)$eq->serial_number    : '',
+            'manufacturer'      => $eq ? (string)$eq->manufacturer     : '',
+            'door_wings'        => $eq ? (string)$eq->door_wings       : '',
+            'obj_name'          => $obj ? trim($obj->lastname)          : '',
+            'obj_address'       => $obj ? trim($obj->address.', '.$obj->zip.' '.$obj->town) : '',
+            'obj_contact'       => $obj ? trim($obj->firstname)         : '',
+            'obj_phone'         => $obj ? (string)($obj->phone ?? '')   : '',
+            'fichinter_ref'     => $fichinter_ref,
+            'techniker_name'    => $user->getFullName($user->langs ?? null) ?: $user->login,
+            'firma_name'        => (string)$mysoc->name,
         ];
 
         // Neueste Analyse für diese Anlage laden
