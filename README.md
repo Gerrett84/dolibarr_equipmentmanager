@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.5.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.5.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,17 @@
 -----
 
 ## Features
+
+### NEU in v5.5.1: PWA Stabilitäts-Hotfix
+
+- **Fix: PWA dauerhaft offline / Spinner eingefroren** – `offlineDB.init()` konnte lautlos hängen wenn IndexedDB blockiert war oder nicht antwortete; `checkAuth()` konnte bei null-DB einen TypeError werfen der die gesamte App-Initialisierung lautlos abbrach; `tryAutoLogin()` hatte keinen Timeout und konnte bei Netzwerkproblemen ewig hängen
+- **db.js: IDB-Init mit 8s Timeout** – `Promise.race()` verhindert ewiges Hängen; nach 8s wird ein `IDB_TIMEOUT`-Fehler geworfen
+- **db.js: `onblocked`-Handler** – IDB-Upgrade-Blockierung durch andere Tabs wirft `IDB_BLOCKED` statt stumm zu hängen
+- **db.js: `onversionchange`-Handler** – bestehende Verbindung schließt sich automatisch wenn ein anderer Tab eine neuere DB-Version öffnet (verhindert gegenseitiges Blockieren)
+- **db.js: Null-Guards** – alle CRUD-Methoden prüfen `this.db !== null` und geben sichere Standardwerte zurück statt TypeError zu werfen
+- **app.js: try-catch um `checkAuth()`** – stille Einfrierung wird als Fehlermeldung mit Reload-Button angezeigt
+- **app.js: AbortController in `tryAutoLogin()`** – 10s Timeout verhindert ewiges Warten bei Netzwerkproblemen
+- **sw.js: v26** – frische Caches für neue Fixes
 
 ### NEU in v5.5.0: HTTPS-Fixes & PDF-Viewer
 
