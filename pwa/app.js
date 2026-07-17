@@ -6308,7 +6308,7 @@ class ServiceReportApp {
             if (!saId) { this.showToast('Fehler beim Zwischenspeichern'); return; }
             if (this.saCurrentData) this.saCurrentData.id = saId;
             const url = `safety_analysis_pdf.php?id=${saId}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
-            this.openPdfViewer(url, 'Sicherheitsanalyse Vorschau');
+            window.open(url, '_blank');
         } catch (e) {
             this.showToast('Fehler: ' + (e.message || 'Unbekannt'));
         }
@@ -6332,7 +6332,7 @@ class ServiceReportApp {
             this.showToast('Sicherheitsanalyse gespeichert');
             if (saId) {
                 const url = `safety_analysis_pdf.php?id=${saId}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
-                this.openPdfViewer(url, 'Sicherheitsanalyse');
+                window.open(url, '_blank');
             }
         } catch (e) {
             this.showToast('Fehler: ' + (e.message || 'Unbekannt'));
