@@ -4016,19 +4016,34 @@ class ServiceReportApp {
     openPdfViewer(url, title = 'Dokument') {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
-        const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
-        const isDark = storedTheme === 'dark' ||
-            (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        const theme = isDark ? 'dark' : 'light';
-        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}`;
+        const frame = document.getElementById('pdfViewerFrame');
+
+        // Remove any previously injected <object> element
+        const prevObj = document.getElementById('pdfViewerObject');
+        if (prevObj) prevObj.remove();
+
+        // iOS Safari beschränkt <iframe> auf Seite 1 eines PDFs.
+        // <object type="application/pdf"> direkt im Overlay zeigt alle Seiten scrollbar.
+        frame.style.display = 'none';
+        frame.src = 'about:blank';
+        const obj = document.createElement('object');
+        obj.id = 'pdfViewerObject';
+        obj.type = 'application/pdf';
+        obj.style.cssText = 'flex:1;min-height:0;width:100%;border:none;display:block;';
+        obj.data = url;
+        overlay.appendChild(obj);
+
         overlay.classList.add('show');
     }
 
     closePdfViewer() {
         const overlay = document.getElementById('pdfViewerOverlay');
         overlay.classList.remove('show');
-        // Clear iframe to stop loading
-        document.getElementById('pdfViewerFrame').src = 'about:blank';
+        const frame = document.getElementById('pdfViewerFrame');
+        frame.src = 'about:blank';
+        frame.style.display = 'block';
+        const obj = document.getElementById('pdfViewerObject');
+        if (obj) obj.remove();
     }
 
     // Show PDF preview in in-app viewer
