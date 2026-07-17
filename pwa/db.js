@@ -11,13 +11,26 @@ class OfflineDB {
     }
 
     async init() {
-        return new Promise((resolve, reject) => {
+        return Promise.race([
+          new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('IDB_TIMEOUT')), 8000)
+          ),
+          new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
+                this.db.onversionchange = () => {
+                    this.db.close();
+                    this.db = null;
+                    window.location.reload();
+                };
                 resolve(this.db);
+            };
+
+            request.onblocked = () => {
+                reject(new Error('IDB_BLOCKED'));
             };
 
             request.onupgradeneeded = (event) => {
@@ -107,11 +120,13 @@ class OfflineDB {
                     db.createObjectStore('geocache', { keyPath: 'address' });
                 }
             };
-        });
+          })
+        ]);
     }
 
     // Generic CRUD operations
     async put(storeName, data) {
+        if (!this.db) return null;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
@@ -122,6 +137,7 @@ class OfflineDB {
     }
 
     async get(storeName, key) {
+        if (!this.db) return undefined;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
@@ -132,6 +148,7 @@ class OfflineDB {
     }
 
     async getAll(storeName) {
+        if (!this.db) return [];
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
@@ -142,6 +159,7 @@ class OfflineDB {
     }
 
     async delete(storeName, key) {
+        if (!this.db) return;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
@@ -152,6 +170,7 @@ class OfflineDB {
     }
 
     async clear(storeName) {
+        if (!this.db) return;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
@@ -162,6 +181,7 @@ class OfflineDB {
     }
 
     async getByIndex(storeName, indexName, value) {
+        if (!this.db) return [];
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
