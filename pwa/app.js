@@ -4013,14 +4013,14 @@ class ServiceReportApp {
     }
 
     // Open PDF in in-app viewer overlay (no new tab needed)
-    openPdfViewer(url, title = 'Dokument') {
+    openPdfViewer(url, title = 'Dokument', pages = 1) {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
         const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
         const isDark = storedTheme === 'dark' ||
             (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         const theme = isDark ? 'dark' : 'light';
-        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}`;
+        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}&pages=${pages}`;
         overlay.classList.add('show');
     }
 
@@ -6308,7 +6308,7 @@ class ServiceReportApp {
             if (!saId) { this.showToast('Fehler beim Zwischenspeichern'); return; }
             if (this.saCurrentData) this.saCurrentData.id = saId;
             const url = `safety_analysis_pdf.php?id=${saId}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
-            window.open(url, '_blank');
+            this.openPdfViewer(url, 'Sicherheitsanalyse Vorschau', 2);
         } catch (e) {
             this.showToast('Fehler: ' + (e.message || 'Unbekannt'));
         }
@@ -6332,7 +6332,7 @@ class ServiceReportApp {
             this.showToast('Sicherheitsanalyse gespeichert');
             if (saId) {
                 const url = `safety_analysis_pdf.php?id=${saId}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
-                window.open(url, '_blank');
+                this.openPdfViewer(url, 'Sicherheitsanalyse', 2);
             }
         } catch (e) {
             this.showToast('Fehler: ' + (e.message || 'Unbekannt'));

@@ -27,6 +27,10 @@ $theme = GETPOST('theme', 'alpha');
 $isDark = ($theme === 'dark');
 $bgColor = $isDark ? '#1a1a1a' : '#525659';
 
+// pages=N enables multi-page scrollable mode (e.g. pages=2 for Sicherheitsanalyse)
+$pages = max(1, min(10, (int)($_GET['pages'] ?? 1)));
+$isMultiPage = ($pages > 1);
+
 // Safe URL for JS string (json_encode handles all escaping)
 $urlForJs = json_encode($rawUrl);
 ?>
@@ -39,8 +43,17 @@ $urlForJs = json_encode($rawUrl);
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: <?php echo $bgColor; ?>; }
-        #pdfWrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
-        #pdfFrame { position: absolute; top: 0; left: 0; border: none; display: block; }
+        #pdfWrap {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            overflow-x: hidden;
+            overflow-y: <?php echo $isMultiPage ? 'auto' : 'hidden'; ?>;
+            <?php if ($isMultiPage): ?>-webkit-overflow-scrolling: touch;<?php endif; ?>
+        }
+        #pdfFrame {
+            position: <?php echo $isMultiPage ? 'relative' : 'absolute'; ?>;
+            <?php if (!$isMultiPage): ?>top: 0; left: 0;<?php endif; ?>
+            border: none; display: block;
+        }
     </style>
 </head>
 <body>
@@ -51,14 +64,26 @@ $urlForJs = json_encode($rawUrl);
     (function() {
         var frame = document.getElementById('pdfFrame');
         var w = window.innerWidth;
-        var h = window.innerHeight;
         // iOS WebKit renders PDFs at 1pt = 1px. A4 portrait = 595 × 842 pt.
         var pdfW = 595;
         var scale = w / pdfW;
-        frame.style.width  = pdfW + 'px';
-        frame.style.height = Math.ceil(h / scale) + 'px';
-        frame.style.transform = 'scale(' + scale + ')';
-        frame.style.transformOrigin = 'top left';
+        var pages = <?php echo (int)$pages; ?>;
+
+        frame.style.width = pdfW + 'px';
+
+        if (pages > 1) {
+            // Multi-page: CSS zoom scales layout dimensions so wrapper becomes scrollable.
+            // zoom affects layout (unlike transform), so pdfWrap overflow-y:auto works correctly.
+            frame.style.height = (842 * pages) + 'px';
+            frame.style.zoom = scale;
+        } else {
+            // Single page: scale via transform to fill exactly one screen height.
+            var h = window.innerHeight;
+            frame.style.height = Math.ceil(h / scale) + 'px';
+            frame.style.transform = 'scale(' + scale + ')';
+            frame.style.transformOrigin = 'top left';
+        }
+
         frame.src = <?php echo $urlForJs; ?>;
     })();
     </script>
