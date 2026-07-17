@@ -4016,11 +4016,21 @@ class ServiceReportApp {
     openPdfViewer(url, title = 'Dokument', pages = 1) {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
-        const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
-        const isDark = storedTheme === 'dark' ||
-            (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        const theme = isDark ? 'dark' : 'light';
-        document.getElementById('pdfViewerFrame').src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}&pages=${pages}`;
+        const frame = document.getElementById('pdfViewerFrame');
+
+        if (pages > 1) {
+            // Known multi-page count: stacked single-page iframes via pdf_embed.php.
+            // Needed because iOS Safari only shows page 1 of a PDF in a single iframe.
+            const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
+            const isDark = storedTheme === 'dark' ||
+                (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            const theme = isDark ? 'dark' : 'light';
+            frame.src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}&pages=${pages}`;
+        } else {
+            // Direct load: iOS native PDF viewer handles scaling + multi-page scrolling.
+            frame.src = url;
+        }
+
         overlay.classList.add('show');
     }
 
