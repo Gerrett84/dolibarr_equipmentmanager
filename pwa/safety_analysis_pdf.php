@@ -325,12 +325,18 @@ function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
 }
 
+// page=0: beide Seiten (Standard für Download/E-Mail)
+// page=1: nur Seite 1 (Deckblatt) – für in-App-Viewer
+// page=2: nur Seite 2 (Schutzmaßnahmen) – für in-App-Viewer
+$pageOnly = (int)GETPOST('page', 'int');
+$lm = 15;
+$cw = $pdf->getPageWidth() - 30;
+
 // ────────────────────────────────────────────────────────────────────────────
 // SEITE 1 – Deckblatt + Formular
 // ────────────────────────────────────────────────────────────────────────────
+if ($pageOnly !== 2) {
 $pdf->AddPage();
-$lm = 15;
-$cw = $pdf->getPageWidth() - 30;
 $y  = 15;
 
 // Logo
@@ -474,9 +480,12 @@ $pdf->MultiCell($sigW, 4, 'Datum: '.($a->sig_monteur_date ?: '___________')."\nN
 $pdf->SetTextColor(0, 0, 0);
 $y += $sigBoxH + 4;
 
+} // end if ($pageOnly !== 2)
+
 // ────────────────────────────────────────────────────────────────────────────
 // SEITE 2 – Schutzmaßnahmen mit Diagrammen
 // ────────────────────────────────────────────────────────────────────────────
+if ($pageOnly !== 1) {
 $pdf->AddPage();
 $y = 15;
 
@@ -600,6 +609,7 @@ $pdf->SetTextColor(120, 120, 120);
 $pdf->SetXY($lm, $pdf->getPageHeight() - 12);
 $pdf->Cell($cw/2, 4, $mysoc->name.' – Sicherheitsanalyse '.$a->fichinter_ref, 0, 0, 'L');
 $pdf->Cell($cw/2, 4, 'Stand: '.dol_print_date(dol_now(), 'day').'  |  Seite 2 von 2', 0, 0, 'R');
+} // end if ($pageOnly !== 1)
 
 // ── Stream ────────────────────────────────────────────────────────────────
 $filename = 'Sicherheitsanalyse_'.$a->fichinter_ref.'_'.$a->equipment_number.'.pdf';

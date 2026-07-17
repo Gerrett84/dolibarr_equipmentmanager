@@ -3,6 +3,10 @@
  * PDF Embed Wrapper
  * Wraps a PDF URL in a proper HTML page with viewport meta so the PDF
  * scales to fit the device width (especially on iOS Safari PWA).
+ *
+ * Multi-page mode (pages=N): creates N stacked single-page iframes, each loaded
+ * via pdf_embed.php?pages=1 with a ?page=N suffix appended to the base URL.
+ * This avoids iOS Safari's single-page limitation for PDFs in iframes.
  */
 
 // No session needed — the embedded URL carries its own auth (pwa_token).
@@ -26,13 +30,15 @@ if (empty($rawUrl) || preg_match('/^https?:\/\//i', $rawUrl) || strpos($rawUrl, 
 $theme = GETPOST('theme', 'alpha');
 $isDark = ($theme === 'dark');
 $bgColor = $isDark ? '#1a1a1a' : '#525659';
+$gapColor = $isDark ? '#111' : '#2a2a2a';
 
-// pages=N enables multi-page scrollable mode (e.g. pages=2 for Sicherheitsanalyse)
+// pages=N: 1 = single page (default), N>1 = stacked single-page iframes
 $pages = max(1, min(10, (int)($_GET['pages'] ?? 1)));
 $isMultiPage = ($pages > 1);
 
-// Safe URL for JS string (json_encode handles all escaping)
-$urlForJs = json_encode($rawUrl);
+// Safe values for JS
+$urlForJs   = json_encode($rawUrl);
+$themeForJs = json_encode($theme);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -49,42 +55,65 @@ $urlForJs = json_encode($rawUrl);
             overflow-y: <?php echo $isMultiPage ? 'auto' : 'hidden'; ?>;
             <?php if ($isMultiPage): ?>-webkit-overflow-scrolling: touch;<?php endif; ?>
         }
-        #pdfFrame {
-            position: <?php echo $isMultiPage ? 'relative' : 'absolute'; ?>;
-            <?php if (!$isMultiPage): ?>top: 0; left: 0;<?php endif; ?>
-            border: none; display: block;
-        }
+        <?php if (!$isMultiPage): ?>
+        #pdfFrame { position: absolute; top: 0; left: 0; border: none; display: block; }
+        <?php endif; ?>
     </style>
 </head>
 <body>
     <div id="pdfWrap">
+        <?php if (!$isMultiPage): ?>
         <iframe id="pdfFrame" allowfullscreen></iframe>
+        <?php endif; ?>
     </div>
     <script>
     (function() {
-        var frame = document.getElementById('pdfFrame');
-        var w = window.innerWidth;
+        var wrap = document.getElementById('pdfWrap');
+        var w    = window.innerWidth;
         // iOS WebKit renders PDFs at 1pt = 1px. A4 portrait = 595 × 842 pt.
-        var pdfW = 595;
+        var pdfW  = 595;
         var scale = w / pdfW;
         var pages = <?php echo (int)$pages; ?>;
 
-        frame.style.width = pdfW + 'px';
+        <?php if ($isMultiPage): ?>
+        // Multi-page: one single-page iframe per PDF page, stacked vertically.
+        // Each inner iframe uses pdf_embed.php?pages=1 (single-page transform mode).
+        // This reliably shows every page because iOS Safari handles 1-page PDFs correctly.
+        var baseUrl  = <?php echo $urlForJs; ?>;
+        var theme    = <?php echo $themeForJs; ?>;
+        var pageH    = Math.round(842 * scale);
+        var sep      = '<?php echo htmlspecialchars($gapColor); ?>';
+        var hasSep   = baseUrl.indexOf('?') >= 0;
 
-        if (pages > 1) {
-            // Multi-page: CSS zoom scales layout dimensions so wrapper becomes scrollable.
-            // zoom affects layout (unlike transform), so pdfWrap overflow-y:auto works correctly.
-            frame.style.height = (842 * pages) + 'px';
-            frame.style.zoom = scale;
-        } else {
-            // Single page: scale via transform to fill exactly one screen height.
-            var h = window.innerHeight;
-            frame.style.height = Math.ceil(h / scale) + 'px';
-            frame.style.transform = 'scale(' + scale + ')';
-            frame.style.transformOrigin = 'top left';
+        for (var i = 1; i <= pages; i++) {
+            if (i > 1) {
+                var div = document.createElement('div');
+                div.style.height = '4px';
+                div.style.background = sep;
+                wrap.appendChild(div);
+            }
+            var pageUrl = baseUrl + (hasSep ? '&' : '?') + 'page=' + i;
+            var fr = document.createElement('iframe');
+            fr.style.width   = '100%';
+            fr.style.height  = pageH + 'px';
+            fr.style.border  = 'none';
+            fr.style.display = 'block';
+            fr.src = 'pdf_embed.php?url=' + encodeURIComponent(pageUrl)
+                   + '&theme=' + encodeURIComponent(theme)
+                   + '&pages=1';
+            wrap.appendChild(fr);
         }
 
+        <?php else: ?>
+        // Single page: scale to fit screen width via CSS transform.
+        var frame = document.getElementById('pdfFrame');
+        var h     = window.innerHeight;
+        frame.style.width           = pdfW + 'px';
+        frame.style.height          = Math.ceil(h / scale) + 'px';
+        frame.style.transform       = 'scale(' + scale + ')';
+        frame.style.transformOrigin = 'top left';
         frame.src = <?php echo $urlForJs; ?>;
+        <?php endif; ?>
     })();
     </script>
 </body>
