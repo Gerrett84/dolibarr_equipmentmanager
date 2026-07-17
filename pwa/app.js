@@ -4018,17 +4018,30 @@ class ServiceReportApp {
         document.getElementById('pdfViewerTitle').textContent = title;
         const frame = document.getElementById('pdfViewerFrame');
 
+        // Remove any previously injected <object> element
+        const prevObj = document.getElementById('pdfViewerObject');
+        if (prevObj) prevObj.remove();
+
         if (pages > 1) {
             // Known multi-page count: stacked single-page iframes via pdf_embed.php.
-            // Needed because iOS Safari only shows page 1 of a PDF in a single iframe.
+            // Needed because iOS Safari only shows page 1 of a PDF in a single <iframe>.
             const storedTheme = localStorage.getItem('pwa_theme') || 'auto';
             const isDark = storedTheme === 'dark' ||
                 (storedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
             const theme = isDark ? 'dark' : 'light';
+            frame.style.display = 'block';
             frame.src = `pdf_embed.php?url=${encodeURIComponent(url)}&theme=${theme}&pages=${pages}`;
         } else {
-            // Direct load: iOS native PDF viewer handles scaling + multi-page scrolling.
-            frame.src = url;
+            // Inject <object type="application/pdf"> directly as flex-child of the overlay.
+            // iOS PDFKit renders <object> differently from <iframe> and supports multi-page scroll.
+            frame.style.display = 'none';
+            frame.src = 'about:blank';
+            const obj = document.createElement('object');
+            obj.id = 'pdfViewerObject';
+            obj.type = 'application/pdf';
+            obj.style.cssText = 'flex:1;min-height:0;width:100%;border:none;display:block;';
+            obj.data = url;
+            overlay.appendChild(obj);
         }
 
         overlay.classList.add('show');
@@ -4037,8 +4050,11 @@ class ServiceReportApp {
     closePdfViewer() {
         const overlay = document.getElementById('pdfViewerOverlay');
         overlay.classList.remove('show');
-        // Clear iframe to stop loading
-        document.getElementById('pdfViewerFrame').src = 'about:blank';
+        const frame = document.getElementById('pdfViewerFrame');
+        frame.src = 'about:blank';
+        frame.style.display = 'block';
+        const obj = document.getElementById('pdfViewerObject');
+        if (obj) obj.remove();
     }
 
     // Show PDF preview in in-app viewer
