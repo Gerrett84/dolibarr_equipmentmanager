@@ -592,7 +592,9 @@ $pdf->Cell($cw, 4, '* Die Absicherung mit Schutzflügeln ist bei Teleskop-Schieb
 $y += 5;
 $pdf->SetTextColor(0, 0, 0);
 
-// Fußzeile Seite 2
+// Fußzeile Seite 2 – AutoPageBreak deaktivieren, damit TCPDF keinen Seitenumbruch
+// bei y=285mm (> Trigger 277mm) einfügt und keine leere Seite 3 entsteht.
+$pdf->SetAutoPageBreak(false);
 $pdf->SetFont('helvetica', '', 7);
 $pdf->SetTextColor(120, 120, 120);
 $pdf->SetXY($lm, $pdf->getPageHeight() - 12);
