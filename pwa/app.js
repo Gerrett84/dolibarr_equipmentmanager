@@ -46,11 +46,35 @@ class ServiceReportApp {
             // console.log('IndexedDB initialized');
         } catch (err) {
             console.error('Failed to init IndexedDB:', err);
+            if (err?.message === 'IDB_BLOCKED' || err?.message === 'IDB_TIMEOUT') {
+                document.getElementById('interventionsLoading').style.display = 'none';
+                document.getElementById('interventionsList').innerHTML =
+                    '<div class="empty-state"><div class="empty-icon">⚠️</div>' +
+                    '<p>' + (err.message === 'IDB_TIMEOUT'
+                        ? 'Offline-Speicher reagiert nicht. Bitte Seite neu laden.'
+                        : 'Bitte alle anderen PWA-Tabs schließen und dann neu laden.')
+                    + '</p>' +
+                    '<button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:#1a3f6e;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">Neu laden</button></div>';
+                return;
+            }
             this.showToast('Offline-Speicher konnte nicht initialisiert werden');
         }
 
-        // Handle authentication
-        const authOk = await this.checkAuth();
+        // Handle authentication — wrap in try/catch so a null-DB TypeError
+        // (IDB init caught above but db still null) doesn't silently freeze the app.
+        let authOk;
+        try {
+            authOk = await this.checkAuth();
+        } catch (err) {
+            console.error('checkAuth failed:', err);
+            document.getElementById('interventionsLoading').style.display = 'none';
+            document.getElementById('interventionsList').innerHTML =
+                '<div class="empty-state"><div class="empty-icon">⚠️</div>' +
+                '<p>Initialisierungsfehler. Bitte Seite neu laden oder ' +
+                'Website-Daten in Safari-Einstellungen löschen.</p>' +
+                '<button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:#1a3f6e;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">Neu laden</button></div>';
+            return;
+        }
         if (!authOk) {
             return; // Auth check shows error message
         }
@@ -268,10 +292,18 @@ class ServiceReportApp {
     async tryAutoLogin(username, password) {
         if (!this.pwaToken) return false;
         // No try-catch here — let network errors propagate to caller
-        const response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
-            method: 'GET',
-            headers: { 'X-PWA-Token': this.pwaToken }
-        });
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 10000);
+        let response;
+        try {
+            response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
+                method: 'GET',
+                headers: { 'X-PWA-Token': this.pwaToken },
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(tid);
+        }
 
         if (response.ok) {
             const result = await response.json();

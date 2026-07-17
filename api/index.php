@@ -19,10 +19,15 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Token, X-PWA-Token');
 
+// Detect actual protocol (NPM/reverse proxy terminates SSL, so HTTPS is not set on server)
+$apiIsHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
+$apiCurrentOrigin = ($apiIsHttps ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+
 // Handle preflight before loading Dolibarr (no environment needed)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    $preflightOrigin = (isset($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
-    header('Access-Control-Allow-Origin: '.$preflightOrigin);
+    header('Access-Control-Allow-Origin: '.$apiCurrentOrigin);
     http_response_code(200);
     exit;
 }
@@ -44,7 +49,7 @@ if (!$res) {
 // Set CORS origin now that Dolibarr is loaded and getDolGlobalString is available
 $allowedOrigin = getDolGlobalString('MAIN_URL_ROOT');
 if (empty($allowedOrigin)) {
-    $allowedOrigin = (isset($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+    $allowedOrigin = $apiCurrentOrigin;
 }
 header('Access-Control-Allow-Origin: '.$allowedOrigin);
 header('Vary: Origin');

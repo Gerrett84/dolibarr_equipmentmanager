@@ -189,7 +189,15 @@ if ($isAuthenticated && !empty($conf->totp2fa->enabled)) {
 }
 
 $title = 'Serviceaufträge';
-$apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
+// Build API URL using the actual request origin (scheme+host) so that
+// accessing via local IP or via the configured domain both use same-origin
+// requests — eliminates CORS issues and mixed-content blocks from NPM SSL termination.
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
+$currentOrigin = ($isHttps ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+$apiBase = $currentOrigin . DOL_URL_ROOT . '/custom/equipmentmanager/api/index.php';
+$moduleUrl = $currentOrigin . DOL_URL_ROOT . '/custom/equipmentmanager/';
 $jSignaturePath = DOL_URL_ROOT . '/includes/jquery/plugins/jSignature/jSignature.min.js';
 $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
 ?>
@@ -2816,7 +2824,7 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
         // Configuration
         const CONFIG = {
             apiBase: '<?php echo $apiBase; ?>',
-            moduleUrl: '<?php echo dol_buildpath('/custom/equipmentmanager/', 1); ?>',
+            moduleUrl: '<?php echo $moduleUrl; ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
             authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>

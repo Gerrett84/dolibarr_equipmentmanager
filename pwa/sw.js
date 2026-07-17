@@ -2,8 +2,8 @@
  * Service Worker for Offline PWA
  */
 
-const CACHE_NAME = 'equipmentmanager-pwa-v24';
-const STATIC_CACHE = 'equipmentmanager-static-v23';
+const CACHE_NAME = 'equipmentmanager-pwa-v26';
+const STATIC_CACHE = 'equipmentmanager-static-v26';
 
 // Files to cache for offline use
 const STATIC_FILES = [
@@ -59,17 +59,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // API requests - network only (we use IndexedDB for offline data)
+    // API requests - do NOT intercept; let browser handle directly.
+    // SW-internal fetch() fails silently on some iOS/WebKit versions,
+    // causing all API calls to appear as {offline:true}. App already
+    // catches real network errors natively in checkAuth/checkConnectivity.
     if (url.pathname.includes('/api/')) {
-        event.respondWith(
-            fetch(event.request)
-                .catch(() => {
-                    return new Response(
-                        JSON.stringify({ error: 'Offline', offline: true }),
-                        { headers: { 'Content-Type': 'application/json' } }
-                    );
-                })
-        );
         return;
     }
 

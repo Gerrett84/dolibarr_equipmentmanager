@@ -11,13 +11,29 @@ class OfflineDB {
     }
 
     async init() {
-        return new Promise((resolve, reject) => {
+        return Promise.race([
+          new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('IDB_TIMEOUT')), 8000)
+          ),
+          new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
+                // When a newer DB version is opened in another tab, close this connection
+                // so the upgrade can proceed (prevents IDB_BLOCKED in the other tab).
+                this.db.onversionchange = () => {
+                    this.db.close();
+                    this.db = null;
+                    window.location.reload();
+                };
                 resolve(this.db);
+            };
+
+            // Another tab holds an older connection → our upgrade is blocked.
+            request.onblocked = () => {
+                reject(new Error('IDB_BLOCKED'));
             };
 
             request.onupgradeneeded = (event) => {
@@ -107,11 +123,13 @@ class OfflineDB {
                     db.createObjectStore('geocache', { keyPath: 'address' });
                 }
             };
-        });
+          })
+        ]);
     }
 
     // Generic CRUD operations
     async put(storeName, data) {
+        if (!this.db) return null;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
@@ -122,6 +140,7 @@ class OfflineDB {
     }
 
     async get(storeName, key) {
+        if (!this.db) return undefined;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
@@ -132,6 +151,7 @@ class OfflineDB {
     }
 
     async getAll(storeName) {
+        if (!this.db) return [];
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
@@ -142,6 +162,7 @@ class OfflineDB {
     }
 
     async delete(storeName, key) {
+        if (!this.db) return;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
@@ -152,6 +173,7 @@ class OfflineDB {
     }
 
     async clear(storeName) {
+        if (!this.db) return;
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
@@ -162,6 +184,7 @@ class OfflineDB {
     }
 
     async getByIndex(storeName, indexName, value) {
+        if (!this.db) return [];
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
@@ -272,6 +295,10 @@ class OfflineDB {
     async getMeta(key) {
         const result = await this.get('meta', key);
         return result ? result.value : null;
+    }
+
+    async removeMeta(key) {
+        await this.delete('meta', key);
     }
 
     // Get pending sync count
