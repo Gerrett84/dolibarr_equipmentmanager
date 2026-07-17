@@ -439,10 +439,7 @@ $y += 10;
 $pdf->SetFont('helvetica', '', 8);
 $pdf->SetDrawColor(160, 160, 160);
 $sigBoxH = 22;
-$sigW    = $cw / 2 - 3;
-$rx2     = $lm + $sigW + 6;
 
-// Volle Breite für Ersteller-Unterschrift
 $pdf->SetFillColor(252, 252, 252);
 $pdf->Rect($lm, $y, $cw, $sigBoxH, 'DF');
 if (!empty($a->sig_ersteller) && strpos($a->sig_ersteller, 'data:image') === 0) {
@@ -461,24 +458,6 @@ $pdf->SetFont('helvetica', 'B', 8);
 $pdf->SetXY($lm, $y + 1);
 $pdf->Cell($cw, 5, 'Die im Folgenden beschriebenen Schutzmaßnahmen sind einzuhalten.', 0, 1, 'C');
 $y += 9;
-
-// Monteur-Unterschrift
-$pdf->SetFillColor(252, 252, 252);
-$pdf->SetDrawColor(160, 160, 160);
-$pdf->Rect($lm, $y, $sigW, $sigBoxH, 'DF');
-if (!empty($a->sig_monteur) && strpos($a->sig_monteur, 'data:image') === 0) {
-    $pdf->Image('@'.base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $a->sig_monteur)),
-        $lm + 2, $y + 2, $sigW - 4, $sigBoxH - 8);
-}
-$pdf->SetFont('helvetica', '', 8);
-$pdf->SetXY($lm, $y + $sigBoxH - 5);
-$pdf->Cell($sigW, 4, 'Unterschrift Monteur', 0, 0, 'C');
-$pdf->SetXY($rx2, $y + 2);
-$pdf->SetFont('helvetica', '', 8);
-$pdf->SetTextColor(80, 80, 80);
-$pdf->MultiCell($sigW, 4, 'Datum: '.($a->sig_monteur_date ?: '___________')."\nName: ".($a->sig_monteur_name ?: ''), 0, 'L');
-$pdf->SetTextColor(0, 0, 0);
-$y += $sigBoxH + 4;
 
 } // end if ($pageOnly !== 2)
 

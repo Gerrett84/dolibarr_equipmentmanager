@@ -3007,13 +3007,8 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                 </div>
             </div>
 
-            <!-- Step 3: Unterschriften -->
+            <!-- Step 3: Unterschrift Ersteller -->
             <div id="saStep3" class="sa-step-content" style="display:none;">
-                <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
-                    Drei Unterschriften erforderlich: Ersteller (jetzt), Auftraggeber + Monteur (nach Abschluss).
-                </div>
-
-                <!-- Ersteller -->
                 <div class="sa-sig-block" id="saSigErstellerBlock">
                     <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Unterschrift Ersteller</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -3026,29 +3021,9 @@ $dolibarrUrl = dol_buildpath('/', 1); // Absolute URL to Dolibarr root
                             <input type="text" class="form-input" id="sa_ersteller_ort">
                         </div>
                     </div>
-                    <canvas id="saCanvasErsteller" width="480" height="120"
-                        style="width:100%;height:100px;border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
-                    <button type="button" onclick="app.clearSaCanvas('Ersteller')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
+                    <div id="saSignatureErsteller" style="border:1px solid var(--border);border-radius:6px;background:#fff;height:130px;"></div>
+                    <button type="button" onclick="app.clearSaSignature()" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
                 </div>
-
-                <!-- Monteur -->
-                <div class="sa-sig-block" id="saSigMonteurBlock" style="margin-top:16px;">
-                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Unterschrift Monteur (nach Abschluss)</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-                        <div>
-                            <label class="form-label">Name</label>
-                            <input type="text" class="form-input" id="sa_monteur_name">
-                        </div>
-                        <div>
-                            <label class="form-label">Ort</label>
-                            <input type="text" class="form-input" id="sa_monteur_ort">
-                        </div>
-                    </div>
-                    <canvas id="saCanvasMonteur" width="480" height="120"
-                        style="width:100%;height:100px;border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
-                    <button type="button" onclick="app.clearSaCanvas('Monteur')" style="margin-top:4px;font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;">✕ Löschen</button>
-                </div>
-
             </div>
 
             <!-- Buttons -->

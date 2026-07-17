@@ -11,6 +11,7 @@ class ServiceReportApp {
         this.currentEntries = []; // v1.7 - all entries for current equipment
         this.isOnline = false; // Always start pessimistic — checkConnectivity() confirms
         this.signatureInstance = null;
+        this.saSignatureInstance = null;
         this.user = null;
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
@@ -6168,12 +6169,12 @@ class ServiceReportApp {
 
         this.saUpdateStep(1);
         document.getElementById('safetyModal').style.display = 'block';
-        this.setupSaCanvases();
     }
 
     closeSafetyModal() {
         document.getElementById('safetyModal').style.display = 'none';
         this.saCurrentData = null;
+        this.saSignatureInstance = null;
     }
 
     saFillForm(analysis, prefill) {
@@ -6232,8 +6233,6 @@ class ServiceReportApp {
         // Signature name/ort fields
         document.getElementById('sa_ersteller_name').value = a.sig_ersteller_name || p.techniker_name || '';
         document.getElementById('sa_ersteller_ort').value  = a.sig_ersteller_ort  || '';
-        document.getElementById('sa_monteur_name').value   = a.sig_monteur_name   || '';
-        document.getElementById('sa_monteur_ort').value    = a.sig_monteur_ort    || '';
     }
 
     saStep(direction) {
@@ -6257,13 +6256,22 @@ class ServiceReportApp {
         document.getElementById('btnSaNext').style.display    = step < 3     ? '' : 'none';
         document.getElementById('btnSaSave').style.display    = step === 3   ? '' : 'none';
         document.getElementById('btnSaPreview').style.display = step === 3   ? '' : 'none';
+
+        if (step === 3) {
+            setTimeout(() => this.initSaSignature(), 50);
+        }
     }
 
     collectSaFormData() {
         const g = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
-        const canvasBase64 = (id) => {
-            const c = document.getElementById(id);
-            return c ? c.toDataURL('image/png') : '';
+        const getSaSignature = () => {
+            if (!this.saSignatureInstance) return '';
+            try {
+                const dataUrl = this.saSignatureInstance.jSignature('getData', 'image');
+                if (dataUrl && typeof dataUrl === 'string' && dataUrl.includes('data:image')) return dataUrl;
+                if (Array.isArray(dataUrl) && dataUrl.length >= 2) return dataUrl[0] + ',' + dataUrl[1];
+            } catch (e) {}
+            return '';
         };
 
         // Nested structure matches $fd() paths in safety_analysis_pdf.php
@@ -6307,12 +6315,9 @@ class ServiceReportApp {
             durchgangsbreite:       parseInt(document.getElementById('sa_breite').value)  || null,
             bauliche_gegebenheiten: document.getElementById('sa_baulich').value.trim(),
             form_data,
-            sig_ersteller:          canvasBase64('saCanvasErsteller'),
+            sig_ersteller:          getSaSignature(),
             sig_ersteller_name:     document.getElementById('sa_ersteller_name').value.trim(),
             sig_ersteller_ort:      document.getElementById('sa_ersteller_ort').value.trim(),
-            sig_monteur:            canvasBase64('saCanvasMonteur'),
-            sig_monteur_name:       document.getElementById('sa_monteur_name').value.trim(),
-            sig_monteur_ort:        document.getElementById('sa_monteur_ort').value.trim(),
             fk_fichinter:           this.currentIntervention ? this.currentIntervention.id : 0,
             id:                     this.saCurrentData ? (this.saCurrentData.id || null) : null,
         };
@@ -6365,61 +6370,27 @@ class ServiceReportApp {
         }
     }
 
-    clearSaCanvas(role) {
-        const canvas = document.getElementById('saCanvas' + role);
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    initSaSignature() {
+        const container = document.getElementById('saSignatureErsteller');
+        if (!container) return;
+        if (this.saSignatureInstance) return; // Already initialized
+        container.innerHTML = '';
+        $(container).jSignature({
+            color: '#000',
+            'background-color': '#fff',
+            'decor-color': 'transparent',
+            lineWidth: 2,
+            width: '100%',
+            height: 130,
+            cssclass: 'signature-canvas'
+        });
+        this.saSignatureInstance = $(container);
     }
 
-    setupSaCanvases() {
-        ['Ersteller', 'Monteur'].forEach(role => {
-            const old = document.getElementById('saCanvas' + role);
-            if (!old) return;
-
-            // Clone to strip old listeners, preserve id + attributes
-            const canvas = old.cloneNode(true);
-            old.parentNode.replaceChild(canvas, old);
-
-            const ctx = canvas.getContext('2d');
-            let drawing = false;
-            let lastX = 0, lastY = 0;
-
-            const getPos = (e) => {
-                const r = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / r.width;
-                const scaleY = canvas.height / r.height;
-                const src = e.touches ? e.touches[0] : e;
-                return [(src.clientX - r.left) * scaleX, (src.clientY - r.top) * scaleY];
-            };
-            const onStart = (e) => {
-                e.preventDefault();
-                drawing = true;
-                [lastX, lastY] = getPos(e);
-            };
-            const onMove = (e) => {
-                if (!drawing) return;
-                e.preventDefault();
-                const [x, y] = getPos(e);
-                ctx.beginPath();
-                ctx.moveTo(lastX, lastY);
-                ctx.lineTo(x, y);
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 2;
-                ctx.lineCap = 'round';
-                ctx.stroke();
-                [lastX, lastY] = [x, y];
-            };
-            const onEnd = () => { drawing = false; };
-
-            canvas.addEventListener('mousedown',  onStart);
-            canvas.addEventListener('mousemove',  onMove);
-            canvas.addEventListener('mouseup',    onEnd);
-            canvas.addEventListener('mouseleave', onEnd);
-            canvas.addEventListener('touchstart', onStart, { passive: false });
-            canvas.addEventListener('touchmove',  onMove,  { passive: false });
-            canvas.addEventListener('touchend',   onEnd);
-        });
+    clearSaSignature() {
+        if (this.saSignatureInstance) {
+            try { this.saSignatureInstance.jSignature('reset'); } catch (e) {}
+        }
     }
 }
 
