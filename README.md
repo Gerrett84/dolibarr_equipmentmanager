@@ -12,8 +12,9 @@
 
 ## Features
 
-### NEU in v5.5.1: PWA Stabilitäts-Hotfix
+### NEU in v5.5.1: PWA Stabilitäts-Hotfix & PDF-Viewer Mehrseiten-Fix
 
+- **Fix: PDF-Viewer zeigt nur erste Seite** – iOS Safari beschränkt `<iframe>` grundsätzlich auf Seite 1 eines mehrseitigen PDFs; PDF-Viewer injiziert jetzt `<object type="application/pdf">` direkt in den Overlay (kein iframe-Nesting); Servicebericht, Checkliste, Abnahmeprotokoll und Dokument-Vorschau zeigen jetzt alle Seiten scrollbar; sw.js v27 erzwingt Cache-Neuladen
 - **Fix: PWA dauerhaft offline / Spinner eingefroren** – `offlineDB.init()` konnte lautlos hängen wenn IndexedDB blockiert war oder nicht antwortete; `checkAuth()` konnte bei null-DB einen TypeError werfen der die gesamte App-Initialisierung lautlos abbrach; `tryAutoLogin()` hatte keinen Timeout und konnte bei Netzwerkproblemen ewig hängen
 - **db.js: IDB-Init mit 8s Timeout** – `Promise.race()` verhindert ewiges Hängen; nach 8s wird ein `IDB_TIMEOUT`-Fehler geworfen
 - **db.js: `onblocked`-Handler** – IDB-Upgrade-Blockierung durch andere Tabs wirft `IDB_BLOCKED` statt stumm zu hängen
