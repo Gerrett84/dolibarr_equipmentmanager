@@ -254,9 +254,8 @@ function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
     // Pfeil →
     _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $panX2 - 2);
 
-    // x-Maß: VERTIKAL, im rechten Bereich – Sturz-Unterkante (y+9) → Blatt-Oberkante (y+13)
-    // Position: rechts vom Blatt, links von der Wand (x+38 ist frei)
-    _dMV($pdf, $wallX - 2, $sturzB, $panY, 'x');
+    // x-Maß: VERTIKAL, linke Seite des Sturz – Sturz-Unterkante (y+9) → Blatt-Oberkante (y+13)
+    _dMV($pdf, $sturzX + 2, $sturzB, $panY, 'x');
 
     // Y-Maß: HORIZONTAL – Blatt-Stirnkante (ohne Führungsblock) → Wand
     _dMH($pdf, $panX2, $wallX, $panY + $panH + 2, 'Y');
@@ -265,50 +264,47 @@ function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
 }
 
 // ── Diagram: Anstoßen ────────────────────────────────────────────────────
-// DRAUFSICHT: Taschenecke – Sturz oben + rechte Wand
-// Fahrflügel weiter von der rechten Wand entfernt als bei Quetschen
-// x = vertikal (Vorderkante/Blatt-Oberkante → Sturz-Unterkante)
-// Y = horizontal (Führungsblock-Stirn → rechte Wand)
+// DRAUFSICHT: ⌐-Form – Querarm oben + Hängearm links-unten
+// x = vertikal (Hängearm-Unterkante → Blatt-Oberkante)
 function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $panH   = 3;
-    $sturzH = 6;
-    $wallW  = 3;
-    $gX     = 4;    // x-Spalt (vertikal): Sturz → Blatt
-    $gY     = 10;   // Y-Spalt (horizontal, größer): Blatt-Körper → Wand
-    $gbW    = 3;    // Führungsblock-Breite
+    $panH    = 3;
+    $qArmH   = 6;   // Querarm-Höhe (oben)
+    $hangW   = 4;   // Hängearm-Breite (links)
+    $hangLen = 8;   // Hängearm-Länge (hängt nach unten)
+    $gX      = 4;   // x-Spalt (Hängearm-Ende → Blatt)
+    $gbW     = 3;   // Führungsblock-Breite
 
-    $sturzX = $x + round($w * 0.25);   // x+12
-    $sturzB = $y + 3 + $sturzH;        // y+9
-    $wallX  = $x + $w - 2 - $wallW;    // x+43
+    // Querarm (oben, breit – von x+12 bis rechtem Rand)
+    $qArmX  = $x + round($w * 0.25);   // x+12
+    $qArmB  = $y + 3 + $qArmH;         // Querarm-Unterkante = y+9
 
-    // Sturz + rechte Wand
     _dStruct($pdf);
-    $pdf->Rect($sturzX, $y + 3, $wallX - $sturzX + $wallW, $sturzH, 'DF');
-    $pdf->Rect($wallX, $sturzB, $wallW, $y + $h - 3 - $sturzB, 'DF');
+    $pdf->Rect($qArmX, $y + 3, $x + $w - 2 - $qArmX, $qArmH, 'DF');
 
-    // Türblatt (weiter von der Wand als bei Quetschen)
-    $panY   = $sturzB + $gX;           // y+13
-    $panX2  = $wallX - $gY;            // x+43-10 = x+33
-    $pLeft  = $x + 2 + $gbW;           // x+5
+    // Hängearm (links am Querarm, hängt nach unten)
+    $hangX  = $qArmX;
+    $hangB  = $qArmB + $hangLen;        // Hängearm-Unterkante = y+17
+    $pdf->Rect($hangX, $qArmB, $hangW, $hangLen, 'DF');
+
+    // Türblatt (darunter, mit Führungsblöcken)
+    $panY   = $hangB + $gX;             // y+17+4 = y+21
+    $pLeft  = $x + 2 + $gbW;
 
     _dPanel($pdf);
-    $pdf->Rect($pLeft, $panY, $panX2 - $pLeft, $panH, 'DF');
+    $pdf->Rect($pLeft, $panY, $x + $w - 4 - $gbW - $pLeft, $panH, 'DF');
 
-    // Führungsblöcke (links + rechts)
+    // Führungsblöcke
     $gbY = $panY - 1;
     $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
-    $pdf->Rect($x + 2, $gbY, $gbW, $panH + 2, 'DF');   // links
-    $pdf->Rect($panX2, $gbY, $gbW, $panH + 2, 'DF');   // rechts
+    $pdf->Rect($x + 2, $gbY, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($x + $w - 2 - $gbW, $gbY, $gbW, $panH + 2, 'DF');
 
     // Pfeil →
-    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $panX2 - 2);
+    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $x + $w - 4 - $gbW - 2);
 
-    // x-Maß: VERTIKAL – Sturz-Unterkante → Blatt-Oberkante (rechts, freier Bereich)
-    _dMV($pdf, $wallX - 2, $sturzB, $panY, 'x');
-
-    // Y-Maß: HORIZONTAL – Führungsblock-Stirnkante → rechte Wand
-    _dMH($pdf, $panX2 + $gbW, $wallX, $panY + $panH + 2, 'Y');
+    // x-Maß: VERTIKAL – Hängearm-Unterkante (y+17) → Blatt-Oberkante (y+21)
+    _dMV($pdf, $hangX + $hangW + 3, $hangB, $panY, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
