@@ -214,114 +214,116 @@ function drawDiagramHSK($pdf, $x, $y, $w, $h) {
 }
 
 // ── Diagram: Quetschen ────────────────────────────────────────────────────
-// DRAUFSICHT: Γ-Form (Querarm oben + Längsarm rechts), Blatt darunter
-// Y = Abstand Blatt-Oberkante ↔ Querarm-Unterkante, x = Abstand Blattkante ↔ Längsarm
+// DRAUFSICHT: Γ-Form rechts oben, Blatt nahe darunter/daneben
+// Y = vertikaler Abstand Querarm-Unterkante → Blatt, x = horizontaler Abstand Blatt → Längsarm
 function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $panH  = 3;   // Türblattdicke
-    $armH  = 6;   // Γ Querarm-Höhe (oben)
-    $armW  = 3;   // Γ Längsarm-Breite (rechts)
-    $gY    = 4;   // Y-Abstand (Querarm-Unterkante → Blatt-Oberkante)
-    $gX    = 5;   // x-Abstand (Blatt-Kante → Längsarm)
-    $armL  = $x + round($w * 0.44); // Querarm beginnt hier
+    $panH  = 3;
+    $armH  = 5;   // Querarm-Höhe
+    $armW  = 3;   // Längsarm-Breite
+    $gY    = 3;   // Y-Spalt (Querarm → Blatt)
+    $gX    = 4;   // x-Spalt (Blatt → Längsarm)
 
-    // Γ-Form: Querarm oben (horizontal, läuft nach rechts bis zur Kante)
+    // Γ-Form: Querarm oben (breit, von links bis Diagrammkante)
+    $armL  = $x + round($w * 0.33);  // beginnt weiter links
+    $vArmX = $x + $w - 2 - $armW;    // x+43
+    $vArmT = $y + 3 + $armH;         // Unterkante Querarm = y+8
+
     _dStruct($pdf);
-    $pdf->Rect($armL, $y + 4, $x + $w - 2 - $armL, $armH, 'DF');
-    // Γ-Form: Längsarm rechts (vertikal, läuft von Querarm-Unterkante nach unten)
-    $vArmX = $x + $w - 2 - $armW;
-    $vArmT = $y + 4 + $armH;
-    $pdf->Rect($vArmX, $vArmT, $armW, $h - 4 - $armH - 4, 'DF');
+    $pdf->Rect($armL, $y + 3, $x + $w - 2 - $armL, $armH, 'DF');
+    // Γ-Form: Längsarm rechts (von Querarm-Unterkante bis Diagramm-Unterkante)
+    $pdf->Rect($vArmX, $vArmT, $armW, $y + $h - 3 - $vArmT, 'DF');
 
-    // Türblatt (thin, blau)
-    $panY  = $vArmT + $gY;
-    $panX2 = $vArmX - $gX;
+    // Türblatt: Oberkante = Querarm-Unterkante + gY, Rechtkante = Längsarm - gX
+    $panY  = $vArmT + $gY;    // y+11
+    $panX2 = $vArmX - $gX;   // x+39
     _dPanel($pdf);
     $pdf->Rect($x + 2, $panY, $panX2 - $x - 2, $panH, 'DF');
 
-    // Pfeil →
-    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $panX2 - 1);
+    // Pfeil → (auf dem Blatt)
+    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $panX2 - 2);
 
-    // Y-Maß (Querarm-Unterkante → Blatt-Oberkante), im Γ-Bereich
-    _dMV($pdf, $armL + 3, $vArmT, $panY, 'Y');
+    // Y-Maß: vertikal zwischen Querarm-Unterkante (y+8) und Blatt-Oberkante (y+11)
+    _dMV($pdf, $armL + 4, $vArmT, $panY, 'Y');
 
-    // x-Maß (Blattkante → Längsarm)
-    _dMH($pdf, $panX2, $vArmX, $panY + $panH + 2.5, 'x');
+    // x-Maß: horizontal im Spalt zwischen Blatt und Längsarm, auf Blatt-Mittelhöhe
+    _dMH($pdf, $panX2, $vArmX, $panY + $panH / 2, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
 // ── Diagram: Anstoßen ────────────────────────────────────────────────────
-// DRAUFSICHT: ⌐-Form (Längsarm rechts oben + Querarm rechts unten), Blatt links
-// x = Abstand Blattkante ↔ Längsarm
+// DRAUFSICHT: ⌐-Form – Längsarm rechts, Querarm unten; Blatt fährt auf Längsarm zu
+// x = Abstand Blattkante ↔ Längsarm (auf Höhe des Blattes)
 function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
     $panH  = 3;
-    $armH  = 6;   // ⌐ Querarm-Höhe (unten)
-    $armW  = 3;   // ⌐ Längsarm-Breite (rechts)
-    $gX    = 5;   // x-Abstand
-    $armL  = $x + round($w * 0.44);
-    $vArmX = $x + $w - 2 - $armW;
+    $armH  = 5;   // Querarm-Höhe (unten)
+    $armW  = 3;   // Längsarm-Breite (rechts)
+    $gX    = 5;   // x-Spalt
 
-    // ⌐-Form: Längsarm rechts (vertikal, von oben bis Querarm)
+    $vArmX  = $x + $w - 2 - $armW;   // x+43
+    // Ecke (Knick) liegt knapp unterhalb des Blattes
+    $panY   = $y + round($h / 2) - 2; // Blatt etwas oberhalb Mitte, z.B. y+11
+    $corner = $panY + $panH + 2;       // Ecke bei y+18 (direkt unter Blatt + Puffer)
+    $armL   = $x + round($w * 0.44);
+
+    // ⌐-Form: Längsarm rechts (vertikal, von oben bis Ecke)
     _dStruct($pdf);
-    $vArmB = $y + $h - 4 - $armH;
-    $pdf->Rect($vArmX, $y + 4, $armW, $vArmB - $y - 4, 'DF');
-    // ⌐-Form: Querarm unten rechts (horizontal)
-    $pdf->Rect($armL, $vArmB, $x + $w - 2 - $armL, $armH, 'DF');
+    $pdf->Rect($vArmX, $y + 3, $armW, $corner - $y - 3, 'DF');
+    // ⌐-Form: Querarm unten (horizontal, von armL bis rechtem Rand)
+    $pdf->Rect($armL, $corner, $x + $w - 2 - $armL, $armH, 'DF');
 
-    // Türblatt (thin, blau), vertikal zentriert (oberhalb des Querarms)
-    $panY  = $y + ($vArmB - $y - $panH) / 2;
+    // Türblatt
     $panX2 = $vArmX - $gX;
     _dPanel($pdf);
     $pdf->Rect($x + 2, $panY, $panX2 - $x - 2, $panH, 'DF');
 
-    // Pfeil →
-    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $panX2 - 1);
+    // Pfeil → (auf dem Blatt)
+    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $panX2 - 2);
 
-    // x-Maß (Blattkante → Längsarm)
-    _dMH($pdf, $panX2, $vArmX, $panY + $panH + 2.5, 'x');
+    // x-Maß: horizontal auf Blatt-Mittelhöhe, im Spalt Blatt → Längsarm
+    _dMH($pdf, $panX2, $vArmX, $panY + $panH / 2, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
 // ── Diagram: Scheren ──────────────────────────────────────────────────────
-// DRAUFSICHT: zwei dünne Flügel nahe beieinander, Wand am rechten Ende
-// S = seitl. Spalt (sehr klein), t = Überlappungszone
+// DRAUFSICHT: Flügel A steht FEST an der Wand (rechts), Flügel B fährt davor
+// S = seitl. Spalt (sehr klein), t = Überlappungslänge
 function drawDiagramScheren($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $panH  = 3;    // Türblattdicke
-    $gapS  = 3;    // S sehr klein (nahe beieinander)
-    $wallW = 4;    // Wand rechts
-    $wallX = $x + $w - 2 - $wallW;
-    $cy    = $y + $h / 2;
+    $panH  = 3;
+    $gapS  = 3;   // S-Spalt zwischen den Flügeln
+    $wallW = 5;   // Wandbreite rechts
+    $wallX = $x + $w - 2 - $wallW;   // Wand-Linke-Kante
 
-    // Wand am rechten Ende
+    // Wand rechts (grau)
     _dStruct($pdf);
     $pdf->Rect($wallX, $y + 3, $wallW, $h - 6, 'DF');
 
-    // Flügel 1 (oben, kürzer – stationärer Referenzflügel)
-    $p1Y   = $cy - $gapS / 2 - $panH;
-    $p1W   = $w * 0.58;
+    // FESTER Flügel A (oben): rechtes Ende liegt AN der Wand
+    $p1Y  = $y + round($h / 2) - $gapS / 2 - $panH;  // obere Position
+    $p1X1 = $x + 4;
+    $p1X2 = $wallX;   // ENDET AN DER WAND
     _dPanel($pdf);
-    $pdf->Rect($x + 2, $p1Y, $p1W, $panH, 'DF');
+    $pdf->Rect($p1X1, $p1Y, $p1X2 - $p1X1, $panH, 'DF');
 
-    // Flügel 2 (unten, länger, fährt nach rechts zur Wand)
-    $p2Y   = $cy + $gapS / 2;
-    $p2X2  = $wallX - 2;          // Flügel 2 endet kurz vor der Wand
-    $p2X   = $x + 2 + $w * 0.36;  // Flügel 2 beginnt versetzt
-    $pdf->Rect($p2X, $p2Y, $p2X2 - $p2X, $panH, 'DF');
+    // BEWEGLICHER Flügel B (unten, davor): kürzer, noch nicht an Wand
+    $p2Y  = $p1Y + $panH + $gapS;
+    $p2X1 = $x + 4;
+    $p2X2 = $x + round($w * 0.67);   // endet VOR der Wand
+    $pdf->Rect($p2X1, $p2Y, $p2X2 - $p2X1, $panH, 'DF');
 
-    // Pfeil: Flügel 2 bewegt sich → Wand
-    _dArrowR($pdf, $x + 3, $p2Y + $panH / 2, $p2X - 1);
+    // Pfeil → auf Flügel B (zeigt Fahrtrichtung → Wand)
+    _dArrowR($pdf, $p2X1 + 2, $p2Y + $panH / 2, $p2X2 - 2);
 
-    // S-Maß (sehr kleiner Spalt zwischen Flügeln, in Überlappungszone)
-    $ovX   = $p2X + ($p2X2 - $p2X) * 0.4;
-    _dMV($pdf, $ovX, $p1Y + $panH, $p2Y, 'S');
+    // S-Maß: vertikaler Spalt zwischen den Flügeln (im Überlappungsbereich)
+    $sX = $p2X1 + ($p2X2 - $p2X1) * 0.55;
+    _dMV($pdf, $sX, $p1Y + $panH, $p2Y, 'S');
 
-    // t-Maß (Überlappungszone: wo beide Flügel nebeneinander)
-    $tL = $p2X; $tR = $x + 2 + $p1W;
-    if ($tR > $tL) _dMH($pdf, $tL, $tR, $p2Y + $panH + 2.5, 't');
+    // t-Maß: Überlappungslänge = von links bis rechtes Ende von Flügel B
+    _dMH($pdf, $p2X1, $p2X2, $p2Y + $panH + 2.5, 't');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
@@ -332,35 +334,34 @@ function drawDiagramScheren($pdf, $x, $y, $w, $h) {
 function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
     $panH  = 3;
-    $gapX  = 2.5;
-    $wallX = $x + round($w * 0.50);
+    $gapX  = 3;   // x-Spalt oben & unten (sichtbar, ≤8mm)
+    $wallX = $x + round($w * 0.48);   // Schlitzwand ab hier
     $wallR = $x + $w - 2;
-    $cy    = $y + $h / 2;
-    $panY  = $cy - $panH / 2;
+    $panY  = $y + round(($h - $panH) / 2);  // Blatt vertikal zentriert
     $slotT = $panY - $gapX;
     $slotB = $panY + $panH + $gapX;
 
-    // Wandblock OBEN: grau, Glas (hellblau) als Füllung
+    // Wandblock OBEN: grau mit blauem Glas (1mm Rand)
     _dStruct($pdf);
     $pdf->Rect($wallX, $y + 2, $wallR - $wallX, $slotT - $y - 2, 'DF');
     $pdf->SetFillColor(90, 140, 200); $pdf->SetDrawColor(60, 110, 170);
     $pdf->Rect($wallX + 1, $y + 3, $wallR - $wallX - 2, $slotT - $y - 4, 'DF');
 
-    // Wandblock UNTEN: grau, Glas (hellblau)
+    // Wandblock UNTEN: grau mit blauem Glas
     _dStruct($pdf);
     $pdf->Rect($wallX, $slotB, $wallR - $wallX, $y + $h - 2 - $slotB, 'DF');
     $pdf->SetFillColor(90, 140, 200); $pdf->SetDrawColor(60, 110, 170);
     $pdf->Rect($wallX + 1, $slotB + 1, $wallR - $wallX - 2, $y + $h - 4 - $slotB, 'DF');
 
-    // Türblatt (dunkleres Blau, dünn) – fährt von links durch den Schlitz
+    // Türblatt – fährt von links in den Schlitz (bis rechten Rand)
     _dPanel($pdf);
     $pdf->Rect($x + 2, $panY, $wallR - $x - 2, $panH, 'DF');
 
-    // Pfeil → (links vom Schlitz)
-    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $wallX - 2);
+    // Pfeil → links vom Schlitz
+    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $wallX - 3);
 
-    // x-Maß (Schlitzkante oben → Blatt-Oberkante)
-    _dMV($pdf, $wallX - 3.5, $slotT, $panY, 'x');
+    // x-Maß OBEN: innerhalb des Schlitzes, Schlitzkante → Blatt-Oberkante
+    _dMV($pdf, $wallX + 4, $slotT, $panY, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
