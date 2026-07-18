@@ -265,48 +265,50 @@ function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
 }
 
 // ── Diagram: Anstoßen ────────────────────────────────────────────────────
-// DRAUFSICHT: L-Form – Querarm oben (breit) + Hängearm links-unten
-// x = vertikaler Spalt Hängearm-Unterkante → Blatt-Oberkante
+// DRAUFSICHT: Taschenecke – Sturz oben + rechte Wand
+// Fahrflügel weiter von der rechten Wand entfernt als bei Quetschen
+// x = vertikal (Vorderkante/Blatt-Oberkante → Sturz-Unterkante)
+// Y = horizontal (Führungsblock-Stirn → rechte Wand)
 function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $panH    = 3;
-    $qArmH   = 6;   // Querarm-Höhe (oben)
-    $hangW   = 4;   // Hängearm-Breite (links)
-    $hangLen = 8;   // Hängearm-Länge (hängt nach unten)
-    $gX      = 4;   // x-Spalt (Hängearm-Ende → Blatt)
-    $gbW     = 3;   // Führungsblock-Breite
+    $panH   = 3;
+    $sturzH = 6;
+    $wallW  = 3;
+    $gX     = 4;    // x-Spalt (vertikal): Sturz → Blatt
+    $gY     = 10;   // Y-Spalt (horizontal, größer): Blatt-Körper → Wand
+    $gbW    = 3;    // Führungsblock-Breite
 
-    // Querarm (oben, breit – von x+12 bis rechtem Rand)
-    $qArmX  = $x + round($w * 0.25);   // x+12
-    $qArmB  = $y + 3 + $qArmH;         // Querarm-Unterkante = y+9
+    $sturzX = $x + round($w * 0.25);   // x+12
+    $sturzB = $y + 3 + $sturzH;        // y+9
+    $wallX  = $x + $w - 2 - $wallW;    // x+43
 
+    // Sturz + rechte Wand
     _dStruct($pdf);
-    $pdf->Rect($qArmX, $y + 3, $x + $w - 2 - $qArmX, $qArmH, 'DF');
+    $pdf->Rect($sturzX, $y + 3, $wallX - $sturzX + $wallW, $sturzH, 'DF');
+    $pdf->Rect($wallX, $sturzB, $wallW, $y + $h - 3 - $sturzB, 'DF');
 
-    // Hängearm (links am Querarm, hängt nach unten)
-    $hangX  = $qArmX;
-    $hangB  = $qArmB + $hangLen;        // Hängearm-Unterkante = y+17
-    $pdf->Rect($hangX, $qArmB, $hangW, $hangLen, 'DF');
-
-    // Türblatt (darunter, mit Führungsblöcken)
-    $panY   = $hangB + $gX;             // y+17+4 = y+21
-    $pLeft  = $x + 2 + $gbW;
+    // Türblatt (weiter von der Wand als bei Quetschen)
+    $panY   = $sturzB + $gX;           // y+13
+    $panX2  = $wallX - $gY;            // x+43-10 = x+33
+    $pLeft  = $x + 2 + $gbW;           // x+5
 
     _dPanel($pdf);
-    $pdf->Rect($pLeft, $panY, $x + $w - 4 - $gbW - $pLeft, $panH, 'DF');
+    $pdf->Rect($pLeft, $panY, $panX2 - $pLeft, $panH, 'DF');
 
-    // Führungsblöcke
+    // Führungsblöcke (links + rechts)
     $gbY = $panY - 1;
     $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
-    $pdf->Rect($x + 2, $gbY, $gbW, $panH + 2, 'DF');
-    $pdf->Rect($x + $w - 2 - $gbW, $gbY, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($x + 2, $gbY, $gbW, $panH + 2, 'DF');   // links
+    $pdf->Rect($panX2, $gbY, $gbW, $panH + 2, 'DF');   // rechts
 
     // Pfeil →
-    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $x + $w - 4 - $gbW - 2);
+    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $panX2 - 2);
 
-    // x-Maß: VERTIKAL – Hängearm-Unterkante (y+17) → Blatt-Oberkante (y+21)
-    // direkt rechts neben dem Hängearm
-    _dMV($pdf, $hangX + $hangW + 3, $hangB, $panY, 'x');
+    // x-Maß: VERTIKAL – Sturz-Unterkante → Blatt-Oberkante (rechts, freier Bereich)
+    _dMV($pdf, $wallX - 2, $sturzB, $panY, 'x');
+
+    // Y-Maß: HORIZONTAL – Führungsblock-Stirnkante → rechte Wand
+    _dMH($pdf, $panX2 + $gbW, $wallX, $panY + $panH + 2, 'Y');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
