@@ -223,7 +223,7 @@ function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
     $sturzH = 6;   // Sturz-Höhe (oben)
     $wallW  = 4;   // rechte Wand-Breite
     $gX     = 4;   // x-Spalt vertikal (Sturz → Blatt)
-    $gY     = 5;   // Y-Spalt horizontal (Blatt-Stirn → Wand)
+    $gY     = 8;   // Y-Spalt horizontal (Blatt-Stirn → Wand)
     $gbW    = 3;   // Führungsblock-Breite
 
     // Sturz (oben, teilweise Breite – ab ~25% des Diagramms)
@@ -239,7 +239,7 @@ function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
 
     // Türblatt
     $panY   = $sturzB + $gX;          // y+9+4 = y+13
-    $panX2  = $wallX - $gY;           // x+42-5 = x+37 (Blatt-Stirnkante)
+    $panX2  = $wallX - $gY;           // x+42-8 = x+34 (Blatt-Stirnkante)
     $pLeft  = $x + 2 + $gbW;          // x+5 (nach linkem Führungsblock)
 
     _dPanel($pdf);
@@ -254,11 +254,12 @@ function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
     // Pfeil →
     _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $panX2 - 2);
 
-    // x-Maß: VERTIKAL, linke Seite des Sturz – Sturz-Unterkante (y+9) → Blatt-Oberkante (y+13)
-    _dMV($pdf, $sturzX + 2, $sturzB, $panY, 'x');
+    // x-Maß: VERTIKAL – von der Vorderkante des Blatts (Blatt-Unterkante y+16, nicht die Sturzseite)
+    //         bis zur Sturz-Unterkante (y+9). Position: rechts neben Führungsblock, links von Wand.
+    _dMV($pdf, $panX2 + $gbW + 2, $sturzB, $panY + $panH, 'x');
 
-    // Y-Maß: HORIZONTAL – Blatt-Stirnkante (ohne Führungsblock) → Wand
-    _dMH($pdf, $panX2, $wallX, $panY + $panH + 2, 'Y');
+    // Y-Maß: HORIZONTAL – Ende Fahrflügel (inkl. Führungsblock) → rechte Wand
+    _dMH($pdf, $panX2 + $gbW, $wallX, $panY + $panH + 2, 'Y');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
