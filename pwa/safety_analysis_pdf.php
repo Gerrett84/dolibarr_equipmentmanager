@@ -299,7 +299,7 @@ function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
     $gbY = $panY - 1;
     $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
     $pdf->Rect($x + 2, $gbY, $gbW, $panH + 2, 'DF');
-    $pdf->Rect($x + $w - 2 - $gbW, $gbY, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($x + $w - 4 - $gbW, $gbY, $gbW, $panH + 2, 'DF');  // direkt am Blatt
 
     // Pfeil →
     _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $x + $w - 4 - $gbW - 2);
