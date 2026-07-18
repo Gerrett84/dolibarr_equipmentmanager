@@ -213,131 +213,143 @@ function drawDiagramHSK($pdf, $x, $y, $w, $h) {
     $pdf->SetTextColor(0, 0, 0); $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
-// ── Diagram: Quetschen – C-Rahmen ─────────────────────────────────────────
+// ── Diagram: Quetschen ────────────────────────────────────────────────────
+// DRAUFSICHT: dünnes Türblatt fährt in Wandtasche (rechts)
+// Y = seitlicher Abstand Blatt↔Taschenwand, x = Abstand Blattkante↔Rückwand
 function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    // C-Kanal (Türrahmen) rechts
-    $wW = 5; $bW = 4; $cdW = $w * 0.38;
-    $chY = $y + 2; $chH = $h - 4;
-    $chX = $x + $w - $cdW - 2;
-    $cbX = $x + $w - $bW - 2;
+    $panH  = 3;    // Türblattdicke in Draufsicht – dünn!
+    $wH    = 6;    // Taschen-Wandhöhe (ober/unten)
+    $gY    = 3.5;  // Y-Abstand (Wandleiste → Blatt)
+    $bkW   = 3;    // Rückwandbreite
+
+    // Vertikale Mittellage
+    $totalInner = $wH + $gY + $panH + $gY + $wH;
+    $startY = $y + ($h - $totalInner) / 2;
+    $topWY  = $startY;
+    $panY   = $startY + $wH + $gY;
+    $botWY  = $panY + $panH + $gY;
+
+    // Taschenanfang und Rückwand
+    $pockX = $x + round($w * 0.44);
+    $bkX   = $x + $w - 2 - $bkW;
+
+    // Taschenwände (nur im Taschenbereich sichtbar)
     _dStruct($pdf);
-    $pdf->Rect($chX, $chY, $cdW, $wW, 'DF');                    // obere Wandleiste
-    $pdf->Rect($chX, $chY + $chH - $wW, $cdW, $wW, 'DF');       // untere Wandleiste
-    $pdf->Rect($cbX, $chY, $bW, $chH, 'DF');                    // Rückwand
+    $pdf->Rect($pockX, $topWY, $bkX - $pockX, $wH, 'DF'); // oben
+    $pdf->Rect($pockX, $botWY, $bkX - $pockX, $wH, 'DF'); // unten
+    $pdf->Rect($bkX,   $topWY, $bkW, $totalInner, 'DF');   // Rückwand
 
-    // Türblatt (teilweise im C-Kanal)
-    $gapV = 2.0;
-    $panH = $chH - 2 * ($wW + $gapV);
-    $panY = $chY + $wW + $gapV;
-    $pw   = $w * 0.4; $ins = $cdW * 0.5;
-    $panX = $chX - $pw + $ins;
+    // Türblatt (thin, blau) – von links bis 5mm vor Rückwand
+    $panX2 = $bkX - 5;
     _dPanel($pdf);
-    $pdf->Rect($panX, $panY, $pw, $panH, 'DF');
+    $pdf->Rect($x + 2, $panY, $panX2 - $x - 2, $panH, 'DF');
 
-    // Pfeil Bewegungsrichtung
-    $ay = $y + $h / 2;
-    _dArrowR($pdf, $panX - 8, $ay, $panX - 1);
+    // Pfeil (Öffnungsrichtung →)
+    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $panX2 - 1);
 
-    // Y-Maß (vertikaler Abstand Leiste → Blatt)
-    _dMV($pdf, $chX + 2, $chY + $wW, $panY, 'Y');
+    // Y-Maß (Taschenwand-Unterkante → Blatt-Oberkante)
+    _dMV($pdf, $pockX + 2.5, $topWY + $wH, $panY, 'Y');
 
-    // x-Maß (Blatt-Ende → Rückwand)
-    $gxL = $panX + $pw; $gxR = $cbX;
-    if ($gxR - $gxL > 2) _dMH($pdf, $gxL, $gxR, $chY + $chH + 1.5, 'x');
+    // x-Maß (Blattkante → Rückwand)
+    _dMH($pdf, $panX2, $bkX, $botWY + $wH + 1.5, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
 // ── Diagram: Anstoßen ────────────────────────────────────────────────────
+// DRAUFSICHT: dünnes Türblatt fährt auf Wand zu; x = Abstand Blattkante↔Wand
 function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $wallW = 5; $rH = 2.5;
-    $panH = $h * 0.62; $panW = $w * 0.32; $gapX = 9;
-    $cy = $y + $h / 2; $py = $cy - $panH / 2;
-    $wallX = $x + $w - 3 - $wallW;
-    $px = $wallX - $gapX - $panW;
+    $panH  = 3;   // Türblattdicke in Draufsicht – dünn!
+    $wallW = 7;   // Wandstärke
+    $gapX  = 9;   // x-Abstand Blatt → Wand
+    $wallX = $x + $w - 2 - $wallW;
+    $panX2 = $wallX - $gapX;
+    $panY  = $y + $h / 2 - $panH / 2;
 
-    // Schienen nur über das Türblatt (nicht bis zur Wand)
+    // Wand (volle Höhe)
     _dStruct($pdf);
-    $pdf->Rect($px, $py, $panW, $rH, 'DF');
-    $pdf->Rect($px, $py + $panH - $rH, $panW, $rH, 'DF');
-    // Wand
     $pdf->Rect($wallX, $y + 2, $wallW, $h - 4, 'DF');
 
-    // Türblatt (blau)
+    // Türblatt (thin, blau)
     _dPanel($pdf);
-    $pdf->Rect($px, $py + $rH, $panW, $panH - 2 * $rH, 'DF');
+    $pdf->Rect($x + 2, $panY, $panX2 - $x - 2, $panH, 'DF');
 
-    // Pfeil Richtung Wand
-    _dArrowR($pdf, $px + $panW + 1, $cy, $wallX - 1);
+    // Pfeil → Wand
+    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $panX2 - 1);
 
     // x-Maß (Lücke Blatt → Wand)
-    _dMH($pdf, $px + $panW, $wallX, $py + $panH + 2, 'x');
+    _dMH($pdf, $panX2, $wallX, $panY + $panH + 2.5, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
 // ── Diagram: Scheren ──────────────────────────────────────────────────────
+// DRAUFSICHT: zwei dünne Türblätter nebeneinander mit Überlappung
+// S = seitl. Spalt, t = Überlappungstiefe in Fahrtrichtung
 function drawDiagramScheren($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $rH = 2.0; $panH = ($h - 8) / 2 - 1; $panW = $w * 0.42; $gapS = 4;
-    $y1 = $y + 3; $y2 = $y1 + $panH + $rH + $gapS;
+    $panH = 3;    // Türblattdicke
+    $gapS = 6;    // S-Abstand zwischen Blättern
+    $cy   = $y + $h / 2;
 
-    // Oberes Türblatt (stationär, links)
-    _dStruct($pdf);
-    $pdf->Rect($x + 2, $y1, $panW, $rH, 'DF');
-    $pdf->Rect($x + 2, $y1 + $panH, $panW, $rH, 'DF');
+    // Oberes Blatt (Blatt 1, stationär)
+    $p1Y = $cy - $gapS / 2 - $panH;
+    $p1W = $w * 0.60;
     _dPanel($pdf);
-    $pdf->Rect($x + 2, $y1 + $rH, $panW, $panH - $rH, 'DF');
+    $pdf->Rect($x + 2, $p1Y, $p1W, $panH, 'DF');
 
-    // Unteres Türblatt (beweglich, rechts versetzt)
-    $px2 = $x + $w - 2 - $panW;
-    _dStruct($pdf);
-    $pdf->Rect($px2, $y2, $panW, $rH, 'DF');
-    $pdf->Rect($px2, $y2 + $panH, $panW, $rH, 'DF');
-    _dPanel($pdf);
-    $pdf->Rect($px2, $y2 + $rH, $panW, $panH - $rH, 'DF');
+    // Unteres Blatt (Blatt 2, bewegt sich →, nach rechts versetzt)
+    $p2Y = $cy + $gapS / 2;
+    $p2X = $x + 2 + $w * 0.38;
+    $p2W = $w - 4 - ($p2X - $x);
+    $pdf->Rect($p2X, $p2Y, $p2W, $panH, 'DF');
 
-    // Pfeil: unteres Blatt bewegt sich nach rechts
-    _dArrowR($pdf, $x + 4, $y2 + $panH / 2, $px2 - 1);
+    // Pfeil: Blatt 2 bewegt sich nach rechts
+    _dArrowR($pdf, $x + 3, $p2Y + $panH / 2, $p2X - 1);
 
-    // S-Maß (vertikaler Spalt zwischen den Panels)
-    _dMV($pdf, $x + 2 + $panW + 3, $y1 + $panH + $rH, $y2, 'S');
+    // S-Maß (Spalt zwischen Blättern, im Überlappungsbereich)
+    $sX = $x + 2 + $p1W * 0.65;
+    _dMV($pdf, $sX, $p1Y + $panH, $p2Y, 'S');
 
-    // t-Maß (Überlappungstiefe)
-    $tL = $px2; $tR = $x + 2 + $panW;
-    if ($tR > $tL) _dMH($pdf, $tL, $tR, $y2 + $panH + 2, 't');
+    // t-Maß (horizontale Überlappungszone)
+    $tL = $p2X; $tR = $x + 2 + $p1W;
+    if ($tR > $tL) _dMH($pdf, $tL, $tR, $p2Y + $panH + 2.5, 't');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
 // ── Diagram: Einziehen ────────────────────────────────────────────────────
+// DRAUFSICHT: dünnes Türblatt fährt in Wandschlitz; x = seitl. Spalt Blatt↔Wand
 function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
-    $wW = 5; $slotW = 8;
-    $cy = $y + $h / 2; $slotT = $cy - 5; $slotB = $cy + 5;
-    $wallX = $x + $w - 3;
+    $panH  = 3;   // Türblattdicke
+    $gapX  = 3;   // x-Abstand (Blatt↔Schlitzwand, muss ≤8mm sein)
 
-    // Rechte Wand mit Schlitz (Öffnung = slotW)
+    // Schlitzwand (rechts): Taschenbereich mit engem Schlitz
+    $panY = $y + $h / 2 - $panH / 2;
+    $slotT = $panY - $gapX;   // obere Schlitzwand-Unterkante
+    $slotB = $panY + $panH + $gapX; // untere Schlitzwand-Oberkante
+    $pockX = $x + round($w * 0.52);
+    $bkX   = $x + $w - 2 - 3;
+
+    // Wandblock oberhalb des Schlitzes
     _dStruct($pdf);
-    $pdf->Rect($wallX - $wW, $y + 2, $wW, $slotT - $y - 2, 'DF');
-    $pdf->Rect($wallX - $wW, $slotB, $wW, $y + $h - 2 - $slotB, 'DF');
+    $pdf->Rect($pockX, $y + 2, $bkX - $pockX + 3, $slotT - $y - 2, 'DF');
+    // Wandblock unterhalb des Schlitzes
+    $pdf->Rect($pockX, $slotB, $bkX - $pockX + 3, $y + $h - 2 - $slotB, 'DF');
 
-    // Linke Laibung
-    $pdf->Rect($x + 2, $y + 2, $wW, $h - 4, 'DF');
-
-    // Türblatt (blau), teilweise im Schlitz
-    $pw = $w * 0.38; $panH = $slotB - $slotT;
-    $panX = $wallX - $wW - $slotW - $pw * 0.6;
+    // Türblatt (thin, blau) – fährt in den Schlitz
+    $panX2 = $bkX + 1; // Blatt reicht bis fast Rückwand
     _dPanel($pdf);
-    $pdf->Rect($panX, $slotT, $pw, $panH, 'DF');
+    $pdf->Rect($x + 2, $panY, $panX2 - $x - 2, $panH, 'DF');
 
-    // Pfeil nach rechts
-    _dArrowR($pdf, $panX - 7, $cy, $panX - 1);
+    // Pfeil → in Schlitz
+    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $pockX - 1);
 
-    // x-Maß (Schlitzbreite)
-    _dMH($pdf, $wallX - $wW - $slotW, $wallX - $wW, $slotB + 2, 'x');
+    // x-Maß (seitlicher Spalt: Schlitzwand-Unterkante → Blatt-Oberkante)
+    _dMV($pdf, $pockX - 3, $slotT, $panY, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
