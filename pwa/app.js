@@ -6265,13 +6265,24 @@ class ServiceReportApp {
     collectSaFormData() {
         const g = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
         const getSaSignature = () => {
-            if (!this.saSignatureInstance) return '';
-            try {
-                const dataUrl = this.saSignatureInstance.jSignature('getData', 'image');
-                if (dataUrl && typeof dataUrl === 'string' && dataUrl.includes('data:image')) return dataUrl;
-                if (Array.isArray(dataUrl) && dataUrl.length >= 2) return dataUrl[0] + ',' + dataUrl[1];
-            } catch (e) {}
-            return '';
+            if (this.saSignatureInstance) {
+                try {
+                    // Prüfen ob der Nutzer neue Striche gezeichnet hat
+                    const native = this.saSignatureInstance.jSignature('getData', 'native');
+                    if (native && native.length > 0) {
+                        const dataUrl = this.saSignatureInstance.jSignature('getData', 'image');
+                        let sig = '';
+                        if (dataUrl && typeof dataUrl === 'string' && dataUrl.includes('data:image')) sig = dataUrl;
+                        else if (Array.isArray(dataUrl) && dataUrl.length >= 2) sig = dataUrl[0] + ',' + dataUrl[1];
+                        if (sig) {
+                            localStorage.setItem('pwa_ersteller_sig', sig); // Für nächste SA merken
+                            return sig;
+                        }
+                    }
+                } catch (e) {}
+            }
+            // Fallback: gespeicherte Unterschrift aus lokalem Speicher
+            return localStorage.getItem('pwa_ersteller_sig') || '';
         };
 
         // Nested structure matches $fd() paths in safety_analysis_pdf.php
@@ -6373,7 +6384,7 @@ class ServiceReportApp {
     initSaSignature() {
         const container = document.getElementById('saSignatureErsteller');
         if (!container) return;
-        if (this.saSignatureInstance) return; // Already initialized
+        if (this.saSignatureInstance) return;
         container.innerHTML = '';
         $(container).jSignature({
             color: '#000',
@@ -6385,12 +6396,26 @@ class ServiceReportApp {
             cssclass: 'signature-canvas'
         });
         this.saSignatureInstance = $(container);
+
+        // Gespeicherte Techniker-Unterschrift vorladen (visuell, kein jSignature-Stroke)
+        const saved = localStorage.getItem('pwa_ersteller_sig');
+        if (saved) {
+            setTimeout(() => {
+                const canvas = container.querySelector('canvas');
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                img.src = saved;
+            }, 80);
+        }
     }
 
     clearSaSignature() {
         if (this.saSignatureInstance) {
             try { this.saSignatureInstance.jSignature('reset'); } catch (e) {}
         }
+        localStorage.removeItem('pwa_ersteller_sig');
     }
 }
 

@@ -149,180 +149,197 @@ function checkRow($pdf, $x, $y, $w, $checked, $label, $indent = 0) {
     return $y + 5;
 }
 
-// ── Helper: draw simple door diagram ──────────────────────────────────────
+// ── Diagram helpers ───────────────────────────────────────────────────────
+function _dPanel($pdf)  { $pdf->SetFillColor(70, 120, 190); $pdf->SetDrawColor(45, 95, 165); }
+function _dStruct($pdf) { $pdf->SetFillColor(140, 145, 150); $pdf->SetDrawColor(100, 105, 110); }
+function _dArrowR($pdf, $x1, $y, $x2) {
+    $pdf->SetDrawColor(35, 35, 35); $pdf->SetLineWidth(0.65);
+    $pdf->Line($x1, $y, $x2, $y);
+    $pdf->Line($x2, $y, $x2 - 3, $y - 2); $pdf->Line($x2, $y, $x2 - 3, $y + 2);
+}
+function _dArrowL($pdf, $x1, $y, $x2) { // x2 < x1 (Pfeil nach links)
+    $pdf->SetDrawColor(35, 35, 35); $pdf->SetLineWidth(0.65);
+    $pdf->Line($x1, $y, $x2, $y);
+    $pdf->Line($x2, $y, $x2 + 3, $y - 2); $pdf->Line($x2, $y, $x2 + 3, $y + 2);
+}
+function _dMH($pdf, $x1, $x2, $my, $label) {
+    $pdf->SetLineWidth(0.3); $pdf->SetDrawColor(60, 60, 60);
+    $pdf->Line($x1, $my, $x2, $my);
+    $pdf->Line($x1, $my - 1.5, $x1, $my + 1.5); $pdf->Line($x2, $my - 1.5, $x2, $my + 1.5);
+    $pdf->SetFont('helvetica', '', 5.5); $pdf->SetTextColor(0, 0, 0);
+    $pdf->SetXY($x1, $my + 0.5); $pdf->Cell($x2 - $x1, 3, $label, 0, 0, 'C');
+    $pdf->SetLineWidth(0.3); $pdf->SetDrawColor(80, 80, 80);
+}
+function _dMV($pdf, $mx, $y1, $y2, $label) {
+    $pdf->SetLineWidth(0.3); $pdf->SetDrawColor(60, 60, 60);
+    $pdf->Line($mx, $y1, $mx, $y2);
+    $pdf->Line($mx - 1.5, $y1, $mx + 1.5, $y1); $pdf->Line($mx - 1.5, $y2, $mx + 1.5, $y2);
+    $pdf->SetFont('helvetica', '', 5.5); $pdf->SetTextColor(0, 0, 0);
+    $pdf->SetXY($mx + 1, ($y1 + $y2) / 2 - 1.5); $pdf->Cell(8, 3, $label, 0, 0, 'L');
+    $pdf->SetLineWidth(0.3); $pdf->SetDrawColor(80, 80, 80);
+}
+
+// ── Diagram: HSK – Schließfahrt ───────────────────────────────────────────
 function drawDiagramHSK($pdf, $x, $y, $w, $h) {
-    // Schließfahrt: zwei Panels bewegen sich aufeinander zu
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetFillColor(210, 230, 255);
-    $pw = $w * 0.28; $ph = $h * 0.55; $mid = $x + $w / 2;
-    // Linkes Panel
-    $pdf->Rect($x + 4, $y + 4, $pw, $ph, 'DF');
-    // Rechtes Panel
-    $pdf->Rect($x + $w - 4 - $pw, $y + 4, $pw, $ph, 'DF');
+    $pdf->SetLineWidth(0.3);
+    $mid = $x + $w / 2; $cy = $y + $h / 2;
+    $pw = 14; $rH = 2.5; $panH = $h - 10; $py = $cy - $panH / 2;
+
+    // Linkes Türblatt mit Schienen
+    _dStruct($pdf);
+    $pdf->Rect($x + 2, $py, $pw, $rH, 'DF');
+    $pdf->Rect($x + 2, $py + $panH - $rH, $pw, $rH, 'DF');
+    _dPanel($pdf);
+    $pdf->Rect($x + 2, $py + $rH, $pw, $panH - 2 * $rH, 'DF');
+
+    // Rechtes Türblatt mit Schienen
+    $rx = $x + $w - 2 - $pw;
+    _dStruct($pdf);
+    $pdf->Rect($rx, $py, $pw, $rH, 'DF');
+    $pdf->Rect($rx, $py + $panH - $rH, $pw, $rH, 'DF');
+    _dPanel($pdf);
+    $pdf->Rect($rx, $py + $rH, $pw, $panH - 2 * $rH, 'DF');
+
     // Pfeile aufeinander zu
-    $ay = $y + 4 + $ph / 2;
-    $pdf->SetDrawColor(40, 40, 40);
-    $pdf->SetLineWidth(0.6);
-    $pdf->Line($x + 4 + $pw, $ay, $mid - 5, $ay); // linker Pfeil
-    $pdf->Line($mid - 5, $ay, $mid - 8, $ay - 2);
-    $pdf->Line($mid - 5, $ay, $mid - 8, $ay + 2);
-    $pdf->Line($x + $w - 4 - $pw, $ay, $mid + 5, $ay); // rechter Pfeil
-    $pdf->Line($mid + 5, $ay, $mid + 8, $ay - 2);
-    $pdf->Line($mid + 5, $ay, $mid + 8, $ay + 2);
-    // Blitz-Symbol (Gefahrenzeichen vereinfacht)
-    $pdf->SetLineWidth(0.4);
-    $pdf->SetDrawColor(200, 100, 0);
-    $bx = $mid - 3; $by = $ay - 4;
-    $pdf->SetFillColor(255, 200, 0);
-    // Dreieck
-    $pdf->Polygon([$bx, $by + 7, $bx + 6, $by + 7, $bx + 3, $by], 'DF');
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetLineWidth(0.3);
+    _dArrowR($pdf, $x + 2 + $pw + 1, $cy, $mid - 4);
+    _dArrowL($pdf, $rx - 1,           $cy, $mid + 4);
+
+    // Warndreieck
+    $ts = 5.5;
+    $pdf->SetFillColor(200, 30, 30); $pdf->SetDrawColor(150, 15, 15); $pdf->SetLineWidth(0.4);
+    $pdf->Polygon([$mid - $ts, $cy + $ts, $mid + $ts, $cy + $ts, $mid, $cy - $ts], 'DF');
+    $pdf->SetFont('helvetica', 'B', 7); $pdf->SetTextColor(255, 255, 255);
+    $pdf->SetXY($mid - 2, $cy - 1.5); $pdf->Cell(4, 5, '!', 0, 0, 'C');
+    $pdf->SetTextColor(0, 0, 0); $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
+// ── Diagram: Quetschen – C-Rahmen ─────────────────────────────────────────
 function drawDiagramQuetschen($pdf, $x, $y, $w, $h) {
-    // Öffnungsfahrt gegen Quetschen: Panel bewegt sich, Y und x Abstände
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetFillColor(210, 230, 255);
-    $pw = $w * 0.35; $ph = $h * 0.65;
-    // Wand rechts
-    $pdf->SetFillColor(160, 160, 160);
-    $pdf->Rect($x + $w - 6, $y + 2, 5, $ph + 4, 'DF');
-    // Panel
-    $pdf->SetFillColor(210, 230, 255);
-    $gapX = 8;
-    $pdf->Rect($x + 4, $y + 4, $pw, $ph, 'DF');
-    // Pfeil nach rechts
-    $ay = $y + 4 + $ph / 2;
-    $pdf->SetDrawColor(40, 40, 40);
-    $pdf->SetLineWidth(0.6);
-    $ax2 = $x + $w - 6 - $gapX;
-    $pdf->Line($x + 4 + $pw, $ay, $ax2, $ay);
-    $pdf->Line($ax2, $ay, $ax2 - 3, $ay - 2);
-    $pdf->Line($ax2, $ay, $ax2 - 3, $ay + 2);
-    // Maßlinie Y (vertikal)
     $pdf->SetLineWidth(0.3);
-    $mx = $x + 4 + $pw + 4;
-    $pdf->Line($mx, $y + 4, $mx, $y + 4 + $ph);
-    $pdf->Line($mx - 1.5, $y + 4, $mx + 1.5, $y + 4);
-    $pdf->Line($mx - 1.5, $y + 4 + $ph, $mx + 1.5, $y + 4 + $ph);
-    $pdf->SetFont('helvetica', '', 6);
-    $pdf->SetTextColor(0, 0, 0);
-    $pdf->SetXY($mx + 1, $y + 4 + $ph / 2 - 2);
-    $pdf->Cell(8, 4, 'Y≥200', 0, 0, 'L');
-    // Maßlinie x (horizontal, Spalt zur Wand)
-    $gapStart = $x + 4 + $pw + 12;
-    $my = $y + 4 + $ph + 3;
-    $pdf->Line($gapStart, $my, $x + $w - 6, $my);
-    $pdf->Line($gapStart, $my - 1.5, $gapStart, $my + 1.5);
-    $pdf->Line($x + $w - 6, $my - 1.5, $x + $w - 6, $my + 1.5);
-    $pdf->SetXY($gapStart, $my + 0.5);
-    $pdf->Cell(10, 3, 'x≤100', 0, 0, 'C');
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetLineWidth(0.3);
+    // C-Kanal (Türrahmen) rechts
+    $wW = 5; $bW = 4; $cdW = $w * 0.38;
+    $chY = $y + 2; $chH = $h - 4;
+    $chX = $x + $w - $cdW - 2;
+    $cbX = $x + $w - $bW - 2;
+    _dStruct($pdf);
+    $pdf->Rect($chX, $chY, $cdW, $wW, 'DF');                    // obere Wandleiste
+    $pdf->Rect($chX, $chY + $chH - $wW, $cdW, $wW, 'DF');       // untere Wandleiste
+    $pdf->Rect($cbX, $chY, $bW, $chH, 'DF');                    // Rückwand
+
+    // Türblatt (teilweise im C-Kanal)
+    $gapV = 2.0;
+    $panH = $chH - 2 * ($wW + $gapV);
+    $panY = $chY + $wW + $gapV;
+    $pw   = $w * 0.4; $ins = $cdW * 0.5;
+    $panX = $chX - $pw + $ins;
+    _dPanel($pdf);
+    $pdf->Rect($panX, $panY, $pw, $panH, 'DF');
+
+    // Pfeil Bewegungsrichtung
+    $ay = $y + $h / 2;
+    _dArrowR($pdf, $panX - 8, $ay, $panX - 1);
+
+    // Y-Maß (vertikaler Abstand Leiste → Blatt)
+    _dMV($pdf, $chX + 2, $chY + $wW, $panY, 'Y');
+
+    // x-Maß (Blatt-Ende → Rückwand)
+    $gxL = $panX + $pw; $gxR = $cbX;
+    if ($gxR - $gxL > 2) _dMH($pdf, $gxL, $gxR, $chY + $chH + 1.5, 'x');
+
+    $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
+// ── Diagram: Anstoßen ────────────────────────────────────────────────────
 function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
-    // gegen Anstoßen
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetFillColor(160, 160, 160);
-    $pdf->Rect($x + $w - 6, $y + 2, 5, $h - 4, 'DF');
-    $pdf->SetFillColor(210, 230, 255);
-    $pw = $w * 0.3; $ph = $h * 0.55;
-    $pdf->Rect($x + 4, $y + ($h - $ph)/2, $pw, $ph, 'DF');
-    $ay = $y + $h / 2;
-    $pdf->SetDrawColor(40, 40, 40);
-    $pdf->SetLineWidth(0.6);
-    $ax2 = $x + $w - 6 - 6;
-    $pdf->Line($x + 4 + $pw, $ay, $ax2, $ay);
-    $pdf->Line($ax2, $ay, $ax2 - 3, $ay - 2);
-    $pdf->Line($ax2, $ay, $ax2 - 3, $ay + 2);
-    // x Maß
     $pdf->SetLineWidth(0.3);
-    $my = $y + $h - 5;
-    $pdf->Line($x + 4 + $pw, $my, $x + $w - 6, $my);
-    $pdf->Line($x + 4 + $pw, $my - 1.5, $x + 4 + $pw, $my + 1.5);
-    $pdf->Line($x + $w - 6, $my - 1.5, $x + $w - 6, $my + 1.5);
-    $pdf->SetFont('helvetica', '', 6);
-    $pdf->SetTextColor(0, 0, 0);
-    $pdf->SetXY($x + 4 + $pw, $my + 0.5);
-    $pdf->Cell($w - 4 - $pw - 6, 3, 'x≤100', 0, 0, 'C');
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetLineWidth(0.3);
+    $wallW = 5; $rH = 2.5;
+    $panH = $h * 0.62; $panW = $w * 0.32; $gapX = 9;
+    $cy = $y + $h / 2; $py = $cy - $panH / 2;
+    $wallX = $x + $w - 3 - $wallW;
+    $px = $wallX - $gapX - $panW;
+
+    // Schienen nur über das Türblatt (nicht bis zur Wand)
+    _dStruct($pdf);
+    $pdf->Rect($px, $py, $panW, $rH, 'DF');
+    $pdf->Rect($px, $py + $panH - $rH, $panW, $rH, 'DF');
+    // Wand
+    $pdf->Rect($wallX, $y + 2, $wallW, $h - 4, 'DF');
+
+    // Türblatt (blau)
+    _dPanel($pdf);
+    $pdf->Rect($px, $py + $rH, $panW, $panH - 2 * $rH, 'DF');
+
+    // Pfeil Richtung Wand
+    _dArrowR($pdf, $px + $panW + 1, $cy, $wallX - 1);
+
+    // x-Maß (Lücke Blatt → Wand)
+    _dMH($pdf, $px + $panW, $wallX, $py + $panH + 2, 'x');
+
+    $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
+// ── Diagram: Scheren ──────────────────────────────────────────────────────
 function drawDiagramScheren($pdf, $x, $y, $w, $h) {
-    // gegen Scheren: zwei Panels mit Überlappungsbereich
-    $pdf->SetDrawColor(80, 80, 80);
-    $pw = $w * 0.28; $ph = $h * 0.35; $gap = 4;
-    $y1 = $y + 4; $y2 = $y1 + $ph + $gap;
-    // Oberes Panel (stationär)
-    $pdf->SetFillColor(180, 200, 180);
-    $pdf->Rect($x + 4, $y1, $pw, $ph, 'DF');
-    // Unteres Panel (bewegt sich)
-    $pdf->SetFillColor(210, 230, 255);
-    $pdf->Rect($x + 4, $y2, $pw, $ph, 'DF');
-    // Zweites Paar rechts
-    $rx = $x + $w * 0.55;
-    $pdf->SetFillColor(180, 200, 180);
-    $pdf->Rect($rx, $y1, $pw, $ph, 'DF');
-    $pdf->SetFillColor(210, 230, 255);
-    $pdf->Rect($rx, $y2, $pw, $ph, 'DF');
-    // Pfeil zwischen den Paaren
-    $ay = $y2 + $ph / 2;
-    $pdf->SetDrawColor(40, 40, 40);
-    $pdf->SetLineWidth(0.6);
-    $pdf->Line($x + 4 + $pw, $ay, $rx - 2, $ay);
-    $pdf->Line($rx - 2, $ay, $rx - 5, $ay - 2);
-    $pdf->Line($rx - 2, $ay, $rx - 5, $ay + 2);
-    // S und t Maße
     $pdf->SetLineWidth(0.3);
-    $pdf->SetFont('helvetica', '', 6);
-    $pdf->SetTextColor(0, 0, 0);
-    // S = Spalt vertikal
-    $sx = $x + 4 + $pw + 1;
-    $pdf->Line($sx, $y1 + $ph, $sx, $y2);
-    $pdf->Line($sx - 1.5, $y1 + $ph, $sx + 1.5, $y1 + $ph);
-    $pdf->Line($sx - 1.5, $y2, $sx + 1.5, $y2);
-    $pdf->SetXY($sx + 1, $y1 + $ph + $gap/2 - 1.5);
-    $pdf->Cell(5, 3, 'S', 0, 0, 'L');
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetLineWidth(0.3);
+    $rH = 2.0; $panH = ($h - 8) / 2 - 1; $panW = $w * 0.42; $gapS = 4;
+    $y1 = $y + 3; $y2 = $y1 + $panH + $rH + $gapS;
+
+    // Oberes Türblatt (stationär, links)
+    _dStruct($pdf);
+    $pdf->Rect($x + 2, $y1, $panW, $rH, 'DF');
+    $pdf->Rect($x + 2, $y1 + $panH, $panW, $rH, 'DF');
+    _dPanel($pdf);
+    $pdf->Rect($x + 2, $y1 + $rH, $panW, $panH - $rH, 'DF');
+
+    // Unteres Türblatt (beweglich, rechts versetzt)
+    $px2 = $x + $w - 2 - $panW;
+    _dStruct($pdf);
+    $pdf->Rect($px2, $y2, $panW, $rH, 'DF');
+    $pdf->Rect($px2, $y2 + $panH, $panW, $rH, 'DF');
+    _dPanel($pdf);
+    $pdf->Rect($px2, $y2 + $rH, $panW, $panH - $rH, 'DF');
+
+    // Pfeil: unteres Blatt bewegt sich nach rechts
+    _dArrowR($pdf, $x + 4, $y2 + $panH / 2, $px2 - 1);
+
+    // S-Maß (vertikaler Spalt zwischen den Panels)
+    _dMV($pdf, $x + 2 + $panW + 3, $y1 + $panH + $rH, $y2, 'S');
+
+    // t-Maß (Überlappungstiefe)
+    $tL = $px2; $tR = $x + 2 + $panW;
+    if ($tR > $tL) _dMH($pdf, $tL, $tR, $y2 + $panH + 2, 't');
+
+    $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
+// ── Diagram: Einziehen ────────────────────────────────────────────────────
 function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
-    // gegen Einziehen
-    $pdf->SetDrawColor(80, 80, 80);
-    // Wand links
-    $pdf->SetFillColor(160, 160, 160);
-    $pdf->Rect($x + 2, $y + 2, 5, $h - 4, 'DF');
-    // Wand rechts
-    $pdf->Rect($x + $w - 6, $y + 2, 5, $h - 4, 'DF');
-    // Panel
-    $pdf->SetFillColor(210, 230, 255);
-    $pw = $w * 0.3; $ph = $h * 0.55;
-    $panelX = $x + 12;
-    $pdf->Rect($panelX, $y + ($h - $ph)/2, $pw, $ph, 'DF');
+    $pdf->SetLineWidth(0.3);
+    $wW = 5; $slotW = 8;
+    $cy = $y + $h / 2; $slotT = $cy - 5; $slotB = $cy + 5;
+    $wallX = $x + $w - 3;
+
+    // Rechte Wand mit Schlitz (Öffnung = slotW)
+    _dStruct($pdf);
+    $pdf->Rect($wallX - $wW, $y + 2, $wW, $slotT - $y - 2, 'DF');
+    $pdf->Rect($wallX - $wW, $slotB, $wW, $y + $h - 2 - $slotB, 'DF');
+
+    // Linke Laibung
+    $pdf->Rect($x + 2, $y + 2, $wW, $h - 4, 'DF');
+
+    // Türblatt (blau), teilweise im Schlitz
+    $pw = $w * 0.38; $panH = $slotB - $slotT;
+    $panX = $wallX - $wW - $slotW - $pw * 0.6;
+    _dPanel($pdf);
+    $pdf->Rect($panX, $slotT, $pw, $panH, 'DF');
+
     // Pfeil nach rechts
-    $ay = $y + $h / 2;
-    $pdf->SetDrawColor(40, 40, 40);
-    $pdf->SetLineWidth(0.6);
-    $ax2 = $x + $w - 6 - 4;
-    $pdf->Line($panelX + $pw, $ay, $ax2, $ay);
-    $pdf->Line($ax2, $ay, $ax2 - 3, $ay - 2);
-    $pdf->Line($ax2, $ay, $ax2 - 3, $ay + 2);
-    // x Maß (Spalt rechte Wand)
-    $pdf->SetLineWidth(0.3);
-    $my = $y + $h - 5;
-    $pdf->Line($panelX + $pw, $my, $x + $w - 6, $my);
-    $pdf->Line($panelX + $pw, $my - 1.5, $panelX + $pw, $my + 1.5);
-    $pdf->Line($x + $w - 6, $my - 1.5, $x + $w - 6, $my + 1.5);
-    $pdf->SetFont('helvetica', '', 6);
-    $pdf->SetTextColor(0, 0, 0);
-    $pdf->SetXY($panelX + $pw, $my + 0.5);
-    $pdf->Cell($x + $w - 6 - $panelX - $pw, 3, 'x≤8', 0, 0, 'C');
-    $pdf->SetDrawColor(80, 80, 80);
-    $pdf->SetLineWidth(0.3);
+    _dArrowR($pdf, $panX - 7, $cy, $panX - 1);
+
+    // x-Maß (Schlitzbreite)
+    _dMH($pdf, $wallX - $wW - $slotW, $wallX - $wW, $slotB + 2, 'x');
+
+    $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
 
 // page=0: beide Seiten (Standard für Download/E-Mail)
