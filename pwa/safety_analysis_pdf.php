@@ -277,20 +277,23 @@ function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
     $gX     = 4;   // Spalt: Querarm-Unterkante → Blatt
     $gbW    = 3;
 
-    $armX   = $x + round($w * 0.25);  // x+12
-    $highT  = $y + 3;                  // Oberkante kurzer Arm
+    // Panel-Grenzen zuerst berechnen um Mittelpunkt zu bestimmen
+    $pLeft = $x + 2 + $gbW;                              // x+5
+    $panX2 = $x + $w - 4 - $gbW;                        // x+41
+    $armX  = (int)(($pLeft + $panX2) / 2);              // Mitte Fahrflügel = x+23
+
+    $highT  = $y + 3;
     $qArmT  = $highT + $highH;         // Querarm-Oberkante = y+11
     $qArmB  = $qArmT + $qArmH;        // Querarm-Unterkante = y+16
 
     _dStruct($pdf);
-    // Kurzer Arm (vertikal, nach oben)
+    // Kurzer Arm (vertikal, nach oben) – startet an der Fahrflügel-Mitte
     $pdf->Rect($armX, $highT, $highW, $highH, 'DF');
-    // Langer Querarm (horizontal)
+    // Langer Querarm (horizontal) – beginnt an der Fahrflügel-Mitte
     $pdf->Rect($armX, $qArmT, $x + $w - 2 - $armX, $qArmH, 'DF');
 
     // Türblatt (darunter, mit Führungsblöcken)
     $panY  = $qArmB + $gX;            // y+16+4 = y+20
-    $pLeft = $x + 2 + $gbW;
 
     _dPanel($pdf);
     $pdf->Rect($pLeft, $panY, $x + $w - 4 - $gbW - $pLeft, $panH, 'DF');
