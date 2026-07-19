@@ -319,36 +319,53 @@ function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
 function drawDiagramScheren($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
     $panH  = 3;
-    $gapS  = 3;   // S-Spalt zwischen den Flügeln
-    $wallW = 5;   // Wandbreite rechts
-    $wallX = $x + $w - 2 - $wallW;   // Wand-Linke-Kante
+    $railH = 3;    // feste Führungsschiene (oben, grau)
+    $gapS  = 5;    // Gesamtabstand Schienen-UK → Blatt-OK
+    $gbW   = 6;    // Führungsblock-Breite = t-Maß
+    $wallW = 5;
+    $wallX = $x + $w - 2 - $wallW;   // x+41
 
-    // Wand rechts (grau)
+    $railY = $y + 4;
+    $railB = $railY + $railH;         // Schienen-Unterkante = y+7
+    $panY  = $railB + $gapS;          // Blatt-Oberkante = y+12
+
+    // Führungsblock-Positionen (horizontal)
+    $gb1X = $x + 6;
+    $gb2X = $wallX - $gbW - 4;        // x+31
+
+    // Feste Führungsschiene (grau, oben)
+    _dStruct($pdf);
+    $pdf->Rect($x + 2, $railY, $wallX - $x - 2, $railH, 'DF');
+
+    // Führungsblöcke AUF der Schiene (beige, hängen 1mm in den S-Spalt)
+    $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
+    $pdf->Rect($gb1X, $railB - 1, $gbW, 2, 'DF');   // links: y+6 bis y+8
+    $pdf->Rect($gb2X, $railB - 1, $gbW, 2, 'DF');   // rechts
+
+    // Rechte Wand (grau)
     _dStruct($pdf);
     $pdf->Rect($wallX, $y + 3, $wallW, $h - 6, 'DF');
 
-    // FESTER Flügel A (oben): rechtes Ende liegt AN der Wand
-    $p1Y  = $y + round($h / 2) - $gapS / 2 - $panH;  // obere Position
-    $p1X1 = $x + 4;
-    $p1X2 = $wallX;   // ENDET AN DER WAND
+    // Fahrflügel (blau, unten)
     _dPanel($pdf);
-    $pdf->Rect($p1X1, $p1Y, $p1X2 - $p1X1, $panH, 'DF');
+    $pdf->Rect($x + 2, $panY, $wallX - $x - 2, $panH, 'DF');
 
-    // BEWEGLICHER Flügel B (unten, davor): kürzer, noch nicht an Wand
-    $p2Y  = $p1Y + $panH + $gapS;
-    $p2X1 = $x + 4;
-    $p2X2 = $x + round($w * 0.67);   // endet VOR der Wand
-    $pdf->Rect($p2X1, $p2Y, $p2X2 - $p2X1, $panH, 'DF');
+    // Führungsblöcke AUF dem Fahrflügel (beige, ragen 1mm in den S-Spalt)
+    $gbY = $panY - 1;
+    $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
+    $pdf->Rect($gb1X, $gbY, $gbW, $panH + 2, 'DF');  // links: y+11 bis y+16
+    $pdf->Rect($gb2X, $gbY, $gbW, $panH + 2, 'DF');  // rechts
 
-    // Pfeil → auf Flügel B (zeigt Fahrtrichtung → Wand)
-    _dArrowR($pdf, $p2X1 + 2, $p2Y + $panH / 2, $p2X2 - 2);
+    // Pfeil → (Fahrtrichtung)
+    _dArrowR($pdf, $gb1X + $gbW + 2, $panY + $panH / 2, $gb2X - 2);
 
-    // S-Maß: vertikaler Spalt zwischen den Flügeln (im Überlappungsbereich)
-    $sX = $p2X1 + ($p2X2 - $p2X1) * 0.55;
-    _dMV($pdf, $sX, $p1Y + $panH, $p2Y, 'S');
+    // S-Maß LINKS + RECHTS: Schienen-Guide-UK (y+8) → Panel-Guide-OK (y+11)
+    _dMV($pdf, $x + 4, $railB + 1, $panY - 1, 'S');
+    _dMV($pdf, $wallX - 3, $railB + 1, $panY - 1, 'S');
 
-    // t-Maß: Überlappungslänge = von links bis rechtes Ende von Flügel B
-    _dMH($pdf, $p2X1, $p2X2, $p2Y + $panH + 2.5, 't');
+    // t-Maß LINKS + RECHTS: Führungsblock-Breite (über der Schiene)
+    _dMH($pdf, $gb1X, $gb1X + $gbW, $railY - 1, 't');
+    _dMH($pdf, $gb2X, $gb2X + $gbW, $railY - 1, 't');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
