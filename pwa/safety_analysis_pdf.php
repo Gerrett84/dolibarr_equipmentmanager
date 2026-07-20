@@ -368,8 +368,13 @@ function drawDiagramScheren($pdf, $x, $y, $w, $h) {
 
     // T-Maß links + rechts (OBEN, kurz vor den beigen Kästchen)
     $tY = $p1Y - 1;
-    _dMH($pdf, $p2lGR, $p1lGL, $tY, 't');   // links: unterer GB-Ende → oberer GB-Anfang
-    _dMH($pdf, $p2rGR, $p1rGL, $tY, 't');   // rechts: unterer GB-Ende → oberer GB-Anfang
+    _dMH($pdf, $p2lGR, $p1lGL, $tY, 't');
+    _dMH($pdf, $p2rGR, $p1rGL, $tY, 't');
+
+    // Maßhilfslinien: von T-Linie nach unten bis knapp vor untere Führungsblöcke
+    $pdf->SetDrawColor(60, 60, 60); $pdf->SetLineWidth(0.3);
+    $pdf->Line($p2lGR, $tY + 1.5, $p2lGR, $p2Y - 2);   // links (x+7)
+    $pdf->Line($p2rGR, $tY + 1.5, $p2rGR, $p2Y - 2);   // rechts (x+35)
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
