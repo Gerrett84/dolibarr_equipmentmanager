@@ -319,53 +319,57 @@ function drawDiagramAnstossen($pdf, $x, $y, $w, $h) {
 function drawDiagramScheren($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
     $panH  = 3;
-    $railH = 3;    // feste Führungsschiene (oben, grau)
-    $gapS  = 5;    // Gesamtabstand Schienen-UK → Blatt-OK
-    $gbW   = 6;    // Führungsblock-Breite = t-Maß
-    $wallW = 5;
-    $wallX = $x + $w - 2 - $wallW;   // x+41
+    $gbW   = 3;    // Führungsblock-Breite
+    $gapS  = 5;    // S-Spalt: Blau-UK oberer → Blau-OK unterer Flügel
+    $tGap  = 5;    // T-Maß: Abstand zwischen Führungsblöcken
+    $wallW = 3;
+    $wallX = $x + $w - 2 - $wallW;   // x+43
 
-    $railY = $y + 4;
-    $railB = $railY + $railH;         // Schienen-Unterkante = y+7
-    $panY  = $railB + $gapS;          // Blatt-Oberkante = y+12
+    // OBERER Flügel (nahe rechter Wand – minimaler Spalt)
+    $p1Y   = $y + 4;
+    $p1rGR = $wallX;               // rechter GB rechts = Wand
+    $p1rGL = $p1rGR - $gbW;        // x+40
+    $p1lGL = $x + 12;              // x+12
+    $p1lGR = $p1lGL + $gbW;        // x+15
 
-    // Führungsblock-Positionen (horizontal)
-    $gb1X = $x + 6;
-    $gb2X = $wallX - $gbW - 4;        // x+31
-
-    // Feste Führungsschiene (grau, oben)
-    _dStruct($pdf);
-    $pdf->Rect($x + 2, $railY, $wallX - $x - 2, $railH, 'DF');
-
-    // Führungsblöcke AUF der Schiene (beige, hängen 1mm in den S-Spalt)
-    $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
-    $pdf->Rect($gb1X, $railB - 1, $gbW, 2, 'DF');   // links: y+6 bis y+8
-    $pdf->Rect($gb2X, $railB - 1, $gbW, 2, 'DF');   // rechts
+    // UNTERER Flügel (deutlich weiter weg, Luft links, selber Ausbau)
+    $p2Y   = $p1Y + $panH + $gapS; // y+12
+    $p2lGL = $x + 4;               // Luft von links
+    $p2lGR = $p2lGL + $gbW;        // x+7
+    $p2rGL = $p1rGL - $tGap - $gbW; // x+32
+    $p2rGR = $p2rGL + $gbW;         // x+35
 
     // Rechte Wand (grau)
     _dStruct($pdf);
     $pdf->Rect($wallX, $y + 3, $wallW, $h - 6, 'DF');
 
-    // Fahrflügel (blau, unten)
+    // Oberer Flügel: Blau + Führungsblöcke (beige)
     _dPanel($pdf);
-    $pdf->Rect($x + 2, $panY, $wallX - $x - 2, $panH, 'DF');
-
-    // Führungsblöcke AUF dem Fahrflügel (beige, ragen 1mm in den S-Spalt)
-    $gbY = $panY - 1;
+    $pdf->Rect($p1lGR, $p1Y, $p1rGL - $p1lGR, $panH, 'DF');
     $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
-    $pdf->Rect($gb1X, $gbY, $gbW, $panH + 2, 'DF');  // links: y+11 bis y+16
-    $pdf->Rect($gb2X, $gbY, $gbW, $panH + 2, 'DF');  // rechts
+    $pdf->Rect($p1lGL, $p1Y - 1, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($p1rGL, $p1Y - 1, $gbW, $panH + 2, 'DF');
 
-    // Pfeil → (Fahrtrichtung)
-    _dArrowR($pdf, $gb1X + $gbW + 2, $panY + $panH / 2, $gb2X - 2);
+    // Unterer Flügel: Blau + Führungsblöcke (beige)
+    _dPanel($pdf);
+    $pdf->Rect($p2lGR, $p2Y, $p2rGL - $p2lGR, $panH, 'DF');
+    $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
+    $pdf->Rect($p2lGL, $p2Y - 1, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($p2rGL, $p2Y - 1, $gbW, $panH + 2, 'DF');
 
-    // S-Maß LINKS + RECHTS: Schienen-Guide-UK (y+8) → Panel-Guide-OK (y+11)
-    _dMV($pdf, $x + 4, $railB + 1, $panY - 1, 'S');
-    _dMV($pdf, $wallX - 3, $railB + 1, $panY - 1, 'S');
+    // Pfeil → auf unterem Flügel
+    _dArrowR($pdf, $p2lGR + 2, $p2Y + $panH / 2, $p2rGL - 2);
 
-    // t-Maß LINKS + RECHTS: Führungsblock-Breite (über der Schiene)
-    _dMH($pdf, $gb1X, $gb1X + $gbW, $railY - 1, 't');
-    _dMH($pdf, $gb2X, $gb2X + $gbW, $railY - 1, 't');
+    // S-Maß links + rechts: Blau-UK oberer (p1Y+panH) → Blau-OK unterer (p2Y)
+    $sY1 = $p1Y + $panH;
+    $sY2 = $p2Y;
+    _dMV($pdf, $p1lGR + 3, $sY1, $sY2, 'S');   // links im Überlappungsbereich
+    _dMV($pdf, $p2rGL - 3, $sY1, $sY2, 'S');   // rechts im Überlappungsbereich
+
+    // T-Maß links + rechts (unter unterem Flügel)
+    $tY = $p2Y + $panH + 2;
+    _dMH($pdf, $p2lGR, $p1lGL, $tY, 't');   // links: unterer GB-Ende → oberer GB-Anfang
+    _dMH($pdf, $p2rGR, $p1rGL, $tY, 't');   // rechts: unterer GB-Ende → oberer GB-Anfang
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
