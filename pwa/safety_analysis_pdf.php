@@ -414,8 +414,11 @@ function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
     // Pfeil → (linke Hälfte des Blatts, bis Mitte)
     _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $pMid - 2);
 
-    // x-Maß: Arm-UK → Blatt-OK, am linken Eingang des L-Arms
+    // x-Maß LINKS: Arm-UK → Blatt-OK, am L-Eingang
     _dMV($pdf, $pMid + 3, $ceilB, $panY, 'x');
+
+    // x-Maß RECHTS: Arm-UK → Innenkante rechter Führungsblock (gbTop)
+    _dMV($pdf, $pRight + 1, $ceilB, $gbTop, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
