@@ -380,39 +380,44 @@ function drawDiagramScheren($pdf, $x, $y, $w, $h) {
 }
 
 // ── Diagram: Einziehen ────────────────────────────────────────────────────
-// DRAUFSICHT: Schlitz in Wand mit Glas (blau), Blatt fährt durch den Schlitz
-// x = seitlicher Spalt Blatt ↔ Glaswand (oben und unten)
+// DRAUFSICHT: Blatt fährt unter Decke/Sturz (⌐-Form) → x = Spalt Decke-UK ↔ Führungsblock-OK
 function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
     $panH  = 3;
-    $gapX  = 3;   // x-Spalt oben & unten (sichtbar, ≤8mm)
-    $wallX = $x + round($w * 0.48);   // Schlitzwand ab hier
-    $wallR = $x + $w - 2;
-    $panY  = $y + round(($h - $panH) / 2);  // Blatt vertikal zentriert
-    $slotT = $panY - $gapX;
-    $slotB = $panY + $panH + $gapX;
+    $gbW   = 4;    // Führungsblock-Breite
+    $gapX  = 3;    // x-Maß: Decke-UK → Führungsblock-OK
+    $stubX = $x + 16;
+    $stubW = 5;
+    $wallR = $x + $w - 2;   // x+46
 
-    // Wandblock OBEN: grau mit blauem Glas (1mm Rand)
+    $ceilT = $y + 7;
+    $ceilB = $ceilT + 3;          // y+10 (Decke-Unterkante)
+    $gbTop = $ceilB + $gapX;      // y+13 (Führungsblock-Oberkante)
+    $panY  = $gbTop + 1;          // y+14 (Blatt-Oberkante)
+
+    // Grauer Stub (linke Wandstrebe) + vollbreite Decke = ⌐-Form
     _dStruct($pdf);
-    $pdf->Rect($wallX, $y + 2, $wallR - $wallX, $slotT - $y - 2, 'DF');
-    $pdf->SetFillColor(90, 140, 200); $pdf->SetDrawColor(60, 110, 170);
-    $pdf->Rect($wallX + 1, $y + 3, $wallR - $wallX - 2, $slotT - $y - 4, 'DF');
+    $pdf->Rect($stubX, $y + 2, $stubW, $ceilT - $y - 2, 'DF');           // Stub: y+2…y+7
+    $pdf->Rect($x + 2, $ceilT, $wallR - $x - 2, $ceilB - $ceilT, 'DF'); // Decke: y+7…y+10
 
-    // Wandblock UNTEN: grau mit blauem Glas
-    _dStruct($pdf);
-    $pdf->Rect($wallX, $slotB, $wallR - $wallX, $y + $h - 2 - $slotB, 'DF');
-    $pdf->SetFillColor(90, 140, 200); $pdf->SetDrawColor(60, 110, 170);
-    $pdf->Rect($wallX + 1, $slotB + 1, $wallR - $wallX - 2, $y + $h - 4 - $slotB, 'DF');
-
-    // Türblatt – fährt von links in den Schlitz (bis rechten Rand)
+    // Fahrflügel (blau)
+    $pLeft = $x + 2 + $gbW;   // x+6
     _dPanel($pdf);
-    $pdf->Rect($x + 2, $panY, $wallR - $x - 2, $panH, 'DF');
+    $pdf->Rect($pLeft, $panY, $wallR - $gbW - $pLeft, $panH, 'DF');
 
-    // Pfeil → links vom Schlitz
-    _dArrowR($pdf, $x + 5, $panY + $panH / 2, $wallX - 3);
+    // Führungsblöcke (beige) links + rechts
+    $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
+    $pdf->Rect($x + 2, $gbTop, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($wallR - $gbW, $gbTop, $gbW, $panH + 2, 'DF');
 
-    // x-Maß OBEN: innerhalb des Schlitzes, Schlitzkante → Blatt-Oberkante
-    _dMV($pdf, $wallX + 4, $slotT, $panY, 'x');
+    // Pfeil →
+    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $wallR - $gbW - 2);
+
+    // x-Maß LINKS: Decke-UK → Führungsblock-OK (linke Seite)
+    _dMV($pdf, $x + 4, $ceilB, $gbTop, 'x');
+
+    // x-Maß RECHTS: gleicher Spalt (rechte Seite, innerhalb rechtem GB)
+    _dMV($pdf, $wallR - $gbW / 2 - 1, $ceilB, $gbTop, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
