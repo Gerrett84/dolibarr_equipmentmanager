@@ -380,44 +380,42 @@ function drawDiagramScheren($pdf, $x, $y, $w, $h) {
 }
 
 // ── Diagram: Einziehen ────────────────────────────────────────────────────
-// DRAUFSICHT: Blatt fährt unter Decke/Sturz (⌐-Form) → x = Spalt Decke-UK ↔ Führungsblock-OK
+// DRAUFSICHT: L-Form beginnt bei Blatt-Mitte; x = Arm-UK → Blatt-OK (links vom L-Eingang)
 function drawDiagramEinziehen($pdf, $x, $y, $w, $h) {
     $pdf->SetLineWidth(0.3);
     $panH  = 3;
     $gbW   = 4;    // Führungsblock-Breite
-    $gapX  = 3;    // x-Maß: Decke-UK → Führungsblock-OK
-    $stubX = $x + 16;
-    $stubW = 5;
+    $gapX  = 3;    // x-Maß: Arm-UK → Blatt-OK
     $wallR = $x + $w - 2;   // x+46
 
-    $ceilT = $y + 7;
-    $ceilB = $ceilT + 3;          // y+10 (Decke-Unterkante)
-    $gbTop = $ceilB + $gapX;      // y+13 (Führungsblock-Oberkante)
-    $panY  = $gbTop + 1;          // y+14 (Blatt-Oberkante)
+    $pLeft  = $x + 2 + $gbW;                      // x+6
+    $pRight = $wallR - $gbW;                       // x+42
+    $pMid   = (int)(($pLeft + $pRight) / 2);       // x+24 (Mitte des Blatts)
 
-    // Grauer Stub (linke Wandstrebe) + vollbreite Decke = ⌐-Form
+    $ceilT  = $y + 7;
+    $ceilB  = $ceilT + 3;    // y+10
+    $gbTop  = $ceilB + $gapX; // y+13
+    $panY   = $gbTop + 1;     // y+14
+
+    // L-Form: Stub (kurz, nach oben) + Arm (nach rechts) – beginnt bei Blatt-Mitte
     _dStruct($pdf);
-    $pdf->Rect($stubX, $y + 2, $stubW, $ceilT - $y - 2, 'DF');           // Stub: y+2…y+7
-    $pdf->Rect($x + 2, $ceilT, $wallR - $x - 2, $ceilB - $ceilT, 'DF'); // Decke: y+7…y+10
+    $pdf->Rect($pMid, $y + 2, 5, $ceilT - $y - 2, 'DF');              // Stub: y+2…y+7
+    $pdf->Rect($pMid, $ceilT, $wallR - $pMid, $ceilB - $ceilT, 'DF'); // Arm: x+24…x+46
 
     // Fahrflügel (blau)
-    $pLeft = $x + 2 + $gbW;   // x+6
     _dPanel($pdf);
-    $pdf->Rect($pLeft, $panY, $wallR - $gbW - $pLeft, $panH, 'DF');
+    $pdf->Rect($pLeft, $panY, $pRight - $pLeft, $panH, 'DF');
 
     // Führungsblöcke (beige) links + rechts
     $pdf->SetFillColor(185, 175, 155); $pdf->SetDrawColor(140, 130, 110);
     $pdf->Rect($x + 2, $gbTop, $gbW, $panH + 2, 'DF');
-    $pdf->Rect($wallR - $gbW, $gbTop, $gbW, $panH + 2, 'DF');
+    $pdf->Rect($pRight, $gbTop, $gbW, $panH + 2, 'DF');
 
-    // Pfeil →
-    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $wallR - $gbW - 2);
+    // Pfeil → (linke Hälfte des Blatts, bis Mitte)
+    _dArrowR($pdf, $pLeft + 2, $panY + $panH / 2, $pMid - 2);
 
-    // x-Maß LINKS: Decke-UK → Führungsblock-OK (linke Seite)
-    _dMV($pdf, $x + 4, $ceilB, $gbTop, 'x');
-
-    // x-Maß RECHTS: gleicher Spalt (rechte Seite, innerhalb rechtem GB)
-    _dMV($pdf, $wallR - $gbW / 2 - 1, $ceilB, $gbTop, 'x');
+    // x-Maß: Arm-UK → Blatt-OK, am linken Eingang des L-Arms
+    _dMV($pdf, $pMid + 3, $ceilB, $panY, 'x');
 
     $pdf->SetDrawColor(80, 80, 80); $pdf->SetLineWidth(0.3);
 }
