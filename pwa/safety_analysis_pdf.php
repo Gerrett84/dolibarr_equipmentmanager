@@ -360,14 +360,14 @@ function drawDiagramScheren($pdf, $x, $y, $w, $h) {
     // Pfeil → auf unterem Flügel
     _dArrowR($pdf, $p2lGR + 2, $p2Y + $panH / 2, $p2rGL - 2);
 
-    // S-Maß links + rechts: Blau-UK oberer (p1Y+panH) → Blau-OK unterer (p2Y)
+    // S-Maß: links am Beginn + rechts am Ende des Überlappungsbereichs (vor Kopf)
     $sY1 = $p1Y + $panH;
     $sY2 = $p2Y;
-    _dMV($pdf, $p1lGR + 3, $sY1, $sY2, 'S');   // links im Überlappungsbereich
-    _dMV($pdf, $p2rGL - 3, $sY1, $sY2, 'S');   // rechts im Überlappungsbereich
+    _dMV($pdf, $p1lGR + 1, $sY1, $sY2, 'S');   // links: knapp rechts vom oberen GB
+    _dMV($pdf, $p2rGL - 1, $sY1, $sY2, 'S');   // rechts: knapp links vom unteren GB
 
-    // T-Maß links + rechts (unter unterem Flügel)
-    $tY = $p2Y + $panH + 2;
+    // T-Maß links + rechts (OBEN, kurz vor den beigen Kästchen)
+    $tY = $p1Y - 1;
     _dMH($pdf, $p2lGR, $p1lGL, $tY, 't');   // links: unterer GB-Ende → oberer GB-Anfang
     _dMH($pdf, $p2rGR, $p1rGL, $tY, 't');   // rechts: unterer GB-Ende → oberer GB-Anfang
 
