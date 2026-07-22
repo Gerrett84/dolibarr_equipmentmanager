@@ -299,9 +299,10 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $page_bottom = $this->page_hauteur - $this->marge_basse - 15;
                     $available_space = $page_bottom - $curY;
 
-                    // For last equipment: ensure it fits WITH signature on same page
-                    // Signature needs ~60mm (45mm boxes + 15mm gap)
-                    $signatureSpace = $is_last ? 60 : 0;
+                    // For last section: signatures are fixed at page_hauteur-67 (=230mm on A4).
+                    // The post-render collision check fires when contentY > signatureY-10 = 220mm.
+                    // Reserve exactly page_bottom - 220mm = 52mm so both checks stay in sync.
+                    $signatureSpace = $is_last ? ($page_bottom - ($this->page_hauteur - 77)) : 0;
                     $total_needed = $estimated_height + $signatureSpace;
 
                     // Add new page if section (+ signature for last) won't fit
@@ -355,7 +356,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
                     $page_bottom = $this->page_hauteur - $this->marge_basse - 15;
                     $available_space = $page_bottom - $curY;
-                    $signatureSpace = 60; // General entries are always last
+                    $signatureSpace = $page_bottom - ($this->page_hauteur - 77); // = 52mm on A4, matches collision check
 
                     if ($available_space < $estimated_height + $signatureSpace) {
                         $pdf->AddPage();
