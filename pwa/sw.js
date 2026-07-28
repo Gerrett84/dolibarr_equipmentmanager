@@ -2,8 +2,8 @@
  * Service Worker for Offline PWA
  */
 
-const CACHE_NAME = 'equipmentmanager-pwa-v27';
-const STATIC_CACHE = 'equipmentmanager-static-v27';
+const CACHE_NAME = 'equipmentmanager-pwa-v28';
+const STATIC_CACHE = 'equipmentmanager-static-v28';
 
 // Files to cache for offline use
 const STATIC_FILES = [
@@ -56,6 +56,13 @@ self.addEventListener('fetch', (event) => {
 
     // Skip external requests
     if (url.origin !== location.origin) {
+        return;
+    }
+
+    // Dynamic PDF endpoints - always network, never cache
+    if (url.pathname.includes('pdf_preview.php') ||
+        url.pathname.includes('pdf_proxy.php') ||
+        url.pathname.includes('acceptance_protocol.php')) {
         return;
     }
 

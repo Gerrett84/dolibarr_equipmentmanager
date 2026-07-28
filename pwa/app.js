@@ -4058,7 +4058,7 @@ class ServiceReportApp {
             return;
         }
 
-        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}&_t=${Date.now()}`;
         this.openPdfViewer(previewUrl, 'Servicebericht');
     }
 
