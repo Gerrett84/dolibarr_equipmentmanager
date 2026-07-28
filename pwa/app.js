@@ -4073,14 +4073,18 @@ class ServiceReportApp {
     async openPdfViewerFresh(url, title) {
         this.showToast('PDF wird geladen…');
         try {
-            const resp = await fetch(url, { cache: 'no-store' });
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const resp = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+            if (!resp.ok) {
+                const body = await resp.text().catch(() => '');
+                throw new Error('HTTP ' + resp.status + (body ? ': ' + body.substring(0, 80) : ''));
+            }
             const blob = await resp.blob();
+            if (blob.size === 0) throw new Error('Leere Antwort vom Server');
             const blobUrl = URL.createObjectURL(blob);
             this.openPdfViewer(blobUrl, title, true);
         } catch (e) {
-            this.showToast('PDF-Laden fehlgeschlagen');
             console.error('openPdfViewerFresh:', e);
+            this.showToast('PDF-Fehler: ' + e.message, 6000);
         }
     }
 
