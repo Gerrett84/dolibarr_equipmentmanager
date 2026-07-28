@@ -4013,14 +4013,17 @@ class ServiceReportApp {
     }
 
     // Open PDF in in-app viewer overlay (no new tab needed)
-    openPdfViewer(url, title = 'Dokument') {
+    openPdfViewer(url, title = 'Dokument', isBlobUrl = false) {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
         const frame = document.getElementById('pdfViewerFrame');
 
-        // Remove any previously injected <object> element
+        // Revoke previous blob URL if present
         const prevObj = document.getElementById('pdfViewerObject');
-        if (prevObj) prevObj.remove();
+        if (prevObj) {
+            if (prevObj.dataset.blobUrl) URL.revokeObjectURL(prevObj.dataset.blobUrl);
+            prevObj.remove();
+        }
 
         // iOS Safari beschränkt <iframe> auf Seite 1 eines PDFs.
         // <object type="application/pdf"> direkt im Overlay zeigt alle Seiten scrollbar.
@@ -4030,6 +4033,7 @@ class ServiceReportApp {
         obj.id = 'pdfViewerObject';
         obj.type = 'application/pdf';
         obj.style.cssText = 'flex:1;min-height:0;width:100%;border:none;display:block;';
+        if (isBlobUrl) obj.dataset.blobUrl = url;
         obj.data = url;
         overlay.appendChild(obj);
 
@@ -4043,7 +4047,10 @@ class ServiceReportApp {
         frame.src = 'about:blank';
         frame.style.display = 'block';
         const obj = document.getElementById('pdfViewerObject');
-        if (obj) obj.remove();
+        if (obj) {
+            if (obj.dataset.blobUrl) URL.revokeObjectURL(obj.dataset.blobUrl);
+            obj.remove();
+        }
     }
 
     // Show PDF preview in in-app viewer
@@ -4058,8 +4065,23 @@ class ServiceReportApp {
             return;
         }
 
-        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}&_t=${Date.now()}`;
-        this.openPdfViewer(previewUrl, 'Servicebericht');
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        this.openPdfViewerFresh(previewUrl, 'Servicebericht');
+    }
+
+    // Fetch PDF fresh (no-store) and display via Blob URL to bypass iOS WebKit PDF cache
+    async openPdfViewerFresh(url, title) {
+        this.showToast('PDF wird geladen…');
+        try {
+            const resp = await fetch(url, { cache: 'no-store' });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            this.openPdfViewer(blobUrl, title, true);
+        } catch (e) {
+            this.showToast('PDF-Laden fehlgeschlagen');
+            console.error('openPdfViewerFresh:', e);
+        }
     }
 
     // Show acceptance protocol PDF in new tab (v4.5)
