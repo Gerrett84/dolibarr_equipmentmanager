@@ -405,19 +405,16 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                 }
             }
 
-            // Signature section - FIXED position at bottom of page
-            // This ensures PWA signature overlay lands in the correct box
-            // Position: 67mm from bottom of page (= page_height - 67)
-            $signatureHeight = 45; // Height needed for signature boxes + text
-            $signatureY = $this->page_hauteur - 67; // Fixed: 67mm from bottom
-
-            // Check if content overlaps with signature area
+            // Signature section - DYNAMIC position: directly below last content
+            $signatureHeight = 45; // label (5) + box (25) + text (4) + buffer
             $contentY = $pdf->GetY();
-            if ($contentY > $signatureY - 10) {
-                // Content would overlap - add new page
+            $signatureY = $contentY + 10;
+            // Page bottom limit: leave room for footer (marge_basse + 8mm)
+            $sigPageLimit = $this->page_hauteur - $this->marge_basse - 8;
+            if ($signatureY + $signatureHeight > $sigPageLimit) {
+                // Doesn't fit: new page, fall back to default bottom position
                 $pdf->AddPage();
                 $pagenb++;
-                // On new page, signature still at fixed position from bottom
                 $signatureY = $this->page_hauteur - 67;
             }
 
@@ -431,6 +428,11 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
             $pdf->Close();
             $pdf->Output($file, 'F');
+
+            // Save actual signature Y position so processSignature can overlay the customer signature
+            if (!$object->specimen) {
+                file_put_contents($dir.'/'.$objectref.'.sigpos.json', json_encode(['y' => $signatureY]));
+            }
 
             // Add pdfgeneration hook
             $hookmanager->initHooks(array('pdfgeneration'));

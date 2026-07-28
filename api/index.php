@@ -2745,6 +2745,10 @@ function processSignature($intervention_id, $signatureData, $signerName) {
     $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
     $fichinter->generateDocument($modele, $outputlangs);
 
+    // Read dynamic signature Y position written by PDF template (sigpos sidecar)
+    $sigposFile = $upload_dir . dol_sanitizeFileName($fichinter->ref) . '.sigpos.json';
+    $sigposData = file_exists($sigposFile) ? json_decode(file_get_contents($sigposFile), true) : null;
+
     // Now create signed version with customer signature
     $sourcefile = $upload_dir . dol_sanitizeFileName($fichinter->ref) . ".pdf";
     $newpdffilename = $upload_dir . dol_sanitizeFileName($fichinter->ref) . "_signed.pdf";
@@ -2787,8 +2791,8 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             $boxHeight = 25;
             $rightX = $s['w'] - $marge_droite - $boxWidth;
 
-            // Fixed Y position matching template: page_height - 67mm
-            $signatureBoxY = $s['h'] - 67;
+            // Y position from sidecar written by PDF template; fallback to legacy fixed position
+            $signatureBoxY = ($sigposData && isset($sigposData['y'])) ? (float)$sigposData['y'] : $s['h'] - 67;
             // The box starts 5mm below the label
             $boxStartY = $signatureBoxY + 5;
 
