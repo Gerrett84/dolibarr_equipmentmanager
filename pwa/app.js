@@ -1523,6 +1523,12 @@ class ServiceReportApp {
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
 
+            // Hide "Neuer Eintrag" button and summary save when intervention is locked
+            const locked = this.isInterventionLocked();
+            document.getElementById('btnAddEntry').style.display = locked ? 'none' : '';
+            const btnSaveSummary = document.getElementById('btnSaveSummary');
+            if (btnSaveSummary) btnSaveSummary.style.display = locked ? 'none' : '';
+
             // Show equipment ref and label
             document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
 
@@ -1668,6 +1674,10 @@ class ServiceReportApp {
     }
 
     // Load single entry for editing (v1.7)
+    isInterventionLocked() {
+        return (this.currentIntervention?.status ?? 0) >= 1;
+    }
+
     loadEntry(entry, index) {
         this.currentEntry = { ...entry, index };
         this.showView('viewEntry', 'Eintrag bearbeiten');
@@ -1713,6 +1723,8 @@ class ServiceReportApp {
 
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
+
+        this._applyEntryLockState();
     }
 
     // Load commissioning and acceptance fields (v4.5)
@@ -1778,8 +1790,41 @@ class ServiceReportApp {
         document.getElementById('entryTestbookHanded').checked = !!entry?.testbook_handed;
     }
 
+    // Apply/remove read-only state to the entry form based on intervention lock
+    _applyEntryLockState() {
+        const locked = this.isInterventionLocked();
+        const form = document.getElementById('entryForm');
+        if (!form) return;
+
+        // Banner: create once, toggle visibility
+        let banner = document.getElementById('entryLockBanner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'entryLockBanner';
+            banner.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#856404;';
+            banner.textContent = '🔒 Dieser Auftrag ist freigegeben. Einträge können nicht mehr bearbeitet werden.';
+            form.prepend(banner);
+        }
+        banner.style.display = locked ? 'block' : 'none';
+
+        // Disable / enable all inputs and textareas in the form
+        form.querySelectorAll('input, textarea, select, button[type="button"]').forEach(el => {
+            if (el.id === 'btnDeleteEntry') return; // handled separately
+            el.disabled = locked;
+        });
+
+        // Hide Save and Delete buttons when locked
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.style.display = locked ? 'none' : '';
+        document.getElementById('btnDeleteEntry').style.display = locked ? 'none' : (this.currentEntry ? 'block' : 'none');
+    }
+
     // Add new entry (v1.7)
     addNewEntry() {
+        if (this.isInterventionLocked()) {
+            this.showToast('Auftrag ist freigegeben – keine neuen Einträge möglich');
+            return;
+        }
         this.currentEntry = null;
         this.showView('viewEntry', 'Neuer Eintrag');
 
@@ -1811,6 +1856,8 @@ class ServiceReportApp {
 
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
+
+        this._applyEntryLockState();
     }
 
     // Time mode toggle
@@ -1839,6 +1886,10 @@ class ServiceReportApp {
 
     // Save entry (v1.7)
     async saveEntry() {
+        if (this.isInterventionLocked()) {
+            this.showToast('Auftrag ist freigegeben – Speichern nicht möglich');
+            return;
+        }
         const mode = this._timeMode || 'duration';
         let totalMinutes = 0;
         let workStartTime = null, workEndTime = null;

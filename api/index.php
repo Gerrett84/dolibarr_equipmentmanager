@@ -1316,6 +1316,17 @@ function handleDetail($method, $parts, $input) {
             'detail' => count($entriesData) > 0 ? $entriesData[0] : null
         ]);
     } elseif ($method === 'POST' || $method === 'PUT') {
+        // Block writes if intervention is released (fk_statut >= 1)
+        $sqlStatus = "SELECT fk_statut FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$intervention_id;
+        $resStatus = $db->query($sqlStatus);
+        if ($resStatus && ($rowStatus = $db->fetch_object($resStatus))) {
+            if ((int)$rowStatus->fk_statut >= 1) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Intervention ist freigegeben und kann nicht mehr bearbeitet werden']);
+                return;
+            }
+        }
+
         // v1.7: Support entry_id for updating specific entries
         $entry_id = isset($input['entry_id']) ? (int)$input['entry_id'] : 0;
         $save_summary_only = !empty($input['save_summary_only']);
