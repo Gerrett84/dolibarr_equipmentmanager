@@ -1523,6 +1523,12 @@ class ServiceReportApp {
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
 
+            // Hide "Neuer Eintrag" button and summary save when intervention is locked
+            const locked = this.isInterventionLocked();
+            document.getElementById('btnAddEntry').style.display = locked ? 'none' : '';
+            const btnSaveSummary = document.getElementById('btnSaveSummary');
+            if (btnSaveSummary) btnSaveSummary.style.display = locked ? 'none' : '';
+
             // Show equipment ref and label
             document.getElementById('entriesEquipmentRef').textContent = `${equipment.ref} - ${equipment.label || ''}`;
 
@@ -1668,6 +1674,10 @@ class ServiceReportApp {
     }
 
     // Load single entry for editing (v1.7)
+    isInterventionLocked() {
+        return (this.currentIntervention?.status ?? 0) >= 1;
+    }
+
     loadEntry(entry, index) {
         this.currentEntry = { ...entry, index };
         this.showView('viewEntry', 'Eintrag bearbeiten');
@@ -1713,6 +1723,8 @@ class ServiceReportApp {
 
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
+
+        this._applyEntryLockState();
     }
 
     // Load commissioning and acceptance fields (v4.5)
@@ -1778,8 +1790,41 @@ class ServiceReportApp {
         document.getElementById('entryTestbookHanded').checked = !!entry?.testbook_handed;
     }
 
+    // Apply/remove read-only state to the entry form based on intervention lock
+    _applyEntryLockState() {
+        const locked = this.isInterventionLocked();
+        const form = document.getElementById('entryForm');
+        if (!form) return;
+
+        // Banner: create once, toggle visibility
+        let banner = document.getElementById('entryLockBanner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'entryLockBanner';
+            banner.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#856404;';
+            banner.textContent = '🔒 Dieser Auftrag ist freigegeben. Einträge können nicht mehr bearbeitet werden.';
+            form.prepend(banner);
+        }
+        banner.style.display = locked ? 'block' : 'none';
+
+        // Disable / enable all inputs and textareas in the form
+        form.querySelectorAll('input, textarea, select, button[type="button"]').forEach(el => {
+            if (el.id === 'btnDeleteEntry') return; // handled separately
+            el.disabled = locked;
+        });
+
+        // Hide Save and Delete buttons when locked
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.style.display = locked ? 'none' : '';
+        document.getElementById('btnDeleteEntry').style.display = locked ? 'none' : (this.currentEntry ? 'block' : 'none');
+    }
+
     // Add new entry (v1.7)
     addNewEntry() {
+        if (this.isInterventionLocked()) {
+            this.showToast('Auftrag ist freigegeben – keine neuen Einträge möglich');
+            return;
+        }
         this.currentEntry = null;
         this.showView('viewEntry', 'Neuer Eintrag');
 
@@ -1811,6 +1856,8 @@ class ServiceReportApp {
 
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
+
+        this._applyEntryLockState();
     }
 
     // Time mode toggle
@@ -1839,6 +1886,10 @@ class ServiceReportApp {
 
     // Save entry (v1.7)
     async saveEntry() {
+        if (this.isInterventionLocked()) {
+            this.showToast('Auftrag ist freigegeben – Speichern nicht möglich');
+            return;
+        }
         const mode = this._timeMode || 'duration';
         let totalMinutes = 0;
         let workStartTime = null, workEndTime = null;
@@ -4013,14 +4064,17 @@ class ServiceReportApp {
     }
 
     // Open PDF in in-app viewer overlay (no new tab needed)
-    openPdfViewer(url, title = 'Dokument') {
+    openPdfViewer(url, title = 'Dokument', isBlobUrl = false) {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
         const frame = document.getElementById('pdfViewerFrame');
 
-        // Remove any previously injected <object> element
+        // Revoke previous blob URL if present
         const prevObj = document.getElementById('pdfViewerObject');
-        if (prevObj) prevObj.remove();
+        if (prevObj) {
+            if (prevObj.dataset.blobUrl) URL.revokeObjectURL(prevObj.dataset.blobUrl);
+            prevObj.remove();
+        }
 
         // iOS Safari beschränkt <iframe> auf Seite 1 eines PDFs.
         // <object type="application/pdf"> direkt im Overlay zeigt alle Seiten scrollbar.
@@ -4030,6 +4084,7 @@ class ServiceReportApp {
         obj.id = 'pdfViewerObject';
         obj.type = 'application/pdf';
         obj.style.cssText = 'flex:1;min-height:0;width:100%;border:none;display:block;';
+        if (isBlobUrl) obj.dataset.blobUrl = url;
         obj.data = url;
         overlay.appendChild(obj);
 
@@ -4043,7 +4098,10 @@ class ServiceReportApp {
         frame.src = 'about:blank';
         frame.style.display = 'block';
         const obj = document.getElementById('pdfViewerObject');
-        if (obj) obj.remove();
+        if (obj) {
+            if (obj.dataset.blobUrl) URL.revokeObjectURL(obj.dataset.blobUrl);
+            obj.remove();
+        }
     }
 
     // Show PDF preview in in-app viewer
@@ -4059,7 +4117,26 @@ class ServiceReportApp {
         }
 
         const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
-        this.openPdfViewer(previewUrl, 'Servicebericht');
+        this.openPdfViewerFresh(previewUrl, 'Servicebericht');
+    }
+
+    // Fetch PDF fresh (no-store) and display via Blob URL to bypass iOS WebKit PDF cache
+    async openPdfViewerFresh(url, title) {
+        this.showToast('PDF wird geladen…');
+        try {
+            const resp = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+            if (!resp.ok) {
+                const body = await resp.text().catch(() => '');
+                throw new Error('HTTP ' + resp.status + (body ? ': ' + body.substring(0, 80) : ''));
+            }
+            const blob = await resp.blob();
+            if (blob.size === 0) throw new Error('Leere Antwort vom Server');
+            const blobUrl = URL.createObjectURL(blob);
+            this.openPdfViewer(blobUrl, title, true);
+        } catch (e) {
+            console.error('openPdfViewerFresh:', e);
+            this.showToast('PDF-Fehler: ' + e.message, 6000);
+        }
     }
 
     // Show acceptance protocol PDF in new tab (v4.5)
