@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.5.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.6.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,13 @@
 -----
 
 ## Features
+
+### NEU in v5.6.0: PDF-Qualität & Auftragssperre
+
+- **Dynamische Unterschrift-Position** – Unterschrift-Felder werden jetzt direkt unterhalb des letzten Eintrags platziert statt immer am Seitenende; spart Leerraum auf der letzten Seite; tatsächliche Y-Position wird als Sidecar-JSON gespeichert, damit die Kunden-Unterschrift beim Signieren exakt an der richtigen Stelle eingefügt wird
+- **Fix: Servicebericht-Seitenumbruch** – Letzte Anlage sprang unnötig auf eine neue Seite wenn der Inhalt nahe der Unterschriften-Zone endete; `signatureSpace`-Reserve korrigiert (60 → 52 mm, passend zum echten Kollisions-Schwellwert bei 220 mm)
+- **Fix: PDF-Vorschau immer aktuell** – PDF-Vorschau in der PWA zeigte nach Änderungen den alten Stand; Service Worker cachte `pdf_preview.php` (cache-first für `/pwa/`-Pfade); Fix: SW-Bypass für dynamische PDF-Endpunkte, PDF-Laden via `fetch()` mit `cache: 'no-store'` + Blob-URL (umgeht iOS WebKit PDF-Cache)
+- **Einträge sperren bei freigegebenem Auftrag** – Ist ein Auftrag „Freigegeben" (`fk_statut ≥ 1`), sind in der PWA alle Eingabefelder deaktiviert, „Neuer Eintrag"- und „Speichern"-Buttons ausgeblendet; ein gelber Banner weist auf den gesperrten Zustand hin; API lehnt Schreibzugriffe zusätzlich mit HTTP 403 ab
 
 ### NEU in v5.5.1: PWA Stabilitäts-Hotfix & PDF-Viewer Mehrseiten-Fix
 
@@ -318,6 +325,13 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v5.6.0 (2026-07-30)
+
+- **Dynamische Unterschrift-Position** – Unterschrift-Felder folgen dem Inhalt der letzten Seite (10 mm Abstand zum letzten Eintrag) statt fest 67 mm vom Seitenende; tatsächliche Y-Position wird als `{ref}.sigpos.json` neben dem PDF gespeichert; `processSignature` liest diese Datei und platziert die Kunden-Unterschrift korrekt (Fallback: `page_height - 67`)
+- **Fix: Servicebericht-Seitenumbruch** – `signatureSpace`-Reserve von 60 mm auf 52 mm korrigiert (= `page_bottom − (page_hauteur − 77)`); verhindert unnötigen Seitenumbruch bei der letzten Anlage
+- **Fix: PDF-Vorschau veraltet** – SW cachte `pdf_preview.php` mit cache-first-Strategie; Fix: SW-Bypass (kein `respondWith`) für `pdf_preview.php`, `pdf_proxy.php`, `acceptance_protocol.php`; PWA lädt PDF via `fetch({ cache: 'no-store', credentials: 'same-origin' })` und zeigt es als Blob-URL im Viewer an (umgeht iOS WKWebView PDF-Cache); SW-Version auf v29
+- **Auftragssperre in der PWA** – `fk_statut ≥ 1` (Freigegeben): Eintragsformular read-only (Banner + alle Felder `disabled`), „Neuer Eintrag" und „Empfehlungen speichern" ausgeblendet; API gibt HTTP 403 zurück bei POST-Versuchen auf gesperrte Interventionen
 
 ### v5.5.0 (2026-07-12)
 
@@ -745,6 +759,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.5.0
+**Current Version:** 5.6.0
 **Released:** Juli 2026
 **Compatibility:** Dolibarr 16.0+
