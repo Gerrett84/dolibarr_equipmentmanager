@@ -12,6 +12,10 @@
 
 ## Features
 
+### NEU in v5.6.1: Objektadresse-Kontakttyp fehlte bei Neuinstallation
+
+- **Fix: Rolle „Objektadresse" fehlte bei Neuinstallation** – War bisher nur für Angebote (`propal`) in der Migrationsdatei erfasst; die Einträge für Serviceauftrag/Intervention, Auftrag, Rechnung, Vertrag und Lieferantenbestellung existierten nur auf lange laufenden Bestandsinstallationen (manuell nachgetragen), nicht aber in `sql/llx_equipmentmanager_update.sql`. Eine frische Installation hatte die Rolle daher komplett gefehlt.
+
 ### NEU in v5.6.0: PDF-Qualität & Auftragssperre
 
 - **Dynamische Unterschrift-Position** – Unterschrift-Felder werden jetzt direkt unterhalb des letzten Eintrags platziert statt immer am Seitenende; spart Leerraum auf der letzten Seite; tatsächliche Y-Position wird als Sidecar-JSON gespeichert, damit die Kunden-Unterschrift beim Signieren exakt an der richtigen Stelle eingefügt wird
