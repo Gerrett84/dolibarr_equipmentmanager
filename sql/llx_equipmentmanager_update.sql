@@ -66,6 +66,19 @@ INSERT IGNORE INTO llx_equipmentmanager_equipment_types (code, label, position, 
 INSERT IGNORE INTO llx_c_type_contact (element, source, code, libelle, active, module, position)
 VALUES ('propal', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50);
 
+-- v5.7: Add Objektadresse (OBJ) contact type for the other element types the module
+-- actually reads it from (fichinter: calendar.php, service_order_list.php,
+-- actions_equipmentmanager.class.php pdf_build_address). These rows existed on the
+-- long-running test/prod databases (added manually at some point) but were never
+-- captured in this migration script, so a fresh install was missing the role entirely.
+INSERT IGNORE INTO llx_c_type_contact (element, source, code, libelle, active, module, position)
+VALUES
+('fichinter', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50),
+('commande', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50),
+('facture', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50),
+('contrat', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50),
+('order_supplier', 'external', 'OBJ', 'Objektadresse', 1, NULL, 50);
+
 -- v4.2: Add photo column to checklist item results for defect photos
 ALTER TABLE llx_equipmentmanager_checklist_item_results
 ADD COLUMN IF NOT EXISTS photo varchar(255) DEFAULT NULL AFTER note;
