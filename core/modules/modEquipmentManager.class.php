@@ -55,6 +55,14 @@ class modEquipmentManager extends DolibarrModules
         $this->need_dolibarr_version = array(16, 0);
 
         $this->const = array();
+        // Use a plain FontAwesome icon for the top menu entry instead of the module's
+        // own img/equipmentmanager.png. Without this, Dolibarr's theme (theme/eldy/global.inc.php)
+        // auto-detects that PNG and renders it as a desaturated background image behind the
+        // manually printed <span class="fa fa-wrench">, making the top-bar icon look like two
+        // overlapping icons. Setting this to a fa-* value skips that background-image entirely
+        // (see the MAIN_MODULE_<NAME>_ICON check in global.inc.php) — only affects the top menu,
+        // not the module's picto used elsewhere (module list, object icons, etc.).
+        $this->const[] = array('MAIN_MODULE_EQUIPMENTMANAGER_ICON', 'chaine', 'fa-wrench', '', 0, 'current');
         $this->boxes = array();
         $this->cronjobs = array();
 
