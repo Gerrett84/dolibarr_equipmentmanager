@@ -40,6 +40,7 @@ class modEquipmentManager extends DolibarrModules
                 'pdfgeneration',     // Hook for adding Objektadresse to Propal/Commande PDF
                 'ordersuppliercard', // Hook context for order PDF
                 'ordercard',         // Hook context for order PDF
+                'index',             // Hook for home dashboard maintenance tile
             ),
         );
         $this->dirs = array();

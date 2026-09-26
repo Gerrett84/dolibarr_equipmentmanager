@@ -510,4 +510,81 @@ class Equipment extends CommonObject
 
         return $translated;
     }
+
+    /**
+     * Count equipment with due/overdue maintenance, using the same month-based
+     * logic as maintenance_dashboard.php (kept in sync manually - both need the
+     * same current/next-month + overdue-lookback rules to stay consistent for users).
+     *
+     * @param DoliDB $db Database handler
+     * @return array{total:int,overdue:int} total = current+next month+overdue combined, overdue = subset already past due
+     */
+    public static function getMaintenanceDueCounts($db)
+    {
+        $current_month = (int) date('n');
+        $current_year = (int) date('Y');
+        $next_month = $current_month + 1;
+        if ($next_month > 12) {
+            $next_month = 1;
+        }
+
+        $semi_current = $current_month > 6 ? $current_month - 6 : $current_month + 6;
+        $semi_next = $next_month > 6 ? $next_month - 6 : $next_month + 6;
+        $overdue_min = max(1, $current_month - 3);
+
+        $sql = "SELECT t.rowid, t.maintenance_month";
+        $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
+        $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
+        $sql .= " AND t.status = 1";
+        $sql .= " AND t.maintenance_month IS NOT NULL";
+        $sql .= " AND (";
+        $sql .= "   t.maintenance_month = ".$current_month;
+        $sql .= "   OR t.maintenance_month = ".$next_month;
+        $sql .= "   OR (t.maintenance_month < ".$current_month." AND t.maintenance_month >= ".$overdue_min.")";
+        $sql .= "   OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".$semi_current.")";
+        $sql .= "   OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".$semi_next.")";
+        if ($current_month == 1) {
+            $sql .= " OR t.maintenance_month = 12";
+            $sql .= " OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = 6)";
+        }
+        $sql .= " )";
+        $sql .= " AND NOT EXISTS (";
+        $sql .= "   SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il2";
+        $sql .= "   INNER JOIN ".MAIN_DB_PREFIX."fichinter f2 ON il2.fk_intervention = f2.rowid";
+        $sql .= "   WHERE il2.fk_equipment = t.rowid";
+        $sql .= "   AND il2.link_type = 'maintenance'";
+        $sql .= "   AND f2.fk_statut = 3";
+        $sql .= "   AND (";
+        $sql .= "     (YEAR(f2.date_valid) = ".$current_year." AND MONTH(f2.date_valid) BETWEEN GREATEST(1, t.maintenance_month - 1) AND LEAST(12, t.maintenance_month + 3))";
+        if ($current_month <= 2) {
+            $sql .= "     OR (t.maintenance_month = 12 AND YEAR(f2.date_valid) = ".($current_year - 1)." AND MONTH(f2.date_valid) = 12)";
+        }
+        $sql .= "   )";
+        $sql .= " )";
+        $sql .= " AND NOT (";
+        $sql .= "   t.last_maintenance_date IS NOT NULL";
+        $sql .= "   AND (";
+        $sql .= "     (YEAR(t.last_maintenance_date) = ".$current_year." AND MONTH(t.last_maintenance_date) BETWEEN GREATEST(1, t.maintenance_month - 1) AND LEAST(12, t.maintenance_month + 3))";
+        if ($current_month <= 2) {
+            $sql .= "     OR (t.maintenance_month = 12 AND YEAR(t.last_maintenance_date) = ".($current_year - 1)." AND MONTH(t.last_maintenance_date) = 12)";
+        }
+        $sql .= "   )";
+        $sql .= " )";
+
+        $total = 0;
+        $overdue = 0;
+
+        $resql = $db->query($sql);
+        if ($resql) {
+            while ($obj = $db->fetch_object($resql)) {
+                $total++;
+                $month = (int) $obj->maintenance_month;
+                if ($month != $current_month && $month != $next_month) {
+                    $overdue++;
+                }
+            }
+        }
+
+        return array('total' => $total, 'overdue' => $overdue);
+    }
 }

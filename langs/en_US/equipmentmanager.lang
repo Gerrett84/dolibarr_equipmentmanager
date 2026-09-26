@@ -82,6 +82,8 @@ Total=Total
 
 # Maintenance Dashboard v1.5
 MaintenanceDashboard=Maintenance Overview
+MaintenanceDueLabel=Due/overdue maintenance
+MaintenanceDueLabelShort=Maintenance
 MaintenanceMonth=Maintenance Month
 MaintenanceMonthHelp=Month of annual maintenance
 AnnualMaintenance=Annual Maintenance

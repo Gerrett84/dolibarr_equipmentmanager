@@ -101,6 +101,8 @@ NewEquipment=Neue Anlage
 EquipmentByAddress=Anlagen nach Objektadresse
 ServiceReports=Serviceberichte
 MaintenanceDashboard=Wartungs-Übersicht
+MaintenanceDueLabel=Fällige/überfällige Wartungen
+MaintenanceDueLabelShort=Wartungen
 
 # Basic Fields
 

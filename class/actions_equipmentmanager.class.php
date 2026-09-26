@@ -461,4 +461,74 @@ class ActionsEquipmentManager
         return 0;
     }
 
+    /**
+     * Register a home dashboard group for equipment maintenance, so our
+     * workboard line (see addOpenElementsDashboardLine) gets its own tile
+     * instead of being silently ignored (Dolibarr only renders lines whose
+     * key is listed in some group's 'stats' array).
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object
+     * @param string $action Action
+     * @param HookManager $hookmanager Hook manager
+     * @return int <0 if error, 0 if nothing done, >0 if OK
+     */
+    public function addOpenElementsDashboardGroup($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs;
+
+        if (!isModEnabled('equipmentmanager')) {
+            return 0;
+        }
+
+        $langs->load("equipmentmanager@equipmentmanager");
+
+        $this->results['equipmentmanager'] = array(
+            'groupName' => $langs->transnoentitiesnoconv('MaintenanceDashboard'),
+            'stats' => array('equipmentmanager_maintenance'),
+        );
+
+        return 0;
+    }
+
+    /**
+     * Add a home dashboard tile showing due/overdue equipment maintenance,
+     * linking to the existing maintenance_dashboard.php page. Counts reuse
+     * Equipment::getMaintenanceDueCounts() so the tile and the page it links
+     * to always agree.
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object
+     * @param string $action Action
+     * @param HookManager $hookmanager Hook manager
+     * @return int <0 if error, 0 if nothing done, >0 if OK
+     */
+    public function addOpenElementsDashboardLine($parameters, &$object, &$action, $hookmanager)
+    {
+        global $langs, $user;
+
+        if (!isModEnabled('equipmentmanager') || !$user->hasRight('equipmentmanager', 'equipment', 'read')) {
+            return 0;
+        }
+
+        $langs->load("equipmentmanager@equipmentmanager");
+
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+        $counts = Equipment::getMaintenanceDueCounts($this->db);
+
+        $response = new WorkboardResponse();
+        $response->warning_delay = 0;
+        $response->label = $langs->transnoentitiesnoconv('MaintenanceDueLabel');
+        $response->labelShort = $langs->transnoentitiesnoconv('MaintenanceDueLabelShort');
+        $response->url = dol_buildpath('/equipmentmanager/maintenance_dashboard.php', 1);
+        $response->url_late = $response->url;
+        $response->img = img_object('', 'equipmentmanager@equipmentmanager');
+        $response->nbtodo = $counts['total'];
+        $response->nbtodolate = $counts['overdue'];
+
+        $this->results['equipmentmanager_maintenance'] = $response;
+
+        return 0;
+    }
+
 }
