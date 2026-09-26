@@ -475,7 +475,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
 
         pdf_pagehead($pdf, $outputlangs, $this->page_hauteur);
 
-        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
         $pdf->SetFont('', 'B', $default_font_size + 3);
 
         $posy = $this->marge_haute;
@@ -502,19 +502,19 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Title
         $pdf->SetFont('', 'B', $default_font_size + 3);
         $pdf->SetXY($posx, $posy);
-        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
         $pdf->MultiCell(100, 4, "Serviceauftrag - Arbeitsbericht", '', 'R');
 
         $pdf->SetFont('', '', $default_font_size);
         $posy += 5;
         $pdf->SetXY($posx, $posy);
-        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
         $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Ref")." : ".$outputlangs->convToOutputCharset($object->ref), '', 'R');
 
         // Date
         $posy += 4;
         $pdf->SetXY($posx, $posy);
-        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
         $pdf->MultiCell(100, 4, $outputlangs->transnoentities("Date")." : ".dol_print_date($object->dateo, 'day', false, $outputlangs, true), '', 'R');
 
         // Customer number (get from thirdparty)
@@ -526,7 +526,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             if (!empty($soc->code_client)) {
                 $posy += 4;
                 $pdf->SetXY($posx, $posy);
-                $pdf->SetTextColor(0, 0, 60);
+                $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
                 $pdf->MultiCell(100, 4, $outputlangs->transnoentities("CustomerCode")." : ".$soc->code_client, '', 'R');
             }
         }
@@ -535,7 +535,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         if (!empty($object->ref_client)) {
             $posy += 4;
             $pdf->SetXY($posx, $posy);
-            $pdf->SetTextColor(0, 0, 60);
+            $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
             $pdf->MultiCell(100, 4, "Ihr Zeichen : ".$outputlangs->convToOutputCharset($object->ref_client), '', 'R');
         }
 
@@ -550,7 +550,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $row_order = $this->db->fetch_object($res_order);
             $posy += 4;
             $pdf->SetXY($posx, $posy);
-            $pdf->SetTextColor(0, 0, 60);
+            $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
             $pdf->MultiCell(100, 4, "Auftragsnr. : ".$outputlangs->convToOutputCharset($row_order->ref), '', 'R');
             $this->db->free($res_order);
         }
@@ -749,7 +749,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Equipment header
         $pdf->SetFont('', 'B', $default_font_size + 1);
         $pdf->SetXY($leftMargin + $textPadding, $curY);
-        $pdf->SetTextColor(0, 0, 100);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 100));
         $pdf->MultiCell(0, 5, "Anlage: ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
 
         $curY = $pdf->GetY() + 2;

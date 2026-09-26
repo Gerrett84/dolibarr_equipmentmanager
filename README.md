@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.6.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 5.7.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,19 @@
 -----
 
 ## Features
+
+### NEU in v5.7.0: Startseiten-Kacheln & konfigurierbare Markenfarbe
+
+- **Wartungs-Kachel auf der Dolibarr-Startseite** – Zeigt „Offen" (fällige Wartungen, überfällige davon als oranges Badge daneben – Dolibarrs Standard-Darstellung für z.B. Rechnungen/Verträge) und „In Bearbeitung" (bereits einem laufenden Serviceauftrag zugeordnet); Klick führt direkt zur Wartungsübersicht
+- **Serviceaufträge-Kachel** – Separate Kachel mit „Offen" (Entwurf) und „Freigegeben"; verlinkt auf die Serviceauftrags-Liste
+- **Konfigurierbare Markenfarbe** – Eine zentrale Einstellung (Modul-Konfiguration) steuert die Primärfarbe der PWA und die Titelfarbe im Servicebericht-PDF
+- **Separate PDF-Farbe (optional)** – Überschreibt die Markenfarbe nur für PDF-Titel und Anlagennummer, unabhängig von der PWA-Farbe; je ein „Zurücksetzen"-Button pro Einstellung
+- **Fix: EQ-Icon-Überlappung im Hauptmenü** – Modul-PNG wurde zusätzlich zum FontAwesome-Icon als Hintergrund angezeigt (zwei überlappende Icons); behoben durch Registrierung eines reinen FontAwesome-Icons für das Hauptmenü
+- Icons der neuen Kacheln sowie das Hauptmenü-Icon sind farblich abgestimmt (Orange für Equipment Manager, Türkis für Serviceaufträge – passend zu Dolibarrs eigener Farbkonvention für Interventionen)
+
+### NEU in v5.6.1: Objektadresse-Kontakttyp fehlte bei Neuinstallation
+
+- **Fix: Rolle „Objektadresse" fehlte bei Neuinstallation** – War bisher nur für Angebote (`propal`) in der Migrationsdatei erfasst; die Einträge für Serviceauftrag/Intervention, Auftrag, Rechnung, Vertrag und Lieferantenbestellung existierten nur auf lange laufenden Bestandsinstallationen (manuell nachgetragen), nicht aber in `sql/llx_equipmentmanager_update.sql`. Eine frische Installation hatte die Rolle daher komplett gefehlt.
 
 ### NEU in v5.6.0: PDF-Qualität & Auftragssperre
 

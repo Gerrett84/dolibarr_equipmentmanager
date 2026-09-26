@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '5.6.0';
+        $this->version = '5.7.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -40,6 +40,8 @@ class modEquipmentManager extends DolibarrModules
                 'pdfgeneration',     // Hook for adding Objektadresse to Propal/Commande PDF
                 'ordersuppliercard', // Hook context for order PDF
                 'ordercard',         // Hook context for order PDF
+                'index',             // Hook for home dashboard maintenance tile
+                'main',              // Hook for sitewide addHtmlHeader (top menu icon color)
             ),
         );
         $this->dirs = array();
@@ -55,6 +57,14 @@ class modEquipmentManager extends DolibarrModules
         $this->need_dolibarr_version = array(16, 0);
 
         $this->const = array();
+        // Use a plain FontAwesome icon for the top menu entry instead of the module's
+        // own img/equipmentmanager.png. Without this, Dolibarr's theme (theme/eldy/global.inc.php)
+        // auto-detects that PNG and renders it as a desaturated background image behind the
+        // manually printed <span class="fa fa-wrench">, making the top-bar icon look like two
+        // overlapping icons. Setting this to a fa-* value skips that background-image entirely
+        // (see the MAIN_MODULE_<NAME>_ICON check in global.inc.php) — only affects the top menu,
+        // not the module's picto used elsewhere (module list, object icons, etc.).
+        $this->const[] = array('MAIN_MODULE_EQUIPMENTMANAGER_ICON', 'chaine', 'fa-wrench', '', 0, 'current');
         $this->boxes = array();
         $this->cronjobs = array();
 
@@ -114,7 +124,7 @@ class modEquipmentManager extends DolibarrModules
             'fk_menu' => '',
             'type' => 'top',
             'titre' => 'Equipment',
-            'prefix' => '<span class="fa fa-wrench fa-fw paddingright pictofixedwidth"></span>',
+            'prefix' => '<span class="fa fa-wrench fa-fw paddingright pictofixedwidth" style="color:#e67e22"></span>',
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
             'url' => '/equipmentmanager/service_order_list.php',
