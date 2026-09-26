@@ -515,9 +515,12 @@ class Equipment extends CommonObject
      * Count equipment with due/overdue maintenance, using the same month-based
      * logic as maintenance_dashboard.php (kept in sync manually - both need the
      * same current/next-month + overdue-lookback rules to stay consistent for users).
+     * 'pending' and 'inprogress' mirror the per-row Pending/InProgress badges shown
+     * on that page (based on whether an open - fk_statut 1 or 2 - maintenance
+     * fichinter is already linked), and are independent of 'overdue'.
      *
      * @param DoliDB $db Database handler
-     * @return array{total:int,overdue:int} total = current+next month+overdue combined, overdue = subset already past due
+     * @return array{total:int,overdue:int,pending:int,inprogress:int} total = current+next month+overdue combined, overdue = subset already past due
      */
     public static function getMaintenanceDueCounts($db)
     {
@@ -533,6 +536,11 @@ class Equipment extends CommonObject
         $overdue_min = max(1, $current_month - 3);
 
         $sql = "SELECT t.rowid, t.maintenance_month";
+        $sql .= ", (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il";
+        $sql .= "   INNER JOIN ".MAIN_DB_PREFIX."fichinter f ON il.fk_intervention = f.rowid";
+        $sql .= "   WHERE il.fk_equipment = t.rowid";
+        $sql .= "   AND il.link_type = 'maintenance'";
+        $sql .= "   AND f.fk_statut >= 1 AND f.fk_statut < 3) as has_open_maintenance";
         $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
         $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
         $sql .= " AND t.status = 1";
@@ -573,6 +581,7 @@ class Equipment extends CommonObject
 
         $total = 0;
         $overdue = 0;
+        $inprogress = 0;
 
         $resql = $db->query($sql);
         if ($resql) {
@@ -582,10 +591,13 @@ class Equipment extends CommonObject
                 if ($month != $current_month && $month != $next_month) {
                     $overdue++;
                 }
+                if ($obj->has_open_maintenance > 0) {
+                    $inprogress++;
+                }
             }
         }
 
-        return array('total' => $total, 'overdue' => $overdue);
+        return array('total' => $total, 'overdue' => $overdue, 'inprogress' => $inprogress, 'pending' => $total - $inprogress);
     }
 
     /**

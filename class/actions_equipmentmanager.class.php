@@ -487,15 +487,41 @@ class ActionsEquipmentManager
 
         $this->results['equipmentmanager'] = array(
             'groupName' => $langs->transnoentitiesnoconv('MaintenanceDashboard'),
-            'stats' => array('equipmentmanager_maintenance'),
+            'stats' => array(
+                'equipmentmanager_maintenance_pending',
+                'equipmentmanager_maintenance_inprogress',
+                'equipmentmanager_maintenance_overdue',
+            ),
         );
+
+        if ($this->isModEnabledFicheinter()) {
+            $this->results['equipmentmanager_serviceorders'] = array(
+                'groupName' => $langs->transnoentitiesnoconv('ServiceOrders'),
+                'stats' => array(
+                    'equipmentmanager_so_open',
+                    'equipmentmanager_so_validated',
+                ),
+            );
+        }
 
         return 0;
     }
 
     /**
-     * Add a home dashboard tile showing due/overdue equipment maintenance,
-     * linking to the existing maintenance_dashboard.php page. Counts reuse
+     * Small wrapper so both dashboard hook methods share the same "is
+     * Interventions module enabled" check without repeating isModEnabled('ficheinter').
+     *
+     * @return bool
+     */
+    private function isModEnabledFicheinter()
+    {
+        return isModEnabled('ficheinter') || isModEnabled('intervention');
+    }
+
+    /**
+     * Add home dashboard tiles showing due equipment maintenance, split into
+     * Pending / InProgress / Overdue (same categories as maintenance_dashboard.php's
+     * per-row badges), all linking to that page. Counts reuse
      * Equipment::getMaintenanceDueCounts() so the tile and the page it links
      * to always agree.
      *
@@ -518,17 +544,109 @@ class ActionsEquipmentManager
         dol_include_once('/equipmentmanager/class/equipment.class.php');
         $counts = Equipment::getMaintenanceDueCounts($this->db);
 
-        $response = new WorkboardResponse();
-        $response->warning_delay = 0;
-        $response->label = $langs->transnoentitiesnoconv('MaintenanceDueLabel');
-        $response->labelShort = $langs->transnoentitiesnoconv('MaintenanceDueLabelShort');
-        $response->url = dol_buildpath('/equipmentmanager/maintenance_dashboard.php', 1);
-        $response->url_late = $response->url;
-        $response->img = img_object('', 'equipmentmanager@equipmentmanager');
-        $response->nbtodo = $counts['total'];
-        $response->nbtodolate = $counts['overdue'];
+        $url = dol_buildpath('/equipmentmanager/maintenance_dashboard.php', 1);
 
-        $this->results['equipmentmanager_maintenance'] = $response;
+        $lines = array(
+            'equipmentmanager_maintenance_pending' => array('Pending', $counts['pending']),
+            'equipmentmanager_maintenance_inprogress' => array('InProgress', $counts['inprogress']),
+            'equipmentmanager_maintenance_overdue' => array('Overdue', $counts['overdue']),
+        );
+
+        foreach ($lines as $key => $line) {
+            list($labelKey, $nb) = $line;
+
+            $response = new WorkboardResponse();
+            $response->warning_delay = 0;
+            $response->label = $langs->transnoentitiesnoconv($labelKey);
+            $response->labelShort = $langs->transnoentitiesnoconv($labelKey);
+            $response->url = $url;
+            $response->img = img_object('', 'equipmentmanager');
+            $response->nbtodo = $nb;
+
+            $this->results[$key] = $response;
+        }
+
+        if ($this->isModEnabledFicheinter() && $user->hasRight('ficheinter', 'lire')) {
+            $this->addServiceOrderDashboardLines($langs);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Add home dashboard tiles for open (draft, fk_statut=0) and validated
+     * (fk_statut=1) service orders (fichinter). Status meaning mirrors the
+     * per-row labels in service_order_list.php (ServiceOrderStatusOpen /
+     * ServiceOrderStatusValidated) - "validated" here deliberately excludes
+     * signed (fk_statut=2), unlike that page's "Abrechnen" tab which groups both.
+     *
+     * @param Translate $langs Language object
+     * @return void
+     */
+    private function addServiceOrderDashboardLines($langs)
+    {
+        $sql = "SELECT fk_statut, COUNT(*) as nb FROM ".MAIN_DB_PREFIX."fichinter";
+        $sql .= " WHERE entity IN (".getEntity('fichinter').")";
+        $sql .= " AND fk_statut IN (0, 1)";
+        $sql .= " GROUP BY fk_statut";
+
+        $counts = array(0 => 0, 1 => 0);
+        $resql = $this->db->query($sql);
+        if ($resql) {
+            while ($obj = $this->db->fetch_object($resql)) {
+                $counts[(int) $obj->fk_statut] = (int) $obj->nb;
+            }
+        }
+
+        $urlBase = dol_buildpath('/custom/equipmentmanager/service_order_list.php', 1);
+
+        $lines = array(
+            'equipmentmanager_so_open' => array('ServiceOrderStatusOpen', $counts[0], $urlBase.'?status=1'),
+            'equipmentmanager_so_validated' => array('ServiceOrderStatusValidated', $counts[1], $urlBase.'?status=2'),
+        );
+
+        foreach ($lines as $key => $line) {
+            list($labelKey, $nb, $url) = $line;
+
+            $response = new WorkboardResponse();
+            $response->warning_delay = 0;
+            $response->label = $langs->transnoentitiesnoconv($labelKey);
+            $response->labelShort = $langs->transnoentitiesnoconv($labelKey);
+            $response->url = $url;
+            $response->img = img_object('', 'fichinter');
+            $response->nbtodo = $nb;
+
+            $this->results[$key] = $response;
+        }
+    }
+
+    /**
+     * Injects module-wide CSS:
+     * - Glyph + color for our home dashboard groups' icons
+     *   (".fa-dol-equipmentmanager", ".fa-dol-equipmentmanager_serviceorders"),
+     *   which Dolibarr's eldy/md theme only defines per-module in its own
+     *   stylesheet (see theme/eldy/info-box.inc.php) — without this, the
+     *   group's icon box on the home page renders empty.
+     * The top main menu icon's color is set directly in modEquipmentManager.class.php's
+     * menu 'prefix' (inline style), not here — Dolibarr prints that prefix verbatim
+     * when it starts with "<span", bypassing the id/class it would otherwise generate.
+     * Fires on every page (registered under the 'main' hook context, which
+     * Dolibarr initializes early on all pages, unlike 'index' which is home-page-only).
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object
+     * @param string $action Action
+     * @param HookManager $hookmanager Hook manager
+     * @return int <0 if error, 0 if nothing done, >0 if OK
+     */
+    public function addHtmlHeader($parameters, &$object, &$action, $hookmanager)
+    {
+        $this->resprints = '<style>
+            .fa-dol-equipmentmanager:before { content: "\f0ad"; }
+            .fa-dol-equipmentmanager_serviceorders:before { content: "\f0f9"; }
+            .bg-infobox-equipmentmanager { color: #e67e22 !important; }
+            .bg-infobox-equipmentmanager_serviceorders { color: #3bbfa8 !important; }
+        </style>';
 
         return 0;
     }
