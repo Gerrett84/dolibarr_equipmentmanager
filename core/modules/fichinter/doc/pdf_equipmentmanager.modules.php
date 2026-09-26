@@ -749,7 +749,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
         // Equipment header
         $pdf->SetFont('', 'B', $default_font_size + 1);
         $pdf->SetXY($leftMargin + $textPadding, $curY);
-        $pdf->SetTextColor(0, 0, 100);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 100));
         $pdf->MultiCell(0, 5, "Anlage: ".$equipment->equipment_number." - ".$outputlangs->convToOutputCharset($equipment->label), 0, 'L');
 
         $curY = $pdf->GetY() + 2;

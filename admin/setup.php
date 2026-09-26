@@ -101,14 +101,29 @@ if ($action == 'setmodel') {
     exit;
 }
 
-// Save brand color (used for PDF titles and the PWA primary color)
+// Save or reset brand color (PWA primary color, and PDF fallback when no PDF-specific color is set)
 if ($action == 'save_brand_color') {
-    $brandColor = GETPOST('brand_color', 'alpha');
+    $brandColor = GETPOSTISSET('reset_btn') ? '' : GETPOST('brand_color', 'alpha');
 
     if (!empty($brandColor) && !preg_match('/^#[0-9a-fA-F]{6}$/', $brandColor)) {
         setEventMessages($langs->trans("ErrorBrandColorFormat"), null, 'errors');
     } else {
         dolibarr_set_const($db, 'EQUIPMENTMANAGER_BRAND_COLOR', $brandColor, 'chaine', 0, '', $conf->entity);
+        setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
+// Save or reset PDF-only color override (takes priority over the shared brand color, for PDF only)
+if ($action == 'save_pdf_color') {
+    $pdfColor = GETPOSTISSET('reset_btn') ? '' : GETPOST('pdf_color', 'alpha');
+
+    if (!empty($pdfColor) && !preg_match('/^#[0-9a-fA-F]{6}$/', $pdfColor)) {
+        setEventMessages($langs->trans("ErrorBrandColorFormat"), null, 'errors');
+    } else {
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_PDF_COLOR', $pdfColor, 'chaine', 0, '', $conf->entity);
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     }
 
@@ -497,7 +512,7 @@ print '</table>';
 print '</div>';
 print '<br>';
 
-// Brand color (used for PDF titles and the PWA primary color)
+// Brand color (used for PWA primary color, and as PDF fallback if no PDF-specific color is set below)
 print load_fiche_titre($langs->trans("BrandColor"), '', '');
 print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -511,7 +526,32 @@ $currentBrandColor = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
 print '<input type="color" name="brand_color" value="'.dol_escape_htmltag($currentBrandColor ?: '#1a3f6e').'">';
 print ' <span class="opacitymedium">'.$langs->trans("BrandColorHelp").'</span>';
 print '</td>';
-print '<td class="right">';
+print '<td class="right nowraponall">';
+print '<input type="submit" name="reset_btn" value="'.$langs->trans("ResetToDefault").'" class="button button-cancel" formnovalidate style="margin-right:5px;">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
+print '</form>';
+print '<br>';
+
+// PDF-only color override (optional - leave empty to use the brand color above for PDF too)
+print load_fiche_titre($langs->trans("PdfColor"), '', '');
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_pdf_color">';
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans("PdfColor").'</td>';
+print '<td>';
+$currentPdfColor = getDolGlobalString('EQUIPMENTMANAGER_PDF_COLOR');
+print '<input type="color" name="pdf_color" value="'.dol_escape_htmltag($currentPdfColor ?: ($currentBrandColor ?: '#00003c')).'">';
+print ' <span class="opacitymedium">'.$langs->trans("PdfColorHelp").'</span>';
+print '</td>';
+print '<td class="right nowraponall">';
+print '<input type="submit" name="reset_btn" value="'.$langs->trans("ResetToDefault").'" class="button button-cancel" formnovalidate style="margin-right:5px;">';
 print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
 print '</td>';
 print '</tr>';

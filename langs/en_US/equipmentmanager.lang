@@ -83,7 +83,10 @@ Total=Total
 # Maintenance Dashboard v1.5
 MaintenanceDashboard=Maintenance Overview
 BrandColor=Brand color
-BrandColorHelp=Controls the title color in PDFs (service report, checklist) and the PWA's primary color. Leave empty to keep the previous default colors.
+BrandColorHelp=Controls the PWA's primary color, and (unless a PDF-specific color is set below) the title color in the service report PDF too.
+PdfColor=PDF color (optional)
+PdfColorHelp=Overrides the brand color for PDF titles and the equipment number only. Reset to default to use the brand color (or the original color) again.
+ResetToDefault=Reset
 ErrorBrandColorFormat=Invalid color format (expected e.g. #1a3f6e)
 MaintenanceDueLabel=Due/overdue maintenance
 MaintenanceDueLabelShort=Maintenance

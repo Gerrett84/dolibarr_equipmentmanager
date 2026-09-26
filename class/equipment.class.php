@@ -589,10 +589,31 @@ class Equipment extends CommonObject
     }
 
     /**
-     * Get the module's configurable brand color (EQUIPMENTMANAGER_BRAND_COLOR)
-     * as an [r,g,b] triplet for use with TCPDF's SetTextColor()/SetFillColor(),
-     * falling back to the given default when the setting is empty (i.e. by
-     * default this changes nothing - see admin/setup.php "Brand color").
+     * Resolve the effective brand color hex, checking EQUIPMENTMANAGER_PDF_COLOR
+     * first (PDF-only override, see admin/setup.php "PDF color") then falling
+     * back to the shared EQUIPMENTMANAGER_BRAND_COLOR (used by PWA too), then
+     * to the caller-supplied default. Both settings are empty by default, so
+     * this changes nothing until an admin picks a color.
+     *
+     * @param string $fallbackHex Fallback hex color (e.g. '#00003c')
+     * @return string Effective hex color, always in '#rrggbb' format
+     */
+    public static function getPdfColorHex($fallbackHex)
+    {
+        foreach (array('EQUIPMENTMANAGER_PDF_COLOR', 'EQUIPMENTMANAGER_BRAND_COLOR') as $constName) {
+            $hex = getDolGlobalString($constName);
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
+                return $hex;
+            }
+        }
+
+        return $fallbackHex;
+    }
+
+    /**
+     * Get the module's configurable PDF color (see getPdfColorHex()) as an
+     * [r,g,b] triplet for use with TCPDF's SetTextColor()/SetFillColor(),
+     * falling back to the given default when no color is configured.
      *
      * @param int $fallbackR Fallback red component (0-255)
      * @param int $fallbackG Fallback green component (0-255)
@@ -601,10 +622,7 @@ class Equipment extends CommonObject
      */
     public static function getBrandColorRgb($fallbackR, $fallbackG, $fallbackB)
     {
-        $hex = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
-        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
-            return array($fallbackR, $fallbackG, $fallbackB);
-        }
+        $hex = self::getPdfColorHex(sprintf('#%02x%02x%02x', $fallbackR, $fallbackG, $fallbackB));
 
         return array(
             hexdec(substr($hex, 1, 2)),
