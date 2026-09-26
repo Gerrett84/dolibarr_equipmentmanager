@@ -451,8 +451,10 @@ class ActionsEquipmentManager
         $saved_x = $pdf->GetX();
         $saved_y = $pdf->GetY();
 
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+
         $pdf->SetFont('', '', $default_font_size - 2);
-        $pdf->SetTextColor(0, 0, 60);
+        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
         $pdf->SetXY($posx, $posy);
         $pdf->MultiCell($w, 3, $outputlangs->transnoentities('Leistungsdatum').' : '.$this->leistungsdatum, '', 'R');
 

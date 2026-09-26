@@ -82,6 +82,9 @@ Total=Total
 
 # Maintenance Dashboard v1.5
 MaintenanceDashboard=Maintenance Overview
+BrandColor=Brand color
+BrandColorHelp=Controls the title color in PDFs (service report, checklist) and the PWA's primary color. Leave empty to keep the previous default colors.
+ErrorBrandColorFormat=Invalid color format (expected e.g. #1a3f6e)
 MaintenanceDueLabel=Due/overdue maintenance
 MaintenanceDueLabelShort=Maintenance
 MaintenanceMonth=Maintenance Month

@@ -101,6 +101,9 @@ NewEquipment=Neue Anlage
 EquipmentByAddress=Anlagen nach Objektadresse
 ServiceReports=Serviceberichte
 MaintenanceDashboard=Wartungs-Übersicht
+BrandColor=Markenfarbe
+BrandColorHelp=Steuert die Titel-Farbe in PDFs (Servicebericht, Checkliste) und die Hauptfarbe der PWA. Leer lassen für die bisherigen Standardfarben.
+ErrorBrandColorFormat=Ungültiges Farbformat (erwartet z.B. #1a3f6e)
 MaintenanceDueLabel=Fällige/überfällige Wartungen
 MaintenanceDueLabelShort=Wartungen
 

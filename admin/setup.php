@@ -101,6 +101,21 @@ if ($action == 'setmodel') {
     exit;
 }
 
+// Save brand color (used for PDF titles and the PWA primary color)
+if ($action == 'save_brand_color') {
+    $brandColor = GETPOST('brand_color', 'alpha');
+
+    if (!empty($brandColor) && !preg_match('/^#[0-9a-fA-F]{6}$/', $brandColor)) {
+        setEventMessages($langs->trans("ErrorBrandColorFormat"), null, 'errors');
+    } else {
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_BRAND_COLOR', $brandColor, 'chaine', 0, '', $conf->entity);
+        setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 // Register PDF template
 if ($action == 'register_template') {
     // Delete existing entries (both with and without pdf_ prefix, both types)
@@ -480,6 +495,29 @@ print '</td>';
 print '</tr>';
 print '</table>';
 print '</div>';
+print '<br>';
+
+// Brand color (used for PDF titles and the PWA primary color)
+print load_fiche_titre($langs->trans("BrandColor"), '', '');
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_brand_color">';
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans("BrandColor").'</td>';
+print '<td>';
+$currentBrandColor = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
+print '<input type="color" name="brand_color" value="'.dol_escape_htmltag($currentBrandColor ?: '#1a3f6e').'">';
+print ' <span class="opacitymedium">'.$langs->trans("BrandColorHelp").'</span>';
+print '</td>';
+print '<td class="right">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
+print '</form>';
 print '<br>';
 
 // PDF Template table

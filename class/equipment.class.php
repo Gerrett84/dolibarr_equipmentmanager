@@ -587,4 +587,29 @@ class Equipment extends CommonObject
 
         return array('total' => $total, 'overdue' => $overdue);
     }
+
+    /**
+     * Get the module's configurable brand color (EQUIPMENTMANAGER_BRAND_COLOR)
+     * as an [r,g,b] triplet for use with TCPDF's SetTextColor()/SetFillColor(),
+     * falling back to the given default when the setting is empty (i.e. by
+     * default this changes nothing - see admin/setup.php "Brand color").
+     *
+     * @param int $fallbackR Fallback red component (0-255)
+     * @param int $fallbackG Fallback green component (0-255)
+     * @param int $fallbackB Fallback blue component (0-255)
+     * @return array{0:int,1:int,2:int} RGB triplet
+     */
+    public static function getBrandColorRgb($fallbackR, $fallbackG, $fallbackB)
+    {
+        $hex = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
+            return array($fallbackR, $fallbackG, $fallbackB);
+        }
+
+        return array(
+            hexdec(substr($hex, 1, 2)),
+            hexdec(substr($hex, 3, 2)),
+            hexdec(substr($hex, 5, 2)),
+        );
+    }
 }
