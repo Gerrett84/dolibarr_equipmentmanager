@@ -517,10 +517,13 @@ class Equipment extends CommonObject
      * same current/next-month + overdue-lookback rules to stay consistent for users).
      * 'pending' and 'inprogress' mirror the per-row Pending/InProgress badges shown
      * on that page (based on whether an open - fk_statut 1 or 2 - maintenance
-     * fichinter is already linked), and are independent of 'overdue'.
+     * fichinter is already linked). 'pending_overdue' is the subset of 'pending'
+     * that is already past due, meant to be used as a WorkboardResponse's
+     * nbtodolate (Dolibarr's native todo+late badge pattern, see
+     * ActionsEquipmentManager::addOpenElementsDashboardLine()).
      *
      * @param DoliDB $db Database handler
-     * @return array{total:int,overdue:int,pending:int,inprogress:int} total = current+next month+overdue combined, overdue = subset already past due
+     * @return array{pending:int,pending_overdue:int,inprogress:int}
      */
     public static function getMaintenanceDueCounts($db)
     {
@@ -579,25 +582,28 @@ class Equipment extends CommonObject
         $sql .= "   )";
         $sql .= " )";
 
-        $total = 0;
-        $overdue = 0;
+        $pending = 0;
+        $pending_overdue = 0;
         $inprogress = 0;
 
         $resql = $db->query($sql);
         if ($resql) {
             while ($obj = $db->fetch_object($resql)) {
-                $total++;
                 $month = (int) $obj->maintenance_month;
-                if ($month != $current_month && $month != $next_month) {
-                    $overdue++;
-                }
+                $is_overdue = ($month != $current_month && $month != $next_month);
+
                 if ($obj->has_open_maintenance > 0) {
                     $inprogress++;
+                } else {
+                    $pending++;
+                    if ($is_overdue) {
+                        $pending_overdue++;
+                    }
                 }
             }
         }
 
-        return array('total' => $total, 'overdue' => $overdue, 'inprogress' => $inprogress, 'pending' => $total - $inprogress);
+        return array('pending' => $pending, 'pending_overdue' => $pending_overdue, 'inprogress' => $inprogress);
     }
 
     /**

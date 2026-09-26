@@ -490,7 +490,6 @@ class ActionsEquipmentManager
             'stats' => array(
                 'equipmentmanager_maintenance_pending',
                 'equipmentmanager_maintenance_inprogress',
-                'equipmentmanager_maintenance_overdue',
             ),
         );
 
@@ -520,8 +519,11 @@ class ActionsEquipmentManager
 
     /**
      * Add home dashboard tiles showing due equipment maintenance, split into
-     * Pending / InProgress / Overdue (same categories as maintenance_dashboard.php's
-     * per-row badges), all linking to that page. Counts reuse
+     * Pending / InProgress, both linking to maintenance_dashboard.php. Pending
+     * uses Dolibarr's native todo+late badge pattern (like Invoices, Contracts,
+     * etc.): nbtodo = pending count, nbtodolate = the overdue subset of it,
+     * shown as a separate orange badge right next to the white one - so there
+     * is no standalone "Overdue" line anymore. Counts reuse
      * Equipment::getMaintenanceDueCounts() so the tile and the page it links
      * to always agree.
      *
@@ -547,21 +549,22 @@ class ActionsEquipmentManager
         $url = dol_buildpath('/equipmentmanager/maintenance_dashboard.php', 1);
 
         $lines = array(
-            'equipmentmanager_maintenance_pending' => array('Pending', $counts['pending']),
-            'equipmentmanager_maintenance_inprogress' => array('InProgress', $counts['inprogress']),
-            'equipmentmanager_maintenance_overdue' => array('Overdue', $counts['overdue']),
+            'equipmentmanager_maintenance_pending' => array('Pending', $counts['pending'], $counts['pending_overdue']),
+            'equipmentmanager_maintenance_inprogress' => array('InProgress', $counts['inprogress'], 0),
         );
 
         foreach ($lines as $key => $line) {
-            list($labelKey, $nb) = $line;
+            list($labelKey, $nb, $nblate) = $line;
 
             $response = new WorkboardResponse();
             $response->warning_delay = 0;
             $response->label = $langs->transnoentitiesnoconv($labelKey);
             $response->labelShort = $langs->transnoentitiesnoconv($labelKey);
             $response->url = $url;
+            $response->url_late = $url;
             $response->img = img_object('', 'equipmentmanager');
             $response->nbtodo = $nb;
+            $response->nbtodolate = $nblate;
 
             $this->results[$key] = $response;
         }
