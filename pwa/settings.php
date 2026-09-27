@@ -161,6 +161,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 $title = 'Einstellungen';
 $dolibarrUrl = dol_buildpath('/', 1);
 
+// Brand color (Setup -> Equipment Manager -> Brand color). Empty by default,
+// so this changes nothing until an admin picks a color. Mirrors index.php's
+// handling, but keeps this page's own original color as the fallback default.
+$pwaBrandColor = '#263c5c'; // previous hardcoded header/theme-color default, kept as fallback
+$brandColorSetting = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
+if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
+    $pwaBrandColor = $brandColorSetting;
+}
+$pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
+
 // Get trusted device info
 $trustedDeviceInfo = null;
 if (!empty($conf->totp2fa->enabled)) {
@@ -173,7 +183,7 @@ if (!empty($conf->totp2fa->enabled)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#263c5c">
+    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>">
     <title><?php echo $title; ?></title>
 
     <!-- Theme initialization -->
@@ -198,9 +208,11 @@ if (!empty($conf->totp2fa->enabled)) {
             --text-secondary: #666666;
             --text-muted: #999999;
             --border-color: #dddddd;
-            --header-bg: #263c5c;
+            --header-bg: <?php echo $pwaBrandColor; ?>;
             --input-bg: #ffffff;
             --input-border: #dddddd;
+            --primary-color: <?php echo $pwaBrandColor; ?>;
+            --primary-light: rgba(<?php echo $pwaBrandColorRgb; ?>, 0.1);
         }
         [data-theme="dark"] {
             --bg-primary: #1a1a1a;
@@ -212,6 +224,8 @@ if (!empty($conf->totp2fa->enabled)) {
             --header-bg: #1e2d3d;
             --input-bg: #3d3d3d;
             --input-border: #505050;
+            --primary-color: #60a5fa;
+            --primary-light: rgba(74, 144, 217, 0.2);
         }
         * {
             box-sizing: border-box;
@@ -299,7 +313,7 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .form-input:focus {
             outline: none;
-            border-color: #1a3f6e;
+            border-color: var(--primary-color);
         }
         .btn {
             display: block;
@@ -313,7 +327,7 @@ if (!empty($conf->totp2fa->enabled)) {
             margin-bottom: 8px;
         }
         .btn-primary {
-            background: #1a3f6e;
+            background: var(--primary-color);
             color: white;
         }
         .btn-success {
@@ -371,11 +385,11 @@ if (!empty($conf->totp2fa->enabled)) {
             transition: all 0.2s;
         }
         .theme-option:hover {
-            border-color: #1a3f6e;
+            border-color: var(--primary-color);
         }
         .theme-option.active {
-            border-color: #1a3f6e;
-            background: rgba(26, 63, 110, 0.1);
+            border-color: var(--primary-color);
+            background: var(--primary-light);
         }
         .theme-option-icon {
             font-size: 18px;
@@ -389,7 +403,7 @@ if (!empty($conf->totp2fa->enabled)) {
         .back-link {
             display: block;
             text-align: center;
-            color: #263c5c;
+            color: var(--primary-color);
             text-decoration: none;
             padding: 12px;
             font-weight: 500;
@@ -551,7 +565,7 @@ if (!empty($conf->totp2fa->enabled)) {
                 <div data-key="${key}" data-on="${on ? '1' : '0'}"
                     style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;"
                     onclick="toggleSetting(this)">
-                    <div style="position:absolute;inset:0;border-radius:24px;background:${on ? '#263c5c' : '#ccc'};transition:.2s;" class="tog-track"></div>
+                    <div style="position:absolute;inset:0;border-radius:24px;background:${on ? 'var(--primary-color)' : '#ccc'};transition:.2s;" class="tog-track"></div>
                     <div style="position:absolute;top:3px;left:${on ? '23px' : '3px'};width:18px;height:18px;border-radius:50%;background:white;transition:.2s;" class="tog-thumb"></div>
                 </div>`;
             return row;
@@ -562,7 +576,7 @@ if (!empty($conf->totp2fa->enabled)) {
             const nowOn = el.dataset.on !== '1';
             el.dataset.on = nowOn ? '1' : '0';
             localStorage.setItem(key, nowOn ? 'true' : 'false');
-            el.querySelector('.tog-track').style.background = nowOn ? '#263c5c' : '#ccc';
+            el.querySelector('.tog-track').style.background = nowOn ? 'var(--primary-color)' : '#ccc';
             el.querySelector('.tog-thumb').style.left = nowOn ? '23px' : '3px';
         }
 
