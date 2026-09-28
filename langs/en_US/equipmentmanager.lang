@@ -281,3 +281,15 @@ ConfirmRegenerateToken=Generate a new token? The old link will become invalid.
 Termin=Appointment
 AllDay=All day
 Required=is required
+
+# v6.0 - Objektadresse migration (Contact -> Thirdparty)
+ObjectAddressMigrationReport=Object Address Migration Report
+ObjectAddressMigrationReportHelp=Checks whether companies have multiple different contact addresses currently used as an object address. These would collapse into a single company address during migration - please clean these up first (e.g. by creating separate thirdparties) before running the actual migration.
+EquipmentWithObjectAddress=Equipment with an object address
+CompaniesUsedAsObjectAddress=Companies used as object address
+CompaniesWithMultipleAddresses=Companies with multiple different addresses
+ObjectAddressReportClean=No issues found - migration can be run safely.
+ObjectAddressDistinctCount=Number of distinct addresses
+OrphanedObjectAddressContacts=Orphaned object address contacts
+OrphanedObjectAddressContactsHelp=These object addresses point to a contact with no owning company and cannot be migrated automatically - please fix manually.
+ShowAllEquipment=Show all equipment

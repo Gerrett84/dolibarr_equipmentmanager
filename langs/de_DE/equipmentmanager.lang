@@ -837,3 +837,14 @@ PriceListArchiveConfirmDelete=Archivierten Eintrag wirklich löschen?
 PriceListArchived=Preisliste erfolgreich archiviert
 PriceListArchiveHistory=Archivierte Preislisten
 PriceListArchiveEmpty=Keine archivierten Versionen vorhanden.
+
+# v6.0 - Objektadresse migration (Contact -> Thirdparty)
+ObjectAddressMigrationReport=Objektadresse-Migrationsbericht
+ObjectAddressMigrationReportHelp=Prüft, ob Firmen mehrere unterschiedliche Kontakt-Adressen haben, die aktuell als Objektadresse genutzt werden. Diese würden bei der Migration auf eine gemeinsame Firmenadresse zusammenfallen - bitte vor der eigentlichen Migration bereinigen (z.B. als eigene Geschäftspartner anlegen).
+EquipmentWithObjectAddress=Anlagen mit Objektadresse
+CompaniesUsedAsObjectAddress=Als Objektadresse genutzte Firmen
+CompaniesWithMultipleAddresses=Firmen mit mehreren unterschiedlichen Adressen
+ObjectAddressReportClean=Keine Auffälligkeiten gefunden - Migration kann sicher durchgeführt werden.
+ObjectAddressDistinctCount=Anzahl unterschiedlicher Adressen
+OrphanedObjectAddressContacts=Verwaiste Objektadress-Kontakte
+OrphanedObjectAddressContactsHelp=Diese Objektadressen zeigen auf einen Kontakt ohne zugehörige Firma und können nicht automatisch migriert werden - bitte manuell korrigieren.

@@ -353,6 +353,12 @@ print '<td>'.$langs->trans("Description").'</td>';
 print '<td>'.$langs->trans("ManageEquipmentAndServiceReports").'</td>';
 print '</tr>';
 
+// v6.0 Objektadresse migration report link
+print '<tr class="oddeven">';
+print '<td><span class="fa fa-map-marker paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrationReport").'</strong></td>';
+print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migration_report.php', 1).'">'.$langs->trans("ObjectAddressMigrationReport").'</a></td>';
+print '</tr>';
+
 print '</table>';
 print '</div>';
 print '<br>';
