@@ -865,3 +865,4 @@ ObjectAddressConfirmMigrate=Migration jetzt wirklich durchführen? Dieser Schrit
 ObjectAddressRunMigration=Migration durchführen
 ObjectAddressNothingToMigrate=Keine Anlagen mit migrierbarer Objektadresse gefunden.
 ObjectAddressMigrationPending=Bitte zuerst die v6-Datenbank-Migration ausführen (Modul-Einstellungen → Objektadresse-Migration).
+ShowAllObjectAddresses=Alle Objektadressen anzeigen

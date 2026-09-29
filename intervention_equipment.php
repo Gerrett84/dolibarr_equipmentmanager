@@ -267,179 +267,6 @@ if ($object->id > 0) {
     // Type labels (dynamic from database)
     $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
 
-    // Section 1: MAINTENANCE
-    print '<div class="div-table-responsive-no-min">';
-    print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre" style="background-color: rgba(76, 175, 80, 0.15);">';
-    print '<th colspan="5" style="display:flex;justify-content:space-between;align-items:center;">';
-    print '<span>';
-    print '<span class="fa fa-wrench paddingright"></span>';
-    print '<strong>'.$langs->trans('MaintenanceWork').'</strong>';
-    print ' <span class="opacitymedium">('.$langs->trans('MaintenanceWorkDescription').')</span>';
-    print '</span>';
-    print '<span class="opacitymedium paddingleft">'.$langs->trans('AllChecklistsPDF').':</span> ';
-    print '<a class="paddingright paddingleft" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&preview=1&token='.newToken().'" target="_blank" title="'.$langs->trans('Preview').'">';
-    print '<span class="fa fa-eye"></span>';
-    print '</a>';
-    print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&token='.newToken().'" title="'.$langs->trans('Generate').'">';
-    print '<span class="fa fa-save"></span>';
-    print '</a>';
-    print '</th>';
-    print '</tr>';
-    
-    print '<tr class="liste_titre">';
-    print '<th>'.$langs->trans('EquipmentNumber').'</th>';
-    print '<th>'.$langs->trans('Label').'</th>';
-    print '<th>'.$langs->trans('Type').'</th>';
-    print '<th>'.$langs->trans('ObjectAddress').'</th>';
-    print '<th class="center" width="80">'.$langs->trans('Action').'</th>';
-    print '</tr>';
-    
-    $has_maintenance = false;
-    foreach ($linked_equipment_ids as $eq_id) {
-        if ($linked_equipment[$eq_id] != 'maintenance') continue;
-        $has_maintenance = true;
-        
-        $equipment = new Equipment($db);
-        if ($equipment->fetch($eq_id) > 0) {
-            print '<tr class="oddeven">';
-            
-            print '<td>';
-            print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
-            print img_object('', 'generic', 'class="pictofixedwidth"');
-            print '<strong>'.$equipment->equipment_number.'</strong>';
-            print '</a>';
-            print '</td>';
-            
-            print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
-            
-            print '<td>';
-            print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
-            print '</td>';
-            
-            print '<td>';
-            if ($equipment->fk_address > 0) {
-                $sql2 = "SELECT nom as name, town";
-                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
-                $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
-                $resql2 = $db->query($sql2);
-                if ($resql2 && $db->num_rows($resql2)) {
-                    $addr = $db->fetch_object($resql2);
-                    print dol_escape_htmltag($addr->name);
-                    if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
-                    $db->free($resql2);
-                }
-            } elseif ($equipment->location_note) {
-                print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
-            }
-            print '</td>';
-            
-            print '<td class="center">';
-            if ($permissiontoadd) {
-                print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=unlink&equipment_id='.$equipment->id.'&token='.newToken().'">';
-                print img_delete($langs->trans('Unlink'));
-                print '</a>';
-            }
-            print '</td>';
-            
-            print '</tr>';
-        }
-    }
-    
-    if (!$has_maintenance) {
-        print '<tr><td colspan="5" class="opacitymedium center">';
-        print $langs->trans('NoMaintenanceEquipment').'<br>';
-        print '<span class="opacitymedium">'.$langs->trans('LinkMaintenanceEquipmentFromListBelow').'</span>';
-        print '</td></tr>';
-    }
-    
-    print '</table>';
-    print '</div>';
-    
-    print '<br>';
-    
-    // Section 2: SERVICE
-    print '<div class="div-table-responsive-no-min">';
-    print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre" style="background-color: rgba(255, 152, 0, 0.15);">';
-    print '<th colspan="5">';
-    print '<span class="fa fa-cog paddingright"></span>';
-    print '<strong>'.$langs->trans('ServiceWork').'</strong>';
-    print ' <span class="opacitymedium">('.$langs->trans('ServiceWorkDescription').')</span>';
-    print '</th>';
-    print '</tr>';
-    
-    print '<tr class="liste_titre">';
-    print '<th>'.$langs->trans('EquipmentNumber').'</th>';
-    print '<th>'.$langs->trans('Label').'</th>';
-    print '<th>'.$langs->trans('Type').'</th>';
-    print '<th>'.$langs->trans('ObjectAddress').'</th>';
-    print '<th class="center" width="80">'.$langs->trans('Action').'</th>';
-    print '</tr>';
-    
-    $has_service = false;
-    foreach ($linked_equipment_ids as $eq_id) {
-        if ($linked_equipment[$eq_id] != 'service') continue;
-        $has_service = true;
-        
-        $equipment = new Equipment($db);
-        if ($equipment->fetch($eq_id) > 0) {
-            print '<tr class="oddeven">';
-            
-            print '<td>';
-            print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
-            print img_object('', 'generic', 'class="pictofixedwidth"');
-            print '<strong>'.$equipment->equipment_number.'</strong>';
-            print '</a>';
-            print '</td>';
-            
-            print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
-            
-            print '<td>';
-            print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
-            print '</td>';
-            
-            print '<td>';
-            if ($equipment->fk_address > 0) {
-                $sql2 = "SELECT nom as name, town";
-                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
-                $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
-                $resql2 = $db->query($sql2);
-                if ($resql2 && $db->num_rows($resql2)) {
-                    $addr = $db->fetch_object($resql2);
-                    print dol_escape_htmltag($addr->name);
-                    if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
-                    $db->free($resql2);
-                }
-            } elseif ($equipment->location_note) {
-                print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
-            }
-            print '</td>';
-            
-            print '<td class="center">';
-            if ($permissiontoadd) {
-                print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=unlink&equipment_id='.$equipment->id.'&token='.newToken().'">';
-                print img_delete($langs->trans('Unlink'));
-                print '</a>';
-            }
-            print '</td>';
-            
-            print '</tr>';
-        }
-    }
-    
-    if (!$has_service) {
-        print '<tr><td colspan="5" class="opacitymedium center">';
-        print $langs->trans('NoServiceEquipment').'<br>';
-        print '<span class="opacitymedium">'.$langs->trans('LinkServiceEquipmentFromListBelow').'</span>';
-        print '</td></tr>';
-    }
-    
-    print '</table>';
-    print '</div>';
-    
-    print '<br><br>';
-    
     // Section 3: AVAILABLE EQUIPMENT
     // Default: equipment whose fk_soc matches this intervention's customer.
     // "Alle anzeigen" (show_all) drops that filter (e.g. property manager placing
@@ -505,14 +332,15 @@ if ($object->id > 0) {
         print '<form method="GET" action="'.$_SERVER["PHP_SELF"].'" style="margin-bottom: 8px;">';
         print '<input type="hidden" name="id" value="'.$object->id.'">';
         print '<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">';
-        print '<select name="filter_address" class="flat" onchange="this.form.submit();">';
+        print '<select name="filter_address" id="filter_address_select" class="flat minwidth300" onchange="this.form.submit();">';
         print '<option value="">'.$langs->trans('ObjectAddress').' - '.$langs->trans('SelectAll').'</option>';
         foreach ($address_options as $addr_id => $addr_label) {
             $sel = ($filter_address == $addr_id) ? ' selected' : '';
             print '<option value="'.$addr_id.'"'.$sel.'>'.dol_escape_htmltag($addr_label).'</option>';
         }
         print '</select>';
-        print '<label><input type="checkbox" name="show_all" value="1"'.($show_all ? ' checked' : '').' onchange="this.form.submit();"> '.$langs->trans('ShowAllEquipment').'</label>';
+        print ajax_combobox('filter_address_select');
+        print '<label><input type="checkbox" name="show_all" value="1"'.($show_all ? ' checked' : '').' onchange="this.form.submit();"> '.$langs->trans('ShowAllObjectAddresses').'</label>';
         print '</div>';
         print '</form>';
 
@@ -708,6 +536,182 @@ if ($object->id > 0) {
     } else {
         print info_admin($langs->trans('PleaseAssignThirdPartyToInterventionFirst'));
     }
+
+    print '<br><br>';
+
+    // Section 1: MAINTENANCE
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+    print '<tr class="liste_titre" style="background-color: rgba(76, 175, 80, 0.15);">';
+    print '<th colspan="5" style="display:flex;justify-content:space-between;align-items:center;">';
+    print '<span>';
+    print '<span class="fa fa-wrench paddingright"></span>';
+    print '<strong>'.$langs->trans('MaintenanceWork').'</strong>';
+    print ' <span class="opacitymedium">('.$langs->trans('MaintenanceWorkDescription').')</span>';
+    print '</span>';
+    print '<span class="opacitymedium paddingleft">'.$langs->trans('AllChecklistsPDF').':</span> ';
+    print '<a class="paddingright paddingleft" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&preview=1&token='.newToken().'" target="_blank" title="'.$langs->trans('Preview').'">';
+    print '<span class="fa fa-eye"></span>';
+    print '</a>';
+    print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=pdf_all_checklists&token='.newToken().'" title="'.$langs->trans('Generate').'">';
+    print '<span class="fa fa-save"></span>';
+    print '</a>';
+    print '</th>';
+    print '</tr>';
+    
+    print '<tr class="liste_titre">';
+    print '<th>'.$langs->trans('EquipmentNumber').'</th>';
+    print '<th>'.$langs->trans('Label').'</th>';
+    print '<th>'.$langs->trans('Type').'</th>';
+    print '<th>'.$langs->trans('ObjectAddress').'</th>';
+    print '<th class="center" width="80">'.$langs->trans('Action').'</th>';
+    print '</tr>';
+    
+    $has_maintenance = false;
+    foreach ($linked_equipment_ids as $eq_id) {
+        if ($linked_equipment[$eq_id] != 'maintenance') continue;
+        $has_maintenance = true;
+        
+        $equipment = new Equipment($db);
+        if ($equipment->fetch($eq_id) > 0) {
+            print '<tr class="oddeven">';
+            
+            print '<td>';
+            print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
+            print img_object('', 'generic', 'class="pictofixedwidth"');
+            print '<strong>'.$equipment->equipment_number.'</strong>';
+            print '</a>';
+            print '</td>';
+            
+            print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
+            
+            print '<td>';
+            print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
+            print '</td>';
+            
+            print '<td>';
+            if ($equipment->fk_address > 0) {
+                $sql2 = "SELECT nom as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
+                $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
+                $resql2 = $db->query($sql2);
+                if ($resql2 && $db->num_rows($resql2)) {
+                    $addr = $db->fetch_object($resql2);
+                    print dol_escape_htmltag($addr->name);
+                    if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
+                    $db->free($resql2);
+                }
+            } elseif ($equipment->location_note) {
+                print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+            }
+            print '</td>';
+            
+            print '<td class="center">';
+            if ($permissiontoadd) {
+                print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=unlink&equipment_id='.$equipment->id.'&token='.newToken().'">';
+                print img_delete($langs->trans('Unlink'));
+                print '</a>';
+            }
+            print '</td>';
+            
+            print '</tr>';
+        }
+    }
+    
+    if (!$has_maintenance) {
+        print '<tr><td colspan="5" class="opacitymedium center">';
+        print $langs->trans('NoMaintenanceEquipment').'<br>';
+        print '<span class="opacitymedium">'.$langs->trans('LinkMaintenanceEquipmentFromListBelow').'</span>';
+        print '</td></tr>';
+    }
+    
+    print '</table>';
+    print '</div>';
+    
+    print '<br>';
+    
+    // Section 2: SERVICE
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+    print '<tr class="liste_titre" style="background-color: rgba(255, 152, 0, 0.15);">';
+    print '<th colspan="5">';
+    print '<span class="fa fa-cog paddingright"></span>';
+    print '<strong>'.$langs->trans('ServiceWork').'</strong>';
+    print ' <span class="opacitymedium">('.$langs->trans('ServiceWorkDescription').')</span>';
+    print '</th>';
+    print '</tr>';
+    
+    print '<tr class="liste_titre">';
+    print '<th>'.$langs->trans('EquipmentNumber').'</th>';
+    print '<th>'.$langs->trans('Label').'</th>';
+    print '<th>'.$langs->trans('Type').'</th>';
+    print '<th>'.$langs->trans('ObjectAddress').'</th>';
+    print '<th class="center" width="80">'.$langs->trans('Action').'</th>';
+    print '</tr>';
+    
+    $has_service = false;
+    foreach ($linked_equipment_ids as $eq_id) {
+        if ($linked_equipment[$eq_id] != 'service') continue;
+        $has_service = true;
+        
+        $equipment = new Equipment($db);
+        if ($equipment->fetch($eq_id) > 0) {
+            print '<tr class="oddeven">';
+            
+            print '<td>';
+            print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
+            print img_object('', 'generic', 'class="pictofixedwidth"');
+            print '<strong>'.$equipment->equipment_number.'</strong>';
+            print '</a>';
+            print '</td>';
+            
+            print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
+            
+            print '<td>';
+            print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
+            print '</td>';
+            
+            print '<td>';
+            if ($equipment->fk_address > 0) {
+                $sql2 = "SELECT nom as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
+                $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
+                $resql2 = $db->query($sql2);
+                if ($resql2 && $db->num_rows($resql2)) {
+                    $addr = $db->fetch_object($resql2);
+                    print dol_escape_htmltag($addr->name);
+                    if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
+                    $db->free($resql2);
+                }
+            } elseif ($equipment->location_note) {
+                print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+            }
+            print '</td>';
+            
+            print '<td class="center">';
+            if ($permissiontoadd) {
+                print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=unlink&equipment_id='.$equipment->id.'&token='.newToken().'">';
+                print img_delete($langs->trans('Unlink'));
+                print '</a>';
+            }
+            print '</td>';
+            
+            print '</tr>';
+        }
+    }
+    
+    if (!$has_service) {
+        print '<tr><td colspan="5" class="opacitymedium center">';
+        print $langs->trans('NoServiceEquipment').'<br>';
+        print '<span class="opacitymedium">'.$langs->trans('LinkServiceEquipmentFromListBelow').'</span>';
+        print '</td></tr>';
+    }
+    
+    print '</table>';
+    print '</div>';
+    
+    print '<br><br>';
+    
 }
 
 llxFooter();
