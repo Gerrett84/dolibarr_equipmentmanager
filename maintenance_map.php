@@ -84,19 +84,21 @@ print '</form>';
 print '<br>';
 
 // Get addresses with equipment
-// Priority: 1) Object address (socpeople via fk_address), 2) Customer address (societe)
+// Priority: 1) Object address (fk_address, now a standalone Thirdparty), 2) Customer
+// address (fk_soc) as fallback when no Objektadresse is set. Both sides are now
+// Societe, so this collapses to plain COALESCE instead of a socpeople/societe CASE.
 $sql = "SELECT DISTINCT";
-$sql .= " COALESCE(sp.rowid, 0) as address_id,";
-$sql .= " CASE WHEN sp.rowid IS NOT NULL THEN CONCAT(sp.lastname, ' ', sp.firstname) ELSE s.nom END as address_label,";
-$sql .= " COALESCE(sp.address, s.address) as address,";
-$sql .= " COALESCE(sp.zip, s.zip) as zip,";
-$sql .= " COALESCE(sp.town, s.town) as town,";
-$sql .= " COALESCE(sp.fk_pays, s.fk_pays) as fk_pays,";
+$sql .= " COALESCE(addr_s.rowid, 0) as address_id,";
+$sql .= " COALESCE(addr_s.nom, s.nom) as address_label,";
+$sql .= " COALESCE(addr_s.address, s.address) as address,";
+$sql .= " COALESCE(addr_s.zip, s.zip) as zip,";
+$sql .= " COALESCE(addr_s.town, s.town) as town,";
+$sql .= " COALESCE(addr_s.fk_pays, s.fk_pays) as fk_pays,";
 $sql .= " s.nom as company_name,";
 $sql .= " s.rowid as company_id,";
-$sql .= " CASE WHEN sp.rowid IS NOT NULL THEN 'socpeople' ELSE 'societe' END as address_source";
+$sql .= " CASE WHEN addr_s.rowid IS NOT NULL THEN 'object_address' ELSE 'customer_address' END as address_source";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON t.fk_address = addr_s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
@@ -112,7 +114,7 @@ if (!$show_all) {
         $sql .= "      OR (t.maintenance_interval = 'semi_annual' AND t.maintenance_month = ".(int)$semi_month."))";
     }
 }
-$sql .= " ORDER BY COALESCE(sp.town, s.town), address_label";
+$sql .= " ORDER BY COALESCE(addr_s.town, s.town), address_label";
 
 $resql = $db->query($sql);
 
@@ -136,8 +138,8 @@ if ($resql) {
         $sql2 .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
         $sql2 .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
         $sql2 .= " WHERE t.status = 1";
-        // Match by object address (socpeople) OR by customer (societe) if no object address
-        if ($obj->address_source == 'socpeople' && $obj->address_id > 0) {
+        // Match by object address OR by customer (fallback) if no object address is set
+        if ($obj->address_source == 'object_address' && $obj->address_id > 0) {
             $sql2 .= " AND t.fk_address = ".(int)$obj->address_id;
         } else {
             // No object address - match by customer and exclude those with object address

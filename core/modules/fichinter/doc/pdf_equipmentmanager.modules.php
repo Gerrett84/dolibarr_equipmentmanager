@@ -635,7 +635,8 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $this->db->free($resql_obj);
                 }
 
-                // Fallback: first linked equipment's fk_address
+                // Fallback: first linked equipment's fk_address - now a Thirdparty
+                // (Societe), not a Contact - see Equipment::isObjectAddressMigrated().
                 if (empty($objectAddr)) {
                     $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
                     $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
@@ -645,16 +646,16 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $resql_addr = $this->db->query($sql_addr);
                     if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
                         $obj_addr = $this->db->fetch_object($resql_addr);
-                        $contact = new Contact($this->db);
-                        if ($contact->fetch($obj_addr->fk_address) > 0) {
-                            if ($contact->lastname || $contact->firstname) {
-                                $objectAddr .= trim($contact->firstname.' '.$contact->lastname)."\n";
+                        $addrCompany = new Societe($this->db);
+                        if ($addrCompany->fetch($obj_addr->fk_address) > 0) {
+                            if ($addrCompany->name) {
+                                $objectAddr .= $addrCompany->name."\n";
                             }
-                            if ($contact->address) {
-                                $objectAddr .= $contact->address."\n";
+                            if ($addrCompany->address) {
+                                $objectAddr .= $addrCompany->address."\n";
                             }
-                            if ($contact->zip || $contact->town) {
-                                $objectAddr .= trim($contact->zip.' '.$contact->town);
+                            if ($addrCompany->zip || $addrCompany->town) {
+                                $objectAddr .= trim($addrCompany->zip.' '.$addrCompany->town);
                             }
                             $objectAddr = trim($objectAddr);
                         }
@@ -1480,9 +1481,14 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $curY += 5;
         }
 
-        // Object address in header (primary: OBJ contact role, fallback: equipment fk_address)
+        // Object address in header (primary: OBJ contact role, fallback: equipment
+        // fk_address - now a Thirdparty/Societe, not a Contact, see
+        // Equipment::isObjectAddressMigrated()). $objAddrEntity holds whichever of
+        // the two was found; the display block below branches on its type since
+        // Contact has firstname/lastname but Societe has name instead.
         require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-        $objAddrContact = null;
+        require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+        $objAddrEntity = null;
 
         // Primary: OBJ contact role
         $sql_obj = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
@@ -1496,13 +1502,13 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $obj_row = $this->db->fetch_object($resql_obj);
             $contact = new Contact($this->db);
             if ($contact->fetch($obj_row->fk_socpeople) > 0) {
-                $objAddrContact = $contact;
+                $objAddrEntity = $contact;
             }
             $this->db->free($resql_obj);
         }
 
         // Fallback: first linked equipment's fk_address
-        if ($objAddrContact === null) {
+        if ($objAddrEntity === null) {
             $sql_addr = "SELECT DISTINCT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
             $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON l.fk_equipment = e.rowid";
             $sql_addr .= " WHERE l.fk_intervention = ".(int)$object->id;
@@ -1511,25 +1517,25 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             $resql_addr = $this->db->query($sql_addr);
             if ($resql_addr && $this->db->num_rows($resql_addr) > 0) {
                 $obj_addr = $this->db->fetch_object($resql_addr);
-                $contact = new Contact($this->db);
-                if ($contact->fetch($obj_addr->fk_address) > 0) {
-                    $objAddrContact = $contact;
+                $addrCompany = new Societe($this->db);
+                if ($addrCompany->fetch($obj_addr->fk_address) > 0) {
+                    $objAddrEntity = $addrCompany;
                 }
                 $this->db->free($resql_addr);
             }
         }
 
-        if ($objAddrContact !== null) {
+        if ($objAddrEntity !== null) {
             $addrParts = array();
-            $contactName = trim($objAddrContact->firstname.' '.$objAddrContact->lastname);
-            if (!empty($contactName)) {
-                $addrParts[] = $contactName;
+            $entityName = ($objAddrEntity instanceof Societe) ? $objAddrEntity->name : trim($objAddrEntity->firstname.' '.$objAddrEntity->lastname);
+            if (!empty($entityName)) {
+                $addrParts[] = $entityName;
             }
-            if ($objAddrContact->address) {
-                $addrParts[] = str_replace("\n", ", ", $objAddrContact->address);
+            if ($objAddrEntity->address) {
+                $addrParts[] = str_replace("\n", ", ", $objAddrEntity->address);
             }
-            if ($objAddrContact->zip || $objAddrContact->town) {
-                $addrParts[] = trim($objAddrContact->zip.' '.$objAddrContact->town);
+            if ($objAddrEntity->zip || $objAddrEntity->town) {
+                $addrParts[] = trim($objAddrEntity->zip.' '.$objAddrEntity->town);
             }
             if (!empty($addrParts)) {
                 $pdf->SetXY($this->marge_gauche, $curY);
