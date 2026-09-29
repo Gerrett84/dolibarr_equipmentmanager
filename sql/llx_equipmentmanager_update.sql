@@ -176,3 +176,14 @@ ADD COLUMN IF NOT EXISTS instruction_done TINYINT(1) DEFAULT 0 AFTER acceptance_
 
 ALTER TABLE llx_equipmentmanager_intervention_detail
 ADD COLUMN IF NOT EXISTS testbook_handed TINYINT(1) DEFAULT 0 AFTER instruction_done;
+
+-- v6.0: Add 'Ist Objektadresse' flag on Societe (standalone Objektadresse company
+-- support). Equipment.fk_address will be repointed from Contact to this flagged
+-- Thirdparty in a separate, guarded step (admin/objectaddress_migrate.php) - this
+-- block only adds the schema, it does not touch fk_address or existing data.
+INSERT IGNORE INTO llx_extrafields
+    (name, entity, elementtype, label, type, size, fieldunique, fieldrequired, perms, enabled, module, pos, alwayseditable, list, printable, fielddefault, fieldcomputed)
+VALUES
+    ('equipmentmanager_object_address', 1, 'societe', 'Objektadresse', 'boolean', '1', 0, 0, '', '1', 'equipmentmanager', 10, 1, '1', 1, '0', '');
+
+ALTER TABLE llx_societe_extrafields ADD COLUMN IF NOT EXISTS equipmentmanager_object_address TINYINT(1) DEFAULT 0;
