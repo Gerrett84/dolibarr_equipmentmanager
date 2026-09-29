@@ -181,9 +181,12 @@ ADD COLUMN IF NOT EXISTS testbook_handed TINYINT(1) DEFAULT 0 AFTER instruction_
 -- support). Equipment.fk_address will be repointed from Contact to this flagged
 -- Thirdparty in a separate, guarded step (admin/objectaddress_migrate.php) - this
 -- block only adds the schema, it does not touch fk_address or existing data.
+-- Note: perms MUST be '1', not '' - dol_eval('') returns NULL (falsy), which
+-- CommonObject::showOptionals() treats as "no permission" and hides the field
+-- entirely on the create/edit form (found the hard way on container 104).
 INSERT IGNORE INTO llx_extrafields
     (name, entity, elementtype, label, type, size, fieldunique, fieldrequired, perms, enabled, module, pos, alwayseditable, list, printable, fielddefault, fieldcomputed)
 VALUES
-    ('equipmentmanager_object_address', 1, 'societe', 'Objektadresse', 'boolean', '1', 0, 0, '', '1', 'equipmentmanager', 10, 1, '1', 1, '0', '');
+    ('equipmentmanager_object_address', 1, 'societe', 'Objektadresse', 'boolean', '1', 0, 0, '1', '1', 'equipmentmanager', 10, 1, '1', 1, '0', '');
 
 ALTER TABLE llx_societe_extrafields ADD COLUMN IF NOT EXISTS equipmentmanager_object_address TINYINT(1) DEFAULT 0;
