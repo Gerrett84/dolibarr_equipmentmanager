@@ -309,3 +309,4 @@ ObjectAddressForceRerun=Run migration again (force)
 ObjectAddressConfirmMigrate=Really run the migration now? This step cannot be undone.
 ObjectAddressRunMigration=Run migration
 ObjectAddressNothingToMigrate=No equipment with a migratable object address found.
+ObjectAddressMigrationPending=Please run the v6 database migration first (Module setup -> Object Address Migration).

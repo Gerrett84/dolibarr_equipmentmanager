@@ -864,3 +864,4 @@ ObjectAddressForceRerun=Migration erneut ausführen (erzwingen)
 ObjectAddressConfirmMigrate=Migration jetzt wirklich durchführen? Dieser Schritt lässt sich nicht rückgängig machen.
 ObjectAddressRunMigration=Migration durchführen
 ObjectAddressNothingToMigrate=Keine Anlagen mit migrierbarer Objektadresse gefunden.
+ObjectAddressMigrationPending=Bitte zuerst die v6-Datenbank-Migration ausführen (Modul-Einstellungen → Objektadresse-Migration).

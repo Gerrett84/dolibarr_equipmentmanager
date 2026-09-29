@@ -607,6 +607,22 @@ class Equipment extends CommonObject
     }
 
     /**
+     * Whether the v6 Objektadresse migration (fk_address: Contact -> Thirdparty,
+     * see admin/objectaddress_migrate.php) has been run on this installation.
+     * Guards the Objektadresse picker (equipment_edit.php, equipment_bulk_create.php,
+     * ajax/get_addresses.php) against querying the equipmentmanager_object_address
+     * extrafield column before it exists - which would otherwise be a fatal SQL
+     * error if someone installs the v6 files without running the SQL migration
+     * first. Cheap check: reads the already-loaded const cache, no extra query.
+     *
+     * @return bool
+     */
+    public static function isObjectAddressMigrated()
+    {
+        return getDolGlobalString('EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED') !== '';
+    }
+
+    /**
      * Resolve the effective brand color hex, checking EQUIPMENTMANAGER_PDF_COLOR
      * first (PDF-only override, see admin/setup.php "PDF color") then falling
      * back to the shared EQUIPMENTMANAGER_BRAND_COLOR (used by PWA too), then

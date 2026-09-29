@@ -1,6 +1,9 @@
 <?php
-/* Copyright (C) 2024-2025 Equipment Manager
- * AJAX endpoint to get contact addresses for a customer
+/* Copyright (C) 2024-2026 Equipment Manager
+ * AJAX endpoint returning the list of companies flagged as "Objektadresse"
+ * (equipmentmanager_object_address extrafield on Societe). No longer scoped
+ * to a customer (fk_soc) - Objektadresse is now a standalone Thirdparty,
+ * reusable across equipment/customers. See Equipment::isObjectAddressMigrated().
  */
 
 ini_set('display_errors', 0);
@@ -21,30 +24,30 @@ if (!$res) {
 
 header('Content-Type: application/json');
 
-$socid = GETPOST('socid', 'int');
+dol_include_once('/equipmentmanager/class/equipment.class.php');
 
-if (empty($socid) || $socid <= 0) {
+if (!Equipment::isObjectAddressMigrated()) {
     echo json_encode(array());
     exit;
 }
 
 $addresses = array();
 
-$sql = "SELECT rowid, lastname, firstname, address, zip, town";
-$sql .= " FROM ".MAIN_DB_PREFIX."socpeople";
-$sql .= " WHERE fk_soc = ".(int)$socid;
-$sql .= " ORDER BY lastname, firstname";
+$sql = "SELECT s.rowid, s.nom, s.address, s.zip, s.town FROM ".MAIN_DB_PREFIX."societe s";
+$sql .= " INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields sef ON sef.fk_object = s.rowid";
+$sql .= " WHERE sef.equipmentmanager_object_address = 1";
+$sql .= " AND s.entity IN (".getEntity('societe').")";
+$sql .= " ORDER BY s.town, s.nom";
 
 $resql = $db->query($sql);
 if ($resql) {
     while ($obj = $db->fetch_object($resql)) {
-        $name = trim($obj->lastname.' '.$obj->firstname);
-        $label = $name;
+        $label = $obj->nom;
         if ($obj->town) $label .= ' - '.$obj->town;
         $addresses[] = array(
             'id'    => (int)$obj->rowid,
             'label' => $label,
-            'name'  => $name,
+            'name'  => $obj->nom,
             'address' => $obj->address,
             'zip'   => $obj->zip,
             'town'  => $obj->town,

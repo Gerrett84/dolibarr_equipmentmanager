@@ -167,27 +167,9 @@ function toggleEquipmentNumberMode() {
     }
 }
 
-// Load addresses when customer changes
-jQuery(document).ready(function() {
-    jQuery("#fk_soc_select").change(function() {
-        var socid = jQuery(this).val();
-        var addressSelect = jQuery("#fk_address_select");
-        
-        if (socid > 0) {
-            // Load addresses via AJAX
-            jQuery.ajax({
-                url: "'.DOL_URL_ROOT.'/core/ajax/contacts.php?action=fetch&htmlname=fk_address&socid=" + socid,
-                type: "GET",
-                success: function(data) {
-                    addressSelect.html(data);
-                }
-            });
-        } else {
-            addressSelect.html("<option value=\'\'>---</option>");
-        }
-    });
-});
 </script>';
+// Objektadresse is no longer scoped to fk_soc, see the "Object Address" blocks
+// below - the list of flagged companies is rendered server-side once, no reload needed.
 
 // ============================================================================
 // CREATE MODE
@@ -251,12 +233,31 @@ if ($action == 'create') {
     print $form->select_company(0, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
     print '</td></tr>';
     
-    // Object Address
+    // Object Address - a standalone company flagged "Objektadresse", independent
+    // of the Auftraggeber above - see Equipment::isObjectAddressMigrated().
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
-    print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
-    print '<option value="">---</option>';
-    print '</select>';
-    print ' <span class="opacitymedium">'.$langs->trans("SelectThirdPartyFirst").'</span>';
+    if (!Equipment::isObjectAddressMigrated()) {
+        print '<span class="warning">'.$langs->trans("ObjectAddressMigrationPending").'</span>';
+    } else {
+        print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
+        print '<option value="">---</option>';
+        $sqlAddrCreate = "SELECT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+        $sqlAddrCreate .= " INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields sef ON sef.fk_object = s.rowid";
+        $sqlAddrCreate .= " WHERE sef.equipmentmanager_object_address = 1";
+        $sqlAddrCreate .= " AND s.entity IN (".getEntity('societe').")";
+        $sqlAddrCreate .= " ORDER BY s.town, s.nom";
+        $resAddrCreate = $db->query($sqlAddrCreate);
+        if ($resAddrCreate) {
+            while ($addr = $db->fetch_object($resAddrCreate)) {
+                $disp = $addr->nom;
+                if ($addr->town) {
+                    $disp .= ' - '.$addr->town;
+                }
+                print '<option value="'.$addr->rowid.'">'.dol_escape_htmltag($disp).'</option>';
+            }
+        }
+        print '</select>';
+    }
     print '</td></tr>';
     
     // Location / Note
@@ -360,32 +361,34 @@ if (($id || $ref) && $action == 'edit') {
     print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
     print '</td></tr>';
     
-    // Object Address
+    // Object Address - a standalone company flagged "Objektadresse", independent
+    // of the Auftraggeber above - see Equipment::isObjectAddressMigrated().
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
-    if ($object->fk_soc > 0) {
+    if (!Equipment::isObjectAddressMigrated()) {
+        print '<span class="warning">'.$langs->trans("ObjectAddressMigrationPending").'</span>';
+    } else {
         print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
         print '<option value="">---</option>';
-        
-        // Load contacts (addresses) of the third party
-        $sql = "SELECT rowid, CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
-        $sql .= " WHERE fk_soc = ".(int)$object->fk_soc;
-        $sql .= " ORDER BY lastname, firstname";
-        
+
+        $sql = "SELECT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+        $sql .= " INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields sef ON sef.fk_object = s.rowid";
+        $sql .= " WHERE sef.equipmentmanager_object_address = 1";
+        $sql .= " AND s.entity IN (".getEntity('societe').")";
+        $sql .= " ORDER BY s.town, s.nom";
+
         $resql = $db->query($sql);
         if ($resql) {
             while ($addr = $db->fetch_object($resql)) {
                 $selected = ($object->fk_address == $addr->rowid) ? ' selected' : '';
-                $address_display = $addr->name;
+                $address_display = $addr->nom;
                 if ($addr->town) $address_display .= ' - '.$addr->town;
-                
+
                 print '<option value="'.$addr->rowid.'"'.$selected.'>';
                 print dol_escape_htmltag($address_display);
                 print '</option>';
             }
         }
         print '</select>';
-    } else {
-        print '<span class="opacitymedium">'.$langs->trans("SelectThirdPartyFirst").'</span>';
     }
     print '</td></tr>';
     
@@ -503,17 +506,15 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     }
     print '</td></tr>';
     
-    // Object Address
+    // Object Address - now a Thirdparty (Societe), not a Contact - see
+    // Equipment::isObjectAddressMigrated() docblock.
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
     if ($object->fk_address > 0) {
-        $sql = "SELECT CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
-        $sql .= " WHERE rowid = ".(int)$object->fk_address;
-        $resql = $db->query($sql);
-        if ($resql && $db->num_rows($resql)) {
-            $addr = $db->fetch_object($resql);
-            print '<strong>'.dol_escape_htmltag($addr->name).'</strong><br>';
-            if ($addr->address) print dol_escape_htmltag($addr->address).'<br>';
-            if ($addr->zip || $addr->town) print dol_escape_htmltag($addr->zip.' '.$addr->town);
+        $addrCompany = new Societe($db);
+        if ($addrCompany->fetch($object->fk_address) > 0) {
+            print $addrCompany->getNomUrl(1).'<br>';
+            if ($addrCompany->address) print dol_escape_htmltag($addrCompany->address).'<br>';
+            if ($addrCompany->zip || $addrCompany->town) print dol_escape_htmltag($addrCompany->zip.' '.$addrCompany->town);
         }
     } else {
         print '<span class="opacitymedium">-</span>';

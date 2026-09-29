@@ -135,32 +135,38 @@ print '</td></tr>';
 print '<tr><td class="fieldrequired">'.$langs->trans('ThirdParty').'</td><td>';
 $postedSoc = (int) GETPOST('fk_soc', 'int');
 print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 1, array(), 0, 'minwidth300',
-    'onchange="loadAddresses(this.value); loadContracts(this.value);"');
+    'onchange="loadContracts(this.value);"');
 print '</td></tr>';
 
 // ── Objektadresse ─────────────────────────────────────────────────────────────
+// A standalone company flagged "Objektadresse" (see admin/setup.php), independent
+// of the selected Auftraggeber above - see Equipment::isObjectAddressMigrated().
 print '<tr><td class="fieldrequired">'.$langs->trans('ObjectAddress').'</td><td>';
-print '<select name="fk_address" id="fk_address_select" class="flat minwidth300" required>';
-print '<option value="">---</option>';
-$postedAddr = (int) GETPOST('fk_address', 'int');
-if ($postedSoc > 0) {
-    $sqlAddr = "SELECT rowid, CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
-    $sqlAddr .= " WHERE fk_soc = ".$postedSoc." ORDER BY lastname, firstname";
+if (!Equipment::isObjectAddressMigrated()) {
+    print '<span class="warning">'.$langs->trans("ObjectAddressMigrationPending").'</span>';
+} else {
+    print '<select name="fk_address" id="fk_address_select" class="flat minwidth300" required>';
+    print '<option value="">---</option>';
+    $postedAddr = (int) GETPOST('fk_address', 'int');
+
+    $sqlAddr = "SELECT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+    $sqlAddr .= " INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields sef ON sef.fk_object = s.rowid";
+    $sqlAddr .= " WHERE sef.equipmentmanager_object_address = 1";
+    $sqlAddr .= " AND s.entity IN (".getEntity('societe').")";
+    $sqlAddr .= " ORDER BY s.town, s.nom";
     $resAddr = $db->query($sqlAddr);
     if ($resAddr) {
         while ($addr = $db->fetch_object($resAddr)) {
             $sel = ($postedAddr == $addr->rowid) ? ' selected' : '';
-            $disp = trim($addr->name);
+            $disp = $addr->nom;
             if ($addr->town) {
                 $disp .= ' - '.$addr->town;
             }
             print '<option value="'.$addr->rowid.'"'.$sel.'>'.dol_escape_htmltag($disp).'</option>';
         }
     }
+    print '</select>';
 }
-print '</select>';
-print ' <span class="opacitymedium" id="address_hint" style="'.($postedSoc > 0 ? 'display:none' : '').'">'.
-      $langs->trans('SelectThirdPartyFirst').'</span>';
 print '</td></tr>';
 
 // ── Wartungsvertrag ───────────────────────────────────────────────────────────
@@ -239,28 +245,6 @@ print '<script>';
 print 'function toggleContractRow(val) {';
 print '  var row = document.getElementById("contract_row");';
 print '  if (row) row.style.display = (val == "1") ? "" : "none";';
-print '}';
-print 'function loadAddresses(socId) {';
-print '  var sel = document.getElementById("fk_address_select");';
-print '  var hint = document.getElementById("address_hint");';
-print '  sel.innerHTML = "<option value=\"\">---</option>";';
-print '  if (!socId) { if(hint) hint.style.display=""; return; }';
-print '  if(hint) hint.style.display="none";';
-print '  var xhr = new XMLHttpRequest();';
-print '  xhr.open("GET", "'.dol_buildpath('/equipmentmanager/ajax/get_addresses.php', 1).'?socid=" + socId, true);';
-print '  xhr.onload = function() {';
-print '    if (xhr.status === 200) {';
-print '      try { var data = JSON.parse(xhr.responseText); }';
-print '      catch(e) { return; }';
-print '      data.forEach(function(a) {';
-print '        var opt = document.createElement("option");';
-print '        opt.value = a.id;';
-print '        opt.textContent = a.label;';
-print '        sel.appendChild(opt);';
-print '      });';
-print '    }';
-print '  };';
-print '  xhr.send();';
 print '}';
 print 'function loadContracts(socId) {';
 print '  var sel = document.getElementById("fk_contract_select");';
