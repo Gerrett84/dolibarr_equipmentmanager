@@ -319,8 +319,8 @@ if ($object->id > 0) {
             
             print '<td>';
             if ($equipment->fk_address > 0) {
-                $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                $sql2 = "SELECT nom as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
                 $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
                 $resql2 = $db->query($sql2);
                 if ($resql2 && $db->num_rows($resql2)) {
@@ -401,8 +401,8 @@ if ($object->id > 0) {
             
             print '<td>';
             if ($equipment->fk_address > 0) {
-                $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                $sql2 = "SELECT nom as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
                 $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
                 $resql2 = $db->query($sql2);
                 if ($resql2 && $db->num_rows($resql2)) {
@@ -441,44 +441,57 @@ if ($object->id > 0) {
     print '<br><br>';
     
     // Section 3: AVAILABLE EQUIPMENT
+    // Default: equipment whose fk_soc matches this intervention's customer.
+    // "Alle anzeigen" (show_all) drops that filter (e.g. property manager placing
+    // an order for equipment whose fk_soc is still the original installer). An
+    // optional Objektadresse filter narrows down further - this replaces the old
+    // workflow of adding an "Objektadresse" contact to the intervention itself,
+    // which no longer works: that contact link (System B) is unrelated to
+    // Equipment.fk_address (System A, now a Thirdparty) since the v6 migration.
     if ($object->socid > 0) {
-        // Get external contacts linked to this intervention (address)
-        $intervention_contacts = $object->liste_contact(-1, 'external');
-        $intervention_address_id = 0;
-        $intervention_address_name = '';
+        $show_all = GETPOST('show_all', 'int');
+        $filter_address = GETPOST('filter_address', 'int');
 
-        if (!empty($intervention_contacts)) {
-            foreach ($intervention_contacts as $contact) {
-                // Use first external contact as the address filter
-                if ($contact['source'] == 'external' && $contact['id'] > 0) {
-                    $intervention_address_id = $contact['id'];
-                    $intervention_address_name = $contact['lastname'].' '.$contact['firstname'];
-                    break;
-                }
+        // Objektadresse filter dropdown: addresses actually in use among the
+        // relevant equipment (scoped to the customer unless show_all is checked)
+        $address_options = array();
+        $sql_fa = "SELECT DISTINCT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+        $sql_fa .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.fk_address = s.rowid";
+        $sql_fa .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+        if (!$show_all) {
+            $sql_fa .= " AND e.fk_soc = ".(int)$object->socid;
+        }
+        $sql_fa .= " ORDER BY s.town, s.nom";
+        $resql_fa = $db->query($sql_fa);
+        if ($resql_fa) {
+            while ($obj_fa = $db->fetch_object($resql_fa)) {
+                $fa_label = $obj_fa->nom;
+                if ($obj_fa->town) $fa_label .= ' - '.$obj_fa->town;
+                $address_options[$obj_fa->rowid] = $fa_label;
             }
         }
 
-        // Fetch equipment - only if address is set
+        // Fetch equipment
+        $sql_eq = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
+        $sql_eq .= " WHERE entity IN (".getEntity('equipmentmanager').")";
+        if (!$show_all) {
+            $sql_eq .= " AND fk_soc = ".(int)$object->socid;
+        }
+        if ($filter_address > 0) {
+            $sql_eq .= " AND fk_address = ".(int)$filter_address;
+        }
+        $sql_eq .= " ORDER BY equipment_number ASC";
+
         $equipments = array();
-        if ($intervention_address_id > 0) {
-            // Only fetch equipment for this specific address
-            $sql_eq = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
-            $sql_eq .= " WHERE fk_soc = ".(int)$object->socid;
-            $sql_eq .= " AND fk_address = ".(int)$intervention_address_id;
-            $sql_eq .= " AND entity IN (".getEntity('equipmentmanager').")";
-            $sql_eq .= " ORDER BY equipment_number ASC";
-
-            $resql_eq = $db->query($sql_eq);
-            if ($resql_eq) {
-                while ($obj_eq = $db->fetch_object($resql_eq)) {
-                    $eq = new Equipment($db);
-                    if ($eq->fetch($obj_eq->rowid) > 0) {
-                        $equipments[] = $eq;
-                    }
+        $resql_eq = $db->query($sql_eq);
+        if ($resql_eq) {
+            while ($obj_eq = $db->fetch_object($resql_eq)) {
+                $eq = new Equipment($db);
+                if ($eq->fetch($obj_eq->rowid) > 0) {
+                    $equipments[] = $eq;
                 }
             }
         }
-        // No address linked = no equipment shown
 
         // Filter out already linked equipment
         $available_equipment = array();
@@ -487,6 +500,21 @@ if ($object->id > 0) {
                 $available_equipment[] = $equipment;
             }
         }
+
+        // Filter bar (GET, reloads the page with the chosen filters)
+        print '<form method="GET" action="'.$_SERVER["PHP_SELF"].'" style="margin-bottom: 8px;">';
+        print '<input type="hidden" name="id" value="'.$object->id.'">';
+        print '<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">';
+        print '<select name="filter_address" class="flat" onchange="this.form.submit();">';
+        print '<option value="">'.$langs->trans('ObjectAddress').' - '.$langs->trans('SelectAll').'</option>';
+        foreach ($address_options as $addr_id => $addr_label) {
+            $sel = ($filter_address == $addr_id) ? ' selected' : '';
+            print '<option value="'.$addr_id.'"'.$sel.'>'.dol_escape_htmltag($addr_label).'</option>';
+        }
+        print '</select>';
+        print '<label><input type="checkbox" name="show_all" value="1"'.($show_all ? ' checked' : '').' onchange="this.form.submit();"> '.$langs->trans('ShowAllEquipment').'</label>';
+        print '</div>';
+        print '</form>';
 
         // Start form for bulk actions
         print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="bulkform">';
@@ -500,13 +528,13 @@ if ($object->id > 0) {
         print '<tr class="liste_titre">';
         print '<th colspan="7">';
         print '<span class="fa fa-list paddingright"></span>';
-        if ($intervention_address_id > 0) {
+        if ($filter_address > 0 && isset($address_options[$filter_address])) {
             print $langs->trans('EquipmentForAddress');
-            print ': <strong>'.dol_escape_htmltag($intervention_address_name).'</strong>';
-            print ' <span class="badge">'.count($available_equipment).'</span>';
+            print ': <strong>'.dol_escape_htmltag($address_options[$filter_address]).'</strong>';
         } else {
             print $langs->trans('AvailableEquipmentsForCustomer');
         }
+        print ' <span class="badge">'.count($available_equipment).'</span>';
         print '</th>';
         print '</tr>';
 
@@ -580,8 +608,8 @@ if ($object->id > 0) {
 
                 print '<td>';
                 if ($equipment->fk_address > 0) {
-                    $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                    $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                    $sql2 = "SELECT nom as name, town";
+                    $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
                     $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
                     $resql2 = $db->query($sql2);
                     if ($resql2 && $db->num_rows($resql2)) {
@@ -616,13 +644,7 @@ if ($object->id > 0) {
         } else {
             $colspan = $permissiontoadd ? 7 : 6;
             print '<tr><td colspan="'.$colspan.'" class="opacitymedium center" style="padding: 20px;">';
-            if ($intervention_address_id == 0) {
-                print '<span class="fa fa-exclamation-triangle" style="color: #f57c00;"></span> ';
-                print '<strong>'.$langs->trans('PleaseAddAddressFirst').'</strong><br>';
-                print '<span class="opacitymedium">'.$langs->trans('GoToContactTabToAddAddress').'</span>';
-            } else {
-                print $langs->trans('NoEquipmentForThisAddress');
-            }
+            print $langs->trans('NoEquipmentForThisAddress');
             print '</td></tr>';
         }
 
