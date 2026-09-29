@@ -848,3 +848,5 @@ ObjectAddressReportClean=Keine Auffälligkeiten gefunden - Migration kann sicher
 ObjectAddressDistinctCount=Anzahl unterschiedlicher Adressen
 OrphanedObjectAddressContacts=Verwaiste Objektadress-Kontakte
 OrphanedObjectAddressContactsHelp=Diese Objektadressen zeigen auf einen Kontakt ohne zugehörige Firma und können nicht automatisch migriert werden - bitte manuell korrigieren.
+ObjectAddresses=Objektadressen
+NewObjectAddress=Neue Objektadresse

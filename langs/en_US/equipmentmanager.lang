@@ -293,3 +293,5 @@ ObjectAddressDistinctCount=Number of distinct addresses
 OrphanedObjectAddressContacts=Orphaned object address contacts
 OrphanedObjectAddressContactsHelp=These object addresses point to a contact with no owning company and cannot be migrated automatically - please fix manually.
 ShowAllEquipment=Show all equipment
+ObjectAddresses=Object Addresses
+NewObjectAddress=New Object Address

@@ -654,4 +654,50 @@ class ActionsEquipmentManager
         return 0;
     }
 
+    /**
+     * On the Societe (company) create/edit card, pull the "Objektadresse"
+     * extrafield row out of Dolibarr's collapsed "More fields" group (hidden by
+     * default, see societe/card.php's toogleMoreFields()) and move it right
+     * after the Prospect/Customer/Supplier checkboxes, so it's always visible
+     * without an extra click. CSS class 'field_options_equipmentmanager_object_address'
+     * is the stable selector CommonObject::showOptionals() always prints on this
+     * row (works for both create, where $this->id is empty, and edit).
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object (Societe, or others - guarded below)
+     * @param string $action Action
+     * @param HookManager $hookmanager Hook manager
+     * @return int <0 if error, 0 if nothing done, >0 if OK
+     */
+    public function formObjectOptions($parameters, &$object, &$action, $hookmanager)
+    {
+        if (!is_object($object) || $object->element !== 'societe') {
+            return 0;
+        }
+        if (!in_array($action, array('create', 'edit'))) {
+            return 0;
+        }
+
+        // setTimeout(...,0) defers to a new macrotask, guaranteed to run after every
+        // $(document).ready() handler registered so far - including societe/card.php's
+        // own toogleMoreFields(false), which otherwise re-hides this row regardless of
+        // script tag order. Stripping the trextrafields/morefields classes also detaches
+        // it from that toggle for good, so later clicks on "More" cannot re-hide it.
+        $this->resprints = '<script nonce="'.getNonce().'">
+        jQuery(document).ready(function() {
+            setTimeout(function() {
+                var row = jQuery(".field_options_equipmentmanager_object_address");
+                if (!row.length) return;
+                row.removeClass("trextrafields morefields").show();
+                var anchor = jQuery("#prospectinput").closest("tr");
+                if (anchor.length) {
+                    row.insertAfter(anchor);
+                }
+            }, 0);
+        });
+        </script>';
+
+        return 0;
+    }
+
 }

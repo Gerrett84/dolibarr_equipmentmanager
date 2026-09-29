@@ -42,6 +42,7 @@ class modEquipmentManager extends DolibarrModules
                 'ordercard',         // Hook context for order PDF
                 'index',             // Hook for home dashboard maintenance tile
                 'main',              // Hook for sitewide addHtmlHeader (top menu icon color)
+                'thirdpartycard',    // Hook for making the Objektadresse extrafield always visible on Societe card
             ),
         );
         $this->dirs = array();
@@ -338,6 +339,47 @@ class modEquipmentManager extends DolibarrModules
             'mainmenu' => 'equipmentmanager',
             'leftmenu' => '',
             'url' => '/equipmentmanager/equipment_by_address.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 3b: Objektadressen (Parent) — v6.0
+        // Links to Dolibarr's native Societe pages, filtered/pre-set via
+        // the 'equipmentmanager_object_address' extrafield (list.php supports
+        // search_options_<name>, card.php?action=create supports options_<name>
+        // as a GETPOST-based default value override - both native mechanisms,
+        // no custom pages needed here).
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'ObjectAddresses',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_objectaddress',
+            'url' => '/societe/list.php?search_options_equipmentmanager_object_address=1&search_options_equipmentmanager_object_address_boolean=1',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Neue Objektadresse
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_objectaddress',
+            'type' => 'left',
+            'titre' => 'NewObjectAddress',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/societe/card.php?action=create&options_equipmentmanager_object_address=1',
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
