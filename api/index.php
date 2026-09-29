@@ -1851,17 +1851,35 @@ function handleAvailableEquipment($method, $parts, $input) {
     $inter = $db->fetch_object($res_inter);
     $socid = (int)$inter->fk_soc;
 
-    // Get available equipment not yet linked to this intervention, matching the
-    // intervention's customer (fk_soc). Previously also restricted to equipment at
-    // the OBJ-contact's address when one was linked, but that compared a
-    // socpeople id (OBJ contact, System B) against fk_address, which is now a
-    // societe id (System A) after the v6 migration - two different id spaces, so
-    // that restriction is dropped here rather than silently matching nothing.
+    // If equipment is already linked to this intervention, derive "its" Objektadresse
+    // from the first linked equipment's fk_address (same fallback pattern used by the
+    // PDF module and calendar.php) and restrict suggestions to that same address, so
+    // the PWA doesn't offer equipment from every Objektadresse of the customer.
+    // Previously this restriction went through an OBJ contact on the intervention
+    // itself, but that compared a socpeople id (OBJ contact, System B) against
+    // fk_address, which is now a societe id (System A) after the v6 migration - two
+    // different id spaces. If nothing is linked yet, there's no address to anchor to,
+    // so all of the customer's equipment is offered (picking the first one then
+    // anchors the address for subsequent additions).
+    $current_address_id = 0;
+    $sql_addr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+    $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+    $sql_addr .= " WHERE l.fk_intervention = ".(int)$intervention_id;
+    $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+    $sql_addr .= " ORDER BY l.date_creation ASC LIMIT 1";
+    $res_addr = $db->query($sql_addr);
+    if ($res_addr && ($addr_row = $db->fetch_object($res_addr))) {
+        $current_address_id = (int)$addr_row->fk_address;
+    }
+
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
     $sql .= " addr_s.nom as address_name, addr_s.address, addr_s.zip, addr_s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE e.fk_soc = ".(int)$socid;
+    if ($current_address_id > 0) {
+        $sql .= " AND e.fk_address = ".(int)$current_address_id;
+    }
     $sql .= " AND e.rowid NOT IN (";
     $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= "   WHERE fk_intervention = ".(int)$intervention_id;
