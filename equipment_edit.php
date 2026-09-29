@@ -91,10 +91,6 @@ if ($action == 'add' && !$cancel) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("EquipmentNumber")), null, 'errors');
         $error++;
     }
-    if (empty($object->fk_soc) || $object->fk_soc <= 0) {
-        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ThirdParty")), null, 'errors');
-        $error++;
-    }
     if (empty($object->fk_address) || $object->fk_address <= 0) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
         $error++;
@@ -140,10 +136,6 @@ if ($action == 'update' && !$cancel) {
     $object->smoke_detector_install_year = GETPOST('smoke_detector_install_year', 'int') ?: null;
     $object->smoke_detector_replacement_cycle = GETPOST('smoke_detector_replacement_cycle', 'int') ?: null;
 
-    if (empty($object->fk_soc) || $object->fk_soc <= 0) {
-        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ThirdParty")), null, 'errors');
-        $error++;
-    }
     if (empty($object->fk_address) || $object->fk_address <= 0) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
         $error++;
@@ -342,7 +334,7 @@ print '</select>';
 print '</td></tr>';
 
 // Third Party
-print '<tr><td class="fieldrequired">'.$langs->trans("ThirdParty").'</td><td>';
+print '<tr><td>'.$langs->trans("ThirdParty").'</td><td>';
 print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300');
 print '</td></tr>';
 

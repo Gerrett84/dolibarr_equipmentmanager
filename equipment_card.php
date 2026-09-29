@@ -84,10 +84,6 @@ if ($action == 'add' && !$cancel && $permissiontoadd) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("EquipmentNumber")), null, 'errors');
         $error++;
     }
-    if (empty($object->fk_soc) || $object->fk_soc <= 0) {
-        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ThirdParty")), null, 'errors');
-        $error++;
-    }
     if (empty($object->fk_address) || $object->fk_address <= 0) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
         $error++;
@@ -124,10 +120,6 @@ if ($action == 'update' && !$cancel && $permissiontoadd) {
     $object->installation_date = dol_mktime(0, 0, 0, GETPOST('installation_datemonth', 'int'), GETPOST('installation_dateday', 'int'), GETPOST('installation_dateyear', 'int'));
     $object->status = GETPOST('status', 'int');
 
-    if (empty($object->fk_soc) || $object->fk_soc <= 0) {
-        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ThirdParty")), null, 'errors');
-        $error++;
-    }
     if (empty($object->fk_address) || $object->fk_address <= 0) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
         $error++;
@@ -246,7 +238,7 @@ if ($action == 'create') {
     print '</td></tr>';
     
     // Third Party
-    print '<tr><td class="fieldrequired">'.$langs->trans("ThirdParty").'</td><td>';
+    print '<tr><td>'.$langs->trans("ThirdParty").'</td><td>';
     print $form->select_company(0, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
     print '</td></tr>';
     
@@ -375,7 +367,7 @@ if (($id || $ref) && $action == 'edit') {
     print '</td></tr>';
     
     // Third Party
-    print '<tr><td class="fieldrequired">'.$langs->trans("ThirdParty").'</td><td>';
+    print '<tr><td>'.$langs->trans("ThirdParty").'</td><td>';
     print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300', 0, '', 0, 'fk_soc_select');
     print '</td></tr>';
     
