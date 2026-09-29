@@ -1204,11 +1204,12 @@ function getInterventionObjectAddresses($intervention_id) {
         return $addresses;
     }
 
-    // Fallback: fk_address from linked equipment
-    $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone, sp.email, sp.note_public";
+    // Fallback: fk_address from linked equipment - now a Thirdparty (Societe),
+    // not a Contact, see Equipment::isObjectAddressMigrated().
+    $sql = "SELECT DISTINCT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
     $sql .= " AND e.fk_address > 0";
 
@@ -1217,7 +1218,7 @@ function getInterventionObjectAddresses($intervention_id) {
         while ($obj = $db->fetch_object($resql)) {
             $addresses[] = [
                 'id'      => (int)$obj->rowid,
-                'name'    => trim($obj->lastname . ' ' . $obj->firstname),
+                'name'    => $obj->nom,
                 'address' => $obj->address,
                 'zip'     => $obj->zip,
                 'town'    => $obj->town,
@@ -1850,39 +1851,28 @@ function handleAvailableEquipment($method, $parts, $input) {
     $inter = $db->fetch_object($res_inter);
     $socid = (int)$inter->fk_soc;
 
-    // Check for linked object address (OBJ contact)
-    $obj_address_id = 0;
-    $sql_obj = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
-    $sql_obj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-    $sql_obj .= " WHERE ec.element_id = ".(int)$intervention_id;
-    $sql_obj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
-    $res_obj = $db->query($sql_obj);
-    if ($res_obj && ($obj_row = $db->fetch_object($res_obj))) {
-        $obj_address_id = (int)$obj_row->fk_socpeople;
-    }
-
-    // Get available equipment not yet linked to this intervention.
-    // If the intervention has an object address (OBJ), restrict to equipment at that address.
+    // Get available equipment not yet linked to this intervention, matching the
+    // intervention's customer (fk_soc). Previously also restricted to equipment at
+    // the OBJ-contact's address when one was linked, but that compared a
+    // socpeople id (OBJ contact, System B) against fk_address, which is now a
+    // societe id (System A) after the v6 migration - two different id spaces, so
+    // that restriction is dropped here rather than silently matching nothing.
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
-    $sql .= " sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql .= " addr_s.nom as address_name, addr_s.address, addr_s.zip, addr_s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE e.fk_soc = ".(int)$socid;
-    if ($obj_address_id > 0) {
-        $sql .= " AND e.fk_address = ".(int)$obj_address_id;
-    }
     $sql .= " AND e.rowid NOT IN (";
     $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= "   WHERE fk_intervention = ".(int)$intervention_id;
     $sql .= " )";
-    $sql .= " ORDER BY sp.lastname, sp.town, e.equipment_number";
+    $sql .= " ORDER BY addr_s.nom, addr_s.town, e.equipment_number";
 
     $resql = $db->query($sql);
     $equipment = [];
 
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
-            $addressName = trim($obj->lastname . ' ' . $obj->firstname);
             $equipment[] = [
                 'id' => (int)$obj->rowid,
                 'ref' => $obj->equipment_number,
@@ -1890,7 +1880,7 @@ function handleAvailableEquipment($method, $parts, $input) {
                 'type' => $obj->equipment_type,
                 'location' => $obj->location_note,
                 'address' => [
-                    'name' => $addressName,
+                    'name' => $obj->address_name,
                     'street' => $obj->address,
                     'zip' => $obj->zip,
                     'town' => $obj->town
@@ -3958,7 +3948,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql  = "SELECT e.rowid as equipment_id, e.equipment_number, e.label, e.equipment_type,";
     $sql .= " e.maintenance_month, e.last_maintenance_date, e.fk_soc, e.fk_address,";
     $sql .= " s.nom as customer_name, s.address as cust_addr, s.zip as cust_zip, s.town as cust_town,";
-    $sql .= " sp.lastname, sp.firstname, sp.address as addr_street, sp.zip as addr_zip, sp.town as addr_town,";
+    $sql .= " addr_s.nom as addr_name, addr_s.address as addr_street, addr_s.zip as addr_zip, addr_s.town as addr_town,";
     $sql .= " CASE";
     $sql .= "  WHEN e.maintenance_month IS NULL THEN 'none'";
     // Done check 1: last_maintenance_date in current year near maintenance_month
@@ -3998,7 +3988,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= "  ORDER BY f.dateo DESC LIMIT 1) as open_intervention_ref";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = e.fk_soc";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE e.status = 1";
     $sql .= " ORDER BY maint_status = 'none', maint_status = 'done',";
     $sql .= "  CASE maint_status WHEN 'overdue' THEN 1 WHEN 'due' THEN 2 WHEN 'soon' THEN 3 WHEN 'future' THEN 4 WHEN 'none' THEN 5 ELSE 6 END,";
@@ -4021,9 +4011,8 @@ function handleMaintenanceOverview($method, $parts, $input) {
         // Build group key and label
         if ($obj->fk_address) {
             $groupKey = 'addr_' . (int)$obj->fk_address;
-            $contactName = trim($obj->lastname . ' ' . $obj->firstname);
             $addrLine = trim(($obj->addr_zip ?: '') . ' ' . ($obj->addr_town ?: ''));
-            $groupLabel = $contactName ?: $obj->customer_name;
+            $groupLabel = $obj->addr_name ?: $obj->customer_name;
             if ($addrLine) $groupLabel .= ' — ' . $addrLine;
             $groupAddress = trim(($obj->addr_street ?: '') . ', ' . ($obj->addr_zip ?: '') . ' ' . ($obj->addr_town ?: ''), ', ');
         } else {
