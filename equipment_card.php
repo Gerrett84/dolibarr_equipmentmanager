@@ -84,7 +84,15 @@ if ($action == 'add' && !$cancel && $permissiontoadd) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("EquipmentNumber")), null, 'errors');
         $error++;
     }
-    
+    if (empty($object->fk_soc) || $object->fk_soc <= 0) {
+        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ThirdParty")), null, 'errors');
+        $error++;
+    }
+    if (empty($object->fk_address) || $object->fk_address <= 0) {
+        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
+        $error++;
+    }
+
     if (!$error) {
         $result = $object->create($user);
         if ($result > 0) {
@@ -115,7 +123,16 @@ if ($action == 'update' && !$cancel && $permissiontoadd) {
     $object->serial_number = GETPOST('serial_number', 'alpha');
     $object->installation_date = dol_mktime(0, 0, 0, GETPOST('installation_datemonth', 'int'), GETPOST('installation_dateday', 'int'), GETPOST('installation_dateyear', 'int'));
     $object->status = GETPOST('status', 'int');
-    
+
+    if (empty($object->fk_soc) || $object->fk_soc <= 0) {
+        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ThirdParty")), null, 'errors');
+        $error++;
+    }
+    if (empty($object->fk_address) || $object->fk_address <= 0) {
+        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
+        $error++;
+    }
+
     if (!$error) {
         $result = $object->update($user);
         if ($result > 0) {
@@ -235,7 +252,7 @@ if ($action == 'create') {
     
     // Object Address - a standalone company flagged "Objektadresse", independent
     // of the Auftraggeber above - see Equipment::isObjectAddressMigrated().
-    print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
+    print '<tr><td class="fieldrequired">'.$langs->trans("ObjectAddress").'</td><td>';
     if (!Equipment::isObjectAddressMigrated()) {
         print '<span class="warning">'.$langs->trans("ObjectAddressMigrationPending").'</span>';
     } else {
@@ -257,9 +274,10 @@ if ($action == 'create') {
             }
         }
         print '</select>';
+        print ajax_combobox('fk_address_select');
     }
     print '</td></tr>';
-    
+
     // Location / Note
     print '<tr><td class="tdtop">'.$langs->trans("LocationNote").'</td><td>';
     print '<textarea name="location_note" rows="3" class="flat centpercent" placeholder="'.$langs->trans('LocationNote').'"></textarea>';
@@ -363,7 +381,7 @@ if (($id || $ref) && $action == 'edit') {
     
     // Object Address - a standalone company flagged "Objektadresse", independent
     // of the Auftraggeber above - see Equipment::isObjectAddressMigrated().
-    print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
+    print '<tr><td class="fieldrequired">'.$langs->trans("ObjectAddress").'</td><td>';
     if (!Equipment::isObjectAddressMigrated()) {
         print '<span class="warning">'.$langs->trans("ObjectAddressMigrationPending").'</span>';
     } else {
@@ -389,6 +407,7 @@ if (($id || $ref) && $action == 'edit') {
             }
         }
         print '</select>';
+        print ajax_combobox('fk_address_select');
     }
     print '</td></tr>';
     

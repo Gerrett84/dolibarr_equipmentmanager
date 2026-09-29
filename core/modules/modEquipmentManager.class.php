@@ -278,7 +278,49 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 3: Anlagenliste (Parent)
+        // Überschrift 3: Objektadressen (Parent) — v6.0
+        // Links to Dolibarr's native Societe pages, filtered/pre-set via
+        // the 'equipmentmanager_object_address' extrafield (list.php supports
+        // search_options_<name>, card.php?action=create supports options_<name>
+        // as a GETPOST-based default value override - both native mechanisms,
+        // no custom pages needed here). Placed above Anlagenliste since an
+        // Objektadresse is normally picked/created before adding equipment there.
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'ObjectAddresses',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_objectaddress',
+            'url' => '/societe/list.php?search_options_equipmentmanager_object_address=1&search_options_equipmentmanager_object_address_boolean=1',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Neue Objektadresse
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_objectaddress',
+            'type' => 'left',
+            'titre' => 'NewObjectAddress',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/societe/card.php?action=create&options_equipmentmanager_object_address=1',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 4: Anlagenliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -348,48 +390,7 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 3b: Objektadressen (Parent) — v6.0
-        // Links to Dolibarr's native Societe pages, filtered/pre-set via
-        // the 'equipmentmanager_object_address' extrafield (list.php supports
-        // search_options_<name>, card.php?action=create supports options_<name>
-        // as a GETPOST-based default value override - both native mechanisms,
-        // no custom pages needed here).
-        // ============================================
-        $r++;
-        $this->menu[$r] = array(
-            'fk_menu' => 'fk_mainmenu=equipmentmanager',
-            'type' => 'left',
-            'titre' => 'ObjectAddresses',
-            'mainmenu' => 'equipmentmanager',
-            'leftmenu' => 'equipmentmanager_objectaddress',
-            'url' => '/societe/list.php?search_options_equipmentmanager_object_address=1&search_options_equipmentmanager_object_address_boolean=1',
-            'langs' => 'equipmentmanager@equipmentmanager',
-            'position' => 1000 + $r,
-            'enabled' => '1',
-            'perms' => '1',
-            'target' => '',
-            'user' => 2,
-        );
-
-        // Unterpunkt: Neue Objektadresse
-        $r++;
-        $this->menu[$r] = array(
-            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_objectaddress',
-            'type' => 'left',
-            'titre' => 'NewObjectAddress',
-            'mainmenu' => 'equipmentmanager',
-            'leftmenu' => '',
-            'url' => '/societe/card.php?action=create&options_equipmentmanager_object_address=1',
-            'langs' => 'equipmentmanager@equipmentmanager',
-            'position' => 1000 + $r,
-            'enabled' => '1',
-            'perms' => '1',
-            'target' => '',
-            'user' => 2,
-        );
-
-        // ============================================
-        // Überschrift 4: Preisliste (Parent)
+        // Überschrift 5: Preisliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(

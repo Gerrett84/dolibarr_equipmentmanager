@@ -134,7 +134,7 @@ print '</td></tr>';
 // ── Auftraggeber ──────────────────────────────────────────────────────────────
 print '<tr><td class="fieldrequired">'.$langs->trans('ThirdParty').'</td><td>';
 $postedSoc = (int) GETPOST('fk_soc', 'int');
-print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 1, array(), 0, 'minwidth300',
+print $form->select_company($postedSoc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300',
     'onchange="loadContracts(this.value);"');
 print '</td></tr>';
 
@@ -166,6 +166,7 @@ if (!Equipment::isObjectAddressMigrated()) {
         }
     }
     print '</select>';
+    print ajax_combobox('fk_address_select');
 }
 print '</td></tr>';
 
