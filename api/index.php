@@ -1210,7 +1210,7 @@ function getInterventionObjectAddresses($intervention_id) {
  * GET/POST /detail/{intervention_id}/{equipment_id}
  */
 function handleDetail($method, $parts, $input) {
-    global $db, $user;
+    global $db, $user, $conf;
 
     $intervention_id = (int)($parts[1] ?? 0);
     $equipment_id = (int)($parts[2] ?? 0);  // 0 = general entries (no equipment)
