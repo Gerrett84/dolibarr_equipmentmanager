@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 5.7.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.0.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,19 @@
 -----
 
 ## Features
+
+### NEU in v6.0.0: Objektadresse als eigenständiger Geschäftspartner
+
+- **Objektadresse von Auftraggeber entkoppelt** – War bisher an einen Kontakt des jeweiligen Auftraggebers gebunden; ist jetzt ein eigenständiger, als "Objektadresse" geflaggter Geschäftspartner. Ein Wechsel des Auftraggebers (z.B. Metallbauer → Hausverwaltung) erfordert keine erneute Adresseingabe mehr, und dieselbe Adresse kann für mehrere Anlagen am selben Standort wiederverwendet werden
+- **Standard-Auftraggeber pro Anlage** – Bleibt weiterhin an der Anlage hinterlegt und steuert den Vorschlag beim Ablegen von Angebot/Auftrag/Rechnung
+- **Objektadresse-Auswahl mit Suchfunktion** – Standardmäßig nur die mit dem Auftraggeber verknüpften Objektadressen; Haken „Alle Objektadressen anzeigen" zeigt alle; gilt jetzt einheitlich in Serviceauftrag, Angebot und Auftrag (vorher nur beim Serviceauftrag vorhanden)
+- **Eine Objektadresse pro Dokument** – Sobald einem Serviceauftrag/Angebot/Auftrag eine Anlage einer Objektadresse zugeordnet ist, lässt sich keine Anlage einer anderen Objektadresse mehr hinzufügen (Backend und PWA, inkl. serverseitiger Prüfung)
+- **Geführte Datenmigration** – Analysebericht (`admin/objectaddress_migrate.php`) prüft vor der Migration auf Auffälligkeiten (z.B. Anlagen mit mehreren Objektadressen desselben Kontakts); einmalige, transaktionale Migration mit Sentinel-Flag
+- **Alter "Objektadresse"-Kontakttyp (OBJ) vollständig abgelöst** – Bisher musste die Objektadresse teils doppelt gepflegt werden (Geschäftspartner-Stammdaten und der OBJ-Kontakt am Dokument); jetzt einzige Quelle für Servicebericht, Checkliste, Abnahmeprotokoll, Angebot/Auftrag/Rechnung-PDF, E-Mail-Textbausteine, iOS-Kalenderfeed und Serviceauftragsliste. Bestehende OBJ-Kontaktverknüpfungen bleiben in der Datenbank erhalten, werden aber nirgends mehr angeboten oder gelesen
+- **Fix: Objektadresse in Angeboten doppelt gedruckt** – Eigene PDF-Vorlagen (`azur_objektadresse`, `cyan_objektadresse`) entfernt; Angebote nutzen jetzt wie Auftrag/Rechnung die Standardvorlage mit generischem Adress-Hook
+- **Fix: Objektadresse fehlte in frischen Serviceaufträgen** – Serviceauftragsliste und Kalenderfeed lasen die Adresse über eine Tabelle, die erst bei geloggten Arbeitszeiten befüllt wird, statt über die beim Anlagen-Hinzufügen sofort gesetzte Verknüpfung
+- **Fix: PWA-Checkliste PDF (403 Forbidden)** – Fehlendes `NOLOGIN`/CSRF-Ausnahme für PWA-Token-Zugriff ergänzt
+- **Fix: Checkliste zeigte falsche Objektadresse** – Nutzte bisher immer den Auftraggeber statt der tatsächlichen Objektadresse der Anlage
 
 ### NEU in v5.7.0: Startseiten-Kacheln & konfigurierbare Markenfarbe
 
@@ -338,6 +351,20 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.0.0 (2026-09-30)
+
+- **Objektadresse als eigenständiger Geschäftspartner** – `Equipment.fk_address` zeigt jetzt auf einen als "Objektadresse" geflaggten Geschäftspartner statt auf einen Kontakt des Auftraggebers; entkoppelt die Objektadresse vollständig vom aktuellen Auftraggeber
+- **Neuer Standard-Auftraggeber + Objektadresse-Auswahl** – Beide Felder mit Suchfunktion; Objektadresse-Dropdown standardmäßig nach Auftraggeber gefiltert, mit Haken „Alle anzeigen"; einheitlich in Serviceauftrag, Angebot und Auftrag verfügbar (letztere hatten zuvor gar keine Objektadresse-Auswahl)
+- **Ein Objektadresse pro Dokument erzwungen** – Anlagen-Picker (Backend und PWA) sperren sich auf die bereits verwendete Objektadresse, sobald eine Anlage verknüpft ist; zusätzliche serverseitige Prüfung in `DocumentEquipmentLink::create()` und den Fichinter-Verknüpfungs-Endpunkten
+- **Geführte Migration** – `admin/objectaddress_migration_report.php` (Analyse) und `admin/objectaddress_migrate.php` (einmalige, transaktionale Migration mit Sentinel-Flag `EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED`)
+- **OBJ-Kontakttyp vollständig abgelöst** – Neuer zentraler Helfer `Equipment::getObjectAddressForDocument()` ersetzt sämtliche Stellen, die bisher den Dolibarr-Kontakttyp „OBJ" auslasen (Servicebericht-PDF, `pdf_build_address`-Hook für Angebot/Auftrag/Rechnung, E-Mail-Textbausteine, PWA-Abnahmeprotokoll und -Checkliste, Kalenderfeed, Serviceauftragsliste, PWA-Historie); Kontaktrolle in `llx_c_type_contact` deaktiviert (Daten bleiben erhalten)
+- **Fix: Objektadresse in Angeboten doppelt** – `azur_objektadresse`/`cyan_objektadresse`-PDF-Vorlagen entfernt; Angebote nutzen jetzt die Standardvorlage + generischen Hook wie Auftrag/Rechnung
+- **Fix: Objektadresse fehlte in frischen Serviceaufträgen/Kalenderfeed** – Join lief über die Arbeitszeit-Tabelle statt über die sofort beim Anlagen-Hinzufügen gesetzte Verknüpfungstabelle
+- **Fix: Angebote/Aufträge – Objektadresse nicht wählbar** – `propal_equipment.php`/`commande_equipment.php` hatten weder eine Objektadresse-Auswahl noch den korrigierten Datenbank-Join
+- **Fix: PWA-Checkliste PDF (403 Forbidden)** – `intervention_equipment_details.php` fehlte `NOLOGIN` und CSRF-Ausnahme für PWA-Token-Zugriff
+- **Fix: Checkliste zeigte falschen Objektadresse-Namen** – Nutzte den Auftraggeber statt der tatsächlichen Objektadresse der Anlage; zusätzlich Abstand zwischen Label und Wert korrigiert
+- **Fix: `global $conf` fehlte** – In `handleDetail()` (Foto-Upload bei Arbeitseinträgen) führte das zu einem stillen Fehler beim Ermitteln des Dokumentverzeichnisses
 
 ### v5.6.0 (2026-07-30)
 
