@@ -4428,8 +4428,8 @@ class ServiceReportApp {
             const history = data.history || [];
 
             if (history.length === 0) {
-                listWrap.innerHTML = data.no_obj_contact
-                    ? '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Kein Objekt (OBJ-Kontakt) hinterlegt</div>'
+                listWrap.innerHTML = data.no_object_address
+                    ? '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Keine Objektadresse hinterlegt</div>'
                     : '<div style="text-align:center;padding:20px;color:var(--text-muted,#888);">Keine früheren Aufträge für dieses Objekt</div>';
                 return;
             }

@@ -208,19 +208,12 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Get linked OBJ contact (Objektadresse)
-        $objContactIds = $object->getIdContact('external', 'OBJ');
+        // Get the Objektadresse via the document's linked equipment
+        require_once DOL_DOCUMENT_ROOT.'/custom/equipmentmanager/class/equipment.class.php';
+        $addrCompany = Equipment::getObjectAddressForDocument($this->db, $object->element, $object->id);
 
-        // If no Objektadresse linked, let normal address building happen
-        if (empty($objContactIds) || !is_array($objContactIds) || count($objContactIds) == 0) {
-            return 0;
-        }
-
-        // Load the OBJ contact
-        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-        $contactObj = new Contact($this->db);
-
-        if ($contactObj->fetch($objContactIds[0]) <= 0) {
+        // If no Objektadresse found, let normal address building happen
+        if ($addrCompany === null) {
             return 0;
         }
 
@@ -274,22 +267,22 @@ class ActionsEquipmentManager
         $stringaddress .= "\n".$outputlangs->transnoentities("ObjectAddress").":\n";
 
         // Name
-        if ($contactObj->lastname || $contactObj->firstname) {
-            $stringaddress .= trim($contactObj->firstname.' '.$contactObj->lastname)."\n";
+        if ($addrCompany->name) {
+            $stringaddress .= $addrCompany->name."\n";
         }
 
         // Address
-        if ($contactObj->address) {
-            $stringaddress .= $contactObj->address."\n";
+        if ($addrCompany->address) {
+            $stringaddress .= $addrCompany->address."\n";
         }
 
         // ZIP + City
         $cityLine = '';
-        if ($contactObj->zip) {
-            $cityLine .= $contactObj->zip;
+        if ($addrCompany->zip) {
+            $cityLine .= $addrCompany->zip;
         }
-        if ($contactObj->town) {
-            $cityLine .= ($cityLine ? ' ' : '').$contactObj->town;
+        if ($addrCompany->town) {
+            $cityLine .= ($cityLine ? ' ' : '').$addrCompany->town;
         }
         if ($cityLine) {
             $stringaddress .= $cityLine;

@@ -67,6 +67,8 @@ EquipmentLinkedMaintenance=Equipment linked as maintenance
 EquipmentLinkedService=Equipment linked as service
 EquipmentUnlinked=Equipment link removed
 EquipmentAlreadyLinked=Equipment is already linked
+EquipmentAddressMismatch=This equipment belongs to a different object address than the equipment already linked to this service order
+EquipmentAddressLockedHint=fixed by the equipment already linked
 
 NoMaintenanceEquipment=No maintenance work linked
 LinkMaintenanceEquipmentFromListBelow=Link maintenance work from list below

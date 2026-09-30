@@ -723,35 +723,30 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
-    // GET /intervention/{id}/history — previous interventions at same Objekt.
-    // Primary: OBJ contact on the intervention (System B, unchanged). Fallback:
-    // other interventions that share the same Objektadresse (System A, fk_address)
-    // via their own linked equipment - needed since the v6 workflow no longer
-    // requires adding an OBJ contact to link equipment, so relying on System B
-    // alone would show "no object" for every new-style intervention.
+    // GET /intervention/{id}/history — previous interventions sharing the same
+    // Objektadresse (via linked equipment's fk_address).
     if (isset($parts[2]) && $parts[2] === 'history' && $method === 'GET') {
-        $sqlObj  = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
-        $sqlObj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-        $sqlObj .= " WHERE ec.element_id = ".(int)$id;
-        $sqlObj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
-        $resObj = $db->query($sqlObj);
-        $objContactId = 0;
-        if ($resObj && ($objRow = $db->fetch_object($resObj))) {
-            $objContactId = (int)$objRow->fk_socpeople;
-        }
-
         $history = [];
+        $no_object_address = true;
 
-        if ($objContactId > 0) {
-            $sqlHist  = "SELECT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
+        $sqlAddr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sqlAddr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+        $sqlAddr .= " WHERE l.fk_intervention = ".(int)$id;
+        $sqlAddr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+        $sqlAddr .= " ORDER BY l.date_creation ASC LIMIT 1";
+        $resAddr = $db->query($sqlAddr);
+        if ($resAddr && ($addrRow = $db->fetch_object($resAddr))) {
+            $currentAddressId = (int)$addrRow->fk_address;
+            $no_object_address = false;
+
+            $sqlHist  = "SELECT DISTINCT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
             $sqlHist .= " f.fk_statut AS status, f.description, f.signed_status,";
             $sqlHist .= " u.lastname, u.firstname";
             $sqlHist .= " FROM ".MAIN_DB_PREFIX."fichinter f";
-            $sqlHist .= " JOIN ".MAIN_DB_PREFIX."element_contact ec ON ec.element_id = f.rowid";
-            $sqlHist .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
+            $sqlHist .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l2 ON l2.fk_intervention = f.rowid";
+            $sqlHist .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e2 ON e2.rowid = l2.fk_equipment";
             $sqlHist .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_author";
-            $sqlHist .= " WHERE ec.fk_socpeople = ".(int)$objContactId;
-            $sqlHist .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ'";
+            $sqlHist .= " WHERE e2.fk_address = ".(int)$currentAddressId;
             $sqlHist .= " AND f.rowid != ".(int)$id;
             $sqlHist .= " ORDER BY COALESCE(f.dateo, f.tms) DESC LIMIT 50";
             $resHist = $db->query($sqlHist);
@@ -769,58 +764,9 @@ function handleIntervention($method, $parts, $input) {
             }
         }
 
-        $no_obj_contact = ($objContactId === 0);
-
-        // Fallback (or addition, deduped): other interventions sharing this
-        // intervention's Objektadresse via their own linked equipment's fk_address.
-        $sqlAddr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-        $sqlAddr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-        $sqlAddr .= " WHERE l.fk_intervention = ".(int)$id;
-        $sqlAddr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-        $sqlAddr .= " ORDER BY l.date_creation ASC LIMIT 1";
-        $resAddr = $db->query($sqlAddr);
-        if ($resAddr && ($addrRow = $db->fetch_object($resAddr))) {
-            $currentAddressId = (int)$addrRow->fk_address;
-            $existingIds = array_column($history, 'id');
-
-            $sqlHist2  = "SELECT DISTINCT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
-            $sqlHist2 .= " f.fk_statut AS status, f.description, f.signed_status,";
-            $sqlHist2 .= " u.lastname, u.firstname";
-            $sqlHist2 .= " FROM ".MAIN_DB_PREFIX."fichinter f";
-            $sqlHist2 .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l2 ON l2.fk_intervention = f.rowid";
-            $sqlHist2 .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e2 ON e2.rowid = l2.fk_equipment";
-            $sqlHist2 .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_author";
-            $sqlHist2 .= " WHERE e2.fk_address = ".(int)$currentAddressId;
-            $sqlHist2 .= " AND f.rowid != ".(int)$id;
-            $sqlHist2 .= " ORDER BY COALESCE(f.dateo, f.tms) DESC LIMIT 50";
-            $resHist2 = $db->query($sqlHist2);
-            while ($resHist2 && $row = $db->fetch_object($resHist2)) {
-                if (in_array((int)$row->rowid, $existingIds)) {
-                    continue;
-                }
-                $history[] = [
-                    'id'           => (int)$row->rowid,
-                    'ref'          => $row->ref,
-                    'date_start'   => $row->date_start,
-                    'date_end'     => $row->date_end,
-                    'status'       => (int)$row->status,
-                    'signed_status' => (int)$row->signed_status,
-                    'description'  => $row->description,
-                    'technician'   => trim($row->lastname . ' ' . $row->firstname),
-                ];
-            }
-            $no_obj_contact = false;
-        }
-
-        // Both sources append independently (rarely both non-empty in practice) -
-        // re-sort the combined list so dates stay consistent either way.
-        usort($history, function ($a, $b) {
-            return strcmp($b['date_start'] ?? '', $a['date_start'] ?? '');
-        });
-
         $result = ['history' => $history];
-        if ($no_obj_contact && empty($history)) {
-            $result['no_obj_contact'] = true;
+        if ($no_object_address) {
+            $result['no_object_address'] = true;
         }
         echo json_encode($result);
         return;
@@ -1226,44 +1172,13 @@ function getEquipmentMaterials($intervention_id, $equipment_id) {
 }
 
 /**
- * Get unique object addresses for intervention
- * Primary: contact with OBJ role linked to intervention
- * Fallback: fk_address from linked equipment
+ * Get unique object addresses for intervention, via fk_address from linked equipment.
  */
 function getInterventionObjectAddresses($intervention_id) {
     global $db;
 
     $addresses = [];
 
-    // Primary: contact with OBJ role linked to intervention
-    $sql = "SELECT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone, sp.email, sp.note_public";
-    $sql .= " FROM ".MAIN_DB_PREFIX."element_contact ec";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople";
-    $sql .= " WHERE ec.element_id = ".(int)$intervention_id;
-    $sql .= " AND ec.fk_c_type_contact IN (";
-    $sql .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
-    $sql .= "  WHERE element = 'fichinter' AND code = 'OBJ'";
-    $sql .= " ) LIMIT 1";
-
-    $resql = $db->query($sql);
-    if ($resql && $db->num_rows($resql) > 0) {
-        $obj = $db->fetch_object($resql);
-        $addresses[] = [
-            'id'      => (int)$obj->rowid,
-            'name'    => trim($obj->lastname . ' ' . $obj->firstname),
-            'address' => $obj->address,
-            'zip'     => $obj->zip,
-            'town'    => $obj->town,
-            'phone'   => $obj->phone,
-            'email'   => $obj->email,
-            'note'    => $obj->note_public,
-        ];
-        $db->free($resql);
-        return $addresses;
-    }
-
-    // Fallback: fk_address from linked equipment - now a Thirdparty (Societe),
-    // not a Contact, see Equipment::isObjectAddressMigrated().
     $sql = "SELECT DISTINCT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
@@ -2054,6 +1969,21 @@ function handleLinkEquipment($method, $parts, $input) {
         $link_type = 'service';
     }
 
+    // Enforce: all equipment on a service order must share the same Objektadresse
+    // (see Equipment::getObjectAddressForDocument()) - mirrors the same guard in
+    // intervention_equipment.php's backend 'link'/'bulk_link' actions.
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+    $lockedAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $intervention_id);
+    if ($lockedAddress !== null) {
+        $candidate = new Equipment($db);
+        $candidate->fetch($equipment_id);
+        if ((int)$candidate->fk_address !== (int)$lockedAddress->id) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Equipment belongs to a different Objektadresse than the equipment already linked to this service order']);
+            return;
+        }
+    }
+
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= " (fk_intervention, fk_equipment, link_type, date_creation, fk_user_creat)";
     $sql .= " VALUES (";
@@ -2348,19 +2278,8 @@ function generateAcceptanceProtocol($fichinter, $user) {
         return false;
     }
 
-    // Get object address contact
-    $objectAddress = null;
-    $contacts = $fichinter->liste_contact(-1, 'external');
-    if (is_array($contacts)) {
-        foreach ($contacts as $contact) {
-            if ($contact['code'] == 'OBJ') {
-                $contactObj = new Contact($db);
-                $contactObj->fetch($contact['id']);
-                $objectAddress = $contactObj;
-                break;
-            }
-        }
-    }
+    // Get object address (Objektadresse, via linked equipment's fk_address)
+    $objectAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $fichinter->id);
 
     // Get equipment type labels
     $typeLabels = Equipment::getEquipmentTypesTranslated($db, $langs);
@@ -2454,9 +2373,8 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
     if ($objectAddress) {
         // Name
-        $objName = trim($objectAddress->firstname.' '.$objectAddress->lastname);
-        if (!empty($objName)) {
-            $pdf->Cell($colWidth - 6, 4, $objName, 0, 1, 'L');
+        if (!empty($objectAddress->name)) {
+            $pdf->Cell($colWidth - 6, 4, $objectAddress->name, 0, 1, 'L');
             $pdf->SetX($leftMargin + $colWidth + 3);
         }
         if ($objectAddress->address) {

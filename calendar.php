@@ -54,19 +54,19 @@ if (!$secret || !$token || !hash_equals($secret, $token)) {
 $sql  = "SELECT f.rowid, f.ref, f.dateo, f.datee, f.description,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.firstname as tech_firstname, u.lastname as tech_lastname,";
-$sql .= " COALESCE(MIN(addr_s.address), MIN(sp_obj.address)) as obj_address,";
-$sql .= " COALESCE(MIN(addr_s.zip), MIN(sp_obj.zip)) as obj_zip,";
-$sql .= " COALESCE(MIN(addr_s.town), MIN(sp_obj.town)) as obj_town,";
-$sql .= " COALESCE(MIN(addr_s.nom), TRIM(CONCAT(COALESCE(MIN(sp_obj.firstname), ''), ' ', COALESCE(MIN(sp_obj.lastname), '')))) as obj_contact_name";
+$sql .= " MIN(addr_s.address) as obj_address,";
+$sql .= " MIN(addr_s.zip) as obj_zip,";
+$sql .= " MIN(addr_s.town) as obj_town,";
+$sql .= " MIN(addr_s.nom) as obj_name";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail as eid ON eid.fk_intervention = f.rowid AND eid.fk_equipment IS NOT NULL";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = eid.fk_equipment";
+// Objektadresse via linked equipment (equipmentmanager_intervention_link, set as soon as
+// equipment is added to the order) - NOT via intervention_detail, which only has rows once
+// actual work/checklist entries exist and would leave the address empty on a fresh order.
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as lnk ON lnk.fk_intervention = f.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = lnk.fk_equipment";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = eq.fk_address";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."element_contact as ec ON ec.element_id = f.rowid";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_type_contact as ctc ON ctc.rowid = ec.fk_c_type_contact AND ctc.code = 'OBJ' AND ctc.element = 'fichinter'";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp_obj ON sp_obj.rowid = ec.fk_socpeople AND ctc.rowid IS NOT NULL";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
 $sql .= " AND f.fk_statut IN (0, 1)";   // open service orders only
 $sql .= " AND f.dateo IS NOT NULL";
@@ -139,7 +139,7 @@ if ($resql) {
 
         // Summary: "INT-0001 – Objektname" (fallback: Adresse, then Kundenname)
         $summary = $obj->ref;
-        $objName = trim($obj->obj_contact_name);
+        $objName = trim($obj->obj_name);
         if ($objName) {
             $summary .= ' - '.$objName;
         } elseif ($obj->obj_address) {
