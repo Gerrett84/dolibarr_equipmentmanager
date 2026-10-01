@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
     $requires_2fa = false;
     $totp2fa_verified = false;
 
-    if (!empty($conf->totp2fa->enabled)) {
+    if (isModEnabled('totp2fa')) {
         dol_include_once('/totp2fa/class/user2fa.class.php');
 
         if (class_exists('User2FA')) {
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 
     // Get trusted device info
     $trustedInfo = null;
-    if (!empty($conf->totp2fa->enabled)) {
+    if (isModEnabled('totp2fa')) {
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
         $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
@@ -174,7 +174,7 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
 
 // Get trusted device info
 $trustedDeviceInfo = null;
-if (!empty($conf->totp2fa->enabled)) {
+if (isModEnabled('totp2fa')) {
     // We need to get any logged-in user's trusted device - check saved credentials
     // Since this is a no-login page, we can only show this after login test is successful
 }

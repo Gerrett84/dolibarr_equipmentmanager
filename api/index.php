@@ -1102,7 +1102,7 @@ function handleChangePassword($method, $input) {
 function handleTotp2fa($method, $input) {
     global $db, $user, $conf, $mysoc;
 
-    if (empty($conf->totp2fa->enabled) || !dol_include_once('/totp2fa/class/user2fa.class.php') || !class_exists('User2FA')) {
+    if (!isModEnabled('totp2fa') || !dol_include_once('/totp2fa/class/user2fa.class.php') || !class_exists('User2FA')) {
         echo json_encode(['available' => false]);
         return;
     }
