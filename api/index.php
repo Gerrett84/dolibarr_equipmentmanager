@@ -230,6 +230,10 @@ try {
             handleChangePassword($method, $input);
             break;
 
+        case 'totp2fa':
+            handleTotp2fa($method, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -1089,6 +1093,141 @@ function handleChangePassword($method, $input) {
     }
 
     echo json_encode(['status' => 'ok']);
+}
+
+/**
+ * GET  /totp2fa — availability + status of the TOTP 2FA module for the current user
+ * POST /totp2fa  {action: start|verify|disable, ...} — set up / confirm / disable 2FA
+ */
+function handleTotp2fa($method, $input) {
+    global $db, $user, $conf, $mysoc;
+
+    if (empty($conf->totp2fa->enabled) || !dol_include_once('/totp2fa/class/user2fa.class.php') || !class_exists('User2FA')) {
+        echo json_encode(['available' => false]);
+        return;
+    }
+
+    $user->getrights();
+    if (!$user->hasRight('user', 'self', 'creer') && !$user->admin) {
+        echo json_encode(['available' => false]);
+        return;
+    }
+
+    $user2fa = new User2FA($db);
+    $user2fa->fk_user = $user->id;
+    $found = $user2fa->fetch($user->id);
+    $enabled = ($found > 0 && $user2fa->is_enabled);
+
+    if ($method === 'GET') {
+        echo json_encode(['available' => true, 'enabled' => $enabled]);
+        return;
+    }
+    if ($method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $action = (string) ($input['action'] ?? '');
+
+    if ($action === 'start') {
+        if ($enabled) {
+            http_response_code(400);
+            echo json_encode(['error' => '2FA ist bereits aktiviert']);
+            return;
+        }
+        if ($found > 0) {
+            $user2fa->delete($user);
+            $user2fa = new User2FA($db);
+            $user2fa->fk_user = $user->id;
+        }
+        if ($user2fa->create($user) <= 0) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Geheimnis konnte nicht erzeugt werden']);
+            return;
+        }
+        $issuer = !empty($mysoc->name) ? $mysoc->name : 'Dolibarr';
+        $uri = $user2fa->getQRCodeUrl($user->login, $issuer);
+        $secret = $user2fa->getPlainSecret();
+
+        $qr = '';
+        $qrLib = DOL_DOCUMENT_ROOT . '/includes/tecnickcom/tcpdf/tcpdf_barcodes_2d.php';
+        if (is_readable($qrLib)) {
+            require_once $qrLib;
+            $barcode = new TCPDF2DBarcode($uri, 'QRCODE,M');
+            $qr = $barcode->getBarcodeSVGcode(5, 5, 'black');
+            $qr = substr($qr, (int) strpos($qr, '<svg'));
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'secret' => trim(chunk_split($secret, 4, ' ')),
+            'uri' => $uri,
+            'qr_svg' => $qr,
+        ]);
+        return;
+    }
+
+    if ($action === 'verify') {
+        $code = preg_replace('/\s+/', '', (string) ($input['code'] ?? ''));
+        if ($found <= 0 || $enabled) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Keine Einrichtung offen. Bitte erneut starten.']);
+            return;
+        }
+        if (!preg_match('/^[0-9]{6}$/', $code)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Bitte den 6-stelligen Code aus der Authenticator-App eingeben']);
+            return;
+        }
+        if (!$user2fa->verifyCode($code)) {
+            http_response_code(400);
+            echo json_encode(['error' => $user2fa->error === 'Invalid code.' ? 'Ungültiger Code' : ($user2fa->error ?: 'Ungültiger Code')]);
+            return;
+        }
+        $user2fa->enable();
+        echo json_encode(['status' => 'ok', 'backup_codes' => $user2fa->generateBackupCodes(10)]);
+        return;
+    }
+
+    if ($action === 'disable') {
+        if (!$enabled) {
+            http_response_code(400);
+            echo json_encode(['error' => '2FA ist nicht aktiviert']);
+            return;
+        }
+        $password = (string) ($input['password'] ?? '');
+        $code = trim((string) ($input['code'] ?? ''));
+        if ($password === '' || $code === '') {
+            http_response_code(400);
+            echo json_encode(['error' => 'Passwort und 2FA-Code erforderlich']);
+            return;
+        }
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/security2.lib.php';
+        $login = checkLoginPassEntity($user->login, $password, (int) $user->entity > 0 ? (int) $user->entity : 1, array('dolibarr'));
+        if (!$login || $login === '--bad-login-validity--' || $login !== $user->login) {
+            sleep(1);
+            http_response_code(403);
+            echo json_encode(['error' => 'Passwort ist falsch']);
+            return;
+        }
+        $ok = $user2fa->verifyCode(preg_replace('/\s+/', '', $code));
+        if (!$ok && strpos($code, '-') !== false) {
+            $ok = $user2fa->verifyBackupCode($code);
+        }
+        if (!$ok) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Ungültiger 2FA-Code']);
+            return;
+        }
+        $user2fa->disable();
+        $user2fa->delete($user);
+        echo json_encode(['status' => 'ok']);
+        return;
+    }
+
+    http_response_code(400);
+    echo json_encode(['error' => 'Unbekannte Aktion']);
 }
 
 /**

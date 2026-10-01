@@ -539,6 +539,11 @@ if (!empty($conf->totp2fa->enabled)) {
             </form>
         </div>
 
+        <div class="card" id="totpCard" style="display:none;">
+            <h2>🛡️ Zwei-Faktor-Authentifizierung</h2>
+            <div id="totpContent"></div>
+        </div>
+
         <div class="section-title">Profil</div>
 
         <div class="card" id="signatureCard" style="display:none;">
@@ -739,6 +744,7 @@ if (!empty($conf->totp2fa->enabled)) {
             if (pwaToken) {
                 initSignature();
                 initPasswordChange();
+                initTotp2fa();
                 initCalendarSubscription();
             }
 
@@ -1153,6 +1159,123 @@ if (!empty($conf->totp2fa->enabled)) {
             btn.disabled = false;
             btn.textContent = 'Passwort ändern';
         });
+
+        // ─── Two-factor authentication (only if the totp2fa module is active) ──
+        function escHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function initTotp2fa() {
+            const card = document.getElementById('totpCard');
+            try {
+                const info = await apiCall('totp2fa');
+                if (!info.available) { card.style.display = 'none'; return; }
+                card.style.display = 'block';
+                renderTotp(info.enabled);
+            } catch (e) {
+                card.style.display = 'none';
+            }
+        }
+
+        function renderTotp(enabled) {
+            const el = document.getElementById('totpContent');
+            if (enabled) {
+                el.innerHTML = `
+                    <p class="help-text" style="margin-top:0;">✅ 2FA ist aktiviert. Beim Anmelden wird zusätzlich ein Code aus Ihrer Authenticator-App abgefragt.</p>
+                    <button type="button" class="btn btn-danger" id="btnTotpDisableStart">2FA deaktivieren</button>
+                    <div id="totpDisableBox" style="display:none;">
+                        <div class="form-group">
+                            <label class="form-label">Passwort</label>
+                            <input type="password" id="totp_dis_pw" class="form-input" autocomplete="current-password">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">2FA-Code oder Backup-Code</label>
+                            <input type="text" id="totp_dis_code" class="form-input" inputmode="numeric" autocomplete="one-time-code" maxlength="10" style="text-align:center;letter-spacing:4px;">
+                        </div>
+                        <button type="button" class="btn btn-danger" id="btnTotpDisable">Jetzt deaktivieren</button>
+                    </div>
+                    <p class="help-text" id="totpStatus"></p>`;
+                document.getElementById('btnTotpDisableStart').onclick = () => {
+                    document.getElementById('btnTotpDisableStart').style.display = 'none';
+                    document.getElementById('totpDisableBox').style.display = 'block';
+                };
+                document.getElementById('btnTotpDisable').onclick = totpDisable;
+            } else {
+                el.innerHTML = `
+                    <p class="help-text" style="margin-top:0;">Schützt Ihren Zugang zusätzlich mit einem Code aus einer Authenticator-App (z. B. Google Authenticator, Microsoft Authenticator, Aegis).</p>
+                    <button type="button" class="btn btn-primary" id="btnTotpStart">2FA einrichten</button>
+                    <p class="help-text" id="totpStatus"></p>`;
+                document.getElementById('btnTotpStart').onclick = totpStart;
+            }
+        }
+
+        async function totpStart() {
+            const status = document.getElementById('totpStatus');
+            const btn = document.getElementById('btnTotpStart');
+            btn.disabled = true;
+            try {
+                const d = await apiCall('totp2fa', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+                document.getElementById('totpContent').innerHTML = `
+                    <p class="help-text" style="margin-top:0;"><b>1.</b> Authenticator-App öffnen und das Konto hinzufügen:</p>
+                    <a class="btn btn-primary" style="text-decoration:none;text-align:center;" href="${escHtml(d.uri)}">In Authenticator-App öffnen</a>
+                    <p class="help-text">Funktioniert das nicht (oder richten Sie die App auf einem anderen Gerät ein), den QR-Code scannen oder das Geheimnis manuell eingeben:</p>
+                    <div style="text-align:center;background:#fff;padding:8px;border-radius:8px;max-width:240px;margin:0 auto 10px;">${d.qr_svg || ''}</div>
+                    <div style="text-align:center;font-family:monospace;font-size:15px;word-break:break-all;margin-bottom:12px;user-select:all;">${escHtml(d.secret)}</div>
+                    <p class="help-text"><b>2.</b> Den 6-stelligen Code aus der App eingeben:</p>
+                    <div class="form-group">
+                        <input type="text" id="totp_verify_code" class="form-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="text-align:center;letter-spacing:4px;">
+                    </div>
+                    <button type="button" class="btn btn-success" id="btnTotpVerify">Bestätigen und aktivieren</button>
+                    <button type="button" class="btn btn-secondary" id="btnTotpCancel">Abbrechen</button>
+                    <p class="help-text" id="totpStatus"></p>`;
+                const svg = document.querySelector('#totpContent svg');
+                if (svg) { svg.setAttribute('width', '100%'); svg.setAttribute('height', 'auto'); }
+                document.getElementById('btnTotpVerify').onclick = totpVerify;
+                document.getElementById('btnTotpCancel').onclick = () => renderTotp(false);
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+                btn.disabled = false;
+            }
+        }
+
+        async function totpVerify() {
+            const status = document.getElementById('totpStatus');
+            const btn = document.getElementById('btnTotpVerify');
+            const code = document.getElementById('totp_verify_code').value.trim();
+            btn.disabled = true;
+            status.textContent = '';
+            try {
+                const d = await apiCall('totp2fa', { method: 'POST', body: JSON.stringify({ action: 'verify', code }) });
+                document.getElementById('totpContent').innerHTML = `
+                    <p class="help-text" style="margin-top:0;">✅ 2FA ist jetzt aktiviert.</p>
+                    <p class="help-text"><b>Backup-Codes</b> – jeder Code gilt einmalig, falls das Handy nicht verfügbar ist. Jetzt sicher notieren, sie werden nicht erneut angezeigt:</p>
+                    <div style="text-align:center;font-family:monospace;font-size:16px;line-height:1.8;user-select:all;margin-bottom:12px;">${d.backup_codes.map(escHtml).join('<br>')}</div>
+                    <button type="button" class="btn btn-primary" id="btnTotpDone">Codes gesichert – fertig</button>`;
+                document.getElementById('btnTotpDone').onclick = () => renderTotp(true);
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+                btn.disabled = false;
+            }
+        }
+
+        async function totpDisable() {
+            const status = document.getElementById('totpStatus');
+            const btn = document.getElementById('btnTotpDisable');
+            btn.disabled = true;
+            status.textContent = '';
+            try {
+                await apiCall('totp2fa', { method: 'POST', body: JSON.stringify({
+                    action: 'disable',
+                    password: document.getElementById('totp_dis_pw').value,
+                    code: document.getElementById('totp_dis_code').value.trim()
+                }) });
+                renderTotp(false);
+                document.getElementById('totpStatus').textContent = '✅ 2FA wurde deaktiviert.';
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+                btn.disabled = false;
+            }
+        }
 
         // ─── Calendar Subscription ──────────────────────────────────────────
         async function initCalendarSubscription() {
