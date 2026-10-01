@@ -515,6 +515,30 @@ if (!empty($conf->totp2fa->enabled)) {
             <div id="trustedDeviceContent" class="status"></div>
         </div>
 
+        <div class="card" id="passwordCard" style="display:none;">
+            <h2>🔑 Passwort ändern</h2>
+            <p class="help-text" style="margin-top:0;">
+                Ändert Ihr Passwort für Dolibarr und die PWA. Mindestens 8 Zeichen.
+            </p>
+            <form id="passwordForm">
+                <input type="text" autocomplete="username" style="display:none;" tabindex="-1" aria-hidden="true">
+                <div class="form-group">
+                    <label class="form-label">Aktuelles Passwort</label>
+                    <input type="password" id="pw_current" class="form-input" required autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Neues Passwort</label>
+                    <input type="password" id="pw_new" class="form-input" required minlength="8" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Neues Passwort wiederholen</label>
+                    <input type="password" id="pw_new2" class="form-input" required minlength="8" autocomplete="new-password">
+                </div>
+                <p class="help-text" id="pwStatus"></p>
+                <button type="submit" class="btn btn-primary" id="btnPwChange">Passwort ändern</button>
+            </form>
+        </div>
+
         <div class="section-title">Profil</div>
 
         <div class="card" id="signatureCard" style="display:none;">
@@ -714,6 +738,7 @@ if (!empty($conf->totp2fa->enabled)) {
             pwaToken = await offlineDB.getMeta('pwa_token');
             if (pwaToken) {
                 initSignature();
+                initPasswordChange();
                 initCalendarSubscription();
             }
 
@@ -793,6 +818,7 @@ if (!empty($conf->totp2fa->enabled)) {
                         await offlineDB.setMeta('pwa_token', result.pwa_token);
                         pwaToken = result.pwa_token;
                         initSignature();
+                        initPasswordChange();
                         initCalendarSubscription();
                     }
                     // Keep username for display purposes only (no password)
@@ -1081,6 +1107,43 @@ if (!empty($conf->totp2fa->enabled)) {
             } catch (err) {
                 console.error('Signature delete error:', err);
             }
+        });
+
+        // ─── Password change ────────────────────────────────────────────────
+        function initPasswordChange() {
+            document.getElementById('passwordCard').style.display = 'block';
+        }
+
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('pwStatus');
+            const btn = document.getElementById('btnPwChange');
+            const current = document.getElementById('pw_current').value;
+            const next = document.getElementById('pw_new').value;
+            const next2 = document.getElementById('pw_new2').value;
+
+            if (next !== next2) {
+                status.textContent = '❌ Die neuen Passwörter stimmen nicht überein.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Ändere...';
+            status.textContent = '';
+
+            try {
+                await apiCall('change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ current_password: current, new_password: next })
+                });
+                status.textContent = '✅ Passwort wurde geändert.';
+                document.getElementById('passwordForm').reset();
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Passwort ändern';
         });
 
         // ─── Calendar Subscription ──────────────────────────────────────────

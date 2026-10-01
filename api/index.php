@@ -226,6 +226,10 @@ try {
             handleCalendarSubscription($method, $parts, $input);
             break;
 
+        case 'change-password':
+            handleChangePassword($method, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -1000,6 +1004,66 @@ function handleIntervention($method, $parts, $input) {
         ],
         'equipment' => $equipment
     ]);
+}
+
+/**
+ * Change the password of the authenticated user (POST: current_password, new_password)
+ */
+function handleChangePassword($method, $input) {
+    global $db, $user, $conf, $langs;
+
+    if ($method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    // Neither auth path (session / PWA token) loads the user's permissions
+    $user->getrights();
+    if (!$user->hasRight('user', 'self', 'password')) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Keine Berechtigung, das eigene Passwort zu ändern. Bitte einen Administrator kontaktieren.']);
+        return;
+    }
+
+    $current = (string) ($input['current_password'] ?? '');
+    $new = (string) ($input['new_password'] ?? '');
+
+    if ($current === '' || $new === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Aktuelles und neues Passwort erforderlich']);
+        return;
+    }
+    if (strlen($new) < 8) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Das neue Passwort muss mindestens 8 Zeichen lang sein']);
+        return;
+    }
+    if ($new === $current) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Das neue Passwort muss sich vom aktuellen unterscheiden']);
+        return;
+    }
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/security2.lib.php';
+
+    $login = checkLoginPassEntity($user->login, $current, (int) $user->entity > 0 ? (int) $user->entity : 1, array('dolibarr'));
+    if (!$login || $login === '--bad-login-validity--' || $login !== $user->login) {
+        sleep(1);
+        http_response_code(403);
+        echo json_encode(['error' => 'Aktuelles Passwort ist falsch']);
+        return;
+    }
+
+    // Keep the other sessions of this user alive: only the password changes
+    $result = $user->setPassword($user, $new, 0, 0, 0, 0, 0);
+    if (is_int($result) && $result < 0) {
+        http_response_code(400);
+        echo json_encode(['error' => $user->error ?: 'Passwort konnte nicht geändert werden']);
+        return;
+    }
+
+    echo json_encode(['status' => 'ok']);
 }
 
 /**
