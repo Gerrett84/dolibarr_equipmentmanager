@@ -351,6 +351,10 @@ PleaseSetAsDefaultInTableBelow=Bitte in der Tabelle unten auf "Als Standard setz
 CurrentDefault=Aktueller Standard
 SetAsDefault=Als Standard setzen
 
+# Admin setup page sections
+MyProfile=Mein Profil
+AlsoAvailableInPwa=Auch direkt in der PWA unter Einstellungen verfügbar - für Techniker ohne Backend-Zugriff.
+
 # Technician Signature Setup
 TechnicianSignature=Techniker Unterschrift
 NameForSignature=Name für Unterschrift

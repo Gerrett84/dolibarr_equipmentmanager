@@ -213,6 +213,10 @@ PleaseSetAsDefaultInTableBelow=Please click "Set as default" in the table below
 CurrentDefault=Current default
 SetAsDefault=Set as default
 
+# Admin setup page sections
+MyProfile=My Profile
+AlsoAvailableInPwa=Also available directly in the PWA under Settings - for technicians without backend access.
+
 # Technician Signature - v1.6.3
 
 TechnicianSignature=Technician Signature

@@ -39,6 +39,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+dol_include_once('/equipmentmanager/class/equipment.class.php');
 
 // Load translation files
 $langs->loadLangs(array("admin", "equipmentmanager@equipmentmanager", "interventions"));
@@ -335,12 +336,11 @@ $head[2][2] = 'checklists';
 
 print dol_get_fiche_head($head, 'setup', '', -1);
 
-// Quick Links
+// ─── Verwaltung ───────────────────────────────────────────────────────────────
+print load_fiche_titre($langs->trans("Configuration"), '', '');
+
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
-print '<tr class="liste_titre">';
-print '<td colspan="2">'.$langs->trans("Configuration").'</td>';
-print "</tr>\n";
 
 // Equipment Types Link
 print '<tr class="oddeven">';
@@ -353,21 +353,35 @@ print '<td>'.$langs->trans("Description").'</td>';
 print '<td>'.$langs->trans("ManageEquipmentAndServiceReports").'</td>';
 print '</tr>';
 
-// v6.0 Objektadresse migration report link
-print '<tr class="oddeven">';
-print '<td><span class="fa fa-map-marker paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrationReport").'</strong></td>';
-print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migration_report.php', 1).'">'.$langs->trans("ObjectAddressMigrationReport").'</a></td>';
-print '</tr>';
-
-// v6.0 Objektadresse migration link
-print '<tr class="oddeven">';
-print '<td><span class="fa fa-exchange-alt paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrate").'</strong></td>';
-print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migrate.php', 1).'">'.$langs->trans("ObjectAddressMigrate").'</a></td>';
-print '</tr>';
-
 print '</table>';
 print '</div>';
 print '<br>';
+
+// v6.0 Objektadresse migration - one-time setup step, hidden once already run so
+// the page doesn't stay cluttered with a tool nobody needs again afterwards.
+if (!Equipment::isObjectAddressMigrated()) {
+    print load_fiche_titre($langs->trans("ObjectAddressMigrate"), '', '');
+
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+
+    print '<tr class="oddeven">';
+    print '<td><span class="fa fa-map-marker paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrationReport").'</strong></td>';
+    print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migration_report.php', 1).'">'.$langs->trans("ObjectAddressMigrationReport").'</a></td>';
+    print '</tr>';
+
+    print '<tr class="oddeven">';
+    print '<td><span class="fa fa-exchange-alt paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrate").'</strong></td>';
+    print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migrate.php', 1).'">'.$langs->trans("ObjectAddressMigrate").'</a></td>';
+    print '</tr>';
+
+    print '</table>';
+    print '</div>';
+    print '<br>';
+}
+
+// ─── Serviceauftragsliste ───────────────────────────────────────────────────────
+print load_fiche_titre($langs->trans("ServiceOrderListColumns"), '', '');
 
 // Service Order List Column Settings
 print '<div class="div-table-responsive-no-min">';
@@ -375,9 +389,6 @@ print '<form action="'.$_SERVER["PHP_SELF"].'" method="POST">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="save_sol_columns">';
 print '<table class="noborder centpercent">';
-print '<tr class="liste_titre">';
-print '<td colspan="2"><span class="fa fa-list-ul paddingright"></span>'.$langs->trans("ServiceOrderListColumns").'</td>';
-print "</tr>\n";
 
 $solCols = array(
     'EQUIPMENTMANAGER_SOL_COL_TERMIN'      => array('label' => $langs->trans('Termin'),                     'default' => '1'),
@@ -456,8 +467,8 @@ print '</table>';
 print '</div>';
 print '<br>';
 
-// PDF Template Selection
-print '<br>';
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+print load_fiche_titre($langs->trans("PDF"), '', '');
 
 // Get list of available PDF models from database
 $def = array();
@@ -694,8 +705,11 @@ print '</div>';
 
 print '</form>';
 
-// Technician Signature Section
-print '<br><br>';
+// ─── Mein Profil ──────────────────────────────────────────────────────────────
+print '<br>';
+print load_fiche_titre($langs->trans("MyProfile"), '', '');
+print '<p class="opacitymedium">'.$langs->trans("AlsoAvailableInPwa").'</p>';
+
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre">';
@@ -874,8 +888,10 @@ print '</form>';
 </script>
 <?php
 
-// ─── iOS Calendar / ICS Feed ─────────────────────────────────────────────────
+// ─── Kalender ─────────────────────────────────────────────────────────────────
 print '<br>';
+print load_fiche_titre($langs->trans("CalendarFeed"), '', '');
+print '<p class="opacitymedium">'.$langs->trans("AlsoAvailableInPwa").'</p>';
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre">';
