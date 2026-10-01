@@ -518,7 +518,7 @@ if (!empty($conf->totp2fa->enabled)) {
         <div class="card" id="passwordCard" style="display:none;">
             <h2>🔑 Passwort ändern</h2>
             <p class="help-text" style="margin-top:0;">
-                Ändert Ihr Passwort für Dolibarr und die PWA. Mindestens 8 Zeichen.
+                Ändert Ihr Passwort für Dolibarr und die PWA. <span id="pwPolicyHint"></span>
             </p>
             <form id="passwordForm">
                 <input type="text" autocomplete="username" style="display:none;" tabindex="-1" aria-hidden="true">
@@ -528,11 +528,11 @@ if (!empty($conf->totp2fa->enabled)) {
                 </div>
                 <div class="form-group">
                     <label class="form-label">Neues Passwort</label>
-                    <input type="password" id="pw_new" class="form-input" required minlength="8" autocomplete="new-password">
+                    <input type="password" id="pw_new" class="form-input" required autocomplete="new-password">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Neues Passwort wiederholen</label>
-                    <input type="password" id="pw_new2" class="form-input" required minlength="8" autocomplete="new-password">
+                    <input type="password" id="pw_new2" class="form-input" required autocomplete="new-password">
                 </div>
                 <p class="help-text" id="pwStatus"></p>
                 <button type="submit" class="btn btn-primary" id="btnPwChange">Passwort ändern</button>
@@ -1110,8 +1110,16 @@ if (!empty($conf->totp2fa->enabled)) {
         });
 
         // ─── Password change ────────────────────────────────────────────────
-        function initPasswordChange() {
+        async function initPasswordChange() {
             document.getElementById('passwordCard').style.display = 'block';
+            try {
+                const policy = await apiCall('change-password');
+                if (policy.hint) document.getElementById('pwPolicyHint').textContent = policy.hint;
+                if (policy.min_length) {
+                    document.getElementById('pw_new').minLength = policy.min_length;
+                    document.getElementById('pw_new2').minLength = policy.min_length;
+                }
+            } catch (e) { /* offline: server validates anyway */ }
         }
 
         document.getElementById('passwordForm').addEventListener('submit', async (e) => {

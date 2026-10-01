@@ -1009,9 +1009,34 @@ function handleIntervention($method, $parts, $input) {
 /**
  * Change the password of the authenticated user (POST: current_password, new_password)
  */
+function getPasswordPolicy() {
+    $gen = getDolGlobalString('USER_PASSWORD_GENERATED');
+    $policy = ['min_length' => 8, 'hint' => 'Mindestens 8 Zeichen.'];
+    if ($gen === 'Standard' || $gen === 'standard') {
+        return ['min_length' => 12, 'hint' => 'Mindestens 12 Zeichen.'];
+    }
+    if (strtolower($gen) === 'perso') {
+        $t = explode(';', getDolGlobalString('USER_PASSWORD_PATTERN'));
+        if (count($t) >= 5) {
+            $len = max(1, (int) $t[0]);
+            $parts = ['mindestens ' . $len . ' Zeichen'];
+            if ((int) $t[1] > 0) $parts[] = (int) $t[1] . ' Großbuchstabe' . ((int) $t[1] > 1 ? 'n' : '');
+            if ((int) $t[2] > 0) $parts[] = (int) $t[2] . ' Ziffer' . ((int) $t[2] > 1 ? 'n' : '');
+            if ((int) $t[3] > 0) $parts[] = (int) $t[3] . ' Sonderzeichen';
+            if ((int) $t[4] > 0) $parts[] = 'nicht mehr als ' . (int) $t[4] . ' gleiche Zeichen hintereinander';
+            return ['min_length' => $len, 'hint' => 'Erforderlich: ' . implode(', ', $parts) . '.'];
+        }
+    }
+    return $policy;
+}
+
 function handleChangePassword($method, $input) {
     global $db, $user, $conf, $langs;
 
+    if ($method === 'GET') {
+        echo json_encode(getPasswordPolicy());
+        return;
+    }
     if ($method !== 'POST') {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
@@ -1034,11 +1059,6 @@ function handleChangePassword($method, $input) {
         echo json_encode(['error' => 'Aktuelles und neues Passwort erforderlich']);
         return;
     }
-    if (strlen($new) < 8) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Das neue Passwort muss mindestens 8 Zeichen lang sein']);
-        return;
-    }
     if ($new === $current) {
         http_response_code(400);
         echo json_encode(['error' => 'Das neue Passwort muss sich vom aktuellen unterscheiden']);
@@ -1055,11 +1075,16 @@ function handleChangePassword($method, $input) {
         return;
     }
 
+    $langs->setDefaultLang('de_DE');
+    $langs->load('other');
+
     // Keep the other sessions of this user alive: only the password changes
     $result = $user->setPassword($user, $new, 0, 0, 0, 0, 0);
     if (is_int($result) && $result < 0) {
         http_response_code(400);
-        echo json_encode(['error' => $user->error ?: 'Passwort konnte nicht geändert werden']);
+        $msg = trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode((string) $user->error))));
+        $policy = getPasswordPolicy();
+        echo json_encode(['error' => ($msg ?: 'Passwort konnte nicht geändert werden'), 'hint' => $policy['hint']]);
         return;
     }
 
