@@ -314,7 +314,7 @@ Intervention=Serviceauftrag
 
 ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
 NoConfigurationRequired=Keine Konfiguration erforderlich
-ModuleSetup=Moduleinrichtung
+ModuleSetup=Allgemein
 
 # PDF Export - v1.6.1
 
@@ -872,3 +872,14 @@ ObjectAddressRunMigration=Migration durchführen
 ObjectAddressNothingToMigrate=Keine Anlagen mit migrierbarer Objektadresse gefunden.
 ObjectAddressMigrationPending=Bitte zuerst die v6-Datenbank-Migration ausführen (Modul-Einstellungen → Objektadresse-Migration).
 ShowAllObjectAddresses=Alle Objektadressen anzeigen
+EquipmentManagerSetup=Equipment Manager - Einrichtung
+PdfAndDesign=PDF & Design
+PdfTemplates=PDF-Vorlagen
+SettingsInSidebar=Weitere Einstellungen
+SettingsInSidebarHelp=Diese Einstellungen sind jetzt direkt in der linken Seitenleiste unter "Einstellungen" erreichbar:
+MyProfileHelp=Name und Unterschrift des Technikers für Serviceberichte.
+CalendarFeedHelpShort=Kalender-Abo-URL für die iOS Kalender-App.
+ServiceOrderListColumnsHelp=Legt fest, welche Spalten in der Serviceauftragsliste angezeigt werden (gilt für alle Benutzer).
+OpenPage=Öffnen
+EMSettings=Einstellungen
+MenuServiceOrderColumns=Spalten Serviceaufträge

@@ -442,6 +442,93 @@ class modEquipmentManager extends DolibarrModules
             'user' => 2,
         );
 
+        // ============================================
+        // Überschrift 6: Einstellungen (Parent) - per-user + list settings, not admin-only
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'EMSettings',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_settings',
+            'url' => '/equipmentmanager/profile.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Mein Profil (Techniker-Name + Unterschrift)
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'MyProfile',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/profile.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Kalender-Abo
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'CalendarFeed',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/calendar_settings.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Spalten der Serviceauftragsliste (globale Einstellung, nur Admin)
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'MenuServiceOrderColumns',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/service_order_list_settings.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '$user->admin',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Moduleinrichtung (nur Admin)
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'ModuleSetup',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/admin/setup.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '$user->admin',
+            'target' => '',
+            'user' => 2,
+        );
+
         // Tabs
         $this->tabs = array(
             // Equipment tab auf Intervention
