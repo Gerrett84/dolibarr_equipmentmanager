@@ -1228,8 +1228,6 @@ if (!empty($conf->totp2fa->enabled)) {
                     <button type="button" class="btn btn-success" id="btnTotpVerify">Bestätigen und aktivieren</button>
                     <button type="button" class="btn btn-secondary" id="btnTotpCancel">Abbrechen</button>
                     <p class="help-text" id="totpStatus"></p>`;
-                const svg = document.querySelector('#totpContent svg');
-                if (svg) { svg.setAttribute('width', '100%'); svg.setAttribute('height', 'auto'); }
                 document.getElementById('btnTotpVerify').onclick = totpVerify;
                 document.getElementById('btnTotpCancel').onclick = () => renderTotp(false);
             } catch (err) {

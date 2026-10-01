@@ -1157,6 +1157,7 @@ function handleTotp2fa($method, $input) {
             $barcode = new TCPDF2DBarcode($uri, 'QRCODE,M');
             $qr = $barcode->getBarcodeSVGcode(5, 5, 'black');
             $qr = substr($qr, (int) strpos($qr, '<svg'));
+            $qr = preg_replace('/<svg width="(\d+)" height="(\d+)"/', '<svg width="100%" viewBox="0 0 $1 $2"', $qr, 1);
         }
 
         echo json_encode([
