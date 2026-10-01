@@ -218,6 +218,14 @@ try {
             handleSchedule($method, $parts, $input);
             break;
 
+        case 'technician-signature':
+            handleTechnicianSignature($method, $parts, $input);
+            break;
+
+        case 'calendar-subscription':
+            handleCalendarSubscription($method, $parts, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -1659,6 +1667,113 @@ function handleSignature($method, $parts, $input) {
             'signed_pdf' => $result['signed_pdf'] ?? null
         ]);
     }
+}
+
+/**
+ * GET /technician-signature - Fetch the current user's saved signature + name
+ * POST /technician-signature - Save signature image and/or technician name
+ * DELETE /technician-signature - Remove the saved signature image
+ *
+ * Mirrors admin/setup.php's signature section, which is unreachable for
+ * technicians without Dolibarr admin rights (they only get PWA access).
+ */
+function handleTechnicianSignature($method, $parts, $input) {
+    global $db, $user, $langs, $conf;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+
+    $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+
+    if ($method === 'GET') {
+        $technicianName = getDolGlobalString('EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $user->getFullName($langs));
+        $hasSignature = file_exists($signature_file);
+        $dataUrl = null;
+        if ($hasSignature) {
+            $dataUrl = 'data:image/png;base64,'.base64_encode(file_get_contents($signature_file));
+        }
+        echo json_encode([
+            'status' => 'ok',
+            'has_signature' => $hasSignature,
+            'signature_data_url' => $dataUrl,
+            'technician_name' => $technicianName
+        ]);
+        return;
+    }
+
+    if ($method === 'POST') {
+        $technicianName = trim($input['technician_name'] ?? '');
+        $signatureData = $input['signature_data'] ?? '';
+
+        if (!empty($technicianName)) {
+            dolibarr_set_const($db, 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $technicianName, 'chaine', 0, '', $conf->entity);
+        } else {
+            dolibarr_del_const($db, 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $conf->entity);
+        }
+
+        if (!empty($signatureData)) {
+            $signature_dir = DOL_DATA_ROOT.'/equipmentmanager/signatures';
+            if (!is_dir($signature_dir)) {
+                dol_mkdir($signature_dir);
+            }
+            $signatureData = str_replace('data:image/png;base64,', '', $signatureData);
+            $signatureData = str_replace(' ', '+', $signatureData);
+            $imageData = base64_decode($signatureData);
+
+            if (file_put_contents($signature_file, $imageData) === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Could not save signature']);
+                return;
+            }
+        }
+
+        echo json_encode(['status' => 'ok']);
+        return;
+    }
+
+    if ($method === 'DELETE') {
+        if (file_exists($signature_file) && !unlink($signature_file)) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Could not delete signature']);
+            return;
+        }
+        echo json_encode(['status' => 'ok']);
+        return;
+    }
+
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+}
+
+/**
+ * GET /calendar-subscription - Return the iOS/webcal subscription URL.
+ * Auto-generates the shared entity-wide token if none exists yet (harmless,
+ * nothing depends on it yet); does NOT regenerate an existing one, since that
+ * would break every other technician's already-subscribed calendar - token
+ * rotation stays an admin-only action in admin/setup.php.
+ */
+function handleCalendarSubscription($method, $parts, $input) {
+    global $db, $conf;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+
+    if ($method !== 'GET') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $calSecret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
+    if (empty($calSecret)) {
+        $calSecret = bin2hex(random_bytes(24));
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_CAL_SECRET', $calSecret, 'chaine', 0, '', $conf->entity);
+    }
+
+    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode($calSecret);
+    echo json_encode([
+        'status' => 'ok',
+        'url' => $calUrl,
+        'webcal_url' => str_replace(array('https://', 'http://'), 'webcal://', $calUrl)
+    ]);
 }
 
 /**

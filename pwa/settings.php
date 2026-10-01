@@ -160,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 
 $title = 'Einstellungen';
 $dolibarrUrl = dol_buildpath('/', 1);
+$apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 
 // Brand color (Setup -> Equipment Manager -> Brand color). Empty by default,
 // so this changes nothing until an admin picks a color. Mirrors index.php's
@@ -291,6 +292,17 @@ if (!empty($conf->totp2fa->enabled)) {
             font-size: 16px;
             color: var(--text-primary);
         }
+        .section-title {
+            margin: 20px 0 8px 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
         .form-group {
             margin-bottom: 10px;
         }
@@ -413,6 +425,38 @@ if (!empty($conf->totp2fa->enabled)) {
             color: #666;
             margin-top: 8px;
         }
+        .sig-pad-wrap {
+            border: 2px solid var(--input-border);
+            border-radius: 8px;
+            display: block;
+            background: #fff;
+            touch-action: none;
+        }
+        .sig-pad-wrap canvas {
+            display: block;
+            width: 100%;
+            height: 150px;
+            cursor: crosshair;
+        }
+        .sig-preview {
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            max-width: 100%;
+            background: #fff;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-row .btn {
+            margin-bottom: 0;
+        }
+        .btn-secondary {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
     </style>
 </head>
 <body>
@@ -424,6 +468,8 @@ if (!empty($conf->totp2fa->enabled)) {
 
     <div class="content">
         <div id="messageArea"></div>
+
+        <div class="section-title">Konto</div>
 
         <div class="card">
             <h2>Login-Daten speichern</h2>
@@ -456,6 +502,63 @@ if (!empty($conf->totp2fa->enabled)) {
             </form>
         </div>
 
+        <div class="card" id="statusCard">
+            <h2>Gespeicherte Daten</h2>
+            <div id="statusContent" class="status">
+                <div class="status-icon">⏳</div>
+                <p>Lade...</p>
+            </div>
+        </div>
+
+        <div class="card" id="trustedDeviceCard" style="display:none;">
+            <h2>🔒 Vertrauenswürdiges Gerät</h2>
+            <div id="trustedDeviceContent" class="status"></div>
+        </div>
+
+        <div class="section-title">Profil</div>
+
+        <div class="card" id="signatureCard" style="display:none;">
+            <h2>✍️ Techniker-Unterschrift</h2>
+            <p class="help-text" style="margin-top:0;">
+                Wird beim Kunden-Unterschreiben im Servicebericht als Ihre Unterschrift verwendet.
+            </p>
+
+            <div class="form-group">
+                <label class="form-label">Name für die Unterschrift</label>
+                <input type="text" id="technician_name" class="form-input" placeholder="Ihr Name">
+            </div>
+
+            <div id="sigExisting" style="display:none;">
+                <img id="sigExistingImg" class="sig-preview" alt="Aktuelle Unterschrift">
+            </div>
+
+            <div id="sigPadWrap" class="sig-pad-wrap">
+                <canvas id="signaturePad"></canvas>
+            </div>
+
+            <p class="help-text" id="sigStatus"></p>
+
+            <div class="btn-row" style="margin-top:10px;">
+                <button type="button" class="btn btn-secondary" id="btnSigClear">Löschen (Zeichnung)</button>
+                <button type="button" class="btn btn-primary" id="btnSigSave">Speichern</button>
+            </div>
+            <button type="button" class="btn btn-danger" id="btnSigDelete" style="margin-top:8px;display:none;">
+                Unterschrift entfernen
+            </button>
+        </div>
+
+        <div class="section-title">Kalender</div>
+
+        <div class="card" id="calendarCard" style="display:none;">
+            <h2>📅 Kalender-Abo</h2>
+            <p class="help-text" style="margin-top:0;">
+                Alle offenen Serviceaufträge als Termine in Ihrer Kalender-App abonnieren (z.B. iPhone-Kalender, Google Calendar).
+            </p>
+            <div id="calendarContent" class="status">Lade...</div>
+        </div>
+
+        <div class="section-title">Darstellung</div>
+
         <div class="card">
             <h2>🎨 Design</h2>
             <div class="theme-switcher">
@@ -477,23 +580,14 @@ if (!empty($conf->totp2fa->enabled)) {
             </p>
         </div>
 
-        <div class="card" id="statusCard">
-            <h2>Gespeicherte Daten</h2>
-            <div id="statusContent" class="status">
-                <div class="status-icon">⏳</div>
-                <p>Lade...</p>
-            </div>
-        </div>
-
-        <div class="card" id="trustedDeviceCard" style="display:none;">
-            <h2>🔒 Vertrauenswürdiges Gerät</h2>
-            <div id="trustedDeviceContent" class="status"></div>
-        </div>
+        <div class="section-title">Benachrichtigungen</div>
 
         <div class="card">
             <h2>📧 E-Mail</h2>
             <div id="emailSettingsList"></div>
         </div>
+
+        <div class="section-title">Daten</div>
 
         <div class="card">
             <h2>Offline-Daten</h2>
@@ -512,7 +606,22 @@ if (!empty($conf->totp2fa->enabled)) {
 
     <script src="db.js"></script>
     <script>
+        const CONFIG = { apiBase: '<?php echo $apiBase; ?>' };
         let savedCredentials = null;
+        let pwaToken = null;
+
+        async function apiCall(route, options = {}) {
+            const url = CONFIG.apiBase + '?route=' + encodeURIComponent(route);
+            const headers = { 'Content-Type': 'application/json', ...options.headers };
+            if (pwaToken) headers['X-PWA-Token'] = pwaToken;
+
+            const response = await fetch(url, { headers, ...options });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || ('HTTP ' + response.status));
+            }
+            return data;
+        }
 
         // Theme functions
         function setTheme(theme) {
@@ -602,6 +711,12 @@ if (!empty($conf->totp2fa->enabled)) {
             initTheme();
             initEmailSettings();
 
+            pwaToken = await offlineDB.getMeta('pwa_token');
+            if (pwaToken) {
+                initSignature();
+                initCalendarSubscription();
+            }
+
             document.getElementById('settingsForm').addEventListener('submit', handleSubmit);
         });
 
@@ -676,6 +791,9 @@ if (!empty($conf->totp2fa->enabled)) {
                     // Save token (not password) for future auto-login
                     if (result.pwa_token) {
                         await offlineDB.setMeta('pwa_token', result.pwa_token);
+                        pwaToken = result.pwa_token;
+                        initSignature();
+                        initCalendarSubscription();
                     }
                     // Keep username for display purposes only (no password)
                     await offlineDB.setMeta('credentials', {
@@ -834,6 +952,162 @@ if (!empty($conf->totp2fa->enabled)) {
             `;
 
             card.style.display = 'block';
+        }
+
+        // ─── Technician Signature ───────────────────────────────────────────
+        let sigCtx = null;
+        let sigDrawing = false;
+        let sigLastX = 0, sigLastY = 0;
+        let sigHasStrokes = false;
+
+        function setupSignatureCanvas() {
+            const canvas = document.getElementById('signaturePad');
+            const wrap = document.getElementById('sigPadWrap');
+            const rect = wrap.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = 150 * dpr;
+            sigCtx = canvas.getContext('2d');
+            sigCtx.scale(dpr, dpr);
+            sigCtx.strokeStyle = '#000';
+            sigCtx.lineWidth = 2;
+            sigCtx.lineCap = 'round';
+            sigCtx.lineJoin = 'round';
+
+            const getPos = (e) => {
+                const r = canvas.getBoundingClientRect();
+                if (e.touches && e.touches.length) {
+                    return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+                }
+                return { x: e.clientX - r.left, y: e.clientY - r.top };
+            };
+
+            const start = (e) => {
+                e.preventDefault();
+                sigDrawing = true;
+                const p = getPos(e);
+                sigLastX = p.x;
+                sigLastY = p.y;
+            };
+            const move = (e) => {
+                if (!sigDrawing) return;
+                e.preventDefault();
+                const p = getPos(e);
+                sigCtx.beginPath();
+                sigCtx.moveTo(sigLastX, sigLastY);
+                sigCtx.lineTo(p.x, p.y);
+                sigCtx.stroke();
+                sigLastX = p.x;
+                sigLastY = p.y;
+                sigHasStrokes = true;
+            };
+            const end = () => { sigDrawing = false; };
+
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            canvas.addEventListener('mouseup', end);
+            canvas.addEventListener('mouseout', end);
+            canvas.addEventListener('touchstart', start, { passive: false });
+            canvas.addEventListener('touchmove', move, { passive: false });
+            canvas.addEventListener('touchend', end);
+        }
+
+        function clearSignaturePad() {
+            const canvas = document.getElementById('signaturePad');
+            if (sigCtx) sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+            sigHasStrokes = false;
+        }
+
+        async function initSignature() {
+            const card = document.getElementById('signatureCard');
+            card.style.display = 'block';
+            setupSignatureCanvas();
+
+            try {
+                const data = await apiCall('technician-signature');
+                document.getElementById('technician_name').value = data.technician_name || '';
+
+                const existingWrap = document.getElementById('sigExisting');
+                const existingImg = document.getElementById('sigExistingImg');
+                const deleteBtn = document.getElementById('btnSigDelete');
+                if (data.has_signature && data.signature_data_url) {
+                    existingImg.src = data.signature_data_url;
+                    existingWrap.style.display = 'block';
+                    deleteBtn.style.display = 'block';
+                    document.getElementById('sigStatus').textContent = 'Zum Ändern unten neu zeichnen und speichern.';
+                } else {
+                    existingWrap.style.display = 'none';
+                    deleteBtn.style.display = 'none';
+                    document.getElementById('sigStatus').textContent = 'Noch keine Unterschrift hinterlegt – unten zeichnen.';
+                }
+            } catch (err) {
+                console.error('Signature load error:', err);
+                document.getElementById('sigStatus').textContent = 'Fehler beim Laden.';
+            }
+        }
+
+        document.getElementById('btnSigClear').addEventListener('click', clearSignaturePad);
+
+        document.getElementById('btnSigSave').addEventListener('click', async () => {
+            const btn = document.getElementById('btnSigSave');
+            const name = document.getElementById('technician_name').value.trim();
+            const canvas = document.getElementById('signaturePad');
+
+            btn.disabled = true;
+            btn.textContent = 'Speichere...';
+
+            try {
+                const signatureData = sigHasStrokes ? canvas.toDataURL('image/png') : '';
+                await apiCall('technician-signature', {
+                    method: 'POST',
+                    body: JSON.stringify({ technician_name: name, signature_data: signatureData })
+                });
+                document.getElementById('sigStatus').textContent = '✅ Gespeichert.';
+                await initSignature();
+            } catch (err) {
+                console.error('Signature save error:', err);
+                document.getElementById('sigStatus').textContent = '❌ Fehler beim Speichern.';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Speichern';
+        });
+
+        document.getElementById('btnSigDelete').addEventListener('click', async () => {
+            if (!confirm('Unterschrift wirklich entfernen?')) return;
+            try {
+                await apiCall('technician-signature', { method: 'DELETE' });
+                await initSignature();
+            } catch (err) {
+                console.error('Signature delete error:', err);
+            }
+        });
+
+        // ─── Calendar Subscription ──────────────────────────────────────────
+        async function initCalendarSubscription() {
+            const card = document.getElementById('calendarCard');
+            card.style.display = 'block';
+            const content = document.getElementById('calendarContent');
+
+            try {
+                const data = await apiCall('calendar-subscription');
+                content.innerHTML = `
+                    <a href="${data.webcal_url}" class="btn btn-primary" style="text-decoration:none;text-align:center;">📅 Im Kalender abonnieren</a>
+                    <p class="help-text" style="word-break:break-all;">${data.url}</p>
+                    <button type="button" class="btn btn-secondary" id="btnCopyCalUrl">Link kopieren</button>
+                `;
+                document.getElementById('btnCopyCalUrl').addEventListener('click', async () => {
+                    const copyBtn = document.getElementById('btnCopyCalUrl');
+                    try {
+                        await navigator.clipboard.writeText(data.url);
+                        copyBtn.textContent = '✅ Kopiert';
+                        setTimeout(() => { copyBtn.textContent = 'Link kopieren'; }, 2000);
+                    } catch (e) { /* clipboard may be unavailable */ }
+                });
+            } catch (err) {
+                console.error('Calendar subscription load error:', err);
+                content.innerHTML = '<p class="help-text">Fehler beim Laden.</p>';
+            }
         }
     </script>
 </body>
