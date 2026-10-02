@@ -4755,7 +4755,6 @@ class ServiceReportApp {
         // Filter based on maintenance_month — same logic as backend maintenance dashboard
         const today = new Date();
         const currentMonth = today.getMonth() + 1; // 1-12
-        const nextYear = today.getFullYear() + 1;
 
         const filteredGroups = groups.map(group => {
             const equipment = group.equipment.map(eq => {

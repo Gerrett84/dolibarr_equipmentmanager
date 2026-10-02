@@ -2829,7 +2829,7 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
         };
     </script>
     <script src="db.js?v=5.5.0"></script>
-    <script src="app.js?v=5.5.0"></script>
+    <script src="app.js?v=6.0.1"></script>
 
     <?php if (file_exists('sw.js')): ?>
     <script>

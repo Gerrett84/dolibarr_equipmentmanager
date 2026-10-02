@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.0.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.0.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -354,6 +354,10 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.0.1 (2026-10-02)
+
+- **Fix: PWA startete nicht (`SyntaxError: Cannot declare a const variable twice: 'nextYear'`)** – Beim Merge von v5-dev entstand in `pwa/app.js` eine doppelte Deklaration; behoben. Service-Worker-Cache auf v36 angehoben, damit installierte PWAs die defekte Datei verwerfen
 
 ### v6.0.0 (2026-09-30)
 
@@ -806,6 +810,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.0.0
+**Current Version:** 6.0.1
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
