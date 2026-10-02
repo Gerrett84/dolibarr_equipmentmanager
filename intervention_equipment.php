@@ -24,6 +24,29 @@ dol_include_once('/equipmentmanager/class/documentequipmentlink.class.php');
 
 $langs->loadLangs(array('interventions', 'equipmentmanager@equipmentmanager'));
 
+/**
+ * The Objektadresse (fk_address) already in use by this intervention's linked
+ * equipment, if any - all equipment on one service order must share it, since
+ * it drives the document's Objektadresse (Equipment::getObjectAddressForDocument()).
+ *
+ * @param DoliDB $db Database handler
+ * @param int $intervention_id Intervention id
+ * @return int 0 if no equipment with an Objektadresse is linked yet
+ */
+function getLockedObjectAddressId($db, $intervention_id)
+{
+    $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+    $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
+    $sql .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+    $sql .= " ORDER BY l.date_creation ASC LIMIT 1";
+    $resql = $db->query($sql);
+    if ($resql && ($row = $db->fetch_object($resql))) {
+        return (int)$row->fk_address;
+    }
+    return 0;
+}
+
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
@@ -68,6 +91,17 @@ if ($action == 'import_from_commande' && $permissiontoadd) {
 
 // Link equipment with type (single)
 if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service'))) {
+    $lockedAddressId = getLockedObjectAddressId($db, $object->id);
+    if ($lockedAddressId > 0) {
+        $candidate = new Equipment($db);
+        $candidate->fetch($equipment_id);
+        if ((int)$candidate->fk_address !== $lockedAddressId) {
+            setEventMessages($langs->trans('EquipmentAddressMismatch'), null, 'errors');
+            header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
+            exit;
+        }
+    }
+
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= " (fk_intervention, fk_equipment, link_type, date_creation, fk_user_creat)";
     $sql .= " VALUES (".(int)$object->id.", ".(int)$equipment_id.", '".$db->escape($link_type)."', ";
@@ -96,8 +130,19 @@ $toselect = GETPOST('toselect', 'array');
 if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array($link_type, array('maintenance', 'service'))) {
     $success_count = 0;
     $skip_count = 0;
+    $mismatch_count = 0;
+    $lockedAddressId = getLockedObjectAddressId($db, $object->id);
 
     foreach ($toselect as $eq_id) {
+        if ($lockedAddressId > 0) {
+            $candidate = new Equipment($db);
+            $candidate->fetch((int)$eq_id);
+            if ((int)$candidate->fk_address !== $lockedAddressId) {
+                $mismatch_count++;
+                continue;
+            }
+        }
+
         $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
         $sql .= " (fk_intervention, fk_equipment, link_type, date_creation, fk_user_creat)";
         $sql .= " VALUES (".(int)$object->id.", ".(int)$eq_id.", '".$db->escape($link_type)."', ";
@@ -118,6 +163,9 @@ if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array(
     }
     if ($skip_count > 0) {
         setEventMessages($langs->trans('EquipmentAlreadyLinked').' ('.$skip_count.')', null, 'warnings');
+    }
+    if ($mismatch_count > 0) {
+        setEventMessages($langs->trans('EquipmentAddressMismatch').' ('.$mismatch_count.')', null, 'errors');
     }
 
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
@@ -267,6 +315,296 @@ if ($object->id > 0) {
     // Type labels (dynamic from database)
     $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
 
+    // Section 3: AVAILABLE EQUIPMENT
+    // Default: equipment whose fk_soc matches this intervention's customer.
+    // "Alle anzeigen" (show_all) drops that filter (e.g. property manager placing
+    // an order for equipment whose fk_soc is still the original installer). An
+    // optional Objektadresse filter narrows down further - this replaces the old
+    // workflow of adding an "Objektadresse" contact to the intervention itself,
+    // which no longer works: that contact link (System B) is unrelated to
+    // Equipment.fk_address (System A, now a Thirdparty) since the v6 migration.
+    if ($object->socid > 0) {
+        $show_all = GETPOST('show_all', 'int');
+        $filter_address = GETPOST('filter_address', 'int');
+
+        // Once equipment with an Objektadresse is already linked, lock the
+        // picker to that address - a service order must not mix equipment from
+        // different Objektadressen (see Equipment::getObjectAddressForDocument()).
+        $lockedAddressId = getLockedObjectAddressId($db, $object->id);
+        if ($lockedAddressId > 0) {
+            $filter_address = $lockedAddressId;
+            $show_all = 1; // ignore fk_soc - the address itself is now the only relevant filter
+        }
+
+        // Objektadresse filter dropdown: addresses actually in use among the
+        // relevant equipment (scoped to the customer unless show_all is checked)
+        $address_options = array();
+        $sql_fa = "SELECT DISTINCT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+        $sql_fa .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.fk_address = s.rowid";
+        $sql_fa .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+        if (!$show_all) {
+            $sql_fa .= " AND e.fk_soc = ".(int)$object->socid;
+        }
+        $sql_fa .= " ORDER BY s.town, s.nom";
+        $resql_fa = $db->query($sql_fa);
+        if ($resql_fa) {
+            while ($obj_fa = $db->fetch_object($resql_fa)) {
+                $fa_label = $obj_fa->nom;
+                if ($obj_fa->town) $fa_label .= ' - '.$obj_fa->town;
+                $address_options[$obj_fa->rowid] = $fa_label;
+            }
+        }
+
+        // Fetch equipment
+        $sql_eq = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
+        $sql_eq .= " WHERE entity IN (".getEntity('equipmentmanager').")";
+        if (!$show_all) {
+            $sql_eq .= " AND fk_soc = ".(int)$object->socid;
+        }
+        if ($filter_address > 0) {
+            $sql_eq .= " AND fk_address = ".(int)$filter_address;
+        }
+        $sql_eq .= " ORDER BY equipment_number ASC";
+
+        $equipments = array();
+        $resql_eq = $db->query($sql_eq);
+        if ($resql_eq) {
+            while ($obj_eq = $db->fetch_object($resql_eq)) {
+                $eq = new Equipment($db);
+                if ($eq->fetch($obj_eq->rowid) > 0) {
+                    $equipments[] = $eq;
+                }
+            }
+        }
+
+        // Filter out already linked equipment
+        $available_equipment = array();
+        foreach ($equipments as $equipment) {
+            if (!in_array($equipment->id, $linked_equipment_ids)) {
+                $available_equipment[] = $equipment;
+            }
+        }
+
+        // Filter bar (GET, reloads the page with the chosen filters) - locked to a
+        // single, fixed Objektadresse once equipment from one has been linked.
+        if ($lockedAddressId > 0) {
+            print '<div style="margin-bottom: 8px;">';
+            print '<span class="fa fa-lock paddingright"></span>';
+            print $langs->trans('ObjectAddress').': <strong>'.dol_escape_htmltag($address_options[$lockedAddressId] ?? '').'</strong>';
+            print ' <span class="opacitymedium">('.$langs->trans('EquipmentAddressLockedHint').')</span>';
+            print '</div>';
+        } else {
+            print '<form method="GET" action="'.$_SERVER["PHP_SELF"].'" style="margin-bottom: 8px;">';
+            print '<input type="hidden" name="id" value="'.$object->id.'">';
+            print '<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">';
+            print '<select name="filter_address" id="filter_address_select" class="flat minwidth300" onchange="this.form.submit();">';
+            print '<option value="">'.$langs->trans('ObjectAddress').' - '.$langs->trans('SelectAll').'</option>';
+            foreach ($address_options as $addr_id => $addr_label) {
+                $sel = ($filter_address == $addr_id) ? ' selected' : '';
+                print '<option value="'.$addr_id.'"'.$sel.'>'.dol_escape_htmltag($addr_label).'</option>';
+            }
+            print '</select>';
+            print ajax_combobox('filter_address_select');
+            print '<label><input type="checkbox" name="show_all" value="1"'.($show_all ? ' checked' : '').' onchange="this.form.submit();"> '.$langs->trans('ShowAllObjectAddresses').'</label>';
+            print '</div>';
+            print '</form>';
+        }
+
+        // Start form for bulk actions
+        print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="bulkform">';
+        print '<input type="hidden" name="token" value="'.newToken().'">';
+        print '<input type="hidden" name="id" value="'.$object->id.'">';
+        print '<input type="hidden" name="action" value="bulk_link">';
+        print '<input type="hidden" name="link_type" id="bulk_link_type" value="">';
+
+        print '<div class="div-table-responsive-no-min">';
+        print '<table class="noborder centpercent">';
+        print '<tr class="liste_titre">';
+        print '<th colspan="7">';
+        print '<span class="fa fa-list paddingright"></span>';
+        if ($filter_address > 0 && isset($address_options[$filter_address])) {
+            print $langs->trans('EquipmentForAddress');
+            print ': <strong>'.dol_escape_htmltag($address_options[$filter_address]).'</strong>';
+        } else {
+            print $langs->trans('AvailableEquipmentsForCustomer');
+        }
+        print ' <span class="badge">'.count($available_equipment).'</span>';
+        print '</th>';
+        print '</tr>';
+
+        // Bulk action bar
+        if ($permissiontoadd && count($available_equipment) > 0) {
+            print '<tr class="liste_titre">';
+            print '<td colspan="7" class="nobottom" style="padding: 8px;">';
+            print '<div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
+
+            // Select all / none buttons
+            print '<span>';
+            print '<a href="#" onclick="selectAllEquipment(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectAll').'</a> ';
+            print '<a href="#" onclick="selectNoneEquipment(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectNone').'</a>';
+            print '</span>';
+
+            print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
+
+            // Bulk action buttons
+            print '<span style="display: flex; gap: 8px;">';
+            print '<button type="button" onclick="bulkLinkAs(\'maintenance\');" class="button" style="background: #4caf50; color: white;">';
+            print '<span class="fa fa-wrench paddingright"></span>'.$langs->trans('LinkAsMaintenance');
+            print '</button>';
+            print '<button type="button" onclick="bulkLinkAs(\'service\');" class="button" style="background: #ff9800; color: white;">';
+            print '<span class="fa fa-cog paddingright"></span>'.$langs->trans('LinkAsService');
+            print '</button>';
+            print '</span>';
+
+            // Selected count
+            print '<span id="selected_count" class="opacitymedium" style="margin-left: auto;"></span>';
+
+            print '</div>';
+            print '</td>';
+            print '</tr>';
+        }
+
+        print '<tr class="liste_titre">';
+        if ($permissiontoadd && count($available_equipment) > 0) {
+            print '<th class="center" style="width: 30px;"><input type="checkbox" id="select_all_checkbox" onclick="toggleAllEquipment(this.checked);"></th>';
+        }
+        print '<th>'.$langs->trans('EquipmentNumber').'</th>';
+        print '<th>'.$langs->trans('Label').'</th>';
+        print '<th>'.$langs->trans('Type').'</th>';
+        print '<th>'.$langs->trans('ObjectAddress').'</th>';
+        print '<th class="center" width="120">'.$langs->trans('LinkAsMaintenance').'</th>';
+        print '<th class="center" width="120">'.$langs->trans('LinkAsService').'</th>';
+        print '</tr>';
+
+        if (count($available_equipment) > 0) {
+            foreach ($available_equipment as $equipment) {
+                print '<tr class="oddeven">';
+
+                // Checkbox
+                if ($permissiontoadd) {
+                    print '<td class="center">';
+                    print '<input type="checkbox" name="toselect[]" value="'.$equipment->id.'" class="equipment-checkbox" onchange="updateSelectedCount();">';
+                    print '</td>';
+                }
+
+                print '<td>';
+                print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
+                print img_object('', 'generic', 'class="pictofixedwidth"');
+                print '<strong>'.$equipment->equipment_number.'</strong>';
+                print '</a>';
+                print '</td>';
+
+                print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
+
+                print '<td>';
+                print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
+                print '</td>';
+
+                print '<td>';
+                if ($equipment->fk_address > 0) {
+                    $sql2 = "SELECT nom as name, town";
+                    $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
+                    $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
+                    $resql2 = $db->query($sql2);
+                    if ($resql2 && $db->num_rows($resql2)) {
+                        $addr = $db->fetch_object($resql2);
+                        print dol_escape_htmltag($addr->name);
+                        if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
+                        $db->free($resql2);
+                    }
+                } elseif ($equipment->location_note) {
+                    print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
+                }
+                print '</td>';
+
+                print '<td class="center">';
+                if ($permissiontoadd) {
+                    print '<a class="button smallpaddingimp" style="background: #4caf50; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=maintenance&token='.newToken().'">';
+                    print '<span class="fa fa-wrench"></span>';
+                    print '</a>';
+                }
+                print '</td>';
+
+                print '<td class="center">';
+                if ($permissiontoadd) {
+                    print '<a class="button smallpaddingimp" style="background: #ff9800; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=service&token='.newToken().'">';
+                    print '<span class="fa fa-cog"></span>';
+                    print '</a>';
+                }
+                print '</td>';
+
+                print '</tr>';
+            }
+        } else {
+            $colspan = $permissiontoadd ? 7 : 6;
+            print '<tr><td colspan="'.$colspan.'" class="opacitymedium center" style="padding: 20px;">';
+            print $langs->trans('NoEquipmentForThisAddress');
+            print '</td></tr>';
+        }
+
+        print '</table>';
+        print '</div>';
+        print '</form>';
+
+        // JavaScript for bulk selection
+        print '<script>
+        function selectAllEquipment() {
+            document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
+                cb.checked = true;
+            });
+            document.getElementById("select_all_checkbox").checked = true;
+            updateSelectedCount();
+        }
+
+        function selectNoneEquipment() {
+            document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
+                cb.checked = false;
+            });
+            document.getElementById("select_all_checkbox").checked = false;
+            updateSelectedCount();
+        }
+
+        function toggleAllEquipment(checked) {
+            document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
+                cb.checked = checked;
+            });
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            var count = document.querySelectorAll(".equipment-checkbox:checked").length;
+            var countEl = document.getElementById("selected_count");
+            if (countEl) {
+                countEl.innerHTML = count + " '.html_entity_decode($langs->trans('Selected')).'";
+            }
+        }
+
+        function bulkLinkAs(linkType) {
+            var selected = document.querySelectorAll(".equipment-checkbox:checked");
+            if (selected.length == 0) {
+                alert("'.html_entity_decode($langs->trans('PleaseSelectAtLeastOne')).'");
+                return;
+            }
+
+            var typeText = (linkType == "maintenance") ? "'.html_entity_decode($langs->trans('Maintenance')).'" : "'.html_entity_decode($langs->trans('Service')).'";
+
+            if (!confirm("'.html_entity_decode($langs->trans('ConfirmBulkLink')).'\n\n" + selected.length + " '.html_entity_decode($langs->trans('Equipment')).' → " + typeText)) {
+                return;
+            }
+
+            document.getElementById("bulk_link_type").value = linkType;
+            document.forms["bulkform"].submit();
+        }
+
+        // Initial count
+        updateSelectedCount();
+        </script>';
+    } else {
+        print info_admin($langs->trans('PleaseAssignThirdPartyToInterventionFirst'));
+    }
+
+    print '<br><br>';
+
     // Section 1: MAINTENANCE
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
@@ -319,8 +657,8 @@ if ($object->id > 0) {
             
             print '<td>';
             if ($equipment->fk_address > 0) {
-                $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                $sql2 = "SELECT nom as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
                 $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
                 $resql2 = $db->query($sql2);
                 if ($resql2 && $db->num_rows($resql2)) {
@@ -401,8 +739,8 @@ if ($object->id > 0) {
             
             print '<td>';
             if ($equipment->fk_address > 0) {
-                $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
+                $sql2 = "SELECT nom as name, town";
+                $sql2 .= " FROM ".MAIN_DB_PREFIX."societe";
                 $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
                 $resql2 = $db->query($sql2);
                 if ($resql2 && $db->num_rows($resql2)) {
@@ -440,252 +778,6 @@ if ($object->id > 0) {
     
     print '<br><br>';
     
-    // Section 3: AVAILABLE EQUIPMENT
-    if ($object->socid > 0) {
-        // Get external contacts linked to this intervention (address)
-        $intervention_contacts = $object->liste_contact(-1, 'external');
-        $intervention_address_id = 0;
-        $intervention_address_name = '';
-
-        if (!empty($intervention_contacts)) {
-            foreach ($intervention_contacts as $contact) {
-                // Use first external contact as the address filter
-                if ($contact['source'] == 'external' && $contact['id'] > 0) {
-                    $intervention_address_id = $contact['id'];
-                    $intervention_address_name = $contact['lastname'].' '.$contact['firstname'];
-                    break;
-                }
-            }
-        }
-
-        // Fetch equipment - only if address is set
-        $equipments = array();
-        if ($intervention_address_id > 0) {
-            // Only fetch equipment for this specific address
-            $sql_eq = "SELECT rowid FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
-            $sql_eq .= " WHERE fk_soc = ".(int)$object->socid;
-            $sql_eq .= " AND fk_address = ".(int)$intervention_address_id;
-            $sql_eq .= " AND entity IN (".getEntity('equipmentmanager').")";
-            $sql_eq .= " ORDER BY equipment_number ASC";
-
-            $resql_eq = $db->query($sql_eq);
-            if ($resql_eq) {
-                while ($obj_eq = $db->fetch_object($resql_eq)) {
-                    $eq = new Equipment($db);
-                    if ($eq->fetch($obj_eq->rowid) > 0) {
-                        $equipments[] = $eq;
-                    }
-                }
-            }
-        }
-        // No address linked = no equipment shown
-
-        // Filter out already linked equipment
-        $available_equipment = array();
-        foreach ($equipments as $equipment) {
-            if (!in_array($equipment->id, $linked_equipment_ids)) {
-                $available_equipment[] = $equipment;
-            }
-        }
-
-        // Start form for bulk actions
-        print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" name="bulkform">';
-        print '<input type="hidden" name="token" value="'.newToken().'">';
-        print '<input type="hidden" name="id" value="'.$object->id.'">';
-        print '<input type="hidden" name="action" value="bulk_link">';
-        print '<input type="hidden" name="link_type" id="bulk_link_type" value="">';
-
-        print '<div class="div-table-responsive-no-min">';
-        print '<table class="noborder centpercent">';
-        print '<tr class="liste_titre">';
-        print '<th colspan="7">';
-        print '<span class="fa fa-list paddingright"></span>';
-        if ($intervention_address_id > 0) {
-            print $langs->trans('EquipmentForAddress');
-            print ': <strong>'.dol_escape_htmltag($intervention_address_name).'</strong>';
-            print ' <span class="badge">'.count($available_equipment).'</span>';
-        } else {
-            print $langs->trans('AvailableEquipmentsForCustomer');
-        }
-        print '</th>';
-        print '</tr>';
-
-        // Bulk action bar
-        if ($permissiontoadd && count($available_equipment) > 0) {
-            print '<tr class="liste_titre">';
-            print '<td colspan="7" class="nobottom" style="padding: 8px;">';
-            print '<div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
-
-            // Select all / none buttons
-            print '<span>';
-            print '<a href="#" onclick="selectAllEquipment(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectAll').'</a> ';
-            print '<a href="#" onclick="selectNoneEquipment(); return false;" class="button smallpaddingimp">'.$langs->trans('SelectNone').'</a>';
-            print '</span>';
-
-            print '<span style="border-left: 1px solid #ccc; height: 25px;"></span>';
-
-            // Bulk action buttons
-            print '<span style="display: flex; gap: 8px;">';
-            print '<button type="button" onclick="bulkLinkAs(\'maintenance\');" class="button" style="background: #4caf50; color: white;">';
-            print '<span class="fa fa-wrench paddingright"></span>'.$langs->trans('LinkAsMaintenance');
-            print '</button>';
-            print '<button type="button" onclick="bulkLinkAs(\'service\');" class="button" style="background: #ff9800; color: white;">';
-            print '<span class="fa fa-cog paddingright"></span>'.$langs->trans('LinkAsService');
-            print '</button>';
-            print '</span>';
-
-            // Selected count
-            print '<span id="selected_count" class="opacitymedium" style="margin-left: auto;"></span>';
-
-            print '</div>';
-            print '</td>';
-            print '</tr>';
-        }
-
-        print '<tr class="liste_titre">';
-        if ($permissiontoadd && count($available_equipment) > 0) {
-            print '<th class="center" style="width: 30px;"><input type="checkbox" id="select_all_checkbox" onclick="toggleAllEquipment(this.checked);"></th>';
-        }
-        print '<th>'.$langs->trans('EquipmentNumber').'</th>';
-        print '<th>'.$langs->trans('Label').'</th>';
-        print '<th>'.$langs->trans('Type').'</th>';
-        print '<th>'.$langs->trans('ObjectAddress').'</th>';
-        print '<th class="center" width="120">'.$langs->trans('LinkAsMaintenance').'</th>';
-        print '<th class="center" width="120">'.$langs->trans('LinkAsService').'</th>';
-        print '</tr>';
-
-        if (count($available_equipment) > 0) {
-            foreach ($available_equipment as $equipment) {
-                print '<tr class="oddeven">';
-
-                // Checkbox
-                if ($permissiontoadd) {
-                    print '<td class="center">';
-                    print '<input type="checkbox" name="toselect[]" value="'.$equipment->id.'" class="equipment-checkbox" onchange="updateSelectedCount();">';
-                    print '</td>';
-                }
-
-                print '<td>';
-                print '<a href="'.DOL_URL_ROOT.'/custom/equipmentmanager/equipment_view.php?id='.$equipment->id.'" target="_blank">';
-                print img_object('', 'generic', 'class="pictofixedwidth"');
-                print '<strong>'.$equipment->equipment_number.'</strong>';
-                print '</a>';
-                print '</td>';
-
-                print '<td>'.dol_escape_htmltag($equipment->label).'</td>';
-
-                print '<td>';
-                print isset($type_labels[$equipment->equipment_type]) ? $type_labels[$equipment->equipment_type] : dol_escape_htmltag($equipment->equipment_type);
-                print '</td>';
-
-                print '<td>';
-                if ($equipment->fk_address > 0) {
-                    $sql2 = "SELECT CONCAT(lastname, ' ', firstname) as name, town";
-                    $sql2 .= " FROM ".MAIN_DB_PREFIX."socpeople";
-                    $sql2 .= " WHERE rowid = ".(int)$equipment->fk_address;
-                    $resql2 = $db->query($sql2);
-                    if ($resql2 && $db->num_rows($resql2)) {
-                        $addr = $db->fetch_object($resql2);
-                        print dol_escape_htmltag($addr->name);
-                        if ($addr->town) print '<br><span class="opacitymedium">'.dol_escape_htmltag($addr->town).'</span>';
-                        $db->free($resql2);
-                    }
-                } elseif ($equipment->location_note) {
-                    print '<span class="opacitymedium">'.dol_trunc(dol_escape_htmltag($equipment->location_note), 50).'</span>';
-                }
-                print '</td>';
-
-                print '<td class="center">';
-                if ($permissiontoadd) {
-                    print '<a class="button smallpaddingimp" style="background: #4caf50; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=maintenance&token='.newToken().'">';
-                    print '<span class="fa fa-wrench"></span>';
-                    print '</a>';
-                }
-                print '</td>';
-
-                print '<td class="center">';
-                if ($permissiontoadd) {
-                    print '<a class="button smallpaddingimp" style="background: #ff9800; color: white;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=service&token='.newToken().'">';
-                    print '<span class="fa fa-cog"></span>';
-                    print '</a>';
-                }
-                print '</td>';
-
-                print '</tr>';
-            }
-        } else {
-            $colspan = $permissiontoadd ? 7 : 6;
-            print '<tr><td colspan="'.$colspan.'" class="opacitymedium center" style="padding: 20px;">';
-            if ($intervention_address_id == 0) {
-                print '<span class="fa fa-exclamation-triangle" style="color: #f57c00;"></span> ';
-                print '<strong>'.$langs->trans('PleaseAddAddressFirst').'</strong><br>';
-                print '<span class="opacitymedium">'.$langs->trans('GoToContactTabToAddAddress').'</span>';
-            } else {
-                print $langs->trans('NoEquipmentForThisAddress');
-            }
-            print '</td></tr>';
-        }
-
-        print '</table>';
-        print '</div>';
-        print '</form>';
-
-        // JavaScript for bulk selection
-        print '<script>
-        function selectAllEquipment() {
-            document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
-                cb.checked = true;
-            });
-            document.getElementById("select_all_checkbox").checked = true;
-            updateSelectedCount();
-        }
-
-        function selectNoneEquipment() {
-            document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
-                cb.checked = false;
-            });
-            document.getElementById("select_all_checkbox").checked = false;
-            updateSelectedCount();
-        }
-
-        function toggleAllEquipment(checked) {
-            document.querySelectorAll(".equipment-checkbox").forEach(function(cb) {
-                cb.checked = checked;
-            });
-            updateSelectedCount();
-        }
-
-        function updateSelectedCount() {
-            var count = document.querySelectorAll(".equipment-checkbox:checked").length;
-            var countEl = document.getElementById("selected_count");
-            if (countEl) {
-                countEl.innerHTML = count + " '.html_entity_decode($langs->trans('Selected')).'";
-            }
-        }
-
-        function bulkLinkAs(linkType) {
-            var selected = document.querySelectorAll(".equipment-checkbox:checked");
-            if (selected.length == 0) {
-                alert("'.html_entity_decode($langs->trans('PleaseSelectAtLeastOne')).'");
-                return;
-            }
-
-            var typeText = (linkType == "maintenance") ? "'.html_entity_decode($langs->trans('Maintenance')).'" : "'.html_entity_decode($langs->trans('Service')).'";
-
-            if (!confirm("'.html_entity_decode($langs->trans('ConfirmBulkLink')).'\n\n" + selected.length + " '.html_entity_decode($langs->trans('Equipment')).' → " + typeText)) {
-                return;
-            }
-
-            document.getElementById("bulk_link_type").value = linkType;
-            document.forms["bulkform"].submit();
-        }
-
-        // Initial count
-        updateSelectedCount();
-        </script>';
-    } else {
-        print info_admin($langs->trans('PleaseAssignThirdPartyToInterventionFirst'));
-    }
 }
 
 llxFooter();

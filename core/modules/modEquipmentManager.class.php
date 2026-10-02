@@ -21,7 +21,7 @@ class modEquipmentManager extends DolibarrModules
         $this->description = "Equipment and Service Report Management";
         $this->descriptionlong = "Manage equipment (automatic doors, fire doors, hold-open systems) with service reports, checklists, and PDF export";
 
-        $this->version = '5.7.0';
+        $this->version = '6.0.0';
         $this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
         
         $this->editor_name = 'Gerrett84';
@@ -42,6 +42,7 @@ class modEquipmentManager extends DolibarrModules
                 'ordercard',         // Hook context for order PDF
                 'index',             // Hook for home dashboard maintenance tile
                 'main',              // Hook for sitewide addHtmlHeader (top menu icon color)
+                'thirdpartycard',    // Hook for making the Objektadresse extrafield always visible on Societe card
             ),
         );
         $this->dirs = array();
@@ -277,7 +278,49 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 3: Anlagenliste (Parent)
+        // Überschrift 3: Objektadressen (Parent) — v6.0
+        // Links to Dolibarr's native Societe pages, filtered/pre-set via
+        // the 'equipmentmanager_object_address' extrafield (list.php supports
+        // search_options_<name>, card.php?action=create supports options_<name>
+        // as a GETPOST-based default value override - both native mechanisms,
+        // no custom pages needed here). Placed above Anlagenliste since an
+        // Objektadresse is normally picked/created before adding equipment there.
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'ObjectAddresses',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_objectaddress',
+            'url' => '/societe/list.php?search_options_equipmentmanager_object_address=1&search_options_equipmentmanager_object_address_boolean=1',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Neue Objektadresse
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_objectaddress',
+            'type' => 'left',
+            'titre' => 'NewObjectAddress',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/societe/card.php?action=create&options_equipmentmanager_object_address=1',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 4: Anlagenliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -347,7 +390,7 @@ class modEquipmentManager extends DolibarrModules
         );
 
         // ============================================
-        // Überschrift 4: Preisliste (Parent)
+        // Überschrift 5: Preisliste (Parent)
         // ============================================
         $r++;
         $this->menu[$r] = array(
@@ -395,6 +438,93 @@ class modEquipmentManager extends DolibarrModules
             'position' => 1000 + $r,
             'enabled' => '1',
             'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // ============================================
+        // Überschrift 6: Einstellungen (Parent) - per-user + list settings, not admin-only
+        // ============================================
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager',
+            'type' => 'left',
+            'titre' => 'EMSettings',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => 'equipmentmanager_settings',
+            'url' => '/equipmentmanager/profile.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Mein Profil (Techniker-Name + Unterschrift)
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'MyProfile',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/profile.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Kalender-Abo
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'CalendarFeed',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/calendar_settings.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '1',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Spalten der Serviceauftragsliste (globale Einstellung, nur Admin)
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'MenuServiceOrderColumns',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/service_order_list_settings.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '$user->admin',
+            'target' => '',
+            'user' => 2,
+        );
+
+        // Unterpunkt: Moduleinrichtung (nur Admin)
+        $r++;
+        $this->menu[$r] = array(
+            'fk_menu' => 'fk_mainmenu=equipmentmanager,fk_leftmenu=equipmentmanager_settings',
+            'type' => 'left',
+            'titre' => 'ModuleSetup',
+            'mainmenu' => 'equipmentmanager',
+            'leftmenu' => '',
+            'url' => '/equipmentmanager/admin/setup.php',
+            'langs' => 'equipmentmanager@equipmentmanager',
+            'position' => 1000 + $r,
+            'enabled' => '1',
+            'perms' => '$user->admin',
             'target' => '',
             'user' => 2,
         );

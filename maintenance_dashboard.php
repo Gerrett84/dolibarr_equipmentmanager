@@ -146,10 +146,10 @@ $sql .= " t.planned_duration as equipment_duration,";
 $sql .= " et.default_duration as type_duration,";
 $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
-$sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-$sql .= " sp.address as address_street,";
-$sql .= " sp.zip as address_zip,";
-$sql .= " sp.town as address_town,";
+$sql .= " addr_s.nom as address_label,";
+$sql .= " addr_s.address as address_street,";
+$sql .= " addr_s.zip as address_zip,";
+$sql .= " addr_s.town as address_town,";
 // FIX: Prüfe bereits ab Status 1 (Validiert)
 $sql .= " (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il";
 $sql .= "  INNER JOIN ".MAIN_DB_PREFIX."fichinter f ON il.fk_intervention = f.rowid";
@@ -158,7 +158,7 @@ $sql .= "  AND il.link_type = 'maintenance'";
 $sql .= "  AND f.fk_statut >= 1 AND f.fk_statut < 3) as has_open_maintenance";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON t.fk_address = addr_s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
 $sql .= " AND t.status = 1";
@@ -212,7 +212,7 @@ if ($current_month <= 2) {
 }
 $sql .= "   )";
 $sql .= " )";
-$sql .= " ORDER BY t.maintenance_month, sp.town, sp.lastname, t.equipment_number";
+$sql .= " ORDER BY t.maintenance_month, addr_s.town, addr_s.nom, t.equipment_number";
 
 $resql = $db->query($sql);
 

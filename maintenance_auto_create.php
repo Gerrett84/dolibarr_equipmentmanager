@@ -53,12 +53,12 @@ if ($action == 'create_orders' && $confirm == 'yes') {
     $sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type,";
     $sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month, t.maintenance_interval,";
     $sql .= " s.nom as company_name,";
-    $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-    $sql .= " sp.address, sp.zip, sp.town,";
+    $sql .= " addr_s.nom as address_label,";
+    $sql .= " addr_s.address, addr_s.zip, addr_s.town,";
     $sql .= " c.ref as contract_ref";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON t.fk_address = addr_s.rowid";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
     $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
     $sql .= " AND t.status = 1";
@@ -152,17 +152,6 @@ if ($action == 'create_orders' && $confirm == 'yes') {
                     $fichinter->add_object_linked('contrat', $first_contract_id);
                 }
 
-                // Add object address as contact (Objektadresse)
-                if ($data['fk_address'] > 0) {
-                    // Get contact type for Objektadresse (search by label since code may vary)
-                    $sql_ctype = "SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact WHERE element = 'fichinter' AND source = 'external' AND libelle LIKE '%Objektadresse%'";
-                    $res_ctype = $db->query($sql_ctype);
-                    if ($res_ctype && $db->num_rows($res_ctype) > 0) {
-                        $obj_ctype = $db->fetch_object($res_ctype);
-                        $fichinter->add_contact($data['fk_address'], $obj_ctype->rowid, 'external');
-                    }
-                }
-
                 // Link equipment to intervention
                 foreach ($data['equipment'] as $eq) {
                     $sql_link = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -243,12 +232,12 @@ $sql .= " t.rowid, t.equipment_number, t.label, t.equipment_type,";
 $sql .= " t.fk_soc, t.fk_address, t.fk_contract, t.maintenance_month, t.maintenance_interval,";
 $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
-$sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-$sql .= " sp.town,";
+$sql .= " addr_s.nom as address_label,";
+$sql .= " addr_s.town,";
 $sql .= " c.ref as contract_ref";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON t.fk_address = addr_s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
@@ -272,7 +261,7 @@ $sql .= "   AND il2.link_type = 'maintenance'";
 $sql .= "   AND f2.fk_statut = 3";
 $sql .= "   AND YEAR(f2.date_valid) = ".(int)$year;
 $sql .= " )";
-$sql .= " ORDER BY s.nom, sp.town, t.equipment_number";
+$sql .= " ORDER BY s.nom, addr_s.town, t.equipment_number";
 
 $resql = $db->query($sql);
 

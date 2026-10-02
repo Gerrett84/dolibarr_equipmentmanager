@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
     $requires_2fa = false;
     $totp2fa_verified = false;
 
-    if (!empty($conf->totp2fa->enabled)) {
+    if (isModEnabled('totp2fa')) {
         dol_include_once('/totp2fa/class/user2fa.class.php');
 
         if (class_exists('User2FA')) {
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 
     // Get trusted device info
     $trustedInfo = null;
-    if (!empty($conf->totp2fa->enabled)) {
+    if (isModEnabled('totp2fa')) {
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
         $deviceHash = hash('sha256', $userAgent . '|' . $acceptLang);
@@ -160,10 +160,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 
 $title = 'Einstellungen';
 $dolibarrUrl = dol_buildpath('/', 1);
+$apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
+
+// Brand color (Setup -> Equipment Manager -> Brand color). Empty by default,
+// so this changes nothing until an admin picks a color. Mirrors index.php's
+// handling, but keeps this page's own original color as the fallback default.
+$pwaBrandColor = '#263c5c'; // previous hardcoded header/theme-color default, kept as fallback
+$brandColorSetting = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
+if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
+    $pwaBrandColor = $brandColorSetting;
+}
+$pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
 
 // Get trusted device info
 $trustedDeviceInfo = null;
-if (!empty($conf->totp2fa->enabled)) {
+if (isModEnabled('totp2fa')) {
     // We need to get any logged-in user's trusted device - check saved credentials
     // Since this is a no-login page, we can only show this after login test is successful
 }
@@ -173,7 +184,7 @@ if (!empty($conf->totp2fa->enabled)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#263c5c">
+    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>">
     <title><?php echo $title; ?></title>
 
     <!-- Theme initialization -->
@@ -198,9 +209,11 @@ if (!empty($conf->totp2fa->enabled)) {
             --text-secondary: #666666;
             --text-muted: #999999;
             --border-color: #dddddd;
-            --header-bg: #263c5c;
+            --header-bg: <?php echo $pwaBrandColor; ?>;
             --input-bg: #ffffff;
             --input-border: #dddddd;
+            --primary-color: <?php echo $pwaBrandColor; ?>;
+            --primary-light: rgba(<?php echo $pwaBrandColorRgb; ?>, 0.1);
         }
         [data-theme="dark"] {
             --bg-primary: #1a1a1a;
@@ -212,6 +225,8 @@ if (!empty($conf->totp2fa->enabled)) {
             --header-bg: #1e2d3d;
             --input-bg: #3d3d3d;
             --input-border: #505050;
+            --primary-color: #60a5fa;
+            --primary-light: rgba(74, 144, 217, 0.2);
         }
         * {
             box-sizing: border-box;
@@ -277,6 +292,17 @@ if (!empty($conf->totp2fa->enabled)) {
             font-size: 16px;
             color: var(--text-primary);
         }
+        .section-title {
+            margin: 20px 0 8px 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
         .form-group {
             margin-bottom: 10px;
         }
@@ -299,7 +325,7 @@ if (!empty($conf->totp2fa->enabled)) {
         }
         .form-input:focus {
             outline: none;
-            border-color: #1a3f6e;
+            border-color: var(--primary-color);
         }
         .btn {
             display: block;
@@ -313,7 +339,7 @@ if (!empty($conf->totp2fa->enabled)) {
             margin-bottom: 8px;
         }
         .btn-primary {
-            background: #1a3f6e;
+            background: var(--primary-color);
             color: white;
         }
         .btn-success {
@@ -371,11 +397,11 @@ if (!empty($conf->totp2fa->enabled)) {
             transition: all 0.2s;
         }
         .theme-option:hover {
-            border-color: #1a3f6e;
+            border-color: var(--primary-color);
         }
         .theme-option.active {
-            border-color: #1a3f6e;
-            background: rgba(26, 63, 110, 0.1);
+            border-color: var(--primary-color);
+            background: var(--primary-light);
         }
         .theme-option-icon {
             font-size: 18px;
@@ -389,7 +415,7 @@ if (!empty($conf->totp2fa->enabled)) {
         .back-link {
             display: block;
             text-align: center;
-            color: #263c5c;
+            color: var(--primary-color);
             text-decoration: none;
             padding: 12px;
             font-weight: 500;
@@ -398,6 +424,38 @@ if (!empty($conf->totp2fa->enabled)) {
             font-size: 13px;
             color: #666;
             margin-top: 8px;
+        }
+        .sig-pad-wrap {
+            border: 2px solid var(--input-border);
+            border-radius: 8px;
+            display: block;
+            background: #fff;
+            touch-action: none;
+        }
+        .sig-pad-wrap canvas {
+            display: block;
+            width: 100%;
+            height: 150px;
+            cursor: crosshair;
+        }
+        .sig-preview {
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            max-width: 100%;
+            background: #fff;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-row .btn {
+            margin-bottom: 0;
+        }
+        .btn-secondary {
+            background: var(--border-color);
+            color: var(--text-primary);
         }
     </style>
 </head>
@@ -410,6 +468,8 @@ if (!empty($conf->totp2fa->enabled)) {
 
     <div class="content">
         <div id="messageArea"></div>
+
+        <div class="section-title">Konto</div>
 
         <div class="card">
             <h2>Login-Daten speichern</h2>
@@ -442,6 +502,92 @@ if (!empty($conf->totp2fa->enabled)) {
             </form>
         </div>
 
+        <div class="card" id="statusCard">
+            <h2>Gespeicherte Daten</h2>
+            <div id="statusContent" class="status">
+                <div class="status-icon">⏳</div>
+                <p>Lade...</p>
+            </div>
+        </div>
+
+        <div class="card" id="trustedDeviceCard" style="display:none;">
+            <h2>🔒 Vertrauenswürdiges Gerät</h2>
+            <div id="trustedDeviceContent" class="status"></div>
+        </div>
+
+        <div class="card" id="passwordCard" style="display:none;">
+            <h2>🔑 Passwort ändern</h2>
+            <p class="help-text" style="margin-top:0;">
+                Ändert Ihr Passwort für Dolibarr und die PWA. <span id="pwPolicyHint"></span>
+            </p>
+            <form id="passwordForm">
+                <input type="text" autocomplete="username" style="display:none;" tabindex="-1" aria-hidden="true">
+                <div class="form-group">
+                    <label class="form-label">Aktuelles Passwort</label>
+                    <input type="password" id="pw_current" class="form-input" required autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Neues Passwort</label>
+                    <input type="password" id="pw_new" class="form-input" required autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Neues Passwort wiederholen</label>
+                    <input type="password" id="pw_new2" class="form-input" required autocomplete="new-password">
+                </div>
+                <p class="help-text" id="pwStatus"></p>
+                <button type="submit" class="btn btn-primary" id="btnPwChange">Passwort ändern</button>
+            </form>
+        </div>
+
+        <div class="card" id="totpCard" style="display:none;">
+            <h2>🛡️ Zwei-Faktor-Authentifizierung</h2>
+            <div id="totpContent"></div>
+        </div>
+
+        <div class="section-title">Profil</div>
+
+        <div class="card" id="signatureCard" style="display:none;">
+            <h2>✍️ Techniker-Unterschrift</h2>
+            <p class="help-text" style="margin-top:0;">
+                Wird beim Kunden-Unterschreiben im Servicebericht als Ihre Unterschrift verwendet.
+            </p>
+
+            <div class="form-group">
+                <label class="form-label">Name für die Unterschrift</label>
+                <input type="text" id="technician_name" class="form-input" placeholder="Ihr Name">
+            </div>
+
+            <div id="sigExisting" style="display:none;">
+                <img id="sigExistingImg" class="sig-preview" alt="Aktuelle Unterschrift">
+            </div>
+
+            <div id="sigPadWrap" class="sig-pad-wrap">
+                <canvas id="signaturePad"></canvas>
+            </div>
+
+            <p class="help-text" id="sigStatus"></p>
+
+            <div class="btn-row" style="margin-top:10px;">
+                <button type="button" class="btn btn-secondary" id="btnSigClear">Löschen (Zeichnung)</button>
+                <button type="button" class="btn btn-primary" id="btnSigSave">Speichern</button>
+            </div>
+            <button type="button" class="btn btn-danger" id="btnSigDelete" style="margin-top:8px;display:none;">
+                Unterschrift entfernen
+            </button>
+        </div>
+
+        <div class="section-title">Kalender</div>
+
+        <div class="card" id="calendarCard" style="display:none;">
+            <h2>📅 Kalender-Abo</h2>
+            <p class="help-text" style="margin-top:0;">
+                Alle offenen Serviceaufträge als Termine in Ihrer Kalender-App abonnieren (z.B. iPhone-Kalender, Google Calendar).
+            </p>
+            <div id="calendarContent" class="status">Lade...</div>
+        </div>
+
+        <div class="section-title">Darstellung</div>
+
         <div class="card">
             <h2>🎨 Design</h2>
             <div class="theme-switcher">
@@ -463,23 +609,14 @@ if (!empty($conf->totp2fa->enabled)) {
             </p>
         </div>
 
-        <div class="card" id="statusCard">
-            <h2>Gespeicherte Daten</h2>
-            <div id="statusContent" class="status">
-                <div class="status-icon">⏳</div>
-                <p>Lade...</p>
-            </div>
-        </div>
-
-        <div class="card" id="trustedDeviceCard" style="display:none;">
-            <h2>🔒 Vertrauenswürdiges Gerät</h2>
-            <div id="trustedDeviceContent" class="status"></div>
-        </div>
+        <div class="section-title">Benachrichtigungen</div>
 
         <div class="card">
             <h2>📧 E-Mail</h2>
             <div id="emailSettingsList"></div>
         </div>
+
+        <div class="section-title">Daten</div>
 
         <div class="card">
             <h2>Offline-Daten</h2>
@@ -498,7 +635,22 @@ if (!empty($conf->totp2fa->enabled)) {
 
     <script src="db.js"></script>
     <script>
+        const CONFIG = { apiBase: '<?php echo $apiBase; ?>' };
         let savedCredentials = null;
+        let pwaToken = null;
+
+        async function apiCall(route, options = {}) {
+            const url = CONFIG.apiBase + '?route=' + encodeURIComponent(route);
+            const headers = { 'Content-Type': 'application/json', ...options.headers };
+            if (pwaToken) headers['X-PWA-Token'] = pwaToken;
+
+            const response = await fetch(url, { headers, ...options });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || ('HTTP ' + response.status));
+            }
+            return data;
+        }
 
         // Theme functions
         function setTheme(theme) {
@@ -551,7 +703,7 @@ if (!empty($conf->totp2fa->enabled)) {
                 <div data-key="${key}" data-on="${on ? '1' : '0'}"
                     style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;"
                     onclick="toggleSetting(this)">
-                    <div style="position:absolute;inset:0;border-radius:24px;background:${on ? '#263c5c' : '#ccc'};transition:.2s;" class="tog-track"></div>
+                    <div style="position:absolute;inset:0;border-radius:24px;background:${on ? 'var(--primary-color)' : '#ccc'};transition:.2s;" class="tog-track"></div>
                     <div style="position:absolute;top:3px;left:${on ? '23px' : '3px'};width:18px;height:18px;border-radius:50%;background:white;transition:.2s;" class="tog-thumb"></div>
                 </div>`;
             return row;
@@ -562,7 +714,7 @@ if (!empty($conf->totp2fa->enabled)) {
             const nowOn = el.dataset.on !== '1';
             el.dataset.on = nowOn ? '1' : '0';
             localStorage.setItem(key, nowOn ? 'true' : 'false');
-            el.querySelector('.tog-track').style.background = nowOn ? '#263c5c' : '#ccc';
+            el.querySelector('.tog-track').style.background = nowOn ? 'var(--primary-color)' : '#ccc';
             el.querySelector('.tog-thumb').style.left = nowOn ? '23px' : '3px';
         }
 
@@ -587,6 +739,14 @@ if (!empty($conf->totp2fa->enabled)) {
             await loadStatus();
             initTheme();
             initEmailSettings();
+
+            pwaToken = await offlineDB.getMeta('pwa_token');
+            if (pwaToken) {
+                initSignature();
+                initPasswordChange();
+                initTotp2fa();
+                initCalendarSubscription();
+            }
 
             document.getElementById('settingsForm').addEventListener('submit', handleSubmit);
         });
@@ -662,6 +822,10 @@ if (!empty($conf->totp2fa->enabled)) {
                     // Save token (not password) for future auto-login
                     if (result.pwa_token) {
                         await offlineDB.setMeta('pwa_token', result.pwa_token);
+                        pwaToken = result.pwa_token;
+                        initSignature();
+                        initPasswordChange();
+                        initCalendarSubscription();
                     }
                     // Keep username for display purposes only (no password)
                     await offlineDB.setMeta('credentials', {
@@ -820,6 +984,322 @@ if (!empty($conf->totp2fa->enabled)) {
             `;
 
             card.style.display = 'block';
+        }
+
+        // ─── Technician Signature ───────────────────────────────────────────
+        let sigCtx = null;
+        let sigDrawing = false;
+        let sigLastX = 0, sigLastY = 0;
+        let sigHasStrokes = false;
+
+        function setupSignatureCanvas() {
+            const canvas = document.getElementById('signaturePad');
+            const wrap = document.getElementById('sigPadWrap');
+            const rect = wrap.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = 150 * dpr;
+            sigCtx = canvas.getContext('2d');
+            sigCtx.scale(dpr, dpr);
+            sigCtx.strokeStyle = '#000';
+            sigCtx.lineWidth = 2;
+            sigCtx.lineCap = 'round';
+            sigCtx.lineJoin = 'round';
+
+            const getPos = (e) => {
+                const r = canvas.getBoundingClientRect();
+                if (e.touches && e.touches.length) {
+                    return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+                }
+                return { x: e.clientX - r.left, y: e.clientY - r.top };
+            };
+
+            const start = (e) => {
+                e.preventDefault();
+                sigDrawing = true;
+                const p = getPos(e);
+                sigLastX = p.x;
+                sigLastY = p.y;
+            };
+            const move = (e) => {
+                if (!sigDrawing) return;
+                e.preventDefault();
+                const p = getPos(e);
+                sigCtx.beginPath();
+                sigCtx.moveTo(sigLastX, sigLastY);
+                sigCtx.lineTo(p.x, p.y);
+                sigCtx.stroke();
+                sigLastX = p.x;
+                sigLastY = p.y;
+                sigHasStrokes = true;
+            };
+            const end = () => { sigDrawing = false; };
+
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            canvas.addEventListener('mouseup', end);
+            canvas.addEventListener('mouseout', end);
+            canvas.addEventListener('touchstart', start, { passive: false });
+            canvas.addEventListener('touchmove', move, { passive: false });
+            canvas.addEventListener('touchend', end);
+        }
+
+        function clearSignaturePad() {
+            const canvas = document.getElementById('signaturePad');
+            if (sigCtx) sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+            sigHasStrokes = false;
+        }
+
+        async function initSignature() {
+            const card = document.getElementById('signatureCard');
+            card.style.display = 'block';
+            setupSignatureCanvas();
+
+            try {
+                const data = await apiCall('technician-signature');
+                document.getElementById('technician_name').value = data.technician_name || '';
+
+                const existingWrap = document.getElementById('sigExisting');
+                const existingImg = document.getElementById('sigExistingImg');
+                const deleteBtn = document.getElementById('btnSigDelete');
+                if (data.has_signature && data.signature_data_url) {
+                    existingImg.src = data.signature_data_url;
+                    existingWrap.style.display = 'block';
+                    deleteBtn.style.display = 'block';
+                    document.getElementById('sigStatus').textContent = 'Zum Ändern unten neu zeichnen und speichern.';
+                } else {
+                    existingWrap.style.display = 'none';
+                    deleteBtn.style.display = 'none';
+                    document.getElementById('sigStatus').textContent = 'Noch keine Unterschrift hinterlegt – unten zeichnen.';
+                }
+            } catch (err) {
+                console.error('Signature load error:', err);
+                document.getElementById('sigStatus').textContent = 'Fehler beim Laden.';
+            }
+        }
+
+        document.getElementById('btnSigClear').addEventListener('click', clearSignaturePad);
+
+        document.getElementById('btnSigSave').addEventListener('click', async () => {
+            const btn = document.getElementById('btnSigSave');
+            const name = document.getElementById('technician_name').value.trim();
+            const canvas = document.getElementById('signaturePad');
+
+            btn.disabled = true;
+            btn.textContent = 'Speichere...';
+
+            try {
+                const signatureData = sigHasStrokes ? canvas.toDataURL('image/png') : '';
+                await apiCall('technician-signature', {
+                    method: 'POST',
+                    body: JSON.stringify({ technician_name: name, signature_data: signatureData })
+                });
+                document.getElementById('sigStatus').textContent = '✅ Gespeichert.';
+                await initSignature();
+            } catch (err) {
+                console.error('Signature save error:', err);
+                document.getElementById('sigStatus').textContent = '❌ Fehler beim Speichern.';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Speichern';
+        });
+
+        document.getElementById('btnSigDelete').addEventListener('click', async () => {
+            if (!confirm('Unterschrift wirklich entfernen?')) return;
+            try {
+                await apiCall('technician-signature', { method: 'DELETE' });
+                await initSignature();
+            } catch (err) {
+                console.error('Signature delete error:', err);
+            }
+        });
+
+        // ─── Password change ────────────────────────────────────────────────
+        async function initPasswordChange() {
+            document.getElementById('passwordCard').style.display = 'block';
+            try {
+                const policy = await apiCall('change-password');
+                if (policy.hint) document.getElementById('pwPolicyHint').textContent = policy.hint;
+                if (policy.min_length) {
+                    document.getElementById('pw_new').minLength = policy.min_length;
+                    document.getElementById('pw_new2').minLength = policy.min_length;
+                }
+            } catch (e) { /* offline: server validates anyway */ }
+        }
+
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('pwStatus');
+            const btn = document.getElementById('btnPwChange');
+            const current = document.getElementById('pw_current').value;
+            const next = document.getElementById('pw_new').value;
+            const next2 = document.getElementById('pw_new2').value;
+
+            if (next !== next2) {
+                status.textContent = '❌ Die neuen Passwörter stimmen nicht überein.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Ändere...';
+            status.textContent = '';
+
+            try {
+                await apiCall('change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ current_password: current, new_password: next })
+                });
+                status.textContent = '✅ Passwort wurde geändert.';
+                document.getElementById('passwordForm').reset();
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Passwort ändern';
+        });
+
+        // ─── Two-factor authentication (only if the totp2fa module is active) ──
+        function escHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function initTotp2fa() {
+            const card = document.getElementById('totpCard');
+            try {
+                const info = await apiCall('totp2fa');
+                if (!info.available) { card.style.display = 'none'; return; }
+                card.style.display = 'block';
+                renderTotp(info.enabled);
+            } catch (e) {
+                card.style.display = 'none';
+            }
+        }
+
+        function renderTotp(enabled) {
+            const el = document.getElementById('totpContent');
+            if (enabled) {
+                el.innerHTML = `
+                    <p class="help-text" style="margin-top:0;">✅ 2FA ist aktiviert. Beim Anmelden wird zusätzlich ein Code aus Ihrer Authenticator-App abgefragt.</p>
+                    <button type="button" class="btn btn-danger" id="btnTotpDisableStart">2FA deaktivieren</button>
+                    <div id="totpDisableBox" style="display:none;">
+                        <div class="form-group">
+                            <label class="form-label">Passwort</label>
+                            <input type="password" id="totp_dis_pw" class="form-input" autocomplete="current-password">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">2FA-Code oder Backup-Code</label>
+                            <input type="text" id="totp_dis_code" class="form-input" inputmode="numeric" autocomplete="one-time-code" maxlength="10" style="text-align:center;letter-spacing:4px;">
+                        </div>
+                        <button type="button" class="btn btn-danger" id="btnTotpDisable">Jetzt deaktivieren</button>
+                    </div>
+                    <p class="help-text" id="totpStatus"></p>`;
+                document.getElementById('btnTotpDisableStart').onclick = () => {
+                    document.getElementById('btnTotpDisableStart').style.display = 'none';
+                    document.getElementById('totpDisableBox').style.display = 'block';
+                };
+                document.getElementById('btnTotpDisable').onclick = totpDisable;
+            } else {
+                el.innerHTML = `
+                    <p class="help-text" style="margin-top:0;">Schützt Ihren Zugang zusätzlich mit einem Code aus einer Authenticator-App (z. B. Google Authenticator, Microsoft Authenticator, Aegis).</p>
+                    <button type="button" class="btn btn-primary" id="btnTotpStart">2FA einrichten</button>
+                    <p class="help-text" id="totpStatus"></p>`;
+                document.getElementById('btnTotpStart').onclick = totpStart;
+            }
+        }
+
+        async function totpStart() {
+            const status = document.getElementById('totpStatus');
+            const btn = document.getElementById('btnTotpStart');
+            btn.disabled = true;
+            try {
+                const d = await apiCall('totp2fa', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+                document.getElementById('totpContent').innerHTML = `
+                    <p class="help-text" style="margin-top:0;"><b>1.</b> Authenticator-App öffnen und das Konto hinzufügen:</p>
+                    <a class="btn btn-primary" style="text-decoration:none;text-align:center;" href="${escHtml(d.uri)}">In Authenticator-App öffnen</a>
+                    <p class="help-text">Funktioniert das nicht (oder richten Sie die App auf einem anderen Gerät ein), den QR-Code scannen oder das Geheimnis manuell eingeben:</p>
+                    <div style="text-align:center;background:#fff;padding:8px;border-radius:8px;max-width:240px;margin:0 auto 10px;">${d.qr_svg || ''}</div>
+                    <div style="text-align:center;font-family:monospace;font-size:15px;word-break:break-all;margin-bottom:12px;user-select:all;">${escHtml(d.secret)}</div>
+                    <p class="help-text"><b>2.</b> Den 6-stelligen Code aus der App eingeben:</p>
+                    <div class="form-group">
+                        <input type="text" id="totp_verify_code" class="form-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="text-align:center;letter-spacing:4px;">
+                    </div>
+                    <button type="button" class="btn btn-success" id="btnTotpVerify">Bestätigen und aktivieren</button>
+                    <button type="button" class="btn btn-secondary" id="btnTotpCancel">Abbrechen</button>
+                    <p class="help-text" id="totpStatus"></p>`;
+                document.getElementById('btnTotpVerify').onclick = totpVerify;
+                document.getElementById('btnTotpCancel').onclick = () => renderTotp(false);
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+                btn.disabled = false;
+            }
+        }
+
+        async function totpVerify() {
+            const status = document.getElementById('totpStatus');
+            const btn = document.getElementById('btnTotpVerify');
+            const code = document.getElementById('totp_verify_code').value.trim();
+            btn.disabled = true;
+            status.textContent = '';
+            try {
+                const d = await apiCall('totp2fa', { method: 'POST', body: JSON.stringify({ action: 'verify', code }) });
+                document.getElementById('totpContent').innerHTML = `
+                    <p class="help-text" style="margin-top:0;">✅ 2FA ist jetzt aktiviert.</p>
+                    <p class="help-text"><b>Backup-Codes</b> – jeder Code gilt einmalig, falls das Handy nicht verfügbar ist. Jetzt sicher notieren, sie werden nicht erneut angezeigt:</p>
+                    <div style="text-align:center;font-family:monospace;font-size:16px;line-height:1.8;user-select:all;margin-bottom:12px;">${d.backup_codes.map(escHtml).join('<br>')}</div>
+                    <button type="button" class="btn btn-primary" id="btnTotpDone">Codes gesichert – fertig</button>`;
+                document.getElementById('btnTotpDone').onclick = () => renderTotp(true);
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+                btn.disabled = false;
+            }
+        }
+
+        async function totpDisable() {
+            const status = document.getElementById('totpStatus');
+            const btn = document.getElementById('btnTotpDisable');
+            btn.disabled = true;
+            status.textContent = '';
+            try {
+                await apiCall('totp2fa', { method: 'POST', body: JSON.stringify({
+                    action: 'disable',
+                    password: document.getElementById('totp_dis_pw').value,
+                    code: document.getElementById('totp_dis_code').value.trim()
+                }) });
+                renderTotp(false);
+                document.getElementById('totpStatus').textContent = '✅ 2FA wurde deaktiviert.';
+            } catch (err) {
+                status.textContent = '❌ ' + err.message;
+                btn.disabled = false;
+            }
+        }
+
+        // ─── Calendar Subscription ──────────────────────────────────────────
+        async function initCalendarSubscription() {
+            const card = document.getElementById('calendarCard');
+            card.style.display = 'block';
+            const content = document.getElementById('calendarContent');
+
+            try {
+                const data = await apiCall('calendar-subscription');
+                content.innerHTML = `
+                    <a href="${data.webcal_url}" class="btn btn-primary" style="text-decoration:none;text-align:center;">📅 Im Kalender abonnieren</a>
+                    <p class="help-text" style="word-break:break-all;">${data.url}</p>
+                    <button type="button" class="btn btn-secondary" id="btnCopyCalUrl">Link kopieren</button>
+                `;
+                document.getElementById('btnCopyCalUrl').addEventListener('click', async () => {
+                    const copyBtn = document.getElementById('btnCopyCalUrl');
+                    try {
+                        await navigator.clipboard.writeText(data.url);
+                        copyBtn.textContent = '✅ Kopiert';
+                        setTimeout(() => { copyBtn.textContent = 'Link kopieren'; }, 2000);
+                    } catch (e) { /* clipboard may be unavailable */ }
+                });
+            } catch (err) {
+                console.error('Calendar subscription load error:', err);
+                content.innerHTML = '<p class="help-text">Fehler beim Laden.</p>';
+            }
         }
     </script>
 </body>

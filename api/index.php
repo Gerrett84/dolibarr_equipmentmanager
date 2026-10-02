@@ -218,6 +218,22 @@ try {
             handleSchedule($method, $parts, $input);
             break;
 
+        case 'technician-signature':
+            handleTechnicianSignature($method, $parts, $input);
+            break;
+
+        case 'calendar-subscription':
+            handleCalendarSubscription($method, $parts, $input);
+            break;
+
+        case 'change-password':
+            handleChangePassword($method, $input);
+            break;
+
+        case 'totp2fa':
+            handleTotp2fa($method, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Endpoint not found: ' . $endpoint]);
@@ -723,48 +739,52 @@ function handleIntervention($method, $parts, $input) {
         return;
     }
 
-    // GET /intervention/{id}/history — previous interventions at same Objekt (OBJ contact)
+    // GET /intervention/{id}/history — previous interventions sharing the same
+    // Objektadresse (via linked equipment's fk_address).
     if (isset($parts[2]) && $parts[2] === 'history' && $method === 'GET') {
-        $sqlObj  = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
-        $sqlObj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-        $sqlObj .= " WHERE ec.element_id = ".(int)$id;
-        $sqlObj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
-        $resObj = $db->query($sqlObj);
-
-        if (!$resObj || !($objRow = $db->fetch_object($resObj))) {
-            echo json_encode(['history' => [], 'no_obj_contact' => true]);
-            return;
-        }
-        $objContactId = (int)$objRow->fk_socpeople;
-
-        $sqlHist  = "SELECT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
-        $sqlHist .= " f.fk_statut AS status, f.description, f.signed_status,";
-        $sqlHist .= " u.lastname, u.firstname";
-        $sqlHist .= " FROM ".MAIN_DB_PREFIX."fichinter f";
-        $sqlHist .= " JOIN ".MAIN_DB_PREFIX."element_contact ec ON ec.element_id = f.rowid";
-        $sqlHist .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-        $sqlHist .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_author";
-        $sqlHist .= " WHERE ec.fk_socpeople = ".(int)$objContactId;
-        $sqlHist .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ'";
-        $sqlHist .= " AND f.rowid != ".(int)$id;
-        $sqlHist .= " ORDER BY COALESCE(f.dateo, f.tms) DESC LIMIT 50";
-
-        $resHist = $db->query($sqlHist);
         $history = [];
-        while ($resHist && $row = $db->fetch_object($resHist)) {
-            $history[] = [
-                'id'           => (int)$row->rowid,
-                'ref'          => $row->ref,
-                'date_start'   => $row->date_start,
-                'date_end'     => $row->date_end,
-                'status'       => (int)$row->status,
-                'signed_status' => (int)$row->signed_status,
-                'description'  => $row->description,
-                'technician'   => trim($row->lastname . ' ' . $row->firstname),
-            ];
+        $no_object_address = true;
+
+        $sqlAddr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sqlAddr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+        $sqlAddr .= " WHERE l.fk_intervention = ".(int)$id;
+        $sqlAddr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+        $sqlAddr .= " ORDER BY l.date_creation ASC LIMIT 1";
+        $resAddr = $db->query($sqlAddr);
+        if ($resAddr && ($addrRow = $db->fetch_object($resAddr))) {
+            $currentAddressId = (int)$addrRow->fk_address;
+            $no_object_address = false;
+
+            $sqlHist  = "SELECT DISTINCT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
+            $sqlHist .= " f.fk_statut AS status, f.description, f.signed_status,";
+            $sqlHist .= " u.lastname, u.firstname";
+            $sqlHist .= " FROM ".MAIN_DB_PREFIX."fichinter f";
+            $sqlHist .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l2 ON l2.fk_intervention = f.rowid";
+            $sqlHist .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e2 ON e2.rowid = l2.fk_equipment";
+            $sqlHist .= " LEFT JOIN ".MAIN_DB_PREFIX."user u ON u.rowid = f.fk_user_author";
+            $sqlHist .= " WHERE e2.fk_address = ".(int)$currentAddressId;
+            $sqlHist .= " AND f.rowid != ".(int)$id;
+            $sqlHist .= " ORDER BY COALESCE(f.dateo, f.tms) DESC LIMIT 50";
+            $resHist = $db->query($sqlHist);
+            while ($resHist && $row = $db->fetch_object($resHist)) {
+                $history[] = [
+                    'id'           => (int)$row->rowid,
+                    'ref'          => $row->ref,
+                    'date_start'   => $row->date_start,
+                    'date_end'     => $row->date_end,
+                    'status'       => (int)$row->status,
+                    'signed_status' => (int)$row->signed_status,
+                    'description'  => $row->description,
+                    'technician'   => trim($row->lastname . ' ' . $row->firstname),
+                ];
+            }
         }
 
-        echo json_encode(['history' => $history]);
+        $result = ['history' => $history];
+        if ($no_object_address) {
+            $result['no_object_address'] = true;
+        }
+        echo json_encode($result);
         return;
     }
 
@@ -991,6 +1011,227 @@ function handleIntervention($method, $parts, $input) {
 }
 
 /**
+ * Change the password of the authenticated user (POST: current_password, new_password)
+ */
+function getPasswordPolicy() {
+    $gen = getDolGlobalString('USER_PASSWORD_GENERATED');
+    $policy = ['min_length' => 8, 'hint' => 'Mindestens 8 Zeichen.'];
+    if ($gen === 'Standard' || $gen === 'standard') {
+        return ['min_length' => 12, 'hint' => 'Mindestens 12 Zeichen.'];
+    }
+    if (strtolower($gen) === 'perso') {
+        $t = explode(';', getDolGlobalString('USER_PASSWORD_PATTERN'));
+        if (count($t) >= 5) {
+            $len = max(1, (int) $t[0]);
+            $parts = ['mindestens ' . $len . ' Zeichen'];
+            if ((int) $t[1] > 0) $parts[] = (int) $t[1] . ' Großbuchstabe' . ((int) $t[1] > 1 ? 'n' : '');
+            if ((int) $t[2] > 0) $parts[] = (int) $t[2] . ' Ziffer' . ((int) $t[2] > 1 ? 'n' : '');
+            if ((int) $t[3] > 0) $parts[] = (int) $t[3] . ' Sonderzeichen';
+            if ((int) $t[4] > 0) $parts[] = 'nicht mehr als ' . (int) $t[4] . ' gleiche Zeichen hintereinander';
+            return ['min_length' => $len, 'hint' => 'Erforderlich: ' . implode(', ', $parts) . '.'];
+        }
+    }
+    return $policy;
+}
+
+function handleChangePassword($method, $input) {
+    global $db, $user, $conf, $langs;
+
+    if ($method === 'GET') {
+        echo json_encode(getPasswordPolicy());
+        return;
+    }
+    if ($method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    // Neither auth path (session / PWA token) loads the user's permissions
+    $user->getrights();
+    if (!$user->hasRight('user', 'self', 'password')) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Keine Berechtigung, das eigene Passwort zu ändern. Bitte einen Administrator kontaktieren.']);
+        return;
+    }
+
+    $current = (string) ($input['current_password'] ?? '');
+    $new = (string) ($input['new_password'] ?? '');
+
+    if ($current === '' || $new === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Aktuelles und neues Passwort erforderlich']);
+        return;
+    }
+    if ($new === $current) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Das neue Passwort muss sich vom aktuellen unterscheiden']);
+        return;
+    }
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/security2.lib.php';
+
+    $login = checkLoginPassEntity($user->login, $current, (int) $user->entity > 0 ? (int) $user->entity : 1, array('dolibarr'));
+    if (!$login || $login === '--bad-login-validity--' || $login !== $user->login) {
+        sleep(1);
+        http_response_code(403);
+        echo json_encode(['error' => 'Aktuelles Passwort ist falsch']);
+        return;
+    }
+
+    $langs->setDefaultLang('de_DE');
+    $langs->load('other');
+
+    // Keep the other sessions of this user alive: only the password changes
+    $result = $user->setPassword($user, $new, 0, 0, 0, 0, 0);
+    if (is_int($result) && $result < 0) {
+        http_response_code(400);
+        $msg = trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode((string) $user->error))));
+        $policy = getPasswordPolicy();
+        echo json_encode(['error' => ($msg ?: 'Passwort konnte nicht geändert werden'), 'hint' => $policy['hint']]);
+        return;
+    }
+
+    echo json_encode(['status' => 'ok']);
+}
+
+/**
+ * GET  /totp2fa — availability + status of the TOTP 2FA module for the current user
+ * POST /totp2fa  {action: start|verify|disable, ...} — set up / confirm / disable 2FA
+ */
+function handleTotp2fa($method, $input) {
+    global $db, $user, $conf, $mysoc;
+
+    if (!isModEnabled('totp2fa') || !dol_include_once('/totp2fa/class/user2fa.class.php') || !class_exists('User2FA')) {
+        echo json_encode(['available' => false]);
+        return;
+    }
+
+    $user->getrights();
+    if (!$user->hasRight('user', 'self', 'creer') && !$user->admin) {
+        echo json_encode(['available' => false]);
+        return;
+    }
+
+    $user2fa = new User2FA($db);
+    $user2fa->fk_user = $user->id;
+    $found = $user2fa->fetch($user->id);
+    $enabled = ($found > 0 && $user2fa->is_enabled);
+
+    if ($method === 'GET') {
+        echo json_encode(['available' => true, 'enabled' => $enabled]);
+        return;
+    }
+    if ($method !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $action = (string) ($input['action'] ?? '');
+
+    if ($action === 'start') {
+        if ($enabled) {
+            http_response_code(400);
+            echo json_encode(['error' => '2FA ist bereits aktiviert']);
+            return;
+        }
+        if ($found > 0) {
+            $user2fa->delete($user);
+            $user2fa = new User2FA($db);
+            $user2fa->fk_user = $user->id;
+        }
+        if ($user2fa->create($user) <= 0) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Geheimnis konnte nicht erzeugt werden']);
+            return;
+        }
+        $issuer = !empty($mysoc->name) ? $mysoc->name : 'Dolibarr';
+        $uri = $user2fa->getQRCodeUrl($user->login, $issuer);
+        $secret = $user2fa->getPlainSecret();
+
+        $qr = '';
+        $qrLib = DOL_DOCUMENT_ROOT . '/includes/tecnickcom/tcpdf/tcpdf_barcodes_2d.php';
+        if (is_readable($qrLib)) {
+            require_once $qrLib;
+            $barcode = new TCPDF2DBarcode($uri, 'QRCODE,M');
+            $qr = $barcode->getBarcodeSVGcode(5, 5, 'black');
+            $qr = substr($qr, (int) strpos($qr, '<svg'));
+            $qr = preg_replace('/<svg width="(\d+)" height="(\d+)"/', '<svg width="100%" viewBox="0 0 $1 $2"', $qr, 1);
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'secret' => trim(chunk_split($secret, 4, ' ')),
+            'uri' => $uri,
+            'qr_svg' => $qr,
+        ]);
+        return;
+    }
+
+    if ($action === 'verify') {
+        $code = preg_replace('/\s+/', '', (string) ($input['code'] ?? ''));
+        if ($found <= 0 || $enabled) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Keine Einrichtung offen. Bitte erneut starten.']);
+            return;
+        }
+        if (!preg_match('/^[0-9]{6}$/', $code)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Bitte den 6-stelligen Code aus der Authenticator-App eingeben']);
+            return;
+        }
+        if (!$user2fa->verifyCode($code)) {
+            http_response_code(400);
+            echo json_encode(['error' => $user2fa->error === 'Invalid code.' ? 'Ungültiger Code' : ($user2fa->error ?: 'Ungültiger Code')]);
+            return;
+        }
+        $user2fa->enable();
+        echo json_encode(['status' => 'ok', 'backup_codes' => $user2fa->generateBackupCodes(10)]);
+        return;
+    }
+
+    if ($action === 'disable') {
+        if (!$enabled) {
+            http_response_code(400);
+            echo json_encode(['error' => '2FA ist nicht aktiviert']);
+            return;
+        }
+        $password = (string) ($input['password'] ?? '');
+        $code = trim((string) ($input['code'] ?? ''));
+        if ($password === '' || $code === '') {
+            http_response_code(400);
+            echo json_encode(['error' => 'Passwort und 2FA-Code erforderlich']);
+            return;
+        }
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/security2.lib.php';
+        $login = checkLoginPassEntity($user->login, $password, (int) $user->entity > 0 ? (int) $user->entity : 1, array('dolibarr'));
+        if (!$login || $login === '--bad-login-validity--' || $login !== $user->login) {
+            sleep(1);
+            http_response_code(403);
+            echo json_encode(['error' => 'Passwort ist falsch']);
+            return;
+        }
+        $ok = $user2fa->verifyCode(preg_replace('/\s+/', '', $code));
+        if (!$ok && strpos($code, '-') !== false) {
+            $ok = $user2fa->verifyBackupCode($code);
+        }
+        if (!$ok) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Ungültiger 2FA-Code']);
+            return;
+        }
+        $user2fa->disable();
+        $user2fa->delete($user);
+        echo json_encode(['status' => 'ok']);
+        return;
+    }
+
+    http_response_code(400);
+    echo json_encode(['error' => 'Unbekannte Aktion']);
+}
+
+/**
  * POST /schedule/{intervention_id} — update dateo/datee
  */
 function handleSchedule($method, $parts, $input) {
@@ -1168,47 +1409,17 @@ function getEquipmentMaterials($intervention_id, $equipment_id) {
 }
 
 /**
- * Get unique object addresses for intervention
- * Primary: contact with OBJ role linked to intervention
- * Fallback: fk_address from linked equipment
+ * Get unique object addresses for intervention, via fk_address from linked equipment.
  */
 function getInterventionObjectAddresses($intervention_id) {
     global $db;
 
     $addresses = [];
 
-    // Primary: contact with OBJ role linked to intervention
-    $sql = "SELECT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone, sp.email, sp.note_public";
-    $sql .= " FROM ".MAIN_DB_PREFIX."element_contact ec";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = ec.fk_socpeople";
-    $sql .= " WHERE ec.element_id = ".(int)$intervention_id;
-    $sql .= " AND ec.fk_c_type_contact IN (";
-    $sql .= "  SELECT rowid FROM ".MAIN_DB_PREFIX."c_type_contact";
-    $sql .= "  WHERE element = 'fichinter' AND code = 'OBJ'";
-    $sql .= " ) LIMIT 1";
-
-    $resql = $db->query($sql);
-    if ($resql && $db->num_rows($resql) > 0) {
-        $obj = $db->fetch_object($resql);
-        $addresses[] = [
-            'id'      => (int)$obj->rowid,
-            'name'    => trim($obj->lastname . ' ' . $obj->firstname),
-            'address' => $obj->address,
-            'zip'     => $obj->zip,
-            'town'    => $obj->town,
-            'phone'   => $obj->phone,
-            'email'   => $obj->email,
-            'note'    => $obj->note_public,
-        ];
-        $db->free($resql);
-        return $addresses;
-    }
-
-    // Fallback: fk_address from linked equipment
-    $sql = "SELECT DISTINCT sp.rowid, sp.lastname, sp.firstname, sp.address, sp.zip, sp.town, sp.phone, sp.email, sp.note_public";
+    $sql = "SELECT DISTINCT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
     $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
     $sql .= " AND e.fk_address > 0";
 
@@ -1217,7 +1428,7 @@ function getInterventionObjectAddresses($intervention_id) {
         while ($obj = $db->fetch_object($resql)) {
             $addresses[] = [
                 'id'      => (int)$obj->rowid,
-                'name'    => trim($obj->lastname . ' ' . $obj->firstname),
+                'name'    => $obj->nom,
                 'address' => $obj->address,
                 'zip'     => $obj->zip,
                 'town'    => $obj->town,
@@ -1236,7 +1447,7 @@ function getInterventionObjectAddresses($intervention_id) {
  * GET/POST /detail/{intervention_id}/{equipment_id}
  */
 function handleDetail($method, $parts, $input) {
-    global $db, $user;
+    global $db, $user, $conf;
 
     $intervention_id = (int)($parts[1] ?? 0);
     $equipment_id = (int)($parts[2] ?? 0);  // 0 = general entries (no equipment)
@@ -1688,6 +1899,113 @@ function handleSignature($method, $parts, $input) {
 }
 
 /**
+ * GET /technician-signature - Fetch the current user's saved signature + name
+ * POST /technician-signature - Save signature image and/or technician name
+ * DELETE /technician-signature - Remove the saved signature image
+ *
+ * Mirrors admin/setup.php's signature section, which is unreachable for
+ * technicians without Dolibarr admin rights (they only get PWA access).
+ */
+function handleTechnicianSignature($method, $parts, $input) {
+    global $db, $user, $langs, $conf;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+
+    $signature_file = DOL_DATA_ROOT.'/equipmentmanager/signatures/user_'.$user->id.'.png';
+
+    if ($method === 'GET') {
+        $technicianName = getDolGlobalString('EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $user->getFullName($langs));
+        $hasSignature = file_exists($signature_file);
+        $dataUrl = null;
+        if ($hasSignature) {
+            $dataUrl = 'data:image/png;base64,'.base64_encode(file_get_contents($signature_file));
+        }
+        echo json_encode([
+            'status' => 'ok',
+            'has_signature' => $hasSignature,
+            'signature_data_url' => $dataUrl,
+            'technician_name' => $technicianName
+        ]);
+        return;
+    }
+
+    if ($method === 'POST') {
+        $technicianName = trim($input['technician_name'] ?? '');
+        $signatureData = $input['signature_data'] ?? '';
+
+        if (!empty($technicianName)) {
+            dolibarr_set_const($db, 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $technicianName, 'chaine', 0, '', $conf->entity);
+        } else {
+            dolibarr_del_const($db, 'EQUIPMENTMANAGER_TECHNICIAN_NAME_USER_'.$user->id, $conf->entity);
+        }
+
+        if (!empty($signatureData)) {
+            $signature_dir = DOL_DATA_ROOT.'/equipmentmanager/signatures';
+            if (!is_dir($signature_dir)) {
+                dol_mkdir($signature_dir);
+            }
+            $signatureData = str_replace('data:image/png;base64,', '', $signatureData);
+            $signatureData = str_replace(' ', '+', $signatureData);
+            $imageData = base64_decode($signatureData);
+
+            if (file_put_contents($signature_file, $imageData) === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Could not save signature']);
+                return;
+            }
+        }
+
+        echo json_encode(['status' => 'ok']);
+        return;
+    }
+
+    if ($method === 'DELETE') {
+        if (file_exists($signature_file) && !unlink($signature_file)) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Could not delete signature']);
+            return;
+        }
+        echo json_encode(['status' => 'ok']);
+        return;
+    }
+
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+}
+
+/**
+ * GET /calendar-subscription - Return the iOS/webcal subscription URL.
+ * Auto-generates the shared entity-wide token if none exists yet (harmless,
+ * nothing depends on it yet); does NOT regenerate an existing one, since that
+ * would break every other technician's already-subscribed calendar - token
+ * rotation stays an admin-only action in admin/setup.php.
+ */
+function handleCalendarSubscription($method, $parts, $input) {
+    global $db, $conf;
+
+    require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+
+    if ($method !== 'GET') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+
+    $calSecret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
+    if (empty($calSecret)) {
+        $calSecret = bin2hex(random_bytes(24));
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_CAL_SECRET', $calSecret, 'chaine', 0, '', $conf->entity);
+    }
+
+    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode($calSecret);
+    echo json_encode([
+        'status' => 'ok',
+        'url' => $calUrl,
+        'webcal_url' => str_replace(array('https://', 'http://'), 'webcal://', $calUrl)
+    ]);
+}
+
+/**
  * POST /material - Create material
  * DELETE /material/{id} - Delete material
  */
@@ -1850,39 +2168,46 @@ function handleAvailableEquipment($method, $parts, $input) {
     $inter = $db->fetch_object($res_inter);
     $socid = (int)$inter->fk_soc;
 
-    // Check for linked object address (OBJ contact)
-    $obj_address_id = 0;
-    $sql_obj = "SELECT ec.fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact ec";
-    $sql_obj .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-    $sql_obj .= " WHERE ec.element_id = ".(int)$intervention_id;
-    $sql_obj .= " AND tc.element = 'fichinter' AND tc.code = 'OBJ' LIMIT 1";
-    $res_obj = $db->query($sql_obj);
-    if ($res_obj && ($obj_row = $db->fetch_object($res_obj))) {
-        $obj_address_id = (int)$obj_row->fk_socpeople;
+    // If equipment is already linked to this intervention, derive "its" Objektadresse
+    // from the first linked equipment's fk_address (same fallback pattern used by the
+    // PDF module and calendar.php) and restrict suggestions to that same address, so
+    // the PWA doesn't offer equipment from every Objektadresse of the customer.
+    // Previously this restriction went through an OBJ contact on the intervention
+    // itself, but that compared a socpeople id (OBJ contact, System B) against
+    // fk_address, which is now a societe id (System A) after the v6 migration - two
+    // different id spaces. If nothing is linked yet, there's no address to anchor to,
+    // so all of the customer's equipment is offered (picking the first one then
+    // anchors the address for subsequent additions).
+    $current_address_id = 0;
+    $sql_addr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+    $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+    $sql_addr .= " WHERE l.fk_intervention = ".(int)$intervention_id;
+    $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+    $sql_addr .= " ORDER BY l.date_creation ASC LIMIT 1";
+    $res_addr = $db->query($sql_addr);
+    if ($res_addr && ($addr_row = $db->fetch_object($res_addr))) {
+        $current_address_id = (int)$addr_row->fk_address;
     }
 
-    // Get available equipment not yet linked to this intervention.
-    // If the intervention has an object address (OBJ), restrict to equipment at that address.
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
-    $sql .= " sp.lastname, sp.firstname, sp.address, sp.zip, sp.town";
+    $sql .= " addr_s.nom as address_name, addr_s.address, addr_s.zip, addr_s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE e.fk_soc = ".(int)$socid;
-    if ($obj_address_id > 0) {
-        $sql .= " AND e.fk_address = ".(int)$obj_address_id;
+    if ($current_address_id > 0) {
+        $sql .= " AND e.fk_address = ".(int)$current_address_id;
     }
     $sql .= " AND e.rowid NOT IN (";
     $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
     $sql .= "   WHERE fk_intervention = ".(int)$intervention_id;
     $sql .= " )";
-    $sql .= " ORDER BY sp.lastname, sp.town, e.equipment_number";
+    $sql .= " ORDER BY addr_s.nom, addr_s.town, e.equipment_number";
 
     $resql = $db->query($sql);
     $equipment = [];
 
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
-            $addressName = trim($obj->lastname . ' ' . $obj->firstname);
             $equipment[] = [
                 'id' => (int)$obj->rowid,
                 'ref' => $obj->equipment_number,
@@ -1890,7 +2215,7 @@ function handleAvailableEquipment($method, $parts, $input) {
                 'type' => $obj->equipment_type,
                 'location' => $obj->location_note,
                 'address' => [
-                    'name' => $addressName,
+                    'name' => $obj->address_name,
                     'street' => $obj->address,
                     'zip' => $obj->zip,
                     'town' => $obj->town
@@ -1986,6 +2311,21 @@ function handleLinkEquipment($method, $parts, $input) {
     // Validate link_type
     if (!in_array($link_type, ['maintenance', 'service'])) {
         $link_type = 'service';
+    }
+
+    // Enforce: all equipment on a service order must share the same Objektadresse
+    // (see Equipment::getObjectAddressForDocument()) - mirrors the same guard in
+    // intervention_equipment.php's backend 'link'/'bulk_link' actions.
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+    $lockedAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $intervention_id);
+    if ($lockedAddress !== null) {
+        $candidate = new Equipment($db);
+        $candidate->fetch($equipment_id);
+        if ((int)$candidate->fk_address !== (int)$lockedAddress->id) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Equipment belongs to a different Objektadresse than the equipment already linked to this service order']);
+            return;
+        }
     }
 
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -2282,19 +2622,8 @@ function generateAcceptanceProtocol($fichinter, $user) {
         return false;
     }
 
-    // Get object address contact
-    $objectAddress = null;
-    $contacts = $fichinter->liste_contact(-1, 'external');
-    if (is_array($contacts)) {
-        foreach ($contacts as $contact) {
-            if ($contact['code'] == 'OBJ') {
-                $contactObj = new Contact($db);
-                $contactObj->fetch($contact['id']);
-                $objectAddress = $contactObj;
-                break;
-            }
-        }
-    }
+    // Get object address (Objektadresse, via linked equipment's fk_address)
+    $objectAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $fichinter->id);
 
     // Get equipment type labels
     $typeLabels = Equipment::getEquipmentTypesTranslated($db, $langs);
@@ -2388,9 +2717,8 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
     if ($objectAddress) {
         // Name
-        $objName = trim($objectAddress->firstname.' '.$objectAddress->lastname);
-        if (!empty($objName)) {
-            $pdf->Cell($colWidth - 6, 4, $objName, 0, 1, 'L');
+        if (!empty($objectAddress->name)) {
+            $pdf->Cell($colWidth - 6, 4, $objectAddress->name, 0, 1, 'L');
             $pdf->SetX($leftMargin + $colWidth + 3);
         }
         if ($objectAddress->address) {
@@ -3958,7 +4286,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql  = "SELECT e.rowid as equipment_id, e.equipment_number, e.label, e.equipment_type,";
     $sql .= " e.maintenance_month, e.last_maintenance_date, e.fk_soc, e.fk_address,";
     $sql .= " s.nom as customer_name, s.address as cust_addr, s.zip as cust_zip, s.town as cust_town,";
-    $sql .= " sp.lastname, sp.firstname, sp.address as addr_street, sp.zip as addr_zip, sp.town as addr_town,";
+    $sql .= " addr_s.nom as addr_name, addr_s.address as addr_street, addr_s.zip as addr_zip, addr_s.town as addr_town,";
     $sql .= " CASE";
     $sql .= "  WHEN e.maintenance_month IS NULL THEN 'none'";
     // Done check 1: last_maintenance_date in current year near maintenance_month
@@ -3998,7 +4326,7 @@ function handleMaintenanceOverview($method, $parts, $input) {
     $sql .= "  ORDER BY f.dateo DESC LIMIT 1) as open_intervention_ref";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = e.fk_soc";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
     $sql .= " WHERE e.status = 1";
     $sql .= " ORDER BY maint_status = 'none', maint_status = 'done',";
     $sql .= "  CASE maint_status WHEN 'overdue' THEN 1 WHEN 'due' THEN 2 WHEN 'soon' THEN 3 WHEN 'future' THEN 4 WHEN 'none' THEN 5 ELSE 6 END,";
@@ -4021,9 +4349,8 @@ function handleMaintenanceOverview($method, $parts, $input) {
         // Build group key and label
         if ($obj->fk_address) {
             $groupKey = 'addr_' . (int)$obj->fk_address;
-            $contactName = trim($obj->lastname . ' ' . $obj->firstname);
             $addrLine = trim(($obj->addr_zip ?: '') . ' ' . ($obj->addr_town ?: ''));
-            $groupLabel = $contactName ?: $obj->customer_name;
+            $groupLabel = $obj->addr_name ?: $obj->customer_name;
             if ($addrLine) $groupLabel .= ' — ' . $addrLine;
             $groupAddress = trim(($obj->addr_street ?: '') . ', ' . ($obj->addr_zip ?: '') . ' ' . ($obj->addr_town ?: ''), ', ');
         } else {

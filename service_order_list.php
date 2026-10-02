@@ -82,9 +82,9 @@ $showTermin      = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TERMIN',      '1
 $sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec, f.description,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.login, u.lastname, u.firstname,";
-$sql .= " COALESCE(MIN(sp.address), MIN(sp_obj.address)) as obj_address,";
-$sql .= " COALESCE(MIN(sp.zip), MIN(sp_obj.zip)) as obj_zip,";
-$sql .= " COALESCE(MIN(sp.town), MIN(sp_obj.town)) as obj_town,";
+$sql .= " MIN(addr_s.address) as obj_address,";
+$sql .= " MIN(addr_s.zip) as obj_zip,";
+$sql .= " MIN(addr_s.town) as obj_town,";
 $sql .= " COUNT(DISTINCT eid.fk_equipment) as nb_equipment,";
 $sql .= " GROUP_CONCAT(DISTINCT eq.equipment_type ORDER BY eq.equipment_type SEPARATOR ',') as equipment_types";
 $sql .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
@@ -92,11 +92,12 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail as eid ON eid.fk_intervention = f.rowid AND eid.fk_equipment IS NOT NULL";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = eid.fk_equipment";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON sp.rowid = eq.fk_address";
-// Fallback: OBJ-Kontakt direkt am Serviceauftrag (wenn keine Anlage mit Adresse verknüpft)
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."element_contact as ec ON ec.element_id = f.rowid";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."c_type_contact as ctc ON ctc.rowid = ec.fk_c_type_contact AND ctc.code = 'OBJ' AND ctc.element = 'fichinter'";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp_obj ON sp_obj.rowid = ec.fk_socpeople AND ctc.rowid IS NOT NULL";
+// Objektadresse via linked equipment (equipmentmanager_intervention_link, set as soon as
+// equipment is added to the order) - NOT via eid/eq above, which only have rows once actual
+// work/checklist entries exist and would leave the address empty on a fresh order.
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as lnk ON lnk.fk_intervention = f.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq_addr ON eq_addr.rowid = lnk.fk_equipment";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = eq_addr.fk_address";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
 $sql .= buildStatusFilter($status);
 if ($search_ref) {

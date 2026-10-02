@@ -62,7 +62,22 @@ class DocumentEquipmentLink
      */
     public function create($user)
     {
-        global $conf;
+        global $conf, $langs;
+
+        // Enforce: all equipment on one document must share the same Objektadresse
+        // (see Equipment::getObjectAddressForDocument()) - a document must not mix
+        // equipment from different Objektadressen, since that address drives the
+        // generated PDF's Objektadresse.
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+        $lockedAddress = Equipment::getObjectAddressForDocument($this->db, $this->document_type, $this->fk_document);
+        if ($lockedAddress !== null) {
+            $candidate = new Equipment($this->db);
+            $candidate->fetch($this->fk_equipment);
+            if ((int)$candidate->fk_address !== (int)$lockedAddress->id) {
+                $this->error = $langs->trans('EquipmentAddressMismatch');
+                return -2;
+            }
+        }
 
         $this->entity = $conf->entity;
         $this->fk_user_creat = $user->id;
@@ -238,8 +253,21 @@ class DocumentEquipmentLink
         $count = 0;
 
         if ($target_type === 'fichinter') {
-            // Copy to Fichinter uses existing intervention_link table
+            // Copy to Fichinter uses existing intervention_link table. Same
+            // Objektadresse enforcement as DocumentEquipmentLink::create() -
+            // skip equipment that would mix a different address into the target.
+            dol_include_once('/equipmentmanager/class/equipment.class.php');
+            $lockedAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $target_id);
+
             foreach ($links as $link) {
+                if ($lockedAddress !== null) {
+                    $candidate = new Equipment($db);
+                    $candidate->fetch($link->fk_equipment);
+                    if ((int)$candidate->fk_address !== (int)$lockedAddress->id) {
+                        continue;
+                    }
+                }
+
                 $sql = "INSERT IGNORE INTO " . MAIN_DB_PREFIX . "equipmentmanager_intervention_link";
                 $sql .= " (fk_intervention, fk_equipment, link_type, date_creation, fk_user_creat)";
                 $sql .= " VALUES (";
@@ -252,6 +280,18 @@ class DocumentEquipmentLink
 
                 if ($db->query($sql)) {
                     $count++;
+                    if ($lockedAddress === null) {
+                        // Anchor subsequent equipment in this same copy batch to
+                        // whichever address the first copied equipment carries.
+                        $justCopied = new Equipment($db);
+                        if ($justCopied->fetch($link->fk_equipment) > 0 && $justCopied->fk_address > 0) {
+                            require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+                            $lockedAddress = new Societe($db);
+                            if ($lockedAddress->fetch($justCopied->fk_address) <= 0) {
+                                $lockedAddress = null;
+                            }
+                        }
+                    }
                 }
             }
         } else {

@@ -5,6 +5,20 @@
  * - Dropdown navigation
  */
 
+// PWA requests (e.g. checklist PDF from the app) authenticate via pwa_token
+// instead of a browser session - NOLOGIN must be defined before main.inc.php
+// runs, otherwise it 403s/redirects to the login page before our own pwa_token
+// check further below ever gets a chance to run. NOCSRFCHECK is needed too:
+// main.inc.php separately refuses any GET request with a non-trivial 'action'
+// param (like action=pdf_checklist) unless a CSRF 'token' param is present,
+// which a standalone PWA request has no session-bound token to provide. Both
+// are only set for PWA requests so normal desktop access (this page also
+// serves as a Fichinter card tab) keeps full session auth and CSRF protection.
+if (!empty($_GET['pwa_token']) || !empty($_SERVER['HTTP_X_PWA_TOKEN'])) {
+    define('NOLOGIN', '1');
+    define('NOCSRFCHECK', '1');
+}
+
 // Load Dolibarr environment
 $res = 0;
 if (!$res && file_exists("../../main.inc.php")) {
@@ -59,6 +73,7 @@ if (!$user->id) {
         if ($resTok && $db->num_rows($resTok)) {
             $tokObj = $db->fetch_object($resTok);
             $user->fetch((int)$tokObj->fk_user);
+            $user->getrights();
         }
     }
 }

@@ -40,20 +40,19 @@ $new_interval = GETPOST('new_interval', 'alpha');
 $form = new Form($db);
 $formcompany = new FormCompany($db);
 
-// Get all addresses that have equipment for dropdown
+// Get all Objektadresse companies that have equipment, for the dropdown.
+// fk_address is now a Thirdparty (Societe) directly, no more socpeople hop.
 $address_options = array();
-$sql_addr = "SELECT DISTINCT sp.rowid, CONCAT(sp.lastname, ' ', sp.firstname) as label, sp.address, sp.zip, sp.town, s.nom as company_name";
-$sql_addr .= " FROM ".MAIN_DB_PREFIX."socpeople as sp";
-$sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as e ON e.fk_address = sp.rowid";
-$sql_addr .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON sp.fk_soc = s.rowid";
+$sql_addr = "SELECT DISTINCT s.rowid, s.nom as label, s.address, s.zip, s.town";
+$sql_addr .= " FROM ".MAIN_DB_PREFIX."societe as s";
+$sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as e ON e.fk_address = s.rowid";
 $sql_addr .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
-$sql_addr .= " ORDER BY sp.town, sp.lastname, sp.firstname";
+$sql_addr .= " ORDER BY s.town, s.nom";
 $resql_addr = $db->query($sql_addr);
 if ($resql_addr) {
     while ($obj_addr = $db->fetch_object($resql_addr)) {
         $addr_label = $obj_addr->label;
         if ($obj_addr->town) $addr_label .= ' - '.$obj_addr->town;
-        if ($obj_addr->company_name) $addr_label .= ' ('.$obj_addr->company_name.')';
         $address_options[$obj_addr->rowid] = $addr_label;
     }
 }
@@ -275,14 +274,14 @@ if ($search_company > 0 || $search_address > 0) {
     $sql .= " t.fk_address,";
     $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
     $sql .= " s.nom as company_name,";
-    $sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-    $sql .= " sp.address as address_street,";
-    $sql .= " sp.zip as address_zip,";
-    $sql .= " sp.town as address_town,";
+    $sql .= " addr_s.nom as address_label,";
+    $sql .= " addr_s.address as address_street,";
+    $sql .= " addr_s.zip as address_zip,";
+    $sql .= " addr_s.town as address_town,";
     $sql .= " c.ref as contract_ref";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON t.fk_address = addr_s.rowid";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
     $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
@@ -292,7 +291,7 @@ if ($search_company > 0 || $search_address > 0) {
     if ($search_address > 0) {
         $sql .= " AND t.fk_address = ".(int)$search_address;
     }
-    $sql .= " ORDER BY sp.town, sp.lastname, sp.firstname, t.equipment_number";
+    $sql .= " ORDER BY addr_s.town, addr_s.nom, t.equipment_number";
 
     $resql = $db->query($sql);
 
@@ -336,9 +335,13 @@ if ($search_company > 0 || $search_address > 0) {
             $bulk_contracts = array();
             $bulk_socid = $search_company;
 
-            // If searching by address and no company selected, get company from address
+            // If searching by address and no company selected, use the fk_soc of any
+            // one piece of equipment at this Objektadresse as a best-effort default
+            // (Objektadresse is now a standalone Thirdparty, no longer implicitly
+            // tied to one customer via a contact's own fk_soc).
             if (empty($bulk_socid) && $search_address > 0) {
-                $sql_soc = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."socpeople WHERE rowid = ".(int)$search_address;
+                $sql_soc = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment";
+                $sql_soc .= " WHERE fk_address = ".(int)$search_address." AND fk_soc > 0 LIMIT 1";
                 $res_soc = $db->query($sql_soc);
                 if ($res_soc && $db->num_rows($res_soc) > 0) {
                     $obj_soc = $db->fetch_object($res_soc);

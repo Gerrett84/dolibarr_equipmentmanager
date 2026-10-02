@@ -91,7 +91,11 @@ if ($action == 'add' && !$cancel) {
         setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("EquipmentNumber")), null, 'errors');
         $error++;
     }
-    
+    if (empty($object->fk_address) || $object->fk_address <= 0) {
+        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
+        $error++;
+    }
+
     if (!$error) {
         $result = $object->create($user);
         if ($result > 0) {
@@ -131,6 +135,11 @@ if ($action == 'update' && !$cancel) {
     $object->smoke_detector_install_month = GETPOST('smoke_detector_install_month', 'int') ?: null;
     $object->smoke_detector_install_year = GETPOST('smoke_detector_install_year', 'int') ?: null;
     $object->smoke_detector_replacement_cycle = GETPOST('smoke_detector_replacement_cycle', 'int') ?: null;
+
+    if (empty($object->fk_address) || $object->fk_address <= 0) {
+        setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("ObjectAddress")), null, 'errors');
+        $error++;
+    }
 
     if (!$error) {
         $result = $object->update($user);
@@ -222,31 +231,10 @@ jQuery(document).ready(function() {
     
     jQuery("#fk_soc").change(function() {
         var socid = jQuery(this).val();
-        var addressSelect = jQuery("#fk_address_select");
         var contractSelect = jQuery("#fk_contract_select");
 
         if (socid > 0) {
-            addressSelect.html("<option value=''>Lädt...</option>");
             contractSelect.html("<option value=''>Lädt...</option>");
-
-            // Load addresses
-            jQuery.ajax({
-                url: "<?php echo DOL_URL_ROOT; ?>/custom/equipmentmanager/ajax/get_addresses.php",
-                data: { socid: socid },
-                type: "GET",
-                dataType: "json",
-                success: function(data) {
-                    addressSelect.html("<option value=''>---</option>");
-                    if (data && data.length > 0) {
-                        jQuery.each(data, function(i, addr) {
-                            addressSelect.append("<option value='" + addr.id + "'>" + addr.label + "</option>");
-                        });
-                    }
-                },
-                error: function() {
-                    addressSelect.html("<option value=''>Fehler beim Laden</option>");
-                }
-            });
 
             // Load contracts
             jQuery.ajax({
@@ -269,10 +257,12 @@ jQuery(document).ready(function() {
                 }
             });
         } else {
-            addressSelect.html("<option value=''>---</option>");
             contractSelect.html("<option value=''>---</option>");
         }
     });
+    // Objektadresse is no longer scoped to the selected fk_soc (see equipment_edit.php's
+    // "Object Address" block) - the full list of flagged companies is rendered
+    // server-side once and never needs to reload on fk_soc change.
 });
 </script>
 <?php
@@ -344,39 +334,40 @@ print '</select>';
 print '</td></tr>';
 
 // Third Party
-print '<tr><td class="fieldrequired">'.$langs->trans("ThirdParty").'</td><td>';
-print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 1, null, 0, 'minwidth300');
+print '<tr><td>'.$langs->trans("ThirdParty").'</td><td>';
+print $form->select_company($object->fk_soc, 'fk_soc', '', 'SelectThirdParty', 0, 0, null, 0, 'minwidth300');
 print '</td></tr>';
 
-// Object Address
-print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
-if ($object->fk_soc > 0) {
+// Object Address - a standalone company flagged "Objektadresse" (see
+// admin/setup.php), independent of the equipment's fk_soc. See
+// Equipment::isObjectAddressMigrated() docblock for why this guard exists.
+print '<tr><td class="fieldrequired">'.$langs->trans("ObjectAddress").'</td><td>';
+if (!Equipment::isObjectAddressMigrated()) {
+    print '<span class="warning">'.$langs->trans("ObjectAddressMigrationPending").'</span>';
+} else {
     print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
     print '<option value="">---</option>';
-    
-    // Load contacts (addresses) of the third party
-    $sql = "SELECT rowid, CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
-    $sql .= " WHERE fk_soc = ".(int)$object->fk_soc;
-    $sql .= " ORDER BY lastname, firstname";
-    
+
+    $sql = "SELECT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields sef ON sef.fk_object = s.rowid";
+    $sql .= " WHERE sef.equipmentmanager_object_address = 1";
+    $sql .= " AND s.entity IN (".getEntity('societe').")";
+    $sql .= " ORDER BY s.town, s.nom";
+
     $resql = $db->query($sql);
     if ($resql) {
         while ($addr = $db->fetch_object($resql)) {
             $selected = ($object->fk_address == $addr->rowid) ? ' selected' : '';
-            $address_display = $addr->name;
+            $address_display = $addr->nom;
             if ($addr->town) $address_display .= ' - '.$addr->town;
-            
+
             print '<option value="'.$addr->rowid.'"'.$selected.'>';
             print dol_escape_htmltag($address_display);
             print '</option>';
         }
     }
     print '</select>';
-} else {
-    print '<select name="fk_address" id="fk_address_select" class="flat minwidth300">';
-    print '<option value="">---</option>';
-    print '</select>';
-    print ' <span class="opacitymedium">'.$langs->trans("SelectThirdPartyFirst").'</span>';
+    print ajax_combobox('fk_address_select');
 }
 print '</td></tr>';
 

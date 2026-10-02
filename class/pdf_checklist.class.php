@@ -269,9 +269,23 @@ class pdf_checklist
         $pdf->Cell(0, 5, $this->pdfStr($outputlangs->transnoentities('Date')).': '.dol_print_date($checklist->date_completion, 'day'), 0, 1, 'R');
         $posy += 6;
 
-        // Objektadresse — from intervention thirdparty
+        // Objektadresse — the equipment's own fk_address (Objektadresse), falling
+        // back to the intervention's thirdparty (Auftraggeber) if none is set.
         $objAddr = '';
-        if (is_object($intervention->thirdparty)) {
+        require_once DOL_DOCUMENT_ROOT.'/custom/equipmentmanager/class/equipment.class.php';
+        $addrCompany = null;
+        if (Equipment::isObjectAddressMigrated() && !empty($equipment->fk_address)) {
+            require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+            $addrCompany = new Societe($db);
+            if ($addrCompany->fetch($equipment->fk_address) <= 0) {
+                $addrCompany = null;
+            }
+        }
+        if ($addrCompany !== null) {
+            $objAddr = $addrCompany->name;
+            if ($addrCompany->address) $objAddr .= ', ' . $addrCompany->address;
+            if ($addrCompany->zip || $addrCompany->town) $objAddr .= ', ' . trim($addrCompany->zip . ' ' . $addrCompany->town);
+        } elseif (is_object($intervention->thirdparty)) {
             $tp = $intervention->thirdparty;
             $objAddr = $tp->name;
             if ($tp->address) $objAddr .= ', ' . $tp->address;
@@ -286,8 +300,7 @@ class pdf_checklist
         }
         if ($objAddr) {
             $pdf->SetXY($this->marge_gauche, $posy);
-            $pdf->Cell(30, 5, 'Objektadresse:', 0, 0, 'L');
-            $pdf->Cell(0, 5, $outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
+            $pdf->Cell(0, 5, 'Objektadresse: '.$outputlangs->convToOutputCharset($objAddr), 0, 1, 'L');
             $posy += 6;
         }
 

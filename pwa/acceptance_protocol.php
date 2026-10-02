@@ -74,19 +74,8 @@ if (!$user->hasRight('ficheinter', 'lire')) {
 // Fetch related data
 $fichinter->fetch_thirdparty();
 
-// Get object address contact
-$objectAddress = null;
-$contacts = $fichinter->liste_contact(-1, 'external');
-if (is_array($contacts)) {
-    foreach ($contacts as $contact) {
-        if ($contact['code'] == 'OBJ') {
-            $contactObj = new Contact($db);
-            $contactObj->fetch($contact['id']);
-            $objectAddress = $contactObj;
-            break;
-        }
-    }
-}
+// Get object address (Objektadresse, via linked equipment's fk_address)
+$objectAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $fichinter->id);
 
 // Get ALL service equipment (not filtered by commissioning/acceptance)
 $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
@@ -216,9 +205,8 @@ if ($fichinter->thirdparty) {
 $pdf->SetXY($leftMargin + $colWidth + 3, $posy);
 if ($objectAddress) {
     // Name
-    $objName = trim($objectAddress->firstname.' '.$objectAddress->lastname);
-    if (!empty($objName)) {
-        $pdf->Cell($colWidth - 6, 4, $objName, 0, 1, 'L');
+    if (!empty($objectAddress->name)) {
+        $pdf->Cell($colWidth - 6, 4, $objectAddress->name, 0, 1, 'L');
         $pdf->SetX($leftMargin + $colWidth + 3);
     }
     if ($objectAddress->address) {

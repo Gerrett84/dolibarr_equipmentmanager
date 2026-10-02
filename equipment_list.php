@@ -84,13 +84,13 @@ $sql .= " t.planned_duration,";
 $sql .= " t.fk_contract,";
 $sql .= " COALESCE(t.planned_duration, et.default_duration, 0) as effective_duration,";
 $sql .= " s.nom as company_name,";
-$sql .= " CONCAT(sp.lastname, ' ', sp.firstname) as address_label,";
-$sql .= " sp.town as address_town,";
-$sql .= " sp.zip as address_zip,";
+$sql .= " addr_s.nom as address_label,";
+$sql .= " addr_s.town as address_town,";
+$sql .= " addr_s.zip as address_zip,";
 $sql .= " c.ref as contract_ref";
 $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as t";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON t.fk_soc = s.rowid";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as sp ON t.fk_address = sp.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON t.fk_address = addr_s.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment_types as et ON t.equipment_type = et.code";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."contrat as c ON t.fk_contract = c.rowid";
 $sql .= " WHERE t.entity IN (".getEntity('equipmentmanager').")";
@@ -110,10 +110,10 @@ if ($search_label) {
 }
 if ($search_address) {
     $sql .= " AND (";
-    $sql .= "CONCAT(sp.lastname, ' ', sp.firstname) LIKE '%".$db->escape($search_address)."%'";
-    $sql .= " OR sp.town LIKE '%".$db->escape($search_address)."%'";
-    $sql .= " OR sp.zip LIKE '%".$db->escape($search_address)."%'";
-    $sql .= " OR sp.address LIKE '%".$db->escape($search_address)."%'";
+    $sql .= "addr_s.nom LIKE '%".$db->escape($search_address)."%'";
+    $sql .= " OR addr_s.town LIKE '%".$db->escape($search_address)."%'";
+    $sql .= " OR addr_s.zip LIKE '%".$db->escape($search_address)."%'";
+    $sql .= " OR addr_s.address LIKE '%".$db->escape($search_address)."%'";
     $sql .= ")";
 }
 if ($search_company) {
@@ -172,7 +172,7 @@ if ($resql) {
     print_liste_field_titre("EquipmentNumber", $_SERVER["PHP_SELF"], "t.equipment_number", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Type", $_SERVER["PHP_SELF"], "t.equipment_type", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("Label", $_SERVER["PHP_SELF"], "t.label", "", $param, '', $sortfield, $sortorder);
-    print_liste_field_titre("ObjectAddress", $_SERVER["PHP_SELF"], "sp.town", "", $param, '', $sortfield, $sortorder);
+    print_liste_field_titre("ObjectAddress", $_SERVER["PHP_SELF"], "addr_s.town", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("PlannedDuration", $_SERVER["PHP_SELF"], "effective_duration", "", $param, '', $sortfield, $sortorder, 'center ');
     print_liste_field_titre("Contract", $_SERVER["PHP_SELF"], "c.ref", "", $param, '', $sortfield, $sortorder);
     print_liste_field_titre("MaintenanceContract", $_SERVER["PHP_SELF"], "t.status", "", $param, '', $sortfield, $sortorder, 'center ');

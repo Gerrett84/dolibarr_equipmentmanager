@@ -81,6 +81,7 @@ $toselect = GETPOST('toselect', 'array');
 if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array($link_type, array('maintenance', 'service'))) {
     $success_count = 0;
     $skip_count = 0;
+    $mismatch_count = 0;
 
     foreach ($toselect as $eq_id) {
         $link = new DocumentEquipmentLink($db, 'propal');
@@ -88,8 +89,11 @@ if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array(
         $link->fk_equipment = $eq_id;
         $link->link_type = $link_type;
 
-        if ($link->create($user) > 0) {
+        $result = $link->create($user);
+        if ($result > 0) {
             $success_count++;
+        } elseif ($result == -2) {
+            $mismatch_count++;
         } else {
             $skip_count++;
         }
@@ -101,6 +105,9 @@ if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array(
     }
     if ($skip_count > 0) {
         setEventMessages($langs->trans('EquipmentAlreadyLinked').' ('.$skip_count.')', null, 'warnings');
+    }
+    if ($mismatch_count > 0) {
+        setEventMessages($langs->trans('EquipmentAddressMismatch').' ('.$mismatch_count.')', null, 'errors');
     }
 
     header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
@@ -173,11 +180,49 @@ if ($object->id > 0) {
     $customer_id = $object->socid;
     $equipment_list = array();
 
+    $show_all = GETPOST('show_all', 'int');
+    $filter_address = GETPOST('filter_address', 'int');
+
+    // Once equipment with an Objektadresse is already linked, lock the picker to
+    // that address - a document must not mix equipment from different
+    // Objektadressen (see Equipment::getObjectAddressForDocument()).
+    $lockedAddressObj = Equipment::getObjectAddressForDocument($db, 'propal', $object->id);
+    $lockedAddressId = $lockedAddressObj !== null ? (int)$lockedAddressObj->id : 0;
+    if ($lockedAddressId > 0) {
+        $filter_address = $lockedAddressId;
+        $show_all = 1; // ignore fk_soc - the address itself is now the only relevant filter
+    }
+
+    // Objektadresse filter dropdown: addresses actually in use among the
+    // relevant equipment (scoped to the customer unless show_all is checked)
+    $address_options = array();
+    $sql_fa = "SELECT DISTINCT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s";
+    $sql_fa .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.fk_address = s.rowid";
+    $sql_fa .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+    if (!$show_all) {
+        $sql_fa .= " AND e.fk_soc = ".(int)$customer_id;
+    }
+    $sql_fa .= " ORDER BY s.town, s.nom";
+    $resql_fa = $db->query($sql_fa);
+    if ($resql_fa) {
+        while ($obj_fa = $db->fetch_object($resql_fa)) {
+            $fa_label = $obj_fa->nom;
+            if ($obj_fa->town) $fa_label .= ' - '.$obj_fa->town;
+            $address_options[$obj_fa->rowid] = $fa_label;
+        }
+    }
+
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
-    $sql .= " a.address, a.zip, a.town";
+    $sql .= " addr_s.address, addr_s.zip, addr_s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment as e";
-    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."socpeople as a ON a.rowid = e.fk_address";
-    $sql .= " WHERE e.fk_soc = ".(int)$customer_id;
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = e.fk_address";
+    $sql .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+    if (!$show_all) {
+        $sql .= " AND e.fk_soc = ".(int)$customer_id;
+    }
+    if ($filter_address > 0) {
+        $sql .= " AND e.fk_address = ".(int)$filter_address;
+    }
     $sql .= " ORDER BY e.equipment_number ASC";
 
     $resql = $db->query($sql);
@@ -297,6 +342,33 @@ if ($object->id > 0) {
     foreach ($equipment_list as $eq_id => $eq) {
         if (!isset($linked_ids[$eq_id])) {
             $available_equipment[$eq_id] = $eq;
+        }
+    }
+
+    if ($permissiontoadd) {
+        // Filter bar (GET, reloads the page with the chosen filters) - locked to a
+        // single, fixed Objektadresse once equipment from one has been linked.
+        if ($lockedAddressId > 0) {
+            print '<div style="margin-bottom: 8px;">';
+            print '<span class="fa fa-lock paddingright"></span>';
+            print $langs->trans('ObjectAddress').': <strong>'.dol_escape_htmltag($address_options[$lockedAddressId] ?? '').'</strong>';
+            print ' <span class="opacitymedium">('.$langs->trans('EquipmentAddressLockedHint').')</span>';
+            print '</div>';
+        } else {
+            print '<form method="GET" action="'.$_SERVER["PHP_SELF"].'" style="margin-bottom: 8px;">';
+            print '<input type="hidden" name="id" value="'.$object->id.'">';
+            print '<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">';
+            print '<select name="filter_address" id="filter_address_select" class="flat minwidth300" onchange="this.form.submit();">';
+            print '<option value="">'.$langs->trans('ObjectAddress').' - '.$langs->trans('SelectAll').'</option>';
+            foreach ($address_options as $addr_id => $addr_label) {
+                $sel = ($filter_address == $addr_id) ? ' selected' : '';
+                print '<option value="'.$addr_id.'"'.$sel.'>'.dol_escape_htmltag($addr_label).'</option>';
+            }
+            print '</select>';
+            print ajax_combobox('filter_address_select');
+            print '<label><input type="checkbox" name="show_all" value="1"'.($show_all ? ' checked' : '').' onchange="this.form.submit();"> '.$langs->trans('ShowAllObjectAddresses').'</label>';
+            print '</div>';
+            print '</form>';
         }
     }
 

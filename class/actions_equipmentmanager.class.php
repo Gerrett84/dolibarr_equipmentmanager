@@ -208,19 +208,12 @@ class ActionsEquipmentManager
             return 0;
         }
 
-        // Get linked OBJ contact (Objektadresse)
-        $objContactIds = $object->getIdContact('external', 'OBJ');
+        // Get the Objektadresse via the document's linked equipment
+        require_once DOL_DOCUMENT_ROOT.'/custom/equipmentmanager/class/equipment.class.php';
+        $addrCompany = Equipment::getObjectAddressForDocument($this->db, $object->element, $object->id);
 
-        // If no Objektadresse linked, let normal address building happen
-        if (empty($objContactIds) || !is_array($objContactIds) || count($objContactIds) == 0) {
-            return 0;
-        }
-
-        // Load the OBJ contact
-        require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
-        $contactObj = new Contact($this->db);
-
-        if ($contactObj->fetch($objContactIds[0]) <= 0) {
+        // If no Objektadresse found, let normal address building happen
+        if ($addrCompany === null) {
             return 0;
         }
 
@@ -274,22 +267,22 @@ class ActionsEquipmentManager
         $stringaddress .= "\n".$outputlangs->transnoentities("ObjectAddress").":\n";
 
         // Name
-        if ($contactObj->lastname || $contactObj->firstname) {
-            $stringaddress .= trim($contactObj->firstname.' '.$contactObj->lastname)."\n";
+        if ($addrCompany->name) {
+            $stringaddress .= $addrCompany->name."\n";
         }
 
         // Address
-        if ($contactObj->address) {
-            $stringaddress .= $contactObj->address."\n";
+        if ($addrCompany->address) {
+            $stringaddress .= $addrCompany->address."\n";
         }
 
         // ZIP + City
         $cityLine = '';
-        if ($contactObj->zip) {
-            $cityLine .= $contactObj->zip;
+        if ($addrCompany->zip) {
+            $cityLine .= $addrCompany->zip;
         }
-        if ($contactObj->town) {
-            $cityLine .= ($cityLine ? ' ' : '').$contactObj->town;
+        if ($addrCompany->town) {
+            $cityLine .= ($cityLine ? ' ' : '').$addrCompany->town;
         }
         if ($cityLine) {
             $stringaddress .= $cityLine;
@@ -650,6 +643,52 @@ class ActionsEquipmentManager
             .bg-infobox-equipmentmanager { color: #e67e22 !important; }
             .bg-infobox-equipmentmanager_serviceorders { color: #3bbfa8 !important; }
         </style>';
+
+        return 0;
+    }
+
+    /**
+     * On the Societe (company) create/edit card, pull the "Objektadresse"
+     * extrafield row out of Dolibarr's collapsed "More fields" group (hidden by
+     * default, see societe/card.php's toogleMoreFields()) and move it right
+     * after the Prospect/Customer/Supplier checkboxes, so it's always visible
+     * without an extra click. CSS class 'field_options_equipmentmanager_object_address'
+     * is the stable selector CommonObject::showOptionals() always prints on this
+     * row (works for both create, where $this->id is empty, and edit).
+     *
+     * @param array $parameters Parameters
+     * @param CommonObject $object Object (Societe, or others - guarded below)
+     * @param string $action Action
+     * @param HookManager $hookmanager Hook manager
+     * @return int <0 if error, 0 if nothing done, >0 if OK
+     */
+    public function formObjectOptions($parameters, &$object, &$action, $hookmanager)
+    {
+        if (!is_object($object) || $object->element !== 'societe') {
+            return 0;
+        }
+        if (!in_array($action, array('create', 'edit'))) {
+            return 0;
+        }
+
+        // setTimeout(...,0) defers to a new macrotask, guaranteed to run after every
+        // $(document).ready() handler registered so far - including societe/card.php's
+        // own toogleMoreFields(false), which otherwise re-hides this row regardless of
+        // script tag order. Stripping the trextrafields/morefields classes also detaches
+        // it from that toggle for good, so later clicks on "More" cannot re-hide it.
+        $this->resprints = '<script nonce="'.getNonce().'">
+        jQuery(document).ready(function() {
+            setTimeout(function() {
+                var row = jQuery(".field_options_equipmentmanager_object_address");
+                if (!row.length) return;
+                row.removeClass("trextrafields morefields").show();
+                var anchor = jQuery("#prospectinput").closest("tr");
+                if (anchor.length) {
+                    row.insertAfter(anchor);
+                }
+            }, 0);
+        });
+        </script>';
 
         return 0;
     }

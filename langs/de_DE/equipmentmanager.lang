@@ -202,6 +202,8 @@ EquipmentLinkedMaintenance=Anlage als Wartung verknüpft
 EquipmentLinkedService=Anlage als Service verknüpft
 EquipmentUnlinked=Equipment-Verknüpfung entfernt
 EquipmentAlreadyLinked=Equipment ist bereits verknüpft
+EquipmentAddressMismatch=Diese Anlage gehört zu einer anderen Objektadresse als die bereits verknüpften Anlagen dieses Serviceauftrags
+EquipmentAddressLockedHint=festgelegt durch bereits verknüpfte Anlagen
 NoMaintenanceEquipment=Keine Wartungsarbeiten verknüpft
 LinkMaintenanceEquipmentFromListBelow=Verknüpfe Wartungsarbeiten aus der Liste unten
 NoServiceEquipment=Keine Servicearbeiten verknüpft
@@ -312,7 +314,7 @@ Intervention=Serviceauftrag
 
 ManageEquipmentAndServiceReports=Verwaltung von Anlagen und Serviceberichten für Türen und Brandschutzanlagen
 NoConfigurationRequired=Keine Konfiguration erforderlich
-ModuleSetup=Moduleinrichtung
+ModuleSetup=Allgemein
 
 # PDF Export - v1.6.1
 
@@ -348,6 +350,10 @@ TemplateNotSetAsDefault=Noch nicht als Standard gesetzt
 PleaseSetAsDefaultInTableBelow=Bitte in der Tabelle unten auf "Als Standard setzen" klicken
 CurrentDefault=Aktueller Standard
 SetAsDefault=Als Standard setzen
+
+# Admin setup page sections
+MyProfile=Mein Profil
+AlsoAvailableInPwa=Auch direkt in der PWA unter Einstellungen verfügbar - für Techniker ohne Backend-Zugriff.
 
 # Technician Signature Setup
 TechnicianSignature=Techniker Unterschrift
@@ -837,3 +843,43 @@ PriceListArchiveConfirmDelete=Archivierten Eintrag wirklich löschen?
 PriceListArchived=Preisliste erfolgreich archiviert
 PriceListArchiveHistory=Archivierte Preislisten
 PriceListArchiveEmpty=Keine archivierten Versionen vorhanden.
+
+# v6.0 - Objektadresse migration (Contact -> Thirdparty)
+ObjectAddressMigrationReport=Objektadresse-Migrationsbericht
+ObjectAddressMigrationReportHelp=Prüft, ob Firmen mehrere unterschiedliche Kontakt-Adressen haben, die aktuell als Objektadresse genutzt werden. Diese würden bei der Migration auf eine gemeinsame Firmenadresse zusammenfallen - bitte vor der eigentlichen Migration bereinigen (z.B. als eigene Geschäftspartner anlegen).
+EquipmentWithObjectAddress=Anlagen mit Objektadresse
+CompaniesUsedAsObjectAddress=Als Objektadresse genutzte Firmen
+CompaniesWithMultipleAddresses=Firmen mit mehreren unterschiedlichen Adressen
+ObjectAddressReportClean=Keine Auffälligkeiten gefunden - Migration kann sicher durchgeführt werden.
+ObjectAddressDistinctCount=Anzahl unterschiedlicher Adressen
+OrphanedObjectAddressContacts=Verwaiste Objektadress-Kontakte
+OrphanedObjectAddressContactsHelp=Diese Objektadressen zeigen auf einen Kontakt ohne zugehörige Firma und können nicht automatisch migriert werden - bitte manuell korrigieren.
+ObjectAddresses=Objektadressen
+NewObjectAddress=Neue Objektadresse
+ObjectAddressMigrate=Objektadresse-Migration
+ObjectAddressMigrateHelp=Biegt die Objektadresse bestehender Anlagen von einem Kontakt auf dessen Firma um (siehe Projektplan). Bitte vorher den Migrationsbericht prüfen.
+ObjectAddressMigrateSuccess=Migration erfolgreich abgeschlossen. %s Anlage(n) wurden umgestellt.
+ObjectAddressMigrateBlockedDirty=Migration blockiert: Es gibt noch Firmen mit mehreren unterschiedlichen Adressen, die zuerst manuell bereinigt werden müssen.
+ObjectAddressMigrateBlockedAlreadyDone=Die Migration wurde bereits am %s durchgeführt. Bitte den "Erzwingen"-Haken setzen, um sie trotzdem erneut auszuführen.
+ObjectAddressAlreadyMigrated=Diese Migration wurde bereits am %s durchgeführt.
+ObjectAddressOrphansWillBeSkipped=%s Anlage(n) mit verwaister Objektadresse (Kontakt ohne Firma) werden bei dieser Migration übersprungen und müssen manuell korrigiert werden.
+ObjectAddressMigratePreview=Vorschau der Änderungen
+ObjectAddressOldContact=Bisheriger Kontakt
+ObjectAddressNewCompany=Neue Firma (Objektadresse)
+ObjectAddressForceRerun=Migration erneut ausführen (erzwingen)
+ObjectAddressConfirmMigrate=Migration jetzt wirklich durchführen? Dieser Schritt lässt sich nicht rückgängig machen.
+ObjectAddressRunMigration=Migration durchführen
+ObjectAddressNothingToMigrate=Keine Anlagen mit migrierbarer Objektadresse gefunden.
+ObjectAddressMigrationPending=Bitte zuerst die v6-Datenbank-Migration ausführen (Modul-Einstellungen → Objektadresse-Migration).
+ShowAllObjectAddresses=Alle Objektadressen anzeigen
+EquipmentManagerSetup=Equipment Manager - Einrichtung
+PdfAndDesign=PDF & Design
+PdfTemplates=PDF-Vorlagen
+SettingsInSidebar=Weitere Einstellungen
+SettingsInSidebarHelp=Diese Einstellungen sind jetzt direkt in der linken Seitenleiste unter "Einstellungen" erreichbar:
+MyProfileHelp=Name und Unterschrift des Technikers für Serviceberichte.
+CalendarFeedHelpShort=Kalender-Abo-URL für die iOS Kalender-App.
+ServiceOrderListColumnsHelp=Legt fest, welche Spalten in der Serviceauftragsliste angezeigt werden (gilt für alle Benutzer).
+OpenPage=Öffnen
+EMSettings=Einstellungen
+MenuServiceOrderColumns=Spalten Serviceaufträge

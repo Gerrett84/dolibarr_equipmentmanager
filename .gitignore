@@ -4,3 +4,6 @@
 *.png
 CLAUDE.md
 .claude/
+
+# Vendored Leaflet default marker icons (legitimate library assets, not user content)
+!pwa/leaflet/*.png

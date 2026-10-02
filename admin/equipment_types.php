@@ -41,6 +41,7 @@ if (!$res) {
 
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+dol_include_once('/equipmentmanager/lib/equipmentmanager.lib.php');
 
 // Load translation files
 $langs->loadLangs(array("admin", "equipmentmanager@equipmentmanager"));
@@ -245,18 +246,8 @@ $linkback = '<a href="'.DOL_URL_ROOT.'/admin/modules.php?restore_lastsearch_valu
 print load_fiche_titre($langs->trans($page_name), $linkback, 'title_setup');
 
 // Admin tabs
-$head = array();
-$head[0][0] = dol_buildpath('/equipmentmanager/admin/setup.php', 1);
-$head[0][1] = $langs->trans('ModuleSetup');
-$head[0][2] = 'setup';
-$head[1][0] = dol_buildpath('/equipmentmanager/admin/equipment_types.php', 1);
-$head[1][1] = $langs->trans('EquipmentTypesSetup');
-$head[1][2] = 'equipment_types';
-$head[2][0] = dol_buildpath('/equipmentmanager/admin/checklists.php', 1);
-$head[2][1] = $langs->trans('ChecklistTemplates');
-$head[2][2] = 'checklists';
 
-print dol_get_fiche_head($head, 'equipment_types', '', -1);
+print dol_get_fiche_head(equipmentmanagerAdminPrepareHead(), 'equipment_types', '', -1);
 
 // Confirm delete dialog
 if ($action == 'delete' && $id > 0) {

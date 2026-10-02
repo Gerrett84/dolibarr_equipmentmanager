@@ -146,17 +146,15 @@ if ($object->id > 0) {
     }
     print '</td></tr>';
     
-    // Object Address
+    // Object Address - now a Thirdparty (Societe), not a Contact - see
+    // Equipment::isObjectAddressMigrated() docblock.
     print '<tr><td>'.$langs->trans("ObjectAddress").'</td><td>';
     if ($object->fk_address > 0) {
-        $sql = "SELECT CONCAT(lastname, ' ', firstname) as name, address, zip, town FROM ".MAIN_DB_PREFIX."socpeople";
-        $sql .= " WHERE rowid = ".(int)$object->fk_address;
-        $resql = $db->query($sql);
-        if ($resql && $db->num_rows($resql)) {
-            $addr = $db->fetch_object($resql);
-            print '<strong>'.dol_escape_htmltag($addr->name).'</strong><br>';
-            if ($addr->address) print dol_escape_htmltag($addr->address).'<br>';
-            if ($addr->zip || $addr->town) print dol_escape_htmltag($addr->zip.' '.$addr->town);
+        $addrCompany = new Societe($db);
+        if ($addrCompany->fetch($object->fk_address) > 0) {
+            print $addrCompany->getNomUrl(1).'<br>';
+            if ($addrCompany->address) print dol_escape_htmltag($addrCompany->address).'<br>';
+            if ($addrCompany->zip || $addrCompany->town) print dol_escape_htmltag($addrCompany->zip.' '.$addrCompany->town);
         }
     } else {
         print '<span class="opacitymedium">-</span>';

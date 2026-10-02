@@ -67,6 +67,8 @@ EquipmentLinkedMaintenance=Equipment linked as maintenance
 EquipmentLinkedService=Equipment linked as service
 EquipmentUnlinked=Equipment link removed
 EquipmentAlreadyLinked=Equipment is already linked
+EquipmentAddressMismatch=This equipment belongs to a different object address than the equipment already linked to this service order
+EquipmentAddressLockedHint=fixed by the equipment already linked
 
 NoMaintenanceEquipment=No maintenance work linked
 LinkMaintenanceEquipmentFromListBelow=Link maintenance work from list below
@@ -211,6 +213,10 @@ PleaseSetAsDefaultInTableBelow=Please click "Set as default" in the table below
 CurrentDefault=Current default
 SetAsDefault=Set as default
 
+# Admin setup page sections
+MyProfile=My Profile
+AlsoAvailableInPwa=Also available directly in the PWA under Settings - for technicians without backend access.
+
 # Technician Signature - v1.6.3
 
 TechnicianSignature=Technician Signature
@@ -281,3 +287,48 @@ ConfirmRegenerateToken=Generate a new token? The old link will become invalid.
 Termin=Appointment
 AllDay=All day
 Required=is required
+
+# v6.0 - Objektadresse migration (Contact -> Thirdparty)
+ObjectAddressMigrationReport=Object Address Migration Report
+ObjectAddressMigrationReportHelp=Checks whether companies have multiple different contact addresses currently used as an object address. These would collapse into a single company address during migration - please clean these up first (e.g. by creating separate thirdparties) before running the actual migration.
+EquipmentWithObjectAddress=Equipment with an object address
+CompaniesUsedAsObjectAddress=Companies used as object address
+CompaniesWithMultipleAddresses=Companies with multiple different addresses
+ObjectAddressReportClean=No issues found - migration can be run safely.
+ObjectAddressDistinctCount=Number of distinct addresses
+OrphanedObjectAddressContacts=Orphaned object address contacts
+OrphanedObjectAddressContactsHelp=These object addresses point to a contact with no owning company and cannot be migrated automatically - please fix manually.
+ShowAllEquipment=Show all equipment
+ObjectAddresses=Object Addresses
+NewObjectAddress=New Object Address
+ObjectAddressMigrate=Object Address Migration
+ObjectAddressMigrateHelp=Repoints existing equipment's object address from a contact to that contact's company (see project plan). Please check the migration report first.
+ObjectAddressMigrateSuccess=Migration completed successfully. %s piece(s) of equipment were updated.
+ObjectAddressMigrateBlockedDirty=Migration blocked: there are still companies with multiple different addresses that must be cleaned up manually first.
+ObjectAddressMigrateBlockedAlreadyDone=This migration was already run on %s. Please check "Force" to run it again anyway.
+ObjectAddressAlreadyMigrated=This migration was already run on %s.
+ObjectAddressOrphansWillBeSkipped=%s piece(s) of equipment with an orphaned object address (contact with no company) will be skipped by this migration and need manual fixing.
+ObjectAddressMigratePreview=Preview of changes
+ObjectAddressOldContact=Previous contact
+ObjectAddressNewCompany=New company (object address)
+ObjectAddressForceRerun=Run migration again (force)
+ObjectAddressConfirmMigrate=Really run the migration now? This step cannot be undone.
+ObjectAddressRunMigration=Run migration
+ObjectAddressNothingToMigrate=No equipment with a migratable object address found.
+ObjectAddressMigrationPending=Please run the v6 database migration first (Module setup -> Object Address Migration).
+ShowAllObjectAddresses=Show all object addresses
+EquipmentManagerSetup=Equipment Manager - Setup
+ModuleSetup=General
+DatabaseMaintenance=Database maintenance
+EquipmentTypesSetup=Equipment types
+ChecklistTemplates=Checklist templates
+PdfAndDesign=PDF & Design
+PdfTemplates=PDF templates
+SettingsInSidebar=More settings
+SettingsInSidebarHelp=These settings are now available directly in the left sidebar under "Settings":
+MyProfileHelp=Technician name and signature for service reports.
+CalendarFeedHelpShort=Calendar subscription URL for the iOS Calendar app.
+ServiceOrderListColumnsHelp=Defines which columns are shown in the service order list (applies to all users).
+OpenPage=Open
+EMSettings=Settings
+MenuServiceOrderColumns=Service order columns

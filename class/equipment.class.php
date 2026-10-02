@@ -607,6 +607,121 @@ class Equipment extends CommonObject
     }
 
     /**
+     * Whether the v6 Objektadresse migration (fk_address: Contact -> Thirdparty,
+     * see admin/objectaddress_migrate.php) has been run on this installation.
+     * Guards the Objektadresse picker (equipment_edit.php, equipment_bulk_create.php,
+     * ajax/get_addresses.php) against querying the equipmentmanager_object_address
+     * extrafield column before it exists - which would otherwise be a fatal SQL
+     * error if someone installs the v6 files without running the SQL migration
+     * first. Cheap check: reads the already-loaded const cache, no extra query.
+     *
+     * @return bool
+     */
+    public static function isObjectAddressMigrated()
+    {
+        return getDolGlobalString('EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED') !== '';
+    }
+
+    /**
+     * Resolve the Objektadresse (a Societe flagged equipmentmanager_object_address)
+     * for a document, via its linked equipment's fk_address. Picks the first linked
+     * equipment (by the link table's own creation order) that has fk_address set.
+     * Single source of truth for this lookup, replacing the module's former "OBJ"
+     * external-contact-role mechanism (Dolibarr's native linked-contacts tab),
+     * which required updating an object's address in two places whenever it changed.
+     *
+     * @param DoliDB $db Database handler
+     * @param string $element 'fichinter'|'propal'|'commande'|'facture'
+     * @param int $objectId Id of the document (fichinter/propal/commande/facture)
+     * @return Societe|null
+     */
+    public static function getObjectAddressForDocument($db, $element, $objectId)
+    {
+        if (!self::isObjectAddressMigrated()) {
+            return null;
+        }
+
+        $objectId = (int) $objectId;
+        if ($objectId <= 0) {
+            return null;
+        }
+
+        $fkAddress = 0;
+
+        if ($element === 'fichinter') {
+            $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+            $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+            $sql .= " WHERE l.fk_intervention = ".$objectId;
+            $sql .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+            $sql .= " ORDER BY l.date_creation ASC LIMIT 1";
+            $fkAddress = self::fetchFirstFkAddress($db, $sql);
+        } elseif ($element === 'propal') {
+            $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_propal_equipment l";
+            $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+            $sql .= " WHERE l.fk_propal = ".$objectId;
+            $sql .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+            $sql .= " ORDER BY l.date_creation ASC LIMIT 1";
+            $fkAddress = self::fetchFirstFkAddress($db, $sql);
+        } elseif ($element === 'commande') {
+            $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_commande_equipment l";
+            $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+            $sql .= " WHERE l.fk_commande = ".$objectId;
+            $sql .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
+            $sql .= " ORDER BY l.date_creation ASC LIMIT 1";
+            $fkAddress = self::fetchFirstFkAddress($db, $sql);
+        } elseif ($element === 'facture') {
+            // No direct equipment link on Facture - resolve via a linked fichinter,
+            // commande or propal (same bidirectional element_element lookup pattern
+            // as beforePDFCreation() in class/actions_equipmentmanager.class.php).
+            foreach (array('fichinter', 'commande', 'propal') as $linkedElement) {
+                $sqlLink  = "SELECT fk_source AS lid FROM ".MAIN_DB_PREFIX."element_element";
+                $sqlLink .= " WHERE sourcetype = '".$db->escape($linkedElement)."' AND targettype = 'facture' AND fk_target = ".$objectId;
+                $sqlLink .= " UNION ";
+                $sqlLink .= "SELECT fk_target AS lid FROM ".MAIN_DB_PREFIX."element_element";
+                $sqlLink .= " WHERE targettype = '".$db->escape($linkedElement)."' AND sourcetype = 'facture' AND fk_source = ".$objectId;
+
+                $resLink = $db->query($sqlLink);
+                if ($resLink) {
+                    while ($rowLink = $db->fetch_object($resLink)) {
+                        $addr = self::getObjectAddressForDocument($db, $linkedElement, (int) $rowLink->lid);
+                        if ($addr !== null) {
+                            return $addr;
+                        }
+                    }
+                }
+            }
+            return null;
+        } else {
+            return null;
+        }
+
+        if ($fkAddress <= 0) {
+            return null;
+        }
+
+        require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+        $societe = new Societe($db);
+        if ($societe->fetch($fkAddress) > 0) {
+            return $societe;
+        }
+        return null;
+    }
+
+    /**
+     * @param DoliDB $db Database handler
+     * @param string $sql Query returning a single row with an fk_address column
+     * @return int
+     */
+    private static function fetchFirstFkAddress($db, $sql)
+    {
+        $resql = $db->query($sql);
+        if ($resql && ($obj = $db->fetch_object($resql))) {
+            return (int) $obj->fk_address;
+        }
+        return 0;
+    }
+
+    /**
      * Resolve the effective brand color hex, checking EQUIPMENTMANAGER_PDF_COLOR
      * first (PDF-only override, see admin/setup.php "PDF color") then falling
      * back to the shared EQUIPMENTMANAGER_BRAND_COLOR (used by PWA too), then
