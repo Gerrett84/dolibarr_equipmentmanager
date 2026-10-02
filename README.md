@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.0.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.0.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -355,6 +355,11 @@ chmod -R 755 equipmentmanager
 
 ## Changelog
 
+### v6.0.2 (2026-10-02)
+
+- **Fix: Objektadresse-Migration** – Die Migration stellte Anlagen bisher nur auf die *Firma* des alten Kontakts um, wodurch der Auftraggeber zur Objektadresse wurde und Name/Adresse des Kontakts verloren gingen. Jetzt entsteht aus jedem genutzten Kontakt eine eigene Objektadresse (Geschäftspartner mit Name und Adresse des Kontakts, bei fehlender Kontaktadresse mit der Firmenadresse); identische Kontakte/Adressen werden zusammengefasst, bereits vorhandene gleiche Objektadressen wiederverwendet. Vorschau zeigt „wird neu angelegt“ / „vorhanden“. Der Bericht `objectaddress_migration_report.php` und das „Erzwingen“-Feld entfallen (ein zweiter Lauf würde bereits migrierte IDs falsch deuten und ist jetzt gesperrt)
+- **Hinweis:** Wer mit v6.0.0/v6.0.1 bereits migriert hat, muss die Objektadressen der betroffenen Anlagen manuell prüfen
+
 ### v6.0.1 (2026-10-02)
 
 - **Fix: PWA startete nicht (`SyntaxError: Cannot declare a const variable twice: 'nextYear'`)** – Beim Merge von v5-dev entstand in `pwa/app.js` eine doppelte Deklaration; behoben. Service-Worker-Cache auf v36 angehoben, damit installierte PWAs die defekte Datei verwerfen
@@ -364,7 +369,7 @@ chmod -R 755 equipmentmanager
 - **Objektadresse als eigenständiger Geschäftspartner** – `Equipment.fk_address` zeigt jetzt auf einen als "Objektadresse" geflaggten Geschäftspartner statt auf einen Kontakt des Auftraggebers; entkoppelt die Objektadresse vollständig vom aktuellen Auftraggeber
 - **Neuer Standard-Auftraggeber + Objektadresse-Auswahl** – Beide Felder mit Suchfunktion; Objektadresse-Dropdown standardmäßig nach Auftraggeber gefiltert, mit Haken „Alle anzeigen"; einheitlich in Serviceauftrag, Angebot und Auftrag verfügbar (letztere hatten zuvor gar keine Objektadresse-Auswahl)
 - **Ein Objektadresse pro Dokument erzwungen** – Anlagen-Picker (Backend und PWA) sperren sich auf die bereits verwendete Objektadresse, sobald eine Anlage verknüpft ist; zusätzliche serverseitige Prüfung in `DocumentEquipmentLink::create()` und den Fichinter-Verknüpfungs-Endpunkten
-- **Geführte Migration** – `admin/objectaddress_migration_report.php` (Analyse) und `admin/objectaddress_migrate.php` (einmalige, transaktionale Migration mit Sentinel-Flag `EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED`)
+- **Geführte Migration** – `admin/objectaddress_migrate.php` (Vorschau, einmalig und transaktional, Sentinel-Flag `EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED`); ab v6.0.2 wird aus jedem bisherigen Objektadresse-Kontakt eine eigene Objektadresse erzeugt
 - **OBJ-Kontakttyp vollständig abgelöst** – Neuer zentraler Helfer `Equipment::getObjectAddressForDocument()` ersetzt sämtliche Stellen, die bisher den Dolibarr-Kontakttyp „OBJ" auslasen (Servicebericht-PDF, `pdf_build_address`-Hook für Angebot/Auftrag/Rechnung, E-Mail-Textbausteine, PWA-Abnahmeprotokoll und -Checkliste, Kalenderfeed, Serviceauftragsliste, PWA-Historie); Kontaktrolle in `llx_c_type_contact` deaktiviert (Daten bleiben erhalten)
 - **PWA-Einstellungen** – Passwort ändern, Unterschrift und Kalender-Abo (`/change-password`, `/technician-signature`, `/calendar-subscription`); Passwort-Hinweis und Mindestlänge folgen der Dolibarr-Richtlinie (Standard 12 Zeichen / Perso-Muster)
 - **PWA: 2FA einrichten** – Endpunkt `/totp2fa` (Status, Start, Bestätigen, Deaktivieren) bei aktivem Modul totp2fa; QR-Code serverseitig als SVG
@@ -810,6 +815,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.0.1
+**Current Version:** 6.0.2
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)

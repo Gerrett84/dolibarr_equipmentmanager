@@ -11,21 +11,17 @@
  * \file       admin/objectaddress_migrate.php
  * \ingroup    equipmentmanager
  * \brief      Guarded, one-time data migration for the v6 Objektadresse change:
- *             repoints equipmentmanager_equipment.fk_address from a Contact
- *             (llx_socpeople) to that contact's owning company (llx_societe),
- *             flagging the company as an Objektadresse along the way.
+ *             equipmentmanager_equipment.fk_address used to point to a Contact
+ *             (llx_socpeople); it now points to a Third party flagged as
+ *             Objektadresse. Each distinct contact in use becomes its own new
+ *             Objektadresse third party carrying the contact's name and address
+ *             (an existing flagged third party with identical name/address is
+ *             reused). Contacts without own address data fall back to the
+ *             address of their company.
  *
- *             Hard pre-flight gate: refuses to run at all if any company has
- *             more than one distinct contact-address in use (see
- *             objectaddress_migration_report.php) - those must be cleaned up
- *             manually first, since a company has only one address and this
- *             would otherwise silently collapse distinct site addresses into one.
- *
- *             Soft gate: once run successfully, a sentinel const blocks a second
- *             run unless the admin explicitly checks "force" - a second run
- *             would misinterpret already-migrated fk_address values (now
- *             societe rowids) as contact rowids again, since both tables have
- *             independent id spaces and collisions are possible.
+ *             Hard gate: once run, a sentinel const blocks any second run, since
+ *             already-migrated fk_address values (now third party ids) would be
+ *             misread as contact ids.
  */
 
 // Load Dolibarr environment
@@ -71,56 +67,38 @@ $action = GETPOST('action', 'aZ09');
 $force = GETPOST('force', 'int') ? 1 : 0;
 
 /**
- * Companies with more than one distinct contact-address in use as fk_address.
- * Same query as objectaddress_migration_report.php - re-checked here as a hard
- * pre-flight gate, not just informational.
+ * Contacts currently referenced as fk_address, with the data the new Objektadresse
+ * will be built from. Address falls back to the company when the contact has none.
  *
  * @param DoliDB $db Database handler
- * @return int Number of flagged companies
+ * @return array List of stdClass rows (one per equipment)
  */
-function eqmCountFlaggedCompanies($db)
+function eqmLoadSourceRows($db)
 {
-    $sql = "SELECT COUNT(*) as nb FROM (";
-    $sql .= "  SELECT s.rowid";
-    $sql .= "  FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
-    $sql .= "  INNER JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
-    $sql .= "  INNER JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = sp.fk_soc";
-    $sql .= "  WHERE e.fk_address IS NOT NULL AND e.fk_address > 0";
-    $sql .= "  GROUP BY s.rowid";
-    $sql .= "  HAVING COUNT(DISTINCT CONCAT_WS('|', COALESCE(sp.address,''), COALESCE(sp.zip,''), COALESCE(sp.town,''))) > 1";
-    $sql .= ") t";
-
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        $db->free($resql);
-        return (int) $obj->nb;
-    }
-    return 0;
-}
-
-/**
- * Dry-run preview rows: equipment -> old contact/address -> target company.
- *
- * @param DoliDB $db Database handler
- * @return array List of stdClass rows
- */
-function eqmPreviewRows($db)
-{
-    $sql = "SELECT e.rowid AS equipment_id, e.equipment_number, e.fk_address AS old_contact_id,";
-    $sql .= " CONCAT(COALESCE(sp.lastname,''), ' ', COALESCE(sp.firstname,'')) AS old_contact_name,";
-    $sql .= " sp.fk_soc AS new_company_id, s.nom AS new_company_name";
+    $sql = "SELECT e.rowid AS equipment_id, e.equipment_number, e.fk_address AS contact_id,";
+    $sql .= " sp.lastname, sp.firstname, sp.address AS c_address, sp.zip AS c_zip, sp.town AS c_town,";
+    $sql .= " sp.fk_pays AS c_pays, sp.fk_departement AS c_state, sp.phone AS c_phone, sp.email AS c_email,";
+    $sql .= " s.nom AS s_name, s.address AS s_address, s.zip AS s_zip, s.town AS s_town,";
+    $sql .= " s.fk_pays AS s_pays, s.fk_departement AS s_state";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " INNER JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = sp.fk_soc";
     $sql .= " WHERE e.fk_address IS NOT NULL AND e.fk_address > 0";
-    $sql .= " AND sp.fk_soc IS NOT NULL AND sp.fk_soc > 0";
     $sql .= " ORDER BY e.equipment_number";
 
     $rows = array();
     $resql = $db->query($sql);
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
+            $name = trim(trim((string) $obj->lastname).' '.trim((string) $obj->firstname));
+            $hasOwnAddress = (trim((string) $obj->c_address) !== '' || trim((string) $obj->c_zip) !== '' || trim((string) $obj->c_town) !== '');
+            $obj->target_name = ($name !== '') ? $name : (string) $obj->s_name;
+            $obj->target_address = $hasOwnAddress ? (string) $obj->c_address : (string) $obj->s_address;
+            $obj->target_zip = $hasOwnAddress ? (string) $obj->c_zip : (string) $obj->s_zip;
+            $obj->target_town = $hasOwnAddress ? (string) $obj->c_town : (string) $obj->s_town;
+            $obj->target_pays = $hasOwnAddress ? (int) $obj->c_pays : (int) $obj->s_pays;
+            $obj->target_state = $hasOwnAddress ? (int) $obj->c_state : (int) $obj->s_state;
+            $obj->target_key = mb_strtolower($obj->target_name.'|'.trim($obj->target_address).'|'.trim($obj->target_zip).'|'.trim($obj->target_town));
             $rows[] = $obj;
         }
         $db->free($resql);
@@ -129,67 +107,90 @@ function eqmPreviewRows($db)
 }
 
 /**
- * Equipment rows that cannot be migrated automatically (contact has no owning company).
+ * Find an already flagged Objektadresse third party with identical name and address.
  *
- * @param DoliDB $db Database handler
- * @return int Count
+ * @param DoliDB $db  Database handler
+ * @param object $row Row from eqmLoadSourceRows()
+ * @return int Third party id or 0
  */
-function eqmCountOrphans($db)
+function eqmFindExistingObjectAddress($db, $row)
 {
-    $sql = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
-    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
-    $sql .= " WHERE e.fk_address IS NOT NULL AND e.fk_address > 0";
-    $sql .= " AND (sp.fk_soc IS NULL OR sp.fk_soc <= 0)";
-
+    $sql = "SELECT s.rowid FROM ".MAIN_DB_PREFIX."societe s";
+    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields sef ON sef.fk_object = s.rowid";
+    $sql .= " WHERE sef.equipmentmanager_object_address = 1";
+    $sql .= " AND s.nom = '".$db->escape($row->target_name)."'";
+    $sql .= " AND COALESCE(s.address,'') = '".$db->escape(trim($row->target_address))."'";
+    $sql .= " AND COALESCE(s.zip,'') = '".$db->escape(trim($row->target_zip))."'";
+    $sql .= " AND COALESCE(s.town,'') = '".$db->escape(trim($row->target_town))."'";
+    $sql .= " AND s.entity IN (".getEntity('societe').")";
     $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        $db->free($resql);
-        return (int) $obj->nb;
+    if ($resql && ($obj = $db->fetch_object($resql))) {
+        return (int) $obj->rowid;
     }
     return 0;
 }
 
 $alreadyMigratedAt = getDolGlobalString('EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED');
-$flaggedCount = eqmCountFlaggedCompanies($db);
-$orphanCount = eqmCountOrphans($db);
+$sourceRows = eqmLoadSourceRows($db);
 
 $migrationDone = false;
 $migrationError = '';
+$createdCount = 0;
+$reusedCount = 0;
 
 /*
  * Actions
  */
 if ($action == 'migrate' && $user->admin) {
-    if ($flaggedCount > 0) {
-        $migrationError = $langs->trans("ObjectAddressMigrateBlockedDirty");
-    } elseif (!empty($alreadyMigratedAt) && !$force) {
+    if (!empty($alreadyMigratedAt)) {
         $migrationError = $langs->trans("ObjectAddressMigrateBlockedAlreadyDone", $alreadyMigratedAt);
     } else {
         $db->begin();
-
-        $sqlFlag = "INSERT INTO ".MAIN_DB_PREFIX."societe_extrafields (fk_object, equipmentmanager_object_address)";
-        $sqlFlag .= " SELECT DISTINCT sp.fk_soc, 1";
-        $sqlFlag .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
-        $sqlFlag .= " INNER JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
-        $sqlFlag .= " WHERE e.fk_address IS NOT NULL AND e.fk_address > 0";
-        $sqlFlag .= " AND sp.fk_soc IS NOT NULL AND sp.fk_soc > 0";
-        $sqlFlag .= " ON DUPLICATE KEY UPDATE equipmentmanager_object_address = 1";
-
-        $sqlRepoint = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
-        $sqlRepoint .= " INNER JOIN ".MAIN_DB_PREFIX."socpeople sp ON sp.rowid = e.fk_address";
-        $sqlRepoint .= " SET e.fk_address = sp.fk_soc";
-        $sqlRepoint .= " WHERE e.fk_address IS NOT NULL AND e.fk_address > 0";
-        $sqlRepoint .= " AND sp.fk_soc IS NOT NULL AND sp.fk_soc > 0";
-
         $ok = true;
-        if (!$db->query($sqlFlag)) {
-            $ok = false;
-            $migrationError = $db->lasterror();
+        $map = array(); // target_key => third party id
+        $assign = array(); // equipment id => third party id
+
+        foreach ($sourceRows as $row) {
+            if (!isset($map[$row->target_key])) {
+                $socid = eqmFindExistingObjectAddress($db, $row);
+                if ($socid > 0) {
+                    $reusedCount++;
+                } else {
+                    $soc = new Societe($db);
+                    $soc->name = $row->target_name;
+                    $soc->address = trim($row->target_address);
+                    $soc->zip = trim($row->target_zip);
+                    $soc->town = trim($row->target_town);
+                    $soc->country_id = $row->target_pays;
+                    $soc->state_id = $row->target_state;
+                    $soc->phone = (string) $row->c_phone;
+                    $soc->email = (string) $row->c_email;
+                    $soc->client = 0;
+                    $soc->fournisseur = 0;
+                    $soc->status = 1;
+                    $soc->array_options['options_equipmentmanager_object_address'] = 1;
+                    $socid = $soc->create($user);
+                    if ($socid <= 0) {
+                        $ok = false;
+                        $migrationError = $soc->error ? $soc->error : implode(', ', $soc->errors);
+                        break;
+                    }
+                    $createdCount++;
+                }
+                $map[$row->target_key] = (int) $socid;
+            }
+            $assign[(int) $row->equipment_id] = $map[$row->target_key];
         }
-        if ($ok && !$db->query($sqlRepoint)) {
-            $ok = false;
-            $migrationError = $db->lasterror();
+
+        if ($ok) {
+            foreach ($assign as $equipmentId => $socid) {
+                $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_equipment SET fk_address = ".((int) $socid)." WHERE rowid = ".((int) $equipmentId);
+                if (!$db->query($sqlUpdate)) {
+                    $ok = false;
+                    $migrationError = $db->lasterror();
+                    break;
+                }
+            }
         }
 
         if ($ok) {
@@ -203,7 +204,7 @@ if ($action == 'migrate' && $user->admin) {
     }
 }
 
-$previewRows = ($flaggedCount == 0) ? eqmPreviewRows($db) : array();
+$previewRows = $migrationDone ? array() : $sourceRows;
 
 /*
  * View
@@ -216,34 +217,16 @@ print load_fiche_titre($langs->trans($page_name), $linkback, 'title_setup');
 print '<div class="info">'.$langs->trans("ObjectAddressMigrateHelp").'</div>';
 
 if ($migrationDone) {
-    print '<div class="ok">'.$langs->trans("ObjectAddressMigrateSuccess", count($previewRows)).'</div>';
+    print '<div class="ok">'.$langs->trans("ObjectAddressMigrateSuccess", count($assign), $createdCount, $reusedCount).'</div>';
 } elseif ($migrationError) {
     print '<div class="error">'.dol_escape_htmltag($migrationError).'</div>';
 }
 
-// Gate 1: dirty companies (hard block)
-if ($flaggedCount > 0) {
-    print '<div class="error">';
-    print $langs->trans("ObjectAddressMigrateBlockedDirty").' ';
-    print '<a href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migration_report.php', 1).'">'.$langs->trans("ObjectAddressMigrationReport").'</a>';
-    print '</div>';
-    llxFooter();
-    $db->close();
-    exit;
-}
-
-// Gate 2: already migrated (soft block, overridable)
 if (!empty($alreadyMigratedAt) && !$migrationDone) {
     print '<div class="warning">'.$langs->trans("ObjectAddressAlreadyMigrated", $alreadyMigratedAt).'</div>';
 }
 
-if ($orphanCount > 0) {
-    print '<div class="warning">'.$langs->trans("ObjectAddressOrphansWillBeSkipped", $orphanCount).' ';
-    print '<a href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migration_report.php', 1).'">'.$langs->trans("ObjectAddressMigrationReport").'</a>';
-    print '</div>';
-}
-
-if (!$migrationDone) {
+if (!$migrationDone && empty($alreadyMigratedAt)) {
     print '<br>';
     print load_fiche_titre($langs->trans("ObjectAddressMigratePreview"), '', '');
 
@@ -256,10 +239,12 @@ if (!$migrationDone) {
         print '<th>'.$langs->trans("ObjectAddressNewCompany").'</th>';
         print '</tr>';
         foreach ($previewRows as $row) {
+            $existing = eqmFindExistingObjectAddress($db, $row);
             print '<tr class="oddeven">';
             print '<td><a href="'.dol_buildpath('/equipmentmanager/equipment_view.php', 1).'?id='.((int) $row->equipment_id).'" target="_blank">'.dol_escape_htmltag($row->equipment_number).'</a></td>';
-            print '<td>'.dol_escape_htmltag(trim($row->old_contact_name)).'</td>';
-            print '<td>'.dol_escape_htmltag($row->new_company_name).'</td>';
+            print '<td>'.dol_escape_htmltag(trim($row->lastname.' '.$row->firstname)).'</td>';
+            print '<td>'.dol_escape_htmltag($row->target_name).', '.dol_escape_htmltag(trim($row->target_address.', '.$row->target_zip.' '.$row->target_town, ' ,'));
+            print ' <span class="opacitymedium">('.$langs->trans($existing > 0 ? "ObjectAddressWillReuse" : "ObjectAddressWillCreate").')</span></td>';
             print '</tr>';
         }
         print '</table>';
@@ -269,9 +254,6 @@ if (!$migrationDone) {
         print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
         print '<input type="hidden" name="token" value="'.newToken().'">';
         print '<input type="hidden" name="action" value="migrate">';
-        if (!empty($alreadyMigratedAt)) {
-            print '<label><input type="checkbox" name="force" value="1"> '.$langs->trans("ObjectAddressForceRerun").'</label><br><br>';
-        }
         print '<button type="submit" class="butAction" onclick="return confirm(\''.dol_escape_js($langs->trans("ObjectAddressConfirmMigrate")).'\');">'.$langs->trans("ObjectAddressRunMigration").'</button>';
         print '</form>';
     } else {

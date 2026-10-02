@@ -187,11 +187,6 @@ if (!Equipment::isObjectAddressMigrated()) {
     print '<table class="noborder centpercent">';
 
     print '<tr class="oddeven">';
-    print '<td><span class="fa fa-map-marker paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrationReport").'</strong></td>';
-    print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migration_report.php', 1).'">'.$langs->trans("ObjectAddressMigrationReport").'</a></td>';
-    print '</tr>';
-
-    print '<tr class="oddeven">';
     print '<td><span class="fa fa-exchange-alt paddingright"></span><strong>'.$langs->trans("ObjectAddressMigrate").'</strong></td>';
     print '<td><a class="butAction" href="'.dol_buildpath('/equipmentmanager/admin/objectaddress_migrate.php', 1).'">'.$langs->trans("ObjectAddressMigrate").'</a></td>';
     print '</tr>';
