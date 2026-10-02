@@ -20,6 +20,9 @@
 - **Eine Objektadresse pro Dokument** – Sobald einem Serviceauftrag/Angebot/Auftrag eine Anlage einer Objektadresse zugeordnet ist, lässt sich keine Anlage einer anderen Objektadresse mehr hinzufügen (Backend und PWA, inkl. serverseitiger Prüfung)
 - **Geführte Datenmigration** – Analysebericht (`admin/objectaddress_migrate.php`) prüft vor der Migration auf Auffälligkeiten (z.B. Anlagen mit mehreren Objektadressen desselben Kontakts); einmalige, transaktionale Migration mit Sentinel-Flag
 - **Alter "Objektadresse"-Kontakttyp (OBJ) vollständig abgelöst** – Bisher musste die Objektadresse teils doppelt gepflegt werden (Geschäftspartner-Stammdaten und der OBJ-Kontakt am Dokument); jetzt einzige Quelle für Servicebericht, Checkliste, Abnahmeprotokoll, Angebot/Auftrag/Rechnung-PDF, E-Mail-Textbausteine, iOS-Kalenderfeed und Serviceauftragsliste. Bestehende OBJ-Kontaktverknüpfungen bleiben in der Datenbank erhalten, werden aber nirgends mehr angeboten oder gelesen
+- **PWA-Einstellungen für Techniker** – Passwort ändern (mit der tatsächlichen Dolibarr-Passwortrichtlinie als Hinweis und Mindestlänge), eigene Unterschrift hinterlegen und iOS-Kalender-Abo abrufen; bisher nur im Backend (Admin-Rechte) möglich
+- **2FA direkt in der PWA einrichten** – Wenn das Modul *totp2fa* aktiv ist, können Techniker Zwei-Faktor-Authentifizierung selbst aktivieren (lokal erzeugter QR-Code ohne externen Dienst, Backup-Codes) und mit Passwort + Code wieder deaktivieren; PWA-Login fragt den Code ab
+- **Neu geordnetes Backend-Menü** – Moduleinstellungen in Reiter gegliedert (Allgemein / PDF & Design / Anlagentypen / Checklisten); Serviceauftragsliste-Spalten, Mein Profil und Kalender-Abo unter eigenem Menüpunkt „Einstellungen“ (Profil und Kalender für alle Benutzer, Rest nur Admin)
 - **Fix: Objektadresse in Angeboten doppelt gedruckt** – Eigene PDF-Vorlagen (`azur_objektadresse`, `cyan_objektadresse`) entfernt; Angebote nutzen jetzt wie Auftrag/Rechnung die Standardvorlage mit generischem Adress-Hook
 - **Fix: Objektadresse fehlte in frischen Serviceaufträgen** – Serviceauftragsliste und Kalenderfeed lasen die Adresse über eine Tabelle, die erst bei geloggten Arbeitszeiten befüllt wird, statt über die beim Anlagen-Hinzufügen sofort gesetzte Verknüpfung
 - **Fix: PWA-Checkliste PDF (403 Forbidden)** – Fehlendes `NOLOGIN`/CSRF-Ausnahme für PWA-Token-Zugriff ergänzt
@@ -359,6 +362,10 @@ chmod -R 755 equipmentmanager
 - **Ein Objektadresse pro Dokument erzwungen** – Anlagen-Picker (Backend und PWA) sperren sich auf die bereits verwendete Objektadresse, sobald eine Anlage verknüpft ist; zusätzliche serverseitige Prüfung in `DocumentEquipmentLink::create()` und den Fichinter-Verknüpfungs-Endpunkten
 - **Geführte Migration** – `admin/objectaddress_migration_report.php` (Analyse) und `admin/objectaddress_migrate.php` (einmalige, transaktionale Migration mit Sentinel-Flag `EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED`)
 - **OBJ-Kontakttyp vollständig abgelöst** – Neuer zentraler Helfer `Equipment::getObjectAddressForDocument()` ersetzt sämtliche Stellen, die bisher den Dolibarr-Kontakttyp „OBJ" auslasen (Servicebericht-PDF, `pdf_build_address`-Hook für Angebot/Auftrag/Rechnung, E-Mail-Textbausteine, PWA-Abnahmeprotokoll und -Checkliste, Kalenderfeed, Serviceauftragsliste, PWA-Historie); Kontaktrolle in `llx_c_type_contact` deaktiviert (Daten bleiben erhalten)
+- **PWA-Einstellungen** – Passwort ändern, Unterschrift und Kalender-Abo (`/change-password`, `/technician-signature`, `/calendar-subscription`); Passwort-Hinweis und Mindestlänge folgen der Dolibarr-Richtlinie (Standard 12 Zeichen / Perso-Muster)
+- **PWA: 2FA einrichten** – Endpunkt `/totp2fa` (Status, Start, Bestätigen, Deaktivieren) bei aktivem Modul totp2fa; QR-Code serverseitig als SVG
+- **Backend-Menü & Einstellungen neu gegliedert** – Reiter in `admin/setup.php`, neuer Menüblock „Einstellungen“
+- **Dolibarr 23/24-Kompatibilität** – `isModEnabled()`/`hasRight()` statt veralteter `$conf->modul->enabled`-Zugriffe
 - **Fix: Objektadresse in Angeboten doppelt** – `azur_objektadresse`/`cyan_objektadresse`-PDF-Vorlagen entfernt; Angebote nutzen jetzt die Standardvorlage + generischen Hook wie Auftrag/Rechnung
 - **Fix: Objektadresse fehlte in frischen Serviceaufträgen/Kalenderfeed** – Join lief über die Arbeitszeit-Tabelle statt über die sofort beim Anlagen-Hinzufügen gesetzte Verknüpfungstabelle
 - **Fix: Angebote/Aufträge – Objektadresse nicht wählbar** – `propal_equipment.php`/`commande_equipment.php` hatten weder eine Objektadresse-Auswahl noch den korrigierten Datenbank-Join
@@ -799,6 +806,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 5.6.0
-**Released:** Juli 2026
-**Compatibility:** Dolibarr 16.0+
+**Current Version:** 6.0.0
+**Released:** Oktober 2026
+**Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
