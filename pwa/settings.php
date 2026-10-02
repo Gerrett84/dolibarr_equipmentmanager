@@ -171,6 +171,8 @@ if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
     $pwaBrandColor = $brandColorSetting;
 }
 $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
+dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
+$pwaDark = eqmPwaDarkColors('#1e2d3d');
 
 // Get trusted device info
 $trustedDeviceInfo = null;
@@ -184,7 +186,8 @@ if (isModEnabled('totp2fa')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>">
+    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
     <title><?php echo $title; ?></title>
 
     <!-- Theme initialization -->
@@ -222,11 +225,11 @@ if (isModEnabled('totp2fa')) {
             --text-secondary: #b0b0b0;
             --text-muted: #808080;
             --border-color: #404040;
-            --header-bg: #1e2d3d;
+            --header-bg: <?php echo $pwaDark['header']; ?>;
             --input-bg: #3d3d3d;
             --input-border: #505050;
-            --primary-color: #60a5fa;
-            --primary-light: rgba(74, 144, 217, 0.2);
+            --primary-color: <?php echo $pwaDark['primary']; ?>;
+            --primary-light: <?php echo $pwaDark['primaryLight']; ?>;
         }
         * {
             box-sizing: border-box;

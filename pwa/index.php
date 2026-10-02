@@ -202,6 +202,8 @@ if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
     $pwaBrandColor = $brandColorSetting;
 }
 $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
+dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
+$pwaDark = eqmPwaDarkColors('#1e3a8a');
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -211,7 +213,8 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?php echo $title; ?>">
-    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>">
+    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
 
     <title><?php echo $title; ?></title>
 
@@ -261,12 +264,12 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
             --text-secondary: #b0b0b0;
             --text-muted: #808080;
             --border-color: #404040;
-            --header-bg: #1e3a8a;
+            --header-bg: <?php echo $pwaDark['header']; ?>;
             --shadow: 0 1px 3px rgba(0,0,0,0.3);
             --input-bg: #3d3d3d;
             --input-border: #505050;
-            --primary-color: #60a5fa;
-            --primary-light: rgba(74, 144, 217, 0.2);
+            --primary-color: <?php echo $pwaDark['primary']; ?>;
+            --primary-light: <?php echo $pwaDark['primaryLight']; ?>;
             --success-color: #28a745;
             --warning-color: #ffc107;
             --danger-color: #dc3545;

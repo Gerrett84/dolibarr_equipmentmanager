@@ -874,3 +874,5 @@ EMSettings=Einstellungen
 MenuServiceOrderColumns=Spalten Serviceaufträge
 ObjectAddressWillCreate=wird neu angelegt
 ObjectAddressWillReuse=vorhandene Objektadresse wird verwendet
+BrandColorDark=Markenfarbe (dunkler Modus)
+BrandColorDarkHelp=Kopfzeilen-Farbe der PWA im dunklen Modus (Leer/Zurücksetzen = Standard-Blau). Am besten eine dunklere Farbe wählen, da die Schrift weiß ist; die Akzentfarbe für Links und Buttons wird automatisch aufgehellt, damit sie auf dunklem Grund lesbar bleibt.

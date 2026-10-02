@@ -355,6 +355,10 @@ chmod -R 755 equipmentmanager
 
 ## Changelog
 
+### Unreleased
+
+- **PWA: eigene Farbe für den dunklen Modus** – Neue Einstellung „Markenfarbe (dunkler Modus)“ unter Moduleinstellungen → PDF & Design. Sie bestimmt die Kopfzeile der PWA im dunklen Modus (auch `theme-color` der Statusleiste); die Akzentfarbe für Links/Buttons wird bei Bedarf automatisch aufgehellt (Farbton bleibt), damit sie auf dunklem Grund lesbar ist. Leer/Zurücksetzen = bisheriges Blau
+
 ### v6.0.2 (2026-10-02)
 
 - **Fix: Objektadresse-Migration** – Die Migration stellte Anlagen bisher nur auf die *Firma* des alten Kontakts um, wodurch der Auftraggeber zur Objektadresse wurde und Name/Adresse des Kontakts verloren gingen. Jetzt entsteht aus jedem genutzten Kontakt eine eigene Objektadresse (Geschäftspartner mit Name und Adresse des Kontakts, bei fehlender Kontaktadresse mit der Firmenadresse); identische Kontakte/Adressen werden zusammengefasst, bereits vorhandene gleiche Objektadressen wiederverwendet. Vorschau zeigt „wird neu angelegt“ / „vorhanden“. Der Bericht `objectaddress_migration_report.php` und das „Erzwingen“-Feld entfallen (ein zweiter Lauf würde bereits migrierte IDs falsch deuten und ist jetzt gesperrt)

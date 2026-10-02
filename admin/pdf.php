@@ -85,6 +85,21 @@ if ($action == 'save_brand_color') {
     exit;
 }
 
+// Save or reset the PWA dark mode color
+if ($action == 'save_brand_color_dark') {
+    $darkColor = GETPOSTISSET('reset_btn') ? '' : GETPOST('brand_color_dark', 'alpha');
+
+    if (!empty($darkColor) && !preg_match('/^#[0-9a-fA-F]{6}$/', $darkColor)) {
+        setEventMessages($langs->trans("ErrorBrandColorFormat"), null, 'errors');
+    } else {
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_BRAND_COLOR_DARK', $darkColor, 'chaine', 0, '', $conf->entity);
+        setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    }
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 // Save or reset PDF-only color override (takes priority over the shared brand color, for PDF only)
 if ($action == 'save_pdf_color') {
     $pdfColor = GETPOSTISSET('reset_btn') ? '' : GETPOST('pdf_color', 'alpha');
@@ -210,6 +225,30 @@ print '<td>';
 $currentBrandColor = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR');
 print '<input type="color" name="brand_color" value="'.dol_escape_htmltag($currentBrandColor ?: '#1a3f6e').'">';
 print ' <span class="opacitymedium">'.$langs->trans("BrandColorHelp").'</span>';
+print '</td>';
+print '<td class="right nowraponall">';
+print '<input type="submit" name="reset_btn" value="'.$langs->trans("ResetToDefault").'" class="button button-cancel" formnovalidate style="margin-right:5px;">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
+print '</form>';
+print '<br>';
+
+// PWA dark mode color (header background; accent is lightened automatically if needed)
+print load_fiche_titre($langs->trans("BrandColorDark"), '', '');
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_brand_color_dark">';
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans("BrandColorDark").'</td>';
+print '<td>';
+$currentBrandColorDark = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR_DARK');
+print '<input type="color" name="brand_color_dark" value="'.dol_escape_htmltag($currentBrandColorDark ?: '#1e3a8a').'">';
+print ' <span class="opacitymedium">'.$langs->trans("BrandColorDarkHelp").'</span>';
 print '</td>';
 print '<td class="right nowraponall">';
 print '<input type="submit" name="reset_btn" value="'.$langs->trans("ResetToDefault").'" class="button button-cancel" formnovalidate style="margin-right:5px;">';
