@@ -1225,6 +1225,8 @@ class ServiceReportApp {
             };
             const c = maintColors[intervention.maintenance_status] || maintColors.none;
             typeBadgeHtml = `<span class="badge" style="background:${c.bg};color:${c.text}">Wartung</span>`;
+        } else if (intervention.primary_type === 'montage') {
+            typeBadgeHtml = '<span class="badge" style="background:#fff59d;color:#7a5c00">Montage</span>';
         } else if (intervention.primary_type === 'service') {
             typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
         }
@@ -1389,7 +1391,7 @@ class ServiceReportApp {
             // Available even before signing so user can preview
             const accBtn = document.getElementById('navAcceptanceProtocol');
             const hasAcceptanceData = equipment.some(eq =>
-                eq.link_type === 'service' && eq.detail &&
+                (eq.link_type === 'service' || eq.link_type === 'montage') && eq.detail &&
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
             accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
@@ -1460,7 +1462,9 @@ class ServiceReportApp {
                 const typeName = typeLabels[eq.type] || eq.type || '';
                 const linkTypeBadge = eq.link_type === 'maintenance'
                     ? '<span class="link-type-badge maintenance">Wartung</span>'
-                    : '<span class="link-type-badge service">Service</span>';
+                    : (eq.link_type === 'montage'
+                        ? '<span class="link-type-badge montage">Montage</span>'
+                        : '<span class="link-type-badge service">Service</span>');
 
                 // Check if equipment has been processed (has detail with work_done)
                 const isProcessed = eq.detail && eq.detail.work_done;
@@ -1538,6 +1542,8 @@ class ServiceReportApp {
                 linkTypeBadge = '<span class="link-type-badge service">Allgemein</span>';
             } else if (equipment.link_type === 'maintenance') {
                 linkTypeBadge = '<span class="link-type-badge maintenance">Wartung</span>';
+            } else if (equipment.link_type === 'montage') {
+                linkTypeBadge = '<span class="link-type-badge montage">Montage</span>';
             } else {
                 linkTypeBadge = '<span class="link-type-badge service">Service</span>';
             }
@@ -3571,6 +3577,7 @@ class ServiceReportApp {
                         <div style="display:flex;gap:8px;">
                             <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">S</button>
                             <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">W</button>
+                            <button class="btn" style="padding:6px 10px;font-size:12px;background:#fbc02d;color:#333;" data-type="montage">M</button>
                         </div>
                     `;
 
@@ -3670,6 +3677,7 @@ class ServiceReportApp {
                     <div style="display:flex;gap:8px;">
                         <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">Service</button>
                         <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">Wartung</button>
+                        <button class="btn" style="padding:6px 10px;font-size:12px;background:#fbc02d;color:#333;" data-type="montage">Montage</button>
                     </div>
                 `;
 
@@ -3715,7 +3723,7 @@ class ServiceReportApp {
         }
 
         const count = this.selectedEquipment.length;
-        const linkTypeName = linkType === 'maintenance' ? 'Wartung' : 'Service';
+        const linkTypeName = { maintenance: 'Wartung', montage: 'Montage' }[linkType] || 'Service';
 
         // Link each selected equipment (batch mode - don't close/reload for each)
         for (const equipmentId of this.selectedEquipment) {
@@ -4550,6 +4558,8 @@ class ServiceReportApp {
         if (type === 'maintenance') {
             const statusColors = { overdue: '#f44336', soon: '#ff9800', ok: '#4caf50', none: '#ff9800' };
             color = statusColors[intervention && intervention.maintenance_status] || '#ff9800';
+        } else if (type === 'montage') {
+            color = '#fbc02d';
         } else {
             color = '#2196f3';
         }
@@ -4649,7 +4659,7 @@ class ServiceReportApp {
                 const addrLine = [street, [zip, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
                 const icon = this.makeMapMarkerIcon(intervention.primary_type, intervention);
                 const markerColor = icon._color;
-                const typeLabel = intervention.primary_type === 'maintenance' ? 'Wartung' : 'Service';
+                const typeLabel = { maintenance: 'Wartung', montage: 'Montage' }[intervention.primary_type] || 'Service';
 
                 const objectName = addr?.name || intervention.customer?.name || '';
                 const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);

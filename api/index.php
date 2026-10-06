@@ -293,7 +293,7 @@ function handleInterventions($method, $parts, $input) {
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town,";
-    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' ELSE 'service' END) as primary_type,";
+    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il3 WHERE il3.fk_intervention = f.rowid AND il3.link_type = 'montage') THEN 'montage' ELSE 'service' END) as primary_type,";
     $sql .= " (SELECT CASE";
     $sql .= "   WHEN MIN(e.next_maintenance_date) IS NULL THEN 'none'";
     $sql .= "   WHEN MIN(e.next_maintenance_date) < CURDATE() THEN 'overdue'";
@@ -2309,7 +2309,7 @@ function handleLinkEquipment($method, $parts, $input) {
     }
 
     // Validate link_type
-    if (!in_array($link_type, ['maintenance', 'service'])) {
+    if (!in_array($link_type, ['maintenance', 'service', 'montage'])) {
         $link_type = 'service';
     }
 
@@ -2606,7 +2606,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$fichinter->id;
-    $sql .= " AND l.link_type = 'service'";
+    $sql .= " AND l.link_type IN ('service', 'montage')";
     $sql .= " AND (d.commissioning_done = 1 OR d.acceptance_done = 1)";
     $sql .= " ORDER BY e.equipment_number";
 

@@ -54,7 +54,7 @@ if (!$permissiontoread) {
  */
 
 // Link equipment
-if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service'))) {
+if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service', 'montage'))) {
     $link = new DocumentEquipmentLink($db, 'propal');
     $link->fk_document = $object->id;
     $link->fk_equipment = $equipment_id;
@@ -62,7 +62,7 @@ if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link
 
     $result = $link->create($user);
     if ($result > 0) {
-        $msg = ($link_type == 'maintenance') ? 'EquipmentLinkedMaintenance' : 'EquipmentLinkedService';
+        $msg = array('maintenance' => 'EquipmentLinkedMaintenance', 'montage' => 'EquipmentLinkedMontage')[$link_type] ?? 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg), null, 'mesgs');
     } else {
         if (strpos($link->error, 'Duplicate') !== false) {
@@ -78,7 +78,7 @@ if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link
 
 // Bulk link equipment
 $toselect = GETPOST('toselect', 'array');
-if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array($link_type, array('maintenance', 'service'))) {
+if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array($link_type, array('maintenance', 'service', 'montage'))) {
     $success_count = 0;
     $skip_count = 0;
     $mismatch_count = 0;
@@ -100,7 +100,7 @@ if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array(
     }
 
     if ($success_count > 0) {
-        $msg = ($link_type == 'maintenance') ? 'EquipmentLinkedMaintenance' : 'EquipmentLinkedService';
+        $msg = array('maintenance' => 'EquipmentLinkedMaintenance', 'montage' => 'EquipmentLinkedMontage')[$link_type] ?? 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg).' ('.$success_count.')', null, 'mesgs');
     }
     if ($skip_count > 0) {
@@ -132,7 +132,7 @@ if ($action == 'unlink' && $permissiontoadd && $equipment_id > 0) {
 // Update link type
 if ($action == 'update_link_type' && $permissiontoadd && $equipment_id > 0) {
     $new_type = GETPOST('new_link_type', 'alpha');
-    if (in_array($new_type, array('maintenance', 'service'))) {
+    if (in_array($new_type, array('maintenance', 'service', 'montage'))) {
         $sql = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_propal_equipment";
         $sql .= " SET link_type = '".$db->escape($new_type)."'";
         $sql .= " WHERE fk_propal = ".(int)$object->id;
@@ -254,7 +254,7 @@ if ($object->id > 0) {
     print '<table class="noborder centpercent">';
 
     print '<tr class="liste_titre">';
-    print '<th colspan="7">';
+    print '<th colspan="8">';
     print '<span class="fa fa-link paddingright"></span>'.$langs->trans('LinkedEquipment');
     if (count($linked_equipment) > 0) {
         print ' <button type="button" class="button small" onclick="copyAllEquipment()" title="'.$langs->trans('CopyAllToClipboard').'">';
@@ -300,11 +300,13 @@ if ($object->id > 0) {
             print '<td class="center">';
             if ($link->link_type == 'maintenance') {
                 print '<span class="badge badge-status4" style="background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:4px;">'.$langs->trans('MaintenanceWork').'</span>';
+            } elseif ($link->link_type == 'montage') {
+                print '<span class="badge" style="background:#fff9c4;color:#7a5c00;padding:3px 8px;border-radius:4px;">'.$langs->trans('MontageWork').'</span>';
             } else {
                 print '<span class="badge badge-status1" style="background:#fff3e0;color:#e65100;padding:3px 8px;border-radius:4px;">'.$langs->trans('ServiceWork').'</span>';
             }
             if ($permissiontoadd) {
-                $new_type = ($link->link_type == 'maintenance') ? 'service' : 'maintenance';
+                $new_type = array('service' => 'montage', 'montage' => 'maintenance', 'maintenance' => 'service')[$link->link_type] ?? 'service';
                 print ' <a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=update_link_type&equipment_id='.$link->fk_equipment.'&new_link_type='.$new_type.'&token='.newToken().'" title="'.$langs->trans('ToggleLinkType').'">';
                 print '<span class="fa fa-exchange"></span>';
                 print '</a>';
@@ -323,7 +325,7 @@ if ($object->id > 0) {
             print '</tr>';
         }
     } else {
-        print '<tr><td colspan="7" class="opacitymedium center" style="padding: 20px;">';
+        print '<tr><td colspan="8" class="opacitymedium center" style="padding: 20px;">';
         print $langs->trans('NoEquipmentLinked');
         print '</td></tr>';
     }
@@ -382,7 +384,7 @@ if ($object->id > 0) {
         print '<table class="noborder centpercent">';
 
         print '<tr class="liste_titre">';
-        print '<th colspan="7">';
+        print '<th colspan="8">';
         print '<span class="fa fa-cubes paddingright"></span>'.$langs->trans('AvailableEquipment');
         print ' <span class="opacitymedium">('.$object->thirdparty->name.')</span>';
         print '</th>';
@@ -396,6 +398,7 @@ if ($object->id > 0) {
         print '<th>'.$langs->trans('LocationNote').'</th>';
         print '<th class="center" width="60">'.$langs->trans('LinkAsMaintenance').'</th>';
         print '<th class="center" width="60">'.$langs->trans('LinkAsService').'</th>';
+        print '<th class="center" width="60">'.$langs->trans('LinkAsMontage').'</th>';
         print '</tr>';
 
         foreach ($available_equipment as $eq_id => $eq) {
@@ -432,6 +435,13 @@ if ($object->id > 0) {
             print '</a>';
             print '</td>';
 
+            // Montage button
+            print '<td class="center">';
+            print '<a class="button smallpaddingimp" style="background: #fdd835; color: #333;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$eq_id.'&link_type=montage&token='.newToken().'" title="'.$langs->trans('LinkAsMontage').'">';
+            print '<span class="fa fa-hammer"></span>';
+            print '</a>';
+            print '</td>';
+
             print '</tr>';
         }
 
@@ -443,6 +453,7 @@ if ($object->id > 0) {
         print '<select name="link_type" class="flat">';
         print '<option value="maintenance">'.$langs->trans('MaintenanceWork').'</option>';
         print '<option value="service" selected>'.$langs->trans('ServiceWork').'</option>';
+        print '<option value="montage">'.$langs->trans('MontageWork').'</option>';
         print '</select> ';
         print '<input type="submit" class="button" value="'.$langs->trans('LinkSelected').'">';
         print '</div>';

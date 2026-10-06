@@ -1017,6 +1017,16 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
             color: #2e7d32;
         }
 
+.link-type-badge.montage {
+            background: #fff9c4;
+            color: #7a5c00;
+        }
+
+        [data-theme="dark"] .link-type-badge.montage {
+            background: #3d3500;
+            color: #ffd54f;
+        }
+
         [data-theme="dark"] .link-type-badge.service {
             background: #3d2a00;
             color: #ffb74d;
@@ -2783,6 +2793,7 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
                     <div style="display:flex;gap:8px;">
                         <button type="button" class="btn btn-primary" style="padding:8px 12px;font-size:13px;" onclick="app.linkSelectedEquipment('service')">Service</button>
                         <button type="button" class="btn btn-success" style="padding:8px 12px;font-size:13px;" onclick="app.linkSelectedEquipment('maintenance')">Wartung</button>
+                        <button type="button" class="btn" style="padding:8px 12px;font-size:13px;background:#fbc02d;color:#333;" onclick="app.linkSelectedEquipment('montage')">Montage</button>
                     </div>
                 </div>
             </div>

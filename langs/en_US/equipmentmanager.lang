@@ -325,3 +325,10 @@ ObjectAddressWillCreate=will be created
 ObjectAddressWillReuse=existing Objektadresse will be used
 BrandColorDark=Brand color (dark mode)
 BrandColorDarkHelp=PWA header color in dark mode (empty/reset = default blue). Pick a darker color since the text is white; the accent color for links and buttons is lightened automatically to stay readable on dark backgrounds.
+Montage=Installation
+MontageWork=Installation
+MontageWorkDescription=New installation, fitting, initial mounting
+LinkAsMontage=Link as Installation
+EquipmentLinkedMontage=Equipment linked as installation
+NoMontageEquipment=No installation work linked
+LinkMontageEquipmentFromListBelow=Link installation work from list below

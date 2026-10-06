@@ -357,6 +357,7 @@ chmod -R 755 equipmentmanager
 
 ### Unreleased
 
+- **Neuer Verknüpfungstyp „Montage“ (gelb)** – Neben „Wartung“ (grün) und „Service“ können Anlagen jetzt auch als „Montage“ an Serviceauftrag, Angebot und Auftrag verknüpft werden (Backend und PWA, auch Sammelverknüpfung). Montage verhält sich wie Service (Arbeitseinträge, Zeiten, Inbetriebnahme/Abnahme, Servicebericht), erscheint aber mit eigenem gelbem Badge, eigenem Abschnitt im Serviceauftrag und gelber Markierung auf der PWA-Karte. Bestehende Daten bleiben unverändert
 - **PWA: eigene Farbe für den dunklen Modus** – Neue Einstellung „Markenfarbe (dunkler Modus)“ unter Moduleinstellungen → PDF & Design. Sie bestimmt die Kopfzeile der PWA im dunklen Modus (auch `theme-color` der Statusleiste); die Akzentfarbe für Links/Buttons wird bei Bedarf automatisch aufgehellt (Farbton bleibt), damit sie auf dunklem Grund lesbar ist. Leer/Zurücksetzen = bisheriges Blau
 
 ### v6.0.2 (2026-10-02)

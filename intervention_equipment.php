@@ -90,7 +90,7 @@ if ($action == 'import_from_commande' && $permissiontoadd) {
 }
 
 // Link equipment with type (single)
-if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service'))) {
+if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service', 'montage'))) {
     $lockedAddressId = getLockedObjectAddressId($db, $object->id);
     if ($lockedAddressId > 0) {
         $candidate = new Equipment($db);
@@ -110,7 +110,7 @@ if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link
     dol_syslog("Linking equipment ".$equipment_id." to intervention ".$object->id." as ".$link_type, LOG_DEBUG);
 
     if ($db->query($sql)) {
-        $msg = ($link_type == 'maintenance') ? 'EquipmentLinkedMaintenance' : 'EquipmentLinkedService';
+        $msg = array('maintenance' => 'EquipmentLinkedMaintenance', 'montage' => 'EquipmentLinkedMontage')[$link_type] ?? 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg), null, 'mesgs');
     } else {
         if ($db->lasterrno() == 1062) {
@@ -127,7 +127,7 @@ if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link
 
 // Bulk link equipment (multiple)
 $toselect = GETPOST('toselect', 'array');
-if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array($link_type, array('maintenance', 'service'))) {
+if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array($link_type, array('maintenance', 'service', 'montage'))) {
     $success_count = 0;
     $skip_count = 0;
     $mismatch_count = 0;
@@ -158,7 +158,7 @@ if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array(
     }
 
     if ($success_count > 0) {
-        $msg = ($link_type == 'maintenance') ? 'EquipmentLinkedMaintenance' : 'EquipmentLinkedService';
+        $msg = array('maintenance' => 'EquipmentLinkedMaintenance', 'montage' => 'EquipmentLinkedMontage')[$link_type] ?? 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg).' ('.$success_count.')', null, 'mesgs');
     }
     if ($skip_count > 0) {
@@ -420,7 +420,7 @@ if ($object->id > 0) {
         print '<div class="div-table-responsive-no-min">';
         print '<table class="noborder centpercent">';
         print '<tr class="liste_titre">';
-        print '<th colspan="7">';
+        print '<th colspan="8">';
         print '<span class="fa fa-list paddingright"></span>';
         if ($filter_address > 0 && isset($address_options[$filter_address])) {
             print $langs->trans('EquipmentForAddress');
@@ -435,7 +435,7 @@ if ($object->id > 0) {
         // Bulk action bar
         if ($permissiontoadd && count($available_equipment) > 0) {
             print '<tr class="liste_titre">';
-            print '<td colspan="7" class="nobottom" style="padding: 8px;">';
+            print '<td colspan="8" class="nobottom" style="padding: 8px;">';
             print '<div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">';
 
             // Select all / none buttons
@@ -453,6 +453,9 @@ if ($object->id > 0) {
             print '</button>';
             print '<button type="button" onclick="bulkLinkAs(\'service\');" class="button" style="background: #ff9800; color: white;">';
             print '<span class="fa fa-cog paddingright"></span>'.$langs->trans('LinkAsService');
+            print '</button>';
+            print '<button type="button" onclick="bulkLinkAs(\'montage\');" class="button" style="background: #fdd835; color: #333;">';
+            print '<span class="fa fa-hammer paddingright"></span>'.$langs->trans('LinkAsMontage');
             print '</button>';
             print '</span>';
 
@@ -474,6 +477,7 @@ if ($object->id > 0) {
         print '<th>'.$langs->trans('ObjectAddress').'</th>';
         print '<th class="center" width="120">'.$langs->trans('LinkAsMaintenance').'</th>';
         print '<th class="center" width="120">'.$langs->trans('LinkAsService').'</th>';
+        print '<th class="center" width="120">'.$langs->trans('LinkAsMontage').'</th>';
         print '</tr>';
 
         if (count($available_equipment) > 0) {
@@ -533,10 +537,18 @@ if ($object->id > 0) {
                 }
                 print '</td>';
 
+                print '<td class="center">';
+                if ($permissiontoadd) {
+                    print '<a class="button smallpaddingimp" style="background: #fdd835; color: #333;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=link&equipment_id='.$equipment->id.'&link_type=montage&token='.newToken().'">';
+                    print '<span class="fa fa-hammer"></span>';
+                    print '</a>';
+                }
+                print '</td>';
+
                 print '</tr>';
             }
         } else {
-            $colspan = $permissiontoadd ? 7 : 6;
+            $colspan = $permissiontoadd ? 8 : 7;
             print '<tr><td colspan="'.$colspan.'" class="opacitymedium center" style="padding: 20px;">';
             print $langs->trans('NoEquipmentForThisAddress');
             print '</td></tr>';
@@ -586,7 +598,7 @@ if ($object->id > 0) {
                 return;
             }
 
-            var typeText = (linkType == "maintenance") ? "'.html_entity_decode($langs->trans('Maintenance')).'" : "'.html_entity_decode($langs->trans('Service')).'";
+            var typeText = (linkType == "maintenance") ? "'.html_entity_decode($langs->trans('Maintenance')).'" : ((linkType == "montage") ? "'.html_entity_decode($langs->trans('Montage')).'" : "'.html_entity_decode($langs->trans('Service')).'");
 
             if (!confirm("'.html_entity_decode($langs->trans('ConfirmBulkLink')).'\n\n" + selected.length + " '.html_entity_decode($langs->trans('Equipment')).' → " + typeText)) {
                 return;
@@ -696,14 +708,19 @@ if ($object->id > 0) {
     
     print '<br>';
     
-    // Section 2: SERVICE
+    // Section 2/3: SERVICE and MONTAGE (same layout, different type)
+    $serviceSections = array(
+        'service' => array('bg' => 'rgba(255, 152, 0, 0.15)', 'icon' => 'cog', 'title' => 'ServiceWork', 'desc' => 'ServiceWorkDescription', 'none' => 'NoServiceEquipment', 'hint' => 'LinkServiceEquipmentFromListBelow'),
+        'montage' => array('bg' => 'rgba(253, 216, 53, 0.25)', 'icon' => 'hammer', 'title' => 'MontageWork', 'desc' => 'MontageWorkDescription', 'none' => 'NoMontageEquipment', 'hint' => 'LinkMontageEquipmentFromListBelow'),
+    );
+    foreach ($serviceSections as $secType => $sec) {
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre" style="background-color: rgba(255, 152, 0, 0.15);">';
+    print '<tr class="liste_titre" style="background-color: '.$sec['bg'].';">';
     print '<th colspan="5">';
-    print '<span class="fa fa-cog paddingright"></span>';
-    print '<strong>'.$langs->trans('ServiceWork').'</strong>';
-    print ' <span class="opacitymedium">('.$langs->trans('ServiceWorkDescription').')</span>';
+    print '<span class="fa fa-'.$sec['icon'].' paddingright"></span>';
+    print '<strong>'.$langs->trans($sec['title']).'</strong>';
+    print ' <span class="opacitymedium">('.$langs->trans($sec['desc']).')</span>';
     print '</th>';
     print '</tr>';
     
@@ -715,10 +732,10 @@ if ($object->id > 0) {
     print '<th class="center" width="80">'.$langs->trans('Action').'</th>';
     print '</tr>';
     
-    $has_service = false;
+    $has_sec = false;
     foreach ($linked_equipment_ids as $eq_id) {
-        if ($linked_equipment[$eq_id] != 'service') continue;
-        $has_service = true;
+        if ($linked_equipment[$eq_id] != $secType) continue;
+        $has_sec = true;
         
         $equipment = new Equipment($db);
         if ($equipment->fetch($eq_id) > 0) {
@@ -766,16 +783,18 @@ if ($object->id > 0) {
         }
     }
     
-    if (!$has_service) {
+    if (!$has_sec) {
         print '<tr><td colspan="5" class="opacitymedium center">';
-        print $langs->trans('NoServiceEquipment').'<br>';
-        print '<span class="opacitymedium">'.$langs->trans('LinkServiceEquipmentFromListBelow').'</span>';
+        print $langs->trans($sec['none']).'<br>';
+        print '<span class="opacitymedium">'.$langs->trans($sec['hint']).'</span>';
         print '</td></tr>';
     }
     
     print '</table>';
     print '</div>';
-    
+    print '<br>';
+    }
+
     print '<br><br>';
     
 }
