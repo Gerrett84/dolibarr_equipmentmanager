@@ -487,21 +487,21 @@ class ActionsEquipmentManager
         );
 
         if ($this->isModEnabledFicheinter()) {
-            $this->results['equipmentmanager_serviceorders'] = array(
-                'groupName' => $langs->transnoentitiesnoconv('ServiceOrders'),
-                'stats' => array(
-                    'equipmentmanager_so_open',
-                    'equipmentmanager_so_validated',
-                ),
-            );
-        }
-
-        if ($this->isModEnabledFicheinter()) {
             $this->results['equipmentmanager_montage'] = array(
                 'groupName' => $langs->transnoentitiesnoconv('MontageWork'),
                 'stats' => array(
                     'equipmentmanager_montage_open',
                     'equipmentmanager_montage_validated',
+                ),
+            );
+        }
+
+        if ($this->isModEnabledFicheinter()) {
+            $this->results['equipmentmanager_serviceorders'] = array(
+                'groupName' => $langs->transnoentitiesnoconv('ServiceOrders'),
+                'stats' => array(
+                    'equipmentmanager_so_open',
+                    'equipmentmanager_so_validated',
                 ),
             );
         }
