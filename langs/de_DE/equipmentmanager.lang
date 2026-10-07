@@ -883,3 +883,5 @@ LinkAsMontage=Als Montage verknüpfen
 EquipmentLinkedMontage=Anlage als Montage verknüpft
 NoMontageEquipment=Keine Montagearbeiten verknüpft
 LinkMontageEquipmentFromListBelow=Verknüpfe Montagearbeiten aus der Liste unten
+FilteredByType=Filter: nur Serviceaufträge mit %s
+RemoveFilter=Filter entfernen

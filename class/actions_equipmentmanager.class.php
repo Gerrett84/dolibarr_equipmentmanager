@@ -496,6 +496,16 @@ class ActionsEquipmentManager
             );
         }
 
+        if ($this->isModEnabledFicheinter()) {
+            $this->results['equipmentmanager_montage'] = array(
+                'groupName' => $langs->transnoentitiesnoconv('MontageWork'),
+                'stats' => array(
+                    'equipmentmanager_montage_open',
+                    'equipmentmanager_montage_validated',
+                ),
+            );
+        }
+
         return 0;
     }
 
@@ -564,6 +574,7 @@ class ActionsEquipmentManager
 
         if ($this->isModEnabledFicheinter() && $user->hasRight('ficheinter', 'lire')) {
             $this->addServiceOrderDashboardLines($langs);
+            $this->addMontageDashboardLines($langs);
         }
 
         return 0;
@@ -617,6 +628,53 @@ class ActionsEquipmentManager
     }
 
     /**
+     * Add home dashboard tiles for service orders that contain Montage work,
+     * split like the service order tile into open (draft) and validated
+     * (fk_statut 1), linking to the service order list filtered by type=montage.
+     *
+     * @param Translate $langs Language object
+     * @return void
+     */
+    private function addMontageDashboardLines($langs)
+    {
+        $sql = "SELECT f.fk_statut, COUNT(DISTINCT f.rowid) as nb FROM ".MAIN_DB_PREFIX."fichinter as f";
+        $sql .= " WHERE f.entity IN (".getEntity('fichinter').")";
+        $sql .= " AND f.fk_statut IN (0, 1)";
+        $sql .= " AND EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as il";
+        $sql .= "   WHERE il.fk_intervention = f.rowid AND il.link_type = 'montage')";
+        $sql .= " GROUP BY f.fk_statut";
+
+        $counts = array(0 => 0, 1 => 0);
+        $resql = $this->db->query($sql);
+        if ($resql) {
+            while ($obj = $this->db->fetch_object($resql)) {
+                $counts[(int) $obj->fk_statut] = (int) $obj->nb;
+            }
+        }
+
+        $urlBase = dol_buildpath('/custom/equipmentmanager/service_order_list.php', 1);
+
+        $lines = array(
+            'equipmentmanager_montage_open' => array('ServiceOrderStatusOpen', $counts[0], $urlBase.'?status=1&type=montage'),
+            'equipmentmanager_montage_validated' => array('ServiceOrderStatusValidated', $counts[1], $urlBase.'?status=2&type=montage'),
+        );
+
+        foreach ($lines as $key => $line) {
+            list($labelKey, $nb, $url) = $line;
+
+            $response = new WorkboardResponse();
+            $response->warning_delay = 0;
+            $response->label = $langs->transnoentitiesnoconv($labelKey);
+            $response->labelShort = $langs->transnoentitiesnoconv($labelKey);
+            $response->url = $url;
+            $response->img = img_object('', 'fichinter');
+            $response->nbtodo = $nb;
+
+            $this->results[$key] = $response;
+        }
+    }
+
+    /**
      * Injects module-wide CSS:
      * - Glyph + color for our home dashboard groups' icons
      *   (".fa-dol-equipmentmanager", ".fa-dol-equipmentmanager_serviceorders"),
@@ -642,6 +700,8 @@ class ActionsEquipmentManager
             .fa-dol-equipmentmanager_serviceorders:before { content: "\f0f9"; }
             .bg-infobox-equipmentmanager { color: #e67e22 !important; }
             .bg-infobox-equipmentmanager_serviceorders { color: #3bbfa8 !important; }
+            .fa-dol-equipmentmanager_montage:before { content: "\f6e3"; }
+            .bg-infobox-equipmentmanager_montage { color: #f1c40f !important; }
         </style>';
 
         return 0;

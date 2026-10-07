@@ -332,3 +332,5 @@ LinkAsMontage=Link as Installation
 EquipmentLinkedMontage=Equipment linked as installation
 NoMontageEquipment=No installation work linked
 LinkMontageEquipmentFromListBelow=Link installation work from list below
+FilteredByType=Filter: only service orders with %s
+RemoveFilter=Remove filter
