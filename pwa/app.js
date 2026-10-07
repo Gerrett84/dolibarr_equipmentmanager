@@ -1391,7 +1391,7 @@ class ServiceReportApp {
             // Available even before signing so user can preview
             const accBtn = document.getElementById('navAcceptanceProtocol');
             const hasAcceptanceData = equipment.some(eq =>
-                (eq.link_type === 'service' || eq.link_type === 'montage') && eq.detail &&
+                eq.link_type === 'montage' && eq.detail &&
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
             accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
@@ -1738,8 +1738,8 @@ class ServiceReportApp {
         const section = document.getElementById('commissioningAcceptanceSection');
         if (!section) return; // Safety check
 
-        // Hide for maintenance entries, show for everything else (service, general)
-        if (this.currentEquipment && this.currentEquipment.link_type === 'maintenance') {
+        // Commissioning/acceptance (Abnahmeprotokoll) only for Montage entries
+        if (!this.currentEquipment || this.currentEquipment.link_type !== 'montage') {
             section.style.display = 'none';
             return;
         }
@@ -1929,8 +1929,8 @@ class ServiceReportApp {
             issues_found: document.getElementById('entryIssuesFound').value
         };
 
-        // Add commissioning/acceptance fields for non-maintenance entries (v4.5.2)
-        if (this.currentEquipment?.link_type !== 'maintenance') {
+        // Add commissioning/acceptance fields for Montage entries only (v4.5.2)
+        if (this.currentEquipment?.link_type === 'montage') {
             const commDone = document.getElementById('entryCommissioningDone').checked;
             entryData.commissioning_done = commDone ? 1 : 0;
             entryData.commissioning_date = commDone ? document.getElementById('entryCommissioningDate').value : null;

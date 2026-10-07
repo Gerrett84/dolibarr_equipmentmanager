@@ -1602,7 +1602,9 @@ function handleDetail($method, $parts, $input) {
             $detail->work_duration = (int)($input['work_duration'] ?? 0);
         }
 
-        // Commissioning and acceptance fields (v4.5)
+        // Commissioning and acceptance fields (v4.5) - only Montage entries send them;
+        // saving a Service/Wartung entry must not wipe values stored on an existing entry
+        if ($entry_id <= 0 || array_key_exists('commissioning_done', $input) || array_key_exists('acceptance_done', $input)) {
         $detail->commissioning_done = (int)($input['commissioning_done'] ?? 0);
         $detail->commissioning_date = !empty($input['commissioning_date']) ? strtotime($input['commissioning_date']) : null;
         $detail->commissioning_note = $input['commissioning_note'] ?? '';
@@ -1612,6 +1614,7 @@ function handleDetail($method, $parts, $input) {
         $detail->acceptance_note = $input['acceptance_note'] ?? '';
         $detail->instruction_done = (int)($input['instruction_done'] ?? 0);
         $detail->testbook_handed = (int)($input['testbook_handed'] ?? 0);
+        }
 
         // Get intervention ref for photo directory
         dol_include_once('/fichinter/class/fichinter.class.php');
@@ -2595,7 +2598,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $outputlangs = $langs;
     $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
 
-    // Check if there are service equipment
+    // Check if there is montage equipment
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
     $sql .= " e.location_note, e.manufacturer,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
@@ -2606,7 +2609,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$fichinter->id;
-    $sql .= " AND l.link_type IN ('service', 'montage')";
+    $sql .= " AND l.link_type = 'montage'";
     $sql .= " AND (d.commissioning_done = 1 OR d.acceptance_done = 1)";
     $sql .= " ORDER BY e.equipment_number";
 
@@ -3227,7 +3230,7 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             // Continue without checklists PDF
         }
 
-        // Generate acceptance protocol PDF if there are service equipment
+        // Generate acceptance protocol PDF if there is montage equipment
         $acceptanceProtocolFile = null;
         try {
             $acceptanceFile = generateAcceptanceProtocol($fichinter, $user);
