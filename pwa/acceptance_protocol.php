@@ -89,7 +89,7 @@ $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
 $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
 $sql .= " WHERE l.fk_intervention = ".(int)$id;
-$sql .= " AND l.link_type = 'montage'";
+$sql .= " AND l.link_type IN ('service', 'montage')"; // legacy Service rows with stored acceptance data stay viewable
 $sql .= " AND (d.commissioning_done = 1 OR d.acceptance_done = 1)";
 if ($equipment_id > 0) {
     $sql .= " AND e.rowid = ".(int)$equipment_id;

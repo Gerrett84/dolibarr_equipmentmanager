@@ -1391,7 +1391,7 @@ class ServiceReportApp {
             // Available even before signing so user can preview
             const accBtn = document.getElementById('navAcceptanceProtocol');
             const hasAcceptanceData = equipment.some(eq =>
-                eq.link_type === 'montage' && eq.detail &&
+                (eq.link_type === 'service' || eq.link_type === 'montage') && eq.detail &&
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
             accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';

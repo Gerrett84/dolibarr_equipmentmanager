@@ -2598,7 +2598,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $outputlangs = $langs;
     $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
 
-    // Check if there is montage equipment
+    // Check if there is Montage equipment (or legacy Service equipment with stored acceptance data)
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
     $sql .= " e.location_note, e.manufacturer,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
@@ -2609,7 +2609,9 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$fichinter->id;
-    $sql .= " AND l.link_type = 'montage'";
+    // Service rows only match if acceptance data was stored before it became Montage-only:
+    // existing protocols must stay reproducible
+    $sql .= " AND l.link_type IN ('service', 'montage')";
     $sql .= " AND (d.commissioning_done = 1 OR d.acceptance_done = 1)";
     $sql .= " ORDER BY e.equipment_number";
 
@@ -3230,7 +3232,7 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             // Continue without checklists PDF
         }
 
-        // Generate acceptance protocol PDF if there is montage equipment
+        // Generate acceptance protocol PDF if there is Montage equipment (or legacy Service equipment with stored acceptance data)
         $acceptanceProtocolFile = null;
         try {
             $acceptanceFile = generateAcceptanceProtocol($fichinter, $user);
