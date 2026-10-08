@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.0.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,14 @@
 -----
 
 ## Features
+
+### NEU in v6.1.0: Montage, Techniker-Konten & Sicherheit
+
+- **Montage (gelb)** als dritter Verknüpfungstyp neben Wartung und Service – eigene Buttons, Badges, Kartenmarker, Abschnitt im Serviceauftrag, Startseiten-Kachel (zwischen Wartung und Serviceaufträge) und Serviceauftrags-Liste mit Typfilter. **Inbetriebnahme/Abnahme/Abnahmeprotokoll nur noch bei Montage** (bestehende Protokolle bleiben erhalten)
+- **Techniker-Konten:** Benutzergruppe „Techniker (PWA)“ per Knopf; Backend nur Kalender und Einstellungen, in der PWA nur die Aufträge, bei denen man „Beteiligter am Serviceauftrag“ ist (auch für Admins: Autor sein genügt nicht); Historie derselben Objektadresse nur lesend. Eigene 2FA über das neue totp2fa-Recht
+- **Persönliches Kalender-Abo** pro Benutzer (nur zugewiesene Aufträge)
+- **PWA:** Firmenname und -logo, eigene Farbe für den dunklen Modus, „Abmelden & alles zurücksetzen“, Preise nur für Admins, Wartungsübersicht nur für Konten mit Anlagen-Leserecht, „Zum Backend“-Knopf nur für Admins, Karte im dunklen Modus wieder funktionsfähig (kein CARTO-Schlüssel mehr nötig)
+- **Sicherheits-Audit umgesetzt:** PWA-Token nur für aktive Benutzer, absolute Höchstdauer, Widerruf bei Passwortänderung; kurzlebige Tickets statt Token in PDF-URLs; gespeichertes XSS und Pfad-Traversal behoben; Lesezugriffe pro Auftrag/Anlage; `.htaccess`-Härtung (kein Listing, keine Downloads von Doku/SQL) und Security-Header
 
 ### NEU in v6.0.0: Objektadresse als eigenständiger Geschäftspartner
 
@@ -355,7 +363,9 @@ chmod -R 755 equipmentmanager
 
 ## Changelog
 
-### Unreleased
+### v6.1.0 (2026-10-08)
+
+> **Update-Hinweis:** Modulordner ersetzen, dann das Modul **einmal aus- und wieder einschalten** (neue Berechtigung „PWA nutzen“, neuer Trigger, geänderte Menüsichtbarkeit). Im Reiter „Allgemein“ der Moduleinstellungen die Gruppe „Techniker (PWA)“ anlegen bzw. aktualisieren (benötigt totp2fa ≥ 1.5.1 für die 2FA-Berechtigung). **Kalender-Abos müssen einmal neu eingerichtet werden** (persönliche Links). In den Apache-vhost gehört zusätzlich `Options -Indexes`.
 
 - **Fix: Karte im dunklen Modus zeigte „API KEY REQUIRED“** – Der kostenlose dunkle CARTO-Kartenstil liefert für jede Kachel ein Platzhalterbild mit dieser Meldung. Der dunkle Modus nutzt jetzt dieselben OpenStreetMap-Kacheln, per CSS-Filter abgedunkelt (kein Schlüssel nötig). Betrifft auch ältere, bereits ausgelieferte Versionen
 - **Kalender-Abo ist jetzt persönlich:** Jeder Benutzer hat seine eigene Abo-URL (`calendar.php?token=<Benutzer-ID>.<Signatur>`), der Feed enthält nur die offenen Serviceaufträge, bei denen er „Beteiligter am Serviceauftrag“ ist (vorher: ein gemeinsames Token für alle Aufträge, das jedes PWA-Konto abrufen konnte). Das alte gemeinsame Token wird nicht mehr akzeptiert – **bestehende Abos müssen einmal neu eingerichtet werden** (PWA-Einstellungen oder Backend → Einstellungen → Kalender). Deaktivierte Benutzer verlieren den Feed; „Token neu erzeugen“ (Admin) macht alle Links ungültig
@@ -832,6 +842,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.0.2
+**Current Version:** 6.1.0
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
