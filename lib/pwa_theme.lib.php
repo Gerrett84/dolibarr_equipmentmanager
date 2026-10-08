@@ -113,3 +113,85 @@ function eqmPwaHslToRgb($h, $s, $l)
     };
     return array((int) round($hue($h + 1 / 3) * 255), (int) round($hue($h) * 255), (int) round($hue($h - 1 / 3) * 255));
 }
+
+/**
+ * Whether a logo image is mostly light (white/light glyphs): such a logo must not be placed
+ * on a white chip. Samples a 32x32 downscale, weighting by opacity.
+ *
+ * @param string $file Image file
+ * @return bool
+ */
+function eqmLogoIsLight($file)
+{
+    if (!function_exists('imagecreatefromstring')) {
+        return false;
+    }
+    $data = @file_get_contents($file);
+    $im = $data ? @imagecreatefromstring($data) : false;
+    if (!$im) {
+        return false;
+    }
+    $w = imagesx($im);
+    $h = imagesy($im);
+    $sw = max(1, min(32, $w));
+    $sh = max(1, min(32, $h));
+    $small = imagecreatetruecolor($sw, $sh);
+    imagealphablending($small, false);
+    imagesavealpha($small, true);
+    imagefill($small, 0, 0, imagecolorallocatealpha($small, 0, 0, 0, 127));
+    imagecopyresampled($small, $im, 0, 0, 0, 0, $sw, $sh, $w, $h);
+
+    $sum = 0.0;
+    $weight = 0.0;
+    for ($y = 0; $y < $sh; $y++) {
+        for ($x = 0; $x < $sw; $x++) {
+            $c = imagecolorat($small, $x, $y);
+            $alpha = ($c >> 24) & 127;
+            $opacity = (127 - $alpha) / 127;
+            if ($opacity < 0.2) {
+                continue;
+            }
+            $lum = (0.2126 * (($c >> 16) & 255) + 0.7152 * (($c >> 8) & 255) + 0.0722 * ($c & 255)) / 255;
+            $sum += $lum * $opacity;
+            $weight += $opacity;
+        }
+    }
+    return $weight > 0 && ($sum / $weight) > 0.72;
+}
+
+/**
+ * The company logo configured in Dolibarr (small thumbnail preferred), only formats browsers
+ * can show as an image.
+ *
+ * @return array|null array(file, mime, light) or null
+ */
+function eqmCompanyLogo()
+{
+    global $conf, $mysoc;
+    static $cache = false;
+    if ($cache !== false) {
+        return $cache;
+    }
+    $cache = null;
+    if (empty($mysoc->logo)) {
+        return null;
+    }
+
+    $mimes = array('png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif');
+    $dir = $conf->mycompany->dir_output.'/logos/';
+    $candidates = array();
+    if (!empty($mysoc->logo_small)) {
+        $candidates[] = $dir.'thumbs/'.basename($mysoc->logo_small);
+    }
+    $candidates[] = $dir.basename($mysoc->logo);
+
+    foreach ($candidates as $file) {
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (isset($mimes[$ext]) && is_file($file)) {
+            $cache = array('file' => $file, 'mime' => $mimes[$ext], 'light' => eqmLogoIsLight($file));
+            break;
+        }
+    }
+    return $cache;
+}
+

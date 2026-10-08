@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,10 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.1 (2026-10-08)
+
+- **Fix: Firmenlogo in der PWA** – Logos im Format AVIF (und andere von Browsern darstellbare Formate) werden jetzt ausgeliefert (vorher 404, wenn die Datei kein PNG/JPG/GIF/WebP war). **Helle/weiße Logos** werden automatisch erkannt und nicht mehr auf eine weiße Fläche gesetzt (Kopfzeile ohne Fläche, Anmeldeseite auf dunkler Fläche)
 
 ### v6.1.0 (2026-10-08)
 
@@ -842,6 +846,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.0
+**Current Version:** 6.1.1
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
