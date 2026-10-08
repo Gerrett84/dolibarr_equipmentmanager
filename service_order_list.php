@@ -21,6 +21,11 @@ require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 $langs->loadLangs(array("equipmentmanager@equipmentmanager", "interventions", "companies"));
 
 if (!$user->hasRight('ficheinter', 'lire')) {
+    // Technician accounts (PWA only) have no backend order list - send them to their settings
+    if ($user->hasRight('equipmentmanager', 'pwa', 'use')) {
+        header('Location: '.dol_buildpath('/equipmentmanager/profile.php', 1));
+        exit;
+    }
     accessforbidden();
 }
 $permissiontoadd = $user->hasRight('ficheinter', 'creer');

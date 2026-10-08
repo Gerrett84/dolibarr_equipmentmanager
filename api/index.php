@@ -272,23 +272,13 @@ try {
  */
 function userCanAccessIntervention($intervention_id) {
     global $db, $user;
-    if ($user->admin) return true;
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
 
-    $sql  = "SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
-    $sql .= " WHERE f.rowid = ".(int)$intervention_id;
-    $sql .= " AND (f.fk_user_author = ".(int)$user->id;
-    if (!empty($user->contact_id)) {
-        $sql .= " OR EXISTS (";
-        $sql .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec";
-        $sql .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-        $sql .= "  WHERE ec.element_id = f.rowid AND ec.fk_socpeople = ".(int)$user->contact_id;
-        $sql .= "  AND tc.element = 'fichinter' AND tc.code = 'TECH'";
-        $sql .= " )";
+    // Read-only requests may also see history orders (same Objektadresse); writes need full access
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        return eqmUserCanReadIntervention($db, $user, (int)$intervention_id);
     }
-    $sql .= ")";
-
-    $resql = $db->query($sql);
-    return ($resql && $db->num_rows($resql) > 0);
+    return eqmUserCanAccessIntervention($db, $user, (int)$intervention_id);
 }
 
 /** Send 403 and terminate. */
@@ -329,18 +319,10 @@ function handleInterventions($method, $parts, $input) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
     $sql .= " WHERE 1=1";
 
-    // Non-admins only see interventions they authored or are assigned to as TECH contact
+    // Non-admins only see interventions they authored or are involved in ("Beteiligter am Serviceauftrag")
     if (!$user->admin) {
-        $sql .= " AND (f.fk_user_author = ".(int)$user->id;
-        if (!empty($user->contact_id)) {
-            $sql .= " OR EXISTS (";
-            $sql .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec2";
-            $sql .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc2 ON tc2.rowid = ec2.fk_c_type_contact";
-            $sql .= "  WHERE ec2.element_id = f.rowid AND ec2.fk_socpeople = ".(int)$user->contact_id;
-            $sql .= "  AND tc2.element = 'fichinter' AND tc2.code = 'TECH'";
-            $sql .= " )";
-        }
-        $sql .= ")";
+        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+        $sql .= " AND ".eqmInterventionAccessSql($user, 'f');
     }
 
     // Filter by status (draft=0, validated=1, closed=3)
@@ -3768,18 +3750,11 @@ function handleEquipment($method, $parts, $input) {
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Non-admins may only edit equipment linked to one of their own interventions
         if (!$user->admin) {
+            dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
             $sqlEqOwn  = "SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
             $sqlEqOwn .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il ON il.fk_intervention = f.rowid";
             $sqlEqOwn .= " WHERE il.fk_equipment = ".(int)$equipment_id;
-            $sqlEqOwn .= " AND f.fk_user_author = ".(int)$user->id;
-            if (!empty($user->contact_id)) {
-                $sqlEqOwn .= " OR EXISTS (";
-                $sqlEqOwn .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec3";
-                $sqlEqOwn .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc3 ON tc3.rowid = ec3.fk_c_type_contact";
-                $sqlEqOwn .= "  WHERE ec3.element_id = f.rowid AND ec3.fk_socpeople = ".(int)$user->contact_id;
-                $sqlEqOwn .= "  AND tc3.element = 'fichinter' AND tc3.code = 'TECH'";
-                $sqlEqOwn .= " )";
-            }
+            $sqlEqOwn .= " AND ".eqmInterventionAccessSql($user, 'f');
             $sqlEqOwn .= " LIMIT 1";
             $resEqOwn = $db->query($sqlEqOwn);
             if (!$resEqOwn || $db->num_rows($resEqOwn) == 0) denyAccess();

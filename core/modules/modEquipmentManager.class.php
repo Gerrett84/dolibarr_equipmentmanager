@@ -115,6 +115,15 @@ class modEquipmentManager extends DolibarrModules
         $this->rights[$r][4] = 'servicereport';
         $this->rights[$r][5] = 'delete';
 
+        // Technician accounts: use the field-service PWA (own/assigned service orders) without
+        // backend access to service orders and equipment
+        $r++;
+        $this->rights[$r][0] = $this->numero + $r;
+        $this->rights[$r][1] = 'Use the field-service PWA (technician)';
+        $this->rights[$r][3] = 0;
+        $this->rights[$r][4] = 'pwa';
+        $this->rights[$r][5] = 'use';
+
         // Menü Einträge
         $this->menu = array();
         $r = 0;
@@ -151,7 +160,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -168,7 +177,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -185,7 +194,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -202,7 +211,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -221,7 +230,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -238,7 +247,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -255,7 +264,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -272,7 +281,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -297,7 +306,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -314,7 +323,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -333,7 +342,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -350,7 +359,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -367,7 +376,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -384,7 +393,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -403,7 +412,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -420,7 +429,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );
@@ -437,7 +446,7 @@ class modEquipmentManager extends DolibarrModules
             'langs' => 'equipmentmanager@equipmentmanager',
             'position' => 1000 + $r,
             'enabled' => '1',
-            'perms' => '1',
+            'perms' => '$user->admin || $user->hasRight(\'ficheinter\', \'lire\') || $user->hasRight(\'equipmentmanager\', \'equipment\', \'read\')',
             'target' => '',
             'user' => 2,
         );

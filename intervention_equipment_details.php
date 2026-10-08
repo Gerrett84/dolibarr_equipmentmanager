@@ -78,7 +78,8 @@ if (!$user->id) {
     }
 }
 
-$permissiontoread = $user->hasRight('ficheinter', 'lire');
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+$permissiontoread = eqmUserMayViewIntervention($db, $user, (int) $object->id);
 $permissiontoadd = $user->hasRight('ficheinter', 'creer');
 
 if (!$permissiontoread) {

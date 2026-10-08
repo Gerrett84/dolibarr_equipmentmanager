@@ -46,6 +46,27 @@ if ($fullPath === false || strpos($fullPath, $realDataRoot) !== 0 || !is_file($f
     exit('File not found');
 }
 
+// Per-order authorization: technician accounts may only open documents of their own orders
+// and of the history of the same Objektadresse
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+if ($moduleSubdir === 'ficheinter') {
+    $relative = ltrim(substr($fullPath, strlen($basePath)), '/');
+    $refDir = explode('/', $relative)[0];
+    $sqlRef = "SELECT rowid FROM " . MAIN_DB_PREFIX . "fichinter WHERE ref = '" . $db->escape($refDir) . "'";
+    $resRef = $db->query($sqlRef);
+    $objRef = $resRef ? $db->fetch_object($resRef) : null;
+    if ($objRef) {
+        $allowed = eqmUserMayViewIntervention($db, $user, (int) $objRef->rowid);
+    } else {
+        // Not an order folder (e.g. leftovers): only users with the regular backend right
+        $allowed = !empty($user->admin) || $user->hasRight('ficheinter', 'lire');
+    }
+    if (!$allowed) { http_response_code(403); exit('Access denied'); }
+} elseif (!eqmUserHasPwaPermission($user)) {
+    http_response_code(403);
+    exit('Access denied');
+}
+
 $attachment = (GETPOST('attachment', 'int') == 1);
 $ext  = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
 $mime = [
@@ -74,5 +95,7 @@ function validateProxyPwaToken($token, $db) {
     $obj = $db->fetch_object($res);
     require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
     $user = new User($db);
-    return $user->fetch((int)$obj->fk_user) > 0;
+    if ($user->fetch((int)$obj->fk_user) <= 0) return false;
+    $user->getrights();
+    return true;
 }

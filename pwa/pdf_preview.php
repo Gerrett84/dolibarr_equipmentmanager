@@ -60,7 +60,8 @@ if ($result <= 0) {
 }
 
 // Check permission
-if (!$user->hasRight('ficheinter', 'lire')) {
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+if (!eqmUserMayViewIntervention($db, $user, (int) $fichinter->id)) {
     http_response_code(403);
     die('Access denied');
 }
