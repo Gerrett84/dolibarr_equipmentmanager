@@ -1087,6 +1087,8 @@ function handleChangePassword($method, $input) {
     $langs->load('other');
 
     // Keep the other sessions of this user alive: only the password changes
+    // Changing the password revokes the user's other devices; this device stays logged in
+    $GLOBALS['eqm_keep_pwa_token_hash'] = hash('sha256', (string) ($_SERVER['HTTP_X_PWA_TOKEN'] ?? ''));
     $result = $user->setPassword($user, $new, 0, 0, 0, 0, 0);
     if (is_int($result) && $result < 0) {
         http_response_code(400);
@@ -3342,42 +3344,13 @@ function handlePwaToken($method, $input) {
  * Validate PWA token and set up user context
  */
 function validatePwaToken($token, $db, &$user) {
-    if (empty($token)) {
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $tokenUser = eqmResolvePwaTokenUser($db, (string) $token, true);
+    if ($tokenUser === null) {
         return false;
     }
-
-    // Hash the provided token for comparison
-    $hashedToken = hash('sha256', $token);
-
-    // Look up token in database
-    $sql = "SELECT fk_user, valid_until FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
-    $sql .= " WHERE token = '".$db->escape($hashedToken)."'";
-    $sql .= " AND valid_until > '".$db->idate(dol_now())."'";
-
-    $resql = $db->query($sql);
-
-    if ($resql && $db->num_rows($resql) > 0) {
-        $obj = $db->fetch_object($resql);
-        $userId = (int)$obj->fk_user;
-
-        // Load the user
-        require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
-        $user = new User($db);
-        $user->fetch($userId);
-
-        if ($user->id > 0) {
-            // Update last use and extend validity (rolling 90-day window)
-            $newValidUntil = dol_now() + (90 * 24 * 3600);
-            $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
-            $sqlUpdate .= " SET last_use = '".$db->idate(dol_now())."', valid_until = '".$db->idate($newValidUntil)."'";
-            $sqlUpdate .= " WHERE token = '".$db->escape($hashedToken)."'";
-            $db->query($sqlUpdate);
-
-            return true;
-        }
-    }
-
-    return false;
+    $user = $tokenUser;
+    return true;
 }
 
 /**
@@ -3769,7 +3742,8 @@ function handleEquipment($method, $parts, $input) {
             if (array_key_exists($field, $input)) {
                 $val = $input[$field];
                 if (in_array($field, ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number'])) {
-                    $equipment->$field = $val;
+                    // Plain text only: these values end up in HTML lists of other users' PWAs
+                    $equipment->$field = trim(strip_tags((string) $val));
                 } else {
                     // Integer or null fields
                     $equipment->$field = ($val !== null && $val !== '') ? (int)$val : null;
@@ -3787,7 +3761,8 @@ function handleEquipment($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to update equipment', 'details' => $equipment->error]);
+            dol_syslog('API equipment update failed: '.$equipment->error, LOG_ERR);
+            echo json_encode(['error' => 'Failed to update equipment']);
         }
 
     } else {

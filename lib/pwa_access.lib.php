@@ -109,3 +109,53 @@ function eqmUserMayViewIntervention($db, $user, $interventionId)
     return $user->hasRight('equipmentmanager', 'pwa', 'use') && eqmUserCanReadIntervention($db, $user, $interventionId);
 }
 
+/**
+ * Resolve a PWA token to its (active) user. Single implementation for the API and the
+ * PDF/document endpoints.
+ *
+ * A token is rejected (and removed) when it is expired, older than the absolute maximum
+ * age (EQUIPMENTMANAGER_PWA_TOKEN_MAX_DAYS, default 365, regardless of rolling renewal),
+ * or its user is no longer active (disabled, or outside the validity date range).
+ *
+ * @param DoliDB $db    Database handler
+ * @param string $token Plain token as sent by the client
+ * @param bool   $touch Renew the rolling 90-day validity and update last use
+ * @return User|null User with rights loaded, or null
+ */
+function eqmResolvePwaTokenUser($db, $token, $touch = false)
+{
+    if (!is_string($token) || !preg_match('/^[a-f0-9]{64}$/', $token)) {
+        return null;
+    }
+
+    $hash = hash('sha256', $token);
+    $sql = "SELECT fk_user, date_creation FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
+    $sql .= " WHERE token = '".$db->escape($hash)."' AND valid_until > '".$db->idate(dol_now())."'";
+    $res = $db->query($sql);
+    if (!$res || $db->num_rows($res) == 0) {
+        return null;
+    }
+    $row = $db->fetch_object($res);
+
+    $maxDays = max(1, getDolGlobalInt('EQUIPMENTMANAGER_PWA_TOKEN_MAX_DAYS', 365));
+    $created = $db->jdate($row->date_creation);
+    $reject = ($created && $created < dol_now() - $maxDays * 86400);
+
+    require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+    $tokenUser = new User($db);
+    if (!$reject) {
+        $reject = ($tokenUser->fetch((int) $row->fk_user) <= 0 || (int) $tokenUser->statut !== 1 || $tokenUser->isNotIntoValidityDateRange());
+    }
+    if ($reject) {
+        $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE token = '".$db->escape($hash)."'");
+        return null;
+    }
+
+    if ($touch) {
+        $db->query("UPDATE ".MAIN_DB_PREFIX."equipmentmanager_pwa_token SET last_use = '".$db->idate(dol_now())."', valid_until = '".$db->idate(dol_now() + 90 * 86400)."' WHERE token = '".$db->escape($hash)."'");
+    }
+
+    $tokenUser->getrights();
+    return $tokenUser;
+}
+

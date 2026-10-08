@@ -34,6 +34,7 @@ class modEquipmentManager extends DolibarrModules
         $this->module_parts = array(
             'models' => 1,  // This module provides document templates
             'substitutions' => 1, // Custom substitution variables (OBJ address, invoice date)
+            'triggers' => 1,      // Revoke PWA tokens when a user's password changes
             'hooks' => array(
                 'toprightmenu',      // Hook for adding to top right menu
                 'formmail',          // Hook for auto-attaching PDFs to emails

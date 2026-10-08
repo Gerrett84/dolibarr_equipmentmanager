@@ -177,7 +177,7 @@ class ServiceReportApp {
                 <form id="pwaLoginForm">
                     <div style="margin-bottom:12px;">
                         <input type="text" id="loginUsername" placeholder="Benutzername" required
-                            value="${usernameValue}"
+                            value="${this.escapeHtml(usernameValue)}"
                             style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
                     </div>
                     <div style="margin-bottom:12px;">
@@ -1182,7 +1182,7 @@ class ServiceReportApp {
                 <div class="empty-state">
                     <div class="empty-icon">⚠️</div>
                     <p>Fehler beim Laden</p>
-                    <p style="font-size:12px;">${err.message}</p>
+                    <p style="font-size:12px;">${this.escapeHtml(err.message)}</p>
                     <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#1a3f6e;color:white;cursor:pointer;">
                         Erneut versuchen
                     </button>
@@ -1496,9 +1496,9 @@ class ServiceReportApp {
                 item.innerHTML = `
                     <div class="equipment-icon">${statusIcon}</div>
                     <div class="equipment-info">
-                        <div class="equipment-ref">${eq.ref} - ${typeName}</div>
-                        <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
-                        ${eq.location ? `<div class="equipment-label" style="color:#888;">${eq.location}</div>` : ''}
+                        <div class="equipment-ref">${this.escapeHtml(eq.ref)} - ${this.escapeHtml(typeName)}</div>
+                        <div class="equipment-label">${eq.manufacturer ? this.escapeHtml(eq.manufacturer) + ', ' : ''}${this.escapeHtml(eq.label || '')}</div>
+                        ${eq.location ? `<div class="equipment-label" style="color:#888;">${this.escapeHtml(eq.location)}</div>` : ''}
                     </div>
                     ${linkTypeBadge}
                 `;
@@ -2360,11 +2360,14 @@ class ServiceReportApp {
             const products = response.products || [];
             if (products.length > 0) {
                 resultsDiv.innerHTML = products.map(p => `
-                    <div class="product-result" onclick="app.selectDefectProduct(${p.id}, '${p.ref.replace(/'/g, "\\'")}', '${p.label.replace(/'/g, "\\'")}')">
-                        <span class="product-ref">[${p.ref}]</span>
-                        <span class="product-label">${p.label}</span>
+                    <div class="product-result" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}">
+                        <span class="product-ref">[${this.escapeHtml(p.ref)}]</span>
+                        <span class="product-label">${this.escapeHtml(p.label)}</span>
                     </div>
                 `).join('');
+                resultsDiv.querySelectorAll('.product-result').forEach(el => {
+                    el.addEventListener('click', () => this.selectDefectProduct(Number(el.dataset.id), el.dataset.ref, el.dataset.label));
+                });
                 resultsDiv.classList.add('show');
             } else {
                 resultsDiv.innerHTML = '<div class="product-result" style="color: var(--text-secondary);">Keine Produkte gefunden</div>';
@@ -2515,8 +2518,8 @@ class ServiceReportApp {
                 return `
                 <div class="defect-material-item${isOffline ? ' offline' : ''}">
                     <div class="defect-material-info">
-                        <span class="defect-material-ref">[${m.product_ref}]${isOffline ? ' ⏳' : ''}</span>
-                        <span class="defect-material-label">${m.product_label}</span>
+                        <span class="defect-material-ref">[${this.escapeHtml(m.product_ref)}]${isOffline ? ' ⏳' : ''}</span>
+                        <span class="defect-material-label">${this.escapeHtml(m.product_label)}</span>
                     </div>
                     <span class="defect-material-qty">${m.qty}x</span>
                     <button class="defect-material-delete" onclick="app.deleteDefectMaterial(${deleteId}, '${deleteType}')">✕</button>
@@ -3234,7 +3237,7 @@ class ServiceReportApp {
      */
     renderAddressLink(address, zip, town, additionalClasses = '') {
         const mapsUrl = this.getMapsUrl(address, zip, town);
-        const addressText = `${address || ''}<br>${zip || ''} ${town || ''}`.trim();
+        const addressText = `${this.escapeHtml(address)}<br>${this.escapeHtml(zip)} ${this.escapeHtml(town)}`.trim();
 
         if (!mapsUrl || !addressText) return addressText;
 
@@ -3285,10 +3288,10 @@ class ServiceReportApp {
             item.className = 'material-item';
             item.innerHTML = `
                 <div class="material-info">
-                    <div class="material-name">${material.name}</div>
+                    <div class="material-name">${this.escapeHtml(material.name)}</div>
                     <div class="material-details">
-                        ${material.quantity} ${material.unit}
-                        ${material.description ? ' - ' + material.description : ''}
+                        ${this.escapeHtml(material.quantity)} ${this.escapeHtml(material.unit)}
+                        ${material.description ? ' - ' + this.escapeHtml(material.description) : ''}
                     </div>
                 </div>
                 <div class="material-price">${this.formatPrice(material.total_price || (material.quantity * material.unit_price))} €</div>
@@ -3428,9 +3431,9 @@ class ServiceReportApp {
                 resultsEl.innerHTML = '<div class="product-item"><em>Keine Produkte gefunden</em></div>';
             } else {
                 resultsEl.innerHTML = products.map(p => `
-                    <div class="product-item" data-id="${p.id}" data-ref="${p.ref}" data-label="${p.label}" data-price="${p.price}">
-                        <div class="product-ref">${p.ref}</div>
-                        <div class="product-label">${p.label}</div>
+                    <div class="product-item" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}" data-price="${this.escapeHtml(p.price)}">
+                        <div class="product-ref">${this.escapeHtml(p.ref)}</div>
+                        <div class="product-label">${this.escapeHtml(p.label)}</div>
                         <div class="product-price">${this.formatPrice(p.price)} €</div>
                     </div>
                 `).join('');
@@ -3547,7 +3550,7 @@ class ServiceReportApp {
                 header.style.gap = '8px';
                 const addressIds = group.equipment.map(eq => eq.id);
                 const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
-                const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+                const addressText = this.escapeHtml(`${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`);
                 header.innerHTML = `
                     <input type="checkbox" class="address-select-all" data-address="${addrKey}" style="width:18px;height:18px;">
                     ${mapsUrl
@@ -3574,9 +3577,9 @@ class ServiceReportApp {
                         <input type="checkbox" class="equipment-checkbox" data-id="${eq.id}" style="width:18px;height:18px;margin-right:8px;">
                         <div class="equipment-icon">🚪</div>
                         <div class="equipment-info" style="flex:1;">
-                            <div class="equipment-ref">${eq.ref}</div>
-                            <div class="equipment-label">${eq.label || eq.type || ''}</div>
-                            ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                            <div class="equipment-ref">${this.escapeHtml(eq.ref)}</div>
+                            <div class="equipment-label">${this.escapeHtml(eq.label || eq.type || '')}</div>
+                            ${eq.location ? `<div class="equipment-label">${this.escapeHtml(eq.location)}</div>` : ''}
                         </div>
                         <div style="display:flex;gap:8px;">
                             <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">S</button>
@@ -3661,7 +3664,7 @@ class ServiceReportApp {
             const header = document.createElement('div');
             header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
             const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
-            const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            const addressText = this.escapeHtml(`${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`);
             header.innerHTML = mapsUrl
                 ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">📍 ${addressText}</a>`
                 : `📍 ${addressText}`;
@@ -3674,9 +3677,9 @@ class ServiceReportApp {
                 item.innerHTML = `
                     <div class="equipment-icon">🚪</div>
                     <div class="equipment-info">
-                        <div class="equipment-ref">${eq.ref}</div>
-                        <div class="equipment-label">${eq.label || eq.type || ''}</div>
-                        ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                        <div class="equipment-ref">${this.escapeHtml(eq.ref)}</div>
+                        <div class="equipment-label">${this.escapeHtml(eq.label || eq.type || '')}</div>
+                        ${eq.location ? `<div class="equipment-label">${this.escapeHtml(eq.location)}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;">
                         <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">Service</button>
@@ -3953,7 +3956,7 @@ class ServiceReportApp {
                     item.innerHTML = `
                         <div class="document-icon">⏳</div>
                         <div class="document-info">
-                            <div class="document-name">${upload.file_name}</div>
+                            <div class="document-name">${this.escapeHtml(upload.file_name)}</div>
                             <div class="document-date" style="color:#1976d2;">Wartet auf Upload...</div>
                         </div>
                         <div class="document-actions">
@@ -4017,12 +4020,12 @@ class ServiceReportApp {
                 if (this.isOnline) {
                     item.innerHTML = `
                         <div class="document-icon">${icon}</div>
-                        <a href="${proxyUrl}&attachment=1" class="document-info" target="_blank" title="Download">
-                            <div class="document-name">${doc.name}</div>
+                        <a href="${this.escapeHtml(proxyUrl)}&attachment=1" class="document-info" target="_blank" rel="noopener" title="Download">
+                            <div class="document-name">${this.escapeHtml(doc.name)}</div>
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
                         <div class="document-actions">
-                            <button type="button" class="doc-action" title="Vorschau" onclick="app.openPdfViewer('${previewUrl.replace(/'/g, "\\'")}', '${doc.name.replace(/'/g, "\\'")}')">🔍</button>
+                            <button type="button" class="doc-action doc-preview" data-url="${this.escapeHtml(previewUrl)}" data-name="${this.escapeHtml(doc.name)}" title="Vorschau">🔍</button>
                             <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                         </div>
                     `;
@@ -4031,7 +4034,7 @@ class ServiceReportApp {
                     item.innerHTML = `
                         <div class="document-icon">${icon}</div>
                         <div class="document-info">
-                            <div class="document-name">${doc.name}</div>
+                            <div class="document-name">${this.escapeHtml(doc.name)}</div>
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </div>
                         <div class="document-actions" style="color:#999;">
@@ -4046,6 +4049,9 @@ class ServiceReportApp {
             if (this.isOnline) {
                 listEl.querySelectorAll('.doc-delete').forEach(btn => {
                     btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
+                });
+                listEl.querySelectorAll('.doc-preview').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.openPdfViewer(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
                 });
             }
         } catch (err) {
@@ -4926,10 +4932,13 @@ class ServiceReportApp {
     }
 
     escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // Render equipment details in entries view
@@ -5800,7 +5809,7 @@ class ServiceReportApp {
             contentEl.innerHTML = `
                 <div class="empty-state" style="padding: 20px 0;">
                     <p>Fehler beim Erstellen</p>
-                    <p style="font-size: 12px; color: #999;">${err.message || 'Unbekannter Fehler'}</p>
+                    <p style="font-size: 12px; color: #999;">${this.escapeHtml(err.message || 'Unbekannter Fehler')}</p>
                 </div>
             `;
         }
