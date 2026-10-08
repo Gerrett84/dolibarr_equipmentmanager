@@ -1045,8 +1045,16 @@ if (isModEnabled('totp2fa')) {
                 console.error('Hard reset error:', err);
             }
 
-            // 6. Start over on the login view
-            window.location.replace('index.php?_=' + Date.now());
+            // 6. Start over on the login view. A full-screen notice with a plain link
+            //    stays visible, and the navigation is retried, in case the first
+            //    attempt is swallowed (e.g. by a standalone PWA shell).
+            const target = new URL('index.php?_=' + Date.now(), window.location.href).href;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;color:#333;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:24px;';
+            overlay.innerHTML = '<div style="font-size:48px;">✅</div><div style="font-size:18px;font-weight:600;">Zurückgesetzt &amp; abgemeldet</div><div style="font-size:14px;color:#666;">Die Anmeldeseite wird geladen …</div><a href="' + target + '" style="padding:12px 20px;background:#1a3f6e;color:#fff;border-radius:8px;text-decoration:none;">Zur Anmeldung</a>';
+            document.body.appendChild(overlay);
+            window.location.replace(target);
+            setTimeout(() => { window.location.href = target; }, 2500);
         });
 
         function showTrustedDeviceInfo(trusted) {
