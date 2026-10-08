@@ -202,6 +202,20 @@ if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
     $pwaBrandColor = $brandColorSetting;
 }
 $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
+dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
+$pwaDark = eqmPwaDarkColors('#1e3a8a');
+
+// Company name and logo (Setup -> Company), shown in the header and on the login view
+$pwaCompanyName = !empty($mysoc->name) ? $mysoc->name : '';
+$pwaLogoUrl = '';
+if (!empty($mysoc->logo)) {
+    foreach (array($conf->mycompany->dir_output.'/logos/thumbs/'.basename((string) $mysoc->logo_small), $conf->mycompany->dir_output.'/logos/'.basename($mysoc->logo)) as $logoFile) {
+        if (is_file($logoFile)) {
+            $pwaLogoUrl = 'logo.php?v='.filemtime($logoFile);
+            break;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -211,7 +225,8 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?php echo $title; ?>">
-    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>">
+    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
 
     <title><?php echo $title; ?></title>
 
@@ -261,12 +276,12 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
             --text-secondary: #b0b0b0;
             --text-muted: #808080;
             --border-color: #404040;
-            --header-bg: #1e3a8a;
+            --header-bg: <?php echo $pwaDark['header']; ?>;
             --shadow: 0 1px 3px rgba(0,0,0,0.3);
             --input-bg: #3d3d3d;
             --input-border: #505050;
-            --primary-color: #60a5fa;
-            --primary-light: rgba(74, 144, 217, 0.2);
+            --primary-color: <?php echo $pwaDark['primary']; ?>;
+            --primary-light: <?php echo $pwaDark['primaryLight']; ?>;
             --success-color: #28a745;
             --warning-color: #ffc107;
             --danger-color: #dc3545;
@@ -304,7 +319,35 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
             margin: 0;
             font-size: 18px;
             font-weight: 500;
+        }
+
+        .header-titles {
             flex: 1;
+            min-width: 0;
+        }
+
+        .header-company {
+            font-size: 11px;
+            opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-logo {
+            background: #ffffff;
+            border-radius: 6px;
+            padding: 3px 6px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header-logo img {
+            height: 32px;
+            max-width: 72px;
+            object-fit: contain;
+            display: block;
         }
 
         .header-btn {
@@ -1014,6 +1057,16 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
             color: #2e7d32;
         }
 
+.link-type-badge.montage {
+            background: #fff9c4;
+            color: #7a5c00;
+        }
+
+        [data-theme="dark"] .link-type-badge.montage {
+            background: #3d3500;
+            color: #ffd54f;
+        }
+
         [data-theme="dark"] .link-type-badge.service {
             background: #3d2a00;
             color: #ffb74d;
@@ -1427,6 +1480,11 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
             border-radius: 10px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
+        /* Dark map: darken the standard OSM tiles (no key-based dark basemap needed) */
+        .em-dark-tiles {
+            filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.7);
+        }
+
         [data-theme="dark"] .leaflet-popup-content-wrapper {
             background: #2d2d2d;
             color: #e0e0e0;
@@ -2255,7 +2313,13 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
     <!-- Header -->
     <div class="header">
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
-        <h1 id="headerTitle"><?php echo $title; ?></h1>
+        <?php if ($pwaLogoUrl): ?>
+        <span class="header-logo"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
+        <?php endif; ?>
+        <div class="header-titles">
+            <h1 id="headerTitle"><?php echo $title; ?></h1>
+            <?php if ($pwaCompanyName): ?><div class="header-company"><?php echo dol_escape_htmltag($pwaCompanyName); ?></div><?php endif; ?>
+        </div>
         <span class="sync-status" id="syncStatus" title="Tippen zum Synchronisieren" style="cursor:pointer;">Offline</span>
         <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
     </div>
@@ -2691,7 +2755,7 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
                     </div>
                 </div>
                 <div style="display: flex; gap: 12px;">
-                    <div class="form-group" style="flex: 1;">
+                    <div class="form-group" id="materialPriceGroup" style="flex: 1; display: none;">
                         <label class="form-label">Einzelpreis (€)</label>
                         <input type="number" class="form-input" id="materialPrice" min="0" step="0.01">
                     </div>
@@ -2780,6 +2844,7 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
                     <div style="display:flex;gap:8px;">
                         <button type="button" class="btn btn-primary" style="padding:8px 12px;font-size:13px;" onclick="app.linkSelectedEquipment('service')">Service</button>
                         <button type="button" class="btn btn-success" style="padding:8px 12px;font-size:13px;" onclick="app.linkSelectedEquipment('maintenance')">Wartung</button>
+                        <button type="button" class="btn" style="padding:8px 12px;font-size:13px;background:#fbc02d;color:#333;" onclick="app.linkSelectedEquipment('montage')">Montage</button>
                     </div>
                 </div>
             </div>
@@ -2822,6 +2887,8 @@ $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), 
         // Configuration
         const CONFIG = {
             apiBase: '<?php echo $apiBase; ?>',
+            companyName: <?php echo json_encode($pwaCompanyName); ?>,
+            logoUrl: <?php echo json_encode($pwaLogoUrl); ?>,
             moduleUrl: '<?php echo dol_buildpath('/custom/equipmentmanager/', 1); ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
             authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,

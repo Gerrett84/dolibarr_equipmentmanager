@@ -261,7 +261,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
                     $total_material += $equipment_material_total;
 
                     // Add work duration only for service entries
-                    if ($equipment->link_type === 'service') {
+                    if (in_array($equipment->link_type, array('service', 'montage'))) {
                         $equipment_duration = $detailHelper->getTotalDuration($object->id, $equipment->id);
                         $total_duration += $equipment_duration;
                     }
@@ -762,7 +762,7 @@ class pdf_equipmentmanager extends ModelePDFFicheinter
             }
 
             $duration_text = '';
-            if (isset($equipment->link_type) && $equipment->link_type === 'service') {
+            if (isset($equipment->link_type) && in_array($equipment->link_type, array('service', 'montage'))) {
                 if (!empty($entry->work_start_time) && !empty($entry->work_end_time)) {
                     $duration_text = substr($entry->work_start_time, 0, 5).' – '.substr($entry->work_end_time, 0, 5).' Uhr';
                     if ($entry->work_duration > 0) {

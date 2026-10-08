@@ -95,6 +95,29 @@ class ServiceReportApp {
         this.updateSyncBadge();
     }
 
+    // The maintenance overview is company-wide; technician accounts do not get it
+    canSeeMaintenance() {
+        try { return localStorage.getItem('pwa_cap_maintenance') !== '0'; } catch (e) { return true; }
+    }
+
+    // Prices are only shown to admins
+    canSeePrices() {
+        try { return localStorage.getItem('pwa_cap_prices') === '1'; } catch (e) { return false; }
+    }
+
+    _applyCapabilities(caps) {
+        if (!caps) return;
+        try {
+            localStorage.setItem('pwa_cap_prices', caps.prices ? '1' : '0');
+            localStorage.setItem('pwa_cap_backend', caps.backend ? '1' : '0');
+        } catch (e) { /* ignore */ }
+        try { localStorage.setItem('pwa_cap_maintenance', caps.maintenance ? '1' : '0'); } catch (e) { /* ignore */ }
+        const nav = document.getElementById('navMaintenance');
+        if (nav && ['viewInterventions', 'viewMap', 'viewMaintenance'].includes(this.currentView)) {
+            nav.style.display = this.canSeeMaintenance() ? 'flex' : 'none';
+        }
+    }
+
     async checkAuth() {
         // Load saved PWA token into memory on every startup
         const savedToken = await offlineDB.getMeta('pwa_token');
@@ -157,7 +180,11 @@ class ServiceReportApp {
         document.getElementById('interventionsList').innerHTML = `
             <div class="login-form" style="padding: 20px;">
                 <div style="text-align:center;margin-bottom:20px;">
-                    <div style="font-size:48px;">🔐</div>
+                    ${CONFIG.logoUrl ? `
+                    <div style="display:inline-block;background:#fff;border-radius:10px;padding:10px 16px;margin-bottom:6px;">
+                        <img src="${CONFIG.logoUrl}" alt="" style="display:block;max-width:220px;max-height:110px;object-fit:contain;">
+                    </div>` : '<div style="font-size:48px;">🔐</div>'}
+                    ${CONFIG.companyName ? `<div style="font-size:17px;font-weight:600;margin:6px 0 2px;">${this.escapeHtml(CONFIG.companyName)}</div>` : ''}
                     <h3 style="margin:10px 0;">${hasCredentials ? 'Sitzung abgelaufen' : 'Anmeldung erforderlich'}</h3>
                     <p style="color:#666;font-size:14px;">
                         ${hasCredentials ? 'Bitte erneut anmelden oder Passwort prüfen.' : 'Bitte speichern Sie Ihre Login-Daten in den Einstellungen.'}
@@ -173,7 +200,7 @@ class ServiceReportApp {
                 <form id="pwaLoginForm">
                     <div style="margin-bottom:12px;">
                         <input type="text" id="loginUsername" placeholder="Benutzername" required
-                            value="${usernameValue}"
+                            value="${this.escapeHtml(usernameValue)}"
                             style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px;">
                     </div>
                     <div style="margin-bottom:12px;">
@@ -612,6 +639,7 @@ class ServiceReportApp {
                     if (data.offline === true) continue; // SW fallback — retry
 
                     // Real 200 — authenticated and online
+                    this._applyCapabilities(data.capabilities);
                     await this._goOnline(silent, skipAutoSync);
                     return true;
                 }
@@ -705,7 +733,7 @@ class ServiceReportApp {
             document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
             document.getElementById('navMap').style.display = 'flex';
-            document.getElementById('navMaintenance').style.display = 'flex';
+            document.getElementById('navMaintenance').style.display = this.canSeeMaintenance() ? 'flex' : 'none';
             // Set correct nav item active
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             const navIds = { viewMap: 'navMap', viewMaintenance: 'navMaintenance' };
@@ -1178,7 +1206,7 @@ class ServiceReportApp {
                 <div class="empty-state">
                     <div class="empty-icon">⚠️</div>
                     <p>Fehler beim Laden</p>
-                    <p style="font-size:12px;">${err.message}</p>
+                    <p style="font-size:12px;">${this.escapeHtml(err.message)}</p>
                     <button onclick="window.app.loadInterventions()" style="margin-top:12px;padding:10px 20px;border:none;border-radius:6px;background:#1a3f6e;color:white;cursor:pointer;">
                         Erneut versuchen
                     </button>
@@ -1225,6 +1253,8 @@ class ServiceReportApp {
             };
             const c = maintColors[intervention.maintenance_status] || maintColors.none;
             typeBadgeHtml = `<span class="badge" style="background:${c.bg};color:${c.text}">Wartung</span>`;
+        } else if (intervention.primary_type === 'montage') {
+            typeBadgeHtml = '<span class="badge" style="background:#fff59d;color:#7a5c00">Montage</span>';
         } else if (intervention.primary_type === 'service') {
             typeBadgeHtml = '<span class="badge" style="background:#bbdefb;color:#1565c0">Service</span>';
         }
@@ -1389,7 +1419,7 @@ class ServiceReportApp {
             // Available even before signing so user can preview
             const accBtn = document.getElementById('navAcceptanceProtocol');
             const hasAcceptanceData = equipment.some(eq =>
-                eq.link_type === 'service' && eq.detail &&
+                (eq.link_type === 'service' || eq.link_type === 'montage') && eq.detail &&
                 (eq.detail.commissioning_done || eq.detail.acceptance_done)
             );
             accBtn.style.display = hasAcceptanceData ? 'flex' : 'none';
@@ -1460,7 +1490,9 @@ class ServiceReportApp {
                 const typeName = typeLabels[eq.type] || eq.type || '';
                 const linkTypeBadge = eq.link_type === 'maintenance'
                     ? '<span class="link-type-badge maintenance">Wartung</span>'
-                    : '<span class="link-type-badge service">Service</span>';
+                    : (eq.link_type === 'montage'
+                        ? '<span class="link-type-badge montage">Montage</span>'
+                        : '<span class="link-type-badge service">Service</span>');
 
                 // Check if equipment has been processed (has detail with work_done)
                 const isProcessed = eq.detail && eq.detail.work_done;
@@ -1488,9 +1520,9 @@ class ServiceReportApp {
                 item.innerHTML = `
                     <div class="equipment-icon">${statusIcon}</div>
                     <div class="equipment-info">
-                        <div class="equipment-ref">${eq.ref} - ${typeName}</div>
-                        <div class="equipment-label">${eq.manufacturer ? eq.manufacturer + ', ' : ''}${eq.label || ''}</div>
-                        ${eq.location ? `<div class="equipment-label" style="color:#888;">${eq.location}</div>` : ''}
+                        <div class="equipment-ref">${this.escapeHtml(eq.ref)} - ${this.escapeHtml(typeName)}</div>
+                        <div class="equipment-label">${eq.manufacturer ? this.escapeHtml(eq.manufacturer) + ', ' : ''}${this.escapeHtml(eq.label || '')}</div>
+                        ${eq.location ? `<div class="equipment-label" style="color:#888;">${this.escapeHtml(eq.location)}</div>` : ''}
                     </div>
                     ${linkTypeBadge}
                 `;
@@ -1538,6 +1570,8 @@ class ServiceReportApp {
                 linkTypeBadge = '<span class="link-type-badge service">Allgemein</span>';
             } else if (equipment.link_type === 'maintenance') {
                 linkTypeBadge = '<span class="link-type-badge maintenance">Wartung</span>';
+            } else if (equipment.link_type === 'montage') {
+                linkTypeBadge = '<span class="link-type-badge montage">Montage</span>';
             } else {
                 linkTypeBadge = '<span class="link-type-badge service">Service</span>';
             }
@@ -1732,8 +1766,8 @@ class ServiceReportApp {
         const section = document.getElementById('commissioningAcceptanceSection');
         if (!section) return; // Safety check
 
-        // Hide for maintenance entries, show for everything else (service, general)
-        if (this.currentEquipment && this.currentEquipment.link_type === 'maintenance') {
+        // Commissioning/acceptance (Abnahmeprotokoll) only for Montage entries
+        if (!this.currentEquipment || this.currentEquipment.link_type !== 'montage') {
             section.style.display = 'none';
             return;
         }
@@ -1923,8 +1957,8 @@ class ServiceReportApp {
             issues_found: document.getElementById('entryIssuesFound').value
         };
 
-        // Add commissioning/acceptance fields for non-maintenance entries (v4.5.2)
-        if (this.currentEquipment?.link_type !== 'maintenance') {
+        // Add commissioning/acceptance fields for Montage entries only (v4.5.2)
+        if (this.currentEquipment?.link_type === 'montage') {
             const commDone = document.getElementById('entryCommissioningDone').checked;
             entryData.commissioning_done = commDone ? 1 : 0;
             entryData.commissioning_date = commDone ? document.getElementById('entryCommissioningDate').value : null;
@@ -2350,11 +2384,14 @@ class ServiceReportApp {
             const products = response.products || [];
             if (products.length > 0) {
                 resultsDiv.innerHTML = products.map(p => `
-                    <div class="product-result" onclick="app.selectDefectProduct(${p.id}, '${p.ref.replace(/'/g, "\\'")}', '${p.label.replace(/'/g, "\\'")}')">
-                        <span class="product-ref">[${p.ref}]</span>
-                        <span class="product-label">${p.label}</span>
+                    <div class="product-result" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}">
+                        <span class="product-ref">[${this.escapeHtml(p.ref)}]</span>
+                        <span class="product-label">${this.escapeHtml(p.label)}</span>
                     </div>
                 `).join('');
+                resultsDiv.querySelectorAll('.product-result').forEach(el => {
+                    el.addEventListener('click', () => this.selectDefectProduct(Number(el.dataset.id), el.dataset.ref, el.dataset.label));
+                });
                 resultsDiv.classList.add('show');
             } else {
                 resultsDiv.innerHTML = '<div class="product-result" style="color: var(--text-secondary);">Keine Produkte gefunden</div>';
@@ -2505,8 +2542,8 @@ class ServiceReportApp {
                 return `
                 <div class="defect-material-item${isOffline ? ' offline' : ''}">
                     <div class="defect-material-info">
-                        <span class="defect-material-ref">[${m.product_ref}]${isOffline ? ' ⏳' : ''}</span>
-                        <span class="defect-material-label">${m.product_label}</span>
+                        <span class="defect-material-ref">[${this.escapeHtml(m.product_ref)}]${isOffline ? ' ⏳' : ''}</span>
+                        <span class="defect-material-label">${this.escapeHtml(m.product_label)}</span>
                     </div>
                     <span class="defect-material-qty">${m.qty}x</span>
                     <button class="defect-material-delete" onclick="app.deleteDefectMaterial(${deleteId}, '${deleteType}')">✕</button>
@@ -3224,7 +3261,7 @@ class ServiceReportApp {
      */
     renderAddressLink(address, zip, town, additionalClasses = '') {
         const mapsUrl = this.getMapsUrl(address, zip, town);
-        const addressText = `${address || ''}<br>${zip || ''} ${town || ''}`.trim();
+        const addressText = `${this.escapeHtml(address)}<br>${this.escapeHtml(zip)} ${this.escapeHtml(town)}`.trim();
 
         if (!mapsUrl || !addressText) return addressText;
 
@@ -3275,13 +3312,13 @@ class ServiceReportApp {
             item.className = 'material-item';
             item.innerHTML = `
                 <div class="material-info">
-                    <div class="material-name">${material.name}</div>
+                    <div class="material-name">${this.escapeHtml(material.name)}</div>
                     <div class="material-details">
-                        ${material.quantity} ${material.unit}
-                        ${material.description ? ' - ' + material.description : ''}
+                        ${this.escapeHtml(material.quantity)} ${this.escapeHtml(material.unit)}
+                        ${material.description ? ' - ' + this.escapeHtml(material.description) : ''}
                     </div>
                 </div>
-                <div class="material-price">${this.formatPrice(material.total_price || (material.quantity * material.unit_price))} €</div>
+                ${this.canSeePrices() ? `<div class="material-price">${this.formatPrice(material.total_price || (material.quantity * material.unit_price))} €</div>` : ''}
                 <button type="button" class="material-delete" data-index="${index}" title="Löschen">🗑</button>
             `;
 
@@ -3303,9 +3340,10 @@ class ServiceReportApp {
         document.getElementById('materialDescription').value = '';
         document.getElementById('materialQty').value = '1';
         document.getElementById('materialUnit').value = 'Stk';
-        document.getElementById('materialPrice').value = '';
         document.getElementById('materialSerial').value = '';
         document.getElementById('materialNotes').value = '';
+        document.getElementById('materialPrice').value = '';
+        document.getElementById('materialPriceGroup').style.display = this.canSeePrices() ? '' : 'none';
 
         document.getElementById('materialModal').classList.add('show');
     }
@@ -3322,7 +3360,7 @@ class ServiceReportApp {
         }
 
         const quantity = parseFloat(document.getElementById('materialQty').value) || 1;
-        const unitPrice = parseFloat(document.getElementById('materialPrice').value) || 0;
+        const unitPrice = this.canSeePrices() ? (parseFloat(document.getElementById('materialPrice').value) || 0) : 0;
 
         const material = {
             intervention_id: this.currentIntervention.id,
@@ -3418,10 +3456,10 @@ class ServiceReportApp {
                 resultsEl.innerHTML = '<div class="product-item"><em>Keine Produkte gefunden</em></div>';
             } else {
                 resultsEl.innerHTML = products.map(p => `
-                    <div class="product-item" data-id="${p.id}" data-ref="${p.ref}" data-label="${p.label}" data-price="${p.price}">
-                        <div class="product-ref">${p.ref}</div>
-                        <div class="product-label">${p.label}</div>
-                        <div class="product-price">${this.formatPrice(p.price)} €</div>
+                    <div class="product-item" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}" data-price="${this.escapeHtml(p.price ?? '')}">
+                        <div class="product-ref">${this.escapeHtml(p.ref)}</div>
+                        <div class="product-label">${this.escapeHtml(p.label)}</div>
+                        ${this.canSeePrices() && p.price !== undefined ? `<div class="product-price">${this.formatPrice(p.price)} €</div>` : ''}
                     </div>
                 `).join('');
 
@@ -3442,10 +3480,11 @@ class ServiceReportApp {
     selectProduct(item) {
         const ref = item.dataset.ref;
         const label = item.dataset.label;
-        const price = item.dataset.price;
 
         document.getElementById('materialName').value = label;
-        document.getElementById('materialPrice').value = price;
+        if (this.canSeePrices() && item.dataset.price !== '') {
+            document.getElementById('materialPrice').value = item.dataset.price;
+        }
         document.getElementById('productSearch').value = ref + ' - ' + label;
         document.getElementById('productResults').classList.remove('show');
     }
@@ -3537,7 +3576,7 @@ class ServiceReportApp {
                 header.style.gap = '8px';
                 const addressIds = group.equipment.map(eq => eq.id);
                 const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
-                const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+                const addressText = this.escapeHtml(`${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`);
                 header.innerHTML = `
                     <input type="checkbox" class="address-select-all" data-address="${addrKey}" style="width:18px;height:18px;">
                     ${mapsUrl
@@ -3564,13 +3603,14 @@ class ServiceReportApp {
                         <input type="checkbox" class="equipment-checkbox" data-id="${eq.id}" style="width:18px;height:18px;margin-right:8px;">
                         <div class="equipment-icon">🚪</div>
                         <div class="equipment-info" style="flex:1;">
-                            <div class="equipment-ref">${eq.ref}</div>
-                            <div class="equipment-label">${eq.label || eq.type || ''}</div>
-                            ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                            <div class="equipment-ref">${this.escapeHtml(eq.ref)}</div>
+                            <div class="equipment-label">${this.escapeHtml(eq.label || eq.type || '')}</div>
+                            ${eq.location ? `<div class="equipment-label">${this.escapeHtml(eq.location)}</div>` : ''}
                         </div>
                         <div style="display:flex;gap:8px;">
                             <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">S</button>
                             <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">W</button>
+                            <button class="btn" style="padding:6px 10px;font-size:12px;background:#fbc02d;color:#333;" data-type="montage">M</button>
                         </div>
                     `;
 
@@ -3650,7 +3690,7 @@ class ServiceReportApp {
             const header = document.createElement('div');
             header.style.cssText = 'padding:12px;background:#f5f5f5;font-weight:600;font-size:13px;border-bottom:1px solid #ddd;';
             const mapsUrl = this.getMapsUrl(group.address?.address, group.address?.zip, group.address?.town);
-            const addressText = `${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`;
+            const addressText = this.escapeHtml(`${group.address?.name || ''} - ${group.address?.zip || ''} ${group.address?.town || ''}`);
             header.innerHTML = mapsUrl
                 ? `<a href="${mapsUrl}" target="_blank" rel="noopener" class="address-link" title="In Karten öffnen">📍 ${addressText}</a>`
                 : `📍 ${addressText}`;
@@ -3663,13 +3703,14 @@ class ServiceReportApp {
                 item.innerHTML = `
                     <div class="equipment-icon">🚪</div>
                     <div class="equipment-info">
-                        <div class="equipment-ref">${eq.ref}</div>
-                        <div class="equipment-label">${eq.label || eq.type || ''}</div>
-                        ${eq.location ? `<div class="equipment-label">${eq.location}</div>` : ''}
+                        <div class="equipment-ref">${this.escapeHtml(eq.ref)}</div>
+                        <div class="equipment-label">${this.escapeHtml(eq.label || eq.type || '')}</div>
+                        ${eq.location ? `<div class="equipment-label">${this.escapeHtml(eq.location)}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;">
                         <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" data-type="service">Service</button>
                         <button class="btn" style="padding:6px 10px;font-size:12px;background:#4caf50;color:white;" data-type="maintenance">Wartung</button>
+                        <button class="btn" style="padding:6px 10px;font-size:12px;background:#fbc02d;color:#333;" data-type="montage">Montage</button>
                     </div>
                 `;
 
@@ -3715,7 +3756,7 @@ class ServiceReportApp {
         }
 
         const count = this.selectedEquipment.length;
-        const linkTypeName = linkType === 'maintenance' ? 'Wartung' : 'Service';
+        const linkTypeName = { maintenance: 'Wartung', montage: 'Montage' }[linkType] || 'Service';
 
         // Link each selected equipment (batch mode - don't close/reload for each)
         for (const equipmentId of this.selectedEquipment) {
@@ -3941,7 +3982,7 @@ class ServiceReportApp {
                     item.innerHTML = `
                         <div class="document-icon">⏳</div>
                         <div class="document-info">
-                            <div class="document-name">${upload.file_name}</div>
+                            <div class="document-name">${this.escapeHtml(upload.file_name)}</div>
                             <div class="document-date" style="color:#1976d2;">Wartet auf Upload...</div>
                         </div>
                         <div class="document-actions">
@@ -3977,6 +4018,7 @@ class ServiceReportApp {
             }
 
             // Render server documents
+            const viewTicket = await this.getViewTicket().catch(() => '');
             documents.forEach(doc => {
                 const item = document.createElement('div');
                 item.className = 'document-item';
@@ -3987,7 +4029,7 @@ class ServiceReportApp {
                 const fileParam = docUrlObj.searchParams.get('file') || '';
                 const modulePart = docUrlObj.searchParams.get('modulepart') || '';
                 const proxyUrl = fileParam
-                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&modulepart=${encodeURIComponent(modulePart)}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`
+                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&modulepart=${encodeURIComponent(modulePart)}&t=${encodeURIComponent(viewTicket)}`
                     : doc.url;
                 const previewUrl = proxyUrl + '&attachment=0';
 
@@ -4005,12 +4047,12 @@ class ServiceReportApp {
                 if (this.isOnline) {
                     item.innerHTML = `
                         <div class="document-icon">${icon}</div>
-                        <a href="${proxyUrl}&attachment=1" class="document-info" target="_blank" title="Download">
-                            <div class="document-name">${doc.name}</div>
+                        <a href="${this.escapeHtml(proxyUrl)}&attachment=1" class="document-info" target="_blank" rel="noopener" title="Download">
+                            <div class="document-name">${this.escapeHtml(doc.name)}</div>
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
                         <div class="document-actions">
-                            <button type="button" class="doc-action" title="Vorschau" onclick="app.openPdfViewer('${previewUrl.replace(/'/g, "\\'")}', '${doc.name.replace(/'/g, "\\'")}')">🔍</button>
+                            <button type="button" class="doc-action doc-preview" data-url="${this.escapeHtml(previewUrl)}" data-name="${this.escapeHtml(doc.name)}" title="Vorschau">🔍</button>
                             <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                         </div>
                     `;
@@ -4019,7 +4061,7 @@ class ServiceReportApp {
                     item.innerHTML = `
                         <div class="document-icon">${icon}</div>
                         <div class="document-info">
-                            <div class="document-name">${doc.name}</div>
+                            <div class="document-name">${this.escapeHtml(doc.name)}</div>
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </div>
                         <div class="document-actions" style="color:#999;">
@@ -4034,6 +4076,9 @@ class ServiceReportApp {
             if (this.isOnline) {
                 listEl.querySelectorAll('.doc-delete').forEach(btn => {
                     btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
+                });
+                listEl.querySelectorAll('.doc-preview').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.openPdfViewer(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
                 });
             }
         } catch (err) {
@@ -4105,7 +4150,7 @@ class ServiceReportApp {
     }
 
     // Show PDF preview in in-app viewer
-    showPdfPreview() {
+    async showPdfPreview() {
         if (!this.currentIntervention) {
             this.showToast('Keine Intervention ausgewählt');
             return;
@@ -4116,8 +4161,20 @@ class ServiceReportApp {
             return;
         }
 
-        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&t=${encodeURIComponent(await this.getViewTicket())}`;
         this.openPdfViewerFresh(previewUrl, 'Servicebericht');
+    }
+
+    // Short-lived ticket for PDF/document URLs (iframe, new tab) - keeps the long-lived
+    // PWA token out of URLs, access logs and browser history
+    async getViewTicket() {
+        if (this._viewTicket && this._viewTicketExp > Date.now() + 15000) {
+            return this._viewTicket;
+        }
+        const res = await this.apiCall('view-ticket', { method: 'POST', body: '{}' });
+        this._viewTicket = res.ticket;
+        this._viewTicketExp = Date.now() + ((res.expires_in || 300) * 1000);
+        return this._viewTicket;
     }
 
     // Fetch PDF fresh (no-store) and display via Blob URL to bypass iOS WebKit PDF cache
@@ -4140,7 +4197,7 @@ class ServiceReportApp {
     }
 
     // Show acceptance protocol PDF in new tab (v4.5)
-    showAcceptanceProtocol() {
+    async showAcceptanceProtocol() {
         if (!this.currentIntervention) {
             this.showToast('Keine Intervention ausgewählt');
             return;
@@ -4152,7 +4209,7 @@ class ServiceReportApp {
         }
 
         // Pass current equipment ID so only that one appears in the protocol
-        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}&t=${encodeURIComponent(await this.getViewTicket())}`;
         if (this.currentEquipment && this.currentEquipment.id) {
             protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
         }
@@ -4550,6 +4607,8 @@ class ServiceReportApp {
         if (type === 'maintenance') {
             const statusColors = { overdue: '#f44336', soon: '#ff9800', ok: '#4caf50', none: '#ff9800' };
             color = statusColors[intervention && intervention.maintenance_status] || '#ff9800';
+        } else if (type === 'montage') {
+            color = '#fbc02d';
         } else {
             color = '#2196f3';
         }
@@ -4574,17 +4633,13 @@ class ServiceReportApp {
 
         const dark = this.isDarkMode();
 
+        // Dark mode: the same OpenStreetMap tiles, darkened with a CSS filter (class em-dark-tiles).
+        // CARTO's dark basemap now answers every tile with "API KEY REQUIRED".
         const getTileLayer = (isDark) => {
-            if (isDark) {
-                return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
-                    subdomains: 'abcd',
-                    maxZoom: 19
-                });
-            }
             return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
+                maxZoom: 19,
+                className: isDark ? 'em-dark-tiles' : ''
             });
         };
 
@@ -4649,7 +4704,7 @@ class ServiceReportApp {
                 const addrLine = [street, [zip, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
                 const icon = this.makeMapMarkerIcon(intervention.primary_type, intervention);
                 const markerColor = icon._color;
-                const typeLabel = intervention.primary_type === 'maintenance' ? 'Wartung' : 'Service';
+                const typeLabel = { maintenance: 'Wartung', montage: 'Montage' }[intervention.primary_type] || 'Service';
 
                 const objectName = addr?.name || intervention.customer?.name || '';
                 const marker = L.marker([lat, lon], { icon }).addTo(this.leafletMap);
@@ -4912,10 +4967,13 @@ class ServiceReportApp {
     }
 
     escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // Render equipment details in entries view
@@ -5786,7 +5844,7 @@ class ServiceReportApp {
             contentEl.innerHTML = `
                 <div class="empty-state" style="padding: 20px 0;">
                     <p>Fehler beim Erstellen</p>
-                    <p style="font-size: 12px; color: #999;">${err.message || 'Unbekannter Fehler'}</p>
+                    <p style="font-size: 12px; color: #999;">${this.escapeHtml(err.message || 'Unbekannter Fehler')}</p>
                 </div>
             `;
         }
@@ -6176,7 +6234,7 @@ class ServiceReportApp {
     }
 
     // Open checklist PDF in new tab (preview = true for preview only, not saved)
-    openChecklistPdf(preview = false) {
+    async openChecklistPdf(preview = false) {
         if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist) {
             this.showToast('Fehler: Keine Checkliste verfügbar');
             return;
@@ -6196,7 +6254,7 @@ class ServiceReportApp {
         // Build URL to generate PDF using module URL from config
         // preview=1 means PDF is just displayed, not saved to documents
         const previewParam = preview ? '&preview=1' : '';
-        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&t=${encodeURIComponent(await this.getViewTicket())}`;
 
         this.openPdfViewer(pdfUrl, 'Checkliste');
     }

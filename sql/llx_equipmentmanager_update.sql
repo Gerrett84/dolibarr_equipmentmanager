@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS llx_equipmentmanager_propal_equipment (
     rowid integer AUTO_INCREMENT PRIMARY KEY,
     fk_propal integer NOT NULL,
     fk_equipment integer NOT NULL,
-    link_type varchar(20) DEFAULT 'service',  -- 'maintenance' or 'service'
+    link_type varchar(20) DEFAULT 'service',  -- 'maintenance', 'service' or 'montage'
     date_creation datetime NOT NULL,
     tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     fk_user_creat integer,
@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS llx_equipmentmanager_commande_equipment (
     rowid integer AUTO_INCREMENT PRIMARY KEY,
     fk_commande integer NOT NULL,
     fk_equipment integer NOT NULL,
-    link_type varchar(20) DEFAULT 'service',  -- 'maintenance' or 'service'
+    link_type varchar(20) DEFAULT 'service',  -- 'maintenance', 'service' or 'montage'
     date_creation datetime NOT NULL,
     tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     fk_user_creat integer,

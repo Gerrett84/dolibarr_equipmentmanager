@@ -14,8 +14,12 @@ if (!$res && file_exists("../../../main.inc.php"))    $res = @include "../../../
 if (!$res) { http_response_code(503); exit('Environment not found'); }
 
 // Authenticate via PWA token (query param or header)
-$pwaToken = GETPOST('pwa_token', 'alpha') ?: ($_SERVER['HTTP_X_PWA_TOKEN'] ?? '');
-if (empty($pwaToken) || !validateProxyPwaToken($pwaToken, $db)) {
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+$viewUser = eqmResolveViewRequestUser($db);
+if ($viewUser !== null) {
+    $user = $viewUser;
+}
+if ($viewUser === null) {
     http_response_code(401);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Authentication required']);
@@ -41,9 +45,32 @@ $realDataRoot = realpath(DOL_DATA_ROOT);
 $basePath  = $realDataRoot . '/' . $moduleSubdir;
 $fullPath  = realpath($basePath . '/' . ltrim($file, '/'));
 
-if ($fullPath === false || strpos($fullPath, $realDataRoot) !== 0 || !is_file($fullPath)) {
+// The resolved file must live inside the module's own directory (not merely somewhere in
+// DOL_DATA_ROOT), otherwise "../mycompany/..." style paths would escape it
+if ($fullPath === false || strpos($fullPath, $realDataRoot . '/' . $moduleSubdir . '/') !== 0 || !is_file($fullPath)) {
     http_response_code(404);
     exit('File not found');
+}
+
+// Per-order authorization: technician accounts may only open documents of their own orders
+// and of the history of the same Objektadresse
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+if ($moduleSubdir === 'ficheinter') {
+    $relative = ltrim(substr($fullPath, strlen($basePath)), '/');
+    $refDir = explode('/', $relative)[0];
+    $sqlRef = "SELECT rowid FROM " . MAIN_DB_PREFIX . "fichinter WHERE ref = '" . $db->escape($refDir) . "'";
+    $resRef = $db->query($sqlRef);
+    $objRef = $resRef ? $db->fetch_object($resRef) : null;
+    if ($objRef) {
+        $allowed = eqmUserMayViewIntervention($db, $user, (int) $objRef->rowid);
+    } else {
+        // Not an order folder (e.g. leftovers): only users with the regular backend right
+        $allowed = !empty($user->admin) || $user->hasRight('ficheinter', 'lire');
+    }
+    if (!$allowed) { http_response_code(403); exit('Access denied'); }
+} elseif (!eqmUserHasPwaPermission($user)) {
+    http_response_code(403);
+    exit('Access denied');
 }
 
 $attachment = (GETPOST('attachment', 'int') == 1);
@@ -62,17 +89,3 @@ header('Content-Length: ' . filesize($fullPath));
 header('Cache-Control: private, max-age=300');
 readfile($fullPath);
 exit;
-
-function validateProxyPwaToken($token, $db) {
-    global $user;
-    $hashed = hash('sha256', $token);
-    $sql    = "SELECT fk_user FROM " . MAIN_DB_PREFIX . "equipmentmanager_pwa_token"
-            . " WHERE token = '" . $db->escape($hashed) . "'"
-            . " AND valid_until > '" . $db->idate(dol_now()) . "'";
-    $res = $db->query($sql);
-    if (!$res || !$db->num_rows($res)) return false;
-    $obj = $db->fetch_object($res);
-    require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
-    $user = new User($db);
-    return $user->fetch((int)$obj->fk_user) > 0;
-}

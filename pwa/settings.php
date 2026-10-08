@@ -159,7 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 }
 
 $title = 'Einstellungen';
-$dolibarrUrl = dol_buildpath('/', 1);
+// Backend lives on the main Dolibarr domain (the PWA domain may only expose the PWA paths)
+$dolibarrUrl = DOL_MAIN_URL_ROOT.'/';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 
 // Brand color (Setup -> Equipment Manager -> Brand color). Empty by default,
@@ -171,6 +172,8 @@ if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
     $pwaBrandColor = $brandColorSetting;
 }
 $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
+dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
+$pwaDark = eqmPwaDarkColors('#1e2d3d');
 
 // Get trusted device info
 $trustedDeviceInfo = null;
@@ -184,7 +187,8 @@ if (isModEnabled('totp2fa')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>">
+    <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
     <title><?php echo $title; ?></title>
 
     <!-- Theme initialization -->
@@ -222,11 +226,11 @@ if (isModEnabled('totp2fa')) {
             --text-secondary: #b0b0b0;
             --text-muted: #808080;
             --border-color: #404040;
-            --header-bg: #1e2d3d;
+            --header-bg: <?php echo $pwaDark['header']; ?>;
             --input-bg: #3d3d3d;
             --input-border: #505050;
-            --primary-color: #60a5fa;
-            --primary-light: rgba(74, 144, 217, 0.2);
+            --primary-color: <?php echo $pwaDark['primary']; ?>;
+            --primary-light: <?php echo $pwaDark['primaryLight']; ?>;
         }
         * {
             box-sizing: border-box;
@@ -463,7 +467,7 @@ if (isModEnabled('totp2fa')) {
     <div class="header">
         <a href="index.php" class="header-btn" title="Zurück">&#8592;</a>
         <h1><?php echo $title; ?></h1>
-        <button class="header-btn" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';">&#127968;</button>
+        <button class="header-btn" id="btnBackend" style="display:none;" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';">&#127968;</button>
     </div>
 
     <div class="content">
@@ -631,9 +635,23 @@ if (isModEnabled('totp2fa')) {
             </p>
         </div>
 
+        <div class="card">
+            <h2>Abmelden &amp; alles zurücksetzen</h2>
+            <p class="help-text" style="margin-top:0;">
+                Meldet dich auf dem Server ab und löscht <strong>alles</strong> auf diesem Gerät: Login-Daten, Offline-Daten, Cache, Einstellungen und App-Zwischenspeicher. Danach startet die PWA wie neu auf der Anmeldeseite. Nicht synchronisierte Änderungen gehen verloren.
+            </p>
+            <button type="button" class="btn btn-danger" id="btnHardReset">
+                Abmelden &amp; alles zurücksetzen
+            </button>
+        </div>
+
     </div>
 
     <script src="db.js"></script>
+    <script>
+        // Backend shortcut only for admins (capability is stored by the app via ping)
+        try { if (localStorage.getItem('pwa_cap_backend') === '1') document.getElementById('btnBackend').style.display = ''; } catch (e) { /* ignore */ }
+    </script>
     <script>
         const CONFIG = { apiBase: '<?php echo $apiBase; ?>' };
         let savedCredentials = null;
@@ -953,6 +971,95 @@ if (isModEnabled('totp2fa')) {
                 btn.textContent = 'Fehler – bitte erneut versuchen';
                 btn.disabled = false;
             }
+        });
+
+        document.getElementById('btnHardReset').addEventListener('click', async () => {
+            const btn = document.getElementById('btnHardReset');
+
+            // Count changes that were not synced yet - they would be lost
+            let pending = 0;
+            try {
+                await offlineDB.init();
+                for (const store of ['sync_queue', 'pending_uploads']) {
+                    pending += await new Promise(resolve => {
+                        try {
+                            const req = offlineDB.db.transaction(store).objectStore(store).count();
+                            req.onsuccess = () => resolve(req.result || 0);
+                            req.onerror = () => resolve(0);
+                        } catch (e) { resolve(0); }
+                    });
+                }
+            } catch (e) { /* DB unavailable - nothing to lose */ }
+
+            let message = 'Wirklich abmelden und ALLES auf diesem Gerät löschen?\n\nDanach musst du dich neu anmelden.';
+            if (pending > 0) {
+                message = '⚠️ ' + pending + ' Änderung(en) sind noch NICHT synchronisiert und gehen verloren!\n\n' + message;
+            }
+            if (!confirm(message)) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Setze zurück...';
+
+            // 1. Server: revoke this device's token and destroy the session
+            let token = null;
+            try { token = await offlineDB.getMeta('pwa_token'); } catch (e) { /* ignore */ }
+            let serverDone = false;
+            try {
+                const res = await fetch(CONFIG.apiBase + '?route=pwa-logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: token ? { 'X-PWA-Token': token } : {}
+                });
+                serverDone = res.ok;
+            } catch (e) { /* offline */ }
+            if (!serverDone && !confirm('Der Server ist nicht erreichbar, die Server-Sitzung bleibt deshalb bestehen. Trotzdem alles auf diesem Gerät löschen?')) {
+                btn.disabled = false;
+                btn.textContent = 'Abmelden & alles zurücksetzen';
+                return;
+            }
+
+            try {
+                // 2. Service workers
+                if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map(r => r.unregister()));
+                }
+                // 3. Cache storage
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                // 4. All IndexedDB databases
+                try { if (offlineDB.db) offlineDB.db.close(); } catch (e) { /* ignore */ }
+                let dbNames = [DB_NAME];
+                if (indexedDB.databases) {
+                    dbNames = Array.from(new Set(dbNames.concat((await indexedDB.databases()).map(d => d.name).filter(Boolean))));
+                }
+                await Promise.all(dbNames.map(name => new Promise(resolve => {
+                    const req = indexedDB.deleteDatabase(name);
+                    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+                })));
+                // 5. Web storage and cookies readable by the page
+                try { localStorage.clear(); } catch (e) { /* ignore */ }
+                try { sessionStorage.clear(); } catch (e) { /* ignore */ }
+                document.cookie.split(';').forEach(c => {
+                    const name = c.split('=')[0].trim();
+                    if (name) document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+                });
+            } catch (err) {
+                console.error('Hard reset error:', err);
+            }
+
+            // 6. Start over on the login view. A full-screen notice with a plain link
+            //    stays visible, and the navigation is retried, in case the first
+            //    attempt is swallowed (e.g. by a standalone PWA shell).
+            const target = new URL('index.php?_=' + Date.now(), window.location.href).href;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;color:#333;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:24px;';
+            overlay.innerHTML = '<div style="font-size:48px;">✅</div><div style="font-size:18px;font-weight:600;">Zurückgesetzt &amp; abgemeldet</div><div style="font-size:14px;color:#666;">Die Anmeldeseite wird geladen …</div><a href="' + target + '" style="padding:12px 20px;background:#1a3f6e;color:#fff;border-radius:8px;text-decoration:none;">Zur Anmeldung</a>';
+            document.body.appendChild(overlay);
+            window.location.replace(target);
+            setTimeout(() => { window.location.href = target; }, 2500);
         });
 
         function showTrustedDeviceInfo(trusted) {

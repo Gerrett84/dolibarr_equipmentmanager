@@ -41,13 +41,17 @@ if (!$res) {
 }
 
 // Token validation
-$token = isset($_GET['token']) ? trim($_GET['token']) : '';
-$secret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
 
-if (!$secret || !$token || !hash_equals($secret, $token)) {
+// Personal token ("<userid>.<hmac>"): the feed only contains the orders of that user.
+// The former shared token is no longer accepted - it exposed every order to everybody.
+$token = isset($_GET['token']) ? trim($_GET['token']) : '';
+$calUser = eqmCalendarUserFromToken($db, $token);
+
+if ($calUser === null) {
     header('HTTP/1.1 403 Forbidden');
     header('Content-Type: text/plain; charset=UTF-8');
-    exit('Access denied. Invalid or missing token.');
+    exit('Access denied. Invalid, outdated or missing token - please subscribe again from your profile or the PWA settings.');
 }
 
 // Query open service orders with dates
@@ -68,6 +72,7 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as lnk 
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = lnk.fk_equipment";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = eq.fk_address";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
+$sql .= " AND ".eqmInterventionAccessSql($calUser, 'f');   // only orders the user is assigned to
 $sql .= " AND f.fk_statut IN (0, 1)";   // open service orders only
 $sql .= " AND f.dateo IS NOT NULL";
 $sql .= " GROUP BY f.rowid";

@@ -54,6 +54,48 @@ $action = GETPOST('action', 'aZ09');
  * Actions
  */
 
+// Technician user group (PWA access without backend access to service orders/equipment)
+$technicianGroupName = 'Techniker (PWA)';
+if ($action == 'create_technician_group') {
+    require_once DOL_DOCUMENT_ROOT.'/user/class/usergroup.class.php';
+
+    $group = new UserGroup($db);
+    $resGroup = $db->query("SELECT rowid FROM ".MAIN_DB_PREFIX."usergroup WHERE nom = '".$db->escape($technicianGroupName)."' AND entity IN (".getEntity('usergroup').")");
+    $objGroup = $resGroup ? $db->fetch_object($resGroup) : null;
+    if ($objGroup) {
+        $group->fetch((int) $objGroup->rowid);
+    } else {
+        $group->name = $technicianGroupName;
+        $group->nom = $technicianGroupName;
+        $group->note = 'Equipment Manager: Techniker-Zugang (PWA)';
+        $group->create();
+    }
+
+    $wantedRights = array(
+        array('equipmentmanager', 'pwa', 'use'),
+        array('user', 'self', 'password'),
+        array('totp2fa', 'self', 'manage'),
+        array('agenda', 'myactions', 'read'),
+        array('agenda', 'myactions', 'create'),
+    );
+    $added = 0;
+    if ($group->id > 0) {
+        foreach ($wantedRights as $wr) {
+            $sqlR = "SELECT id FROM ".MAIN_DB_PREFIX."rights_def WHERE module = '".$db->escape($wr[0])."' AND perms = '".$db->escape($wr[1])."' AND subperms = '".$db->escape($wr[2])."' AND entity = ".(int) $conf->entity;
+            $resR = $db->query($sqlR);
+            if ($resR && ($objR = $db->fetch_object($resR))) {
+                $group->addrights((int) $objR->id, '', '', $conf->entity, 1);
+                $added++;
+            }
+        }
+        setEventMessages($langs->trans('TechnicianGroupReadyMsg', $technicianGroupName, $added, count($wantedRights)), null, $added == count($wantedRights) ? 'mesgs' : 'warnings');
+    } else {
+        setEventMessages($group->error ?: 'Error', null, 'errors');
+    }
+    header('Location: '.$_SERVER['PHP_SELF']);
+    exit;
+}
+
 // Cleanup duplicate checklist entries
 if ($action == 'cleanup_duplicates') {
     $errors = array();
@@ -195,6 +237,50 @@ if (!Equipment::isObjectAddressMigrated()) {
     print '</div>';
     print '<br>';
 }
+
+// ─── Techniker-Zugang ─────────────────────────────────────────────────────────
+print load_fiche_titre($langs->trans("TechnicianAccess"), '', '');
+print '<p class="opacitymedium">'.$langs->trans("TechnicianAccessHelp").'</p>';
+
+$techGroupId = 0;
+$techMembers = 0;
+$techRights = 0;
+$resTg = $db->query("SELECT rowid FROM ".MAIN_DB_PREFIX."usergroup WHERE nom = '".$db->escape($technicianGroupName)."' AND entity IN (".getEntity('usergroup').")");
+if ($resTg && ($objTg = $db->fetch_object($resTg))) {
+    $techGroupId = (int) $objTg->rowid;
+    $resM = $db->query("SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."usergroup_user WHERE fk_usergroup = ".$techGroupId);
+    $techMembers = $resM ? (int) $db->fetch_object($resM)->nb : 0;
+    $resRt = $db->query("SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."usergroup_rights WHERE fk_usergroup = ".$techGroupId);
+    $techRights = $resRt ? (int) $db->fetch_object($resRt)->nb : 0;
+}
+$resPr = $db->query("SELECT id FROM ".MAIN_DB_PREFIX."rights_def WHERE module = 'equipmentmanager' AND perms = 'pwa' AND subperms = 'use'");
+$hasPwaRight = ($resPr && $db->num_rows($resPr) > 0);
+
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven"><td><span class="fa fa-user-cog paddingright"></span><strong>'.dol_escape_htmltag($technicianGroupName).'</strong><br><span class="opacitymedium">';
+if (!$hasPwaRight) {
+    print $langs->trans("TechnicianNeedReactivate");
+} elseif ($techGroupId) {
+    print $langs->trans("TechnicianGroupStatus", $techRights, $techMembers);
+} else {
+    print $langs->trans("TechnicianGroupMissing");
+}
+print '</span></td><td class="right">';
+if ($hasPwaRight) {
+    print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" style="display:inline;">';
+    print '<input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="create_technician_group">';
+    print '<input type="submit" class="butAction" value="'.dol_escape_htmltag($langs->trans($techGroupId ? "TechnicianGroupUpdate" : "TechnicianGroupCreate")).'">';
+    print '</form> ';
+    if ($techGroupId) {
+        print '<a class="butAction" href="'.DOL_URL_ROOT.'/user/group/card.php?id='.$techGroupId.'">'.$langs->trans("Open").'</a> ';
+    }
+    print '<a class="butAction" href="'.DOL_URL_ROOT.'/user/card.php?action=create">'.$langs->trans("TechnicianNewUser").'</a>';
+}
+print '</td></tr>';
+print '</table>';
+print '</div>';
+print '<br>';
 
 // ─── Wartung ──────────────────────────────────────────────────────────────────
 print load_fiche_titre($langs->trans("DatabaseMaintenance"), '', '');

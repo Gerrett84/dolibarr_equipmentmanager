@@ -21,6 +21,11 @@ require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 $langs->loadLangs(array("equipmentmanager@equipmentmanager", "interventions", "companies"));
 
 if (!$user->hasRight('ficheinter', 'lire')) {
+    // Technician accounts (PWA only) have no backend order list - send them to their settings
+    if ($user->hasRight('equipmentmanager', 'pwa', 'use')) {
+        header('Location: '.dol_buildpath('/equipmentmanager/profile.php', 1));
+        exit;
+    }
     accessforbidden();
 }
 $permissiontoadd = $user->hasRight('ficheinter', 'creer');
@@ -32,6 +37,16 @@ if ($status === '') {
     $status = 1;
 }
 $status = (int) $status;
+
+// Optional link type filter (e.g. from the home dashboard tile): only orders with at least one such equipment link
+$filterType = GETPOST('type', 'aZ09');
+if (!in_array($filterType, array('maintenance', 'service', 'montage'), true)) {
+    $filterType = '';
+}
+$typeQs = $filterType ? '&type='.$filterType : '';
+$typeExists = $filterType
+    ? " AND EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as tl WHERE tl.fk_intervention = f.rowid AND tl.link_type = '".$db->escape($filterType)."')"
+    : '';
 
 $search_ref      = GETPOST('search_ref', 'alpha');
 $search_societe  = GETPOST('search_societe', 'alpha');
@@ -99,7 +114,7 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as lnk 
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq_addr ON eq_addr.rowid = lnk.fk_equipment";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = eq_addr.fk_address";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
-$sql .= buildStatusFilter($status);
+$sql .= buildStatusFilter($status).$typeExists;
 if ($search_ref) {
     $sql .= " AND f.ref LIKE '%".$db->escape($search_ref)."%'";
 }
@@ -120,7 +135,7 @@ $sqlcount  = "SELECT COUNT(DISTINCT f.rowid) as nb";
 $sqlcount .= " FROM ".MAIN_DB_PREFIX."fichinter as f";
 $sqlcount .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as s ON s.rowid = f.fk_soc";
 $sqlcount .= " WHERE f.entity IN (".getEntity('intervention').")";
-$sqlcount .= buildStatusFilter($status);
+$sqlcount .= buildStatusFilter($status).$typeExists;
 if ($search_ref) {
     $sqlcount .= " AND f.ref LIKE '%".$db->escape($search_ref)."%'";
 }
@@ -145,7 +160,7 @@ $resql = $db->query($sql);
 $statusCounts = array(-1 => 0, 1 => 0, 2 => 0, 3 => 0);
 $sqlcnt = "SELECT f.fk_statut, COUNT(DISTINCT f.rowid) as nb"
         . " FROM ".MAIN_DB_PREFIX."fichinter as f"
-        . " WHERE f.entity IN (".getEntity('intervention').")"
+        . " WHERE f.entity IN (".getEntity('intervention').")".$typeExists
         . " GROUP BY f.fk_statut";
 $rescnt = $db->query($sqlcnt);
 if ($rescnt) {
@@ -188,20 +203,30 @@ print '<div class="em-status-tabs">';
 foreach ($statusDefs as $st => $def) {
     $active = ($status == $st) ? ' tabactive' : '';
     $badge  = $statusCounts[$st] > 0 ? ' <span class="badge" style="background:'.($def['color'] ?: '#666').'">'.$statusCounts[$st].'</span>' : '';
-    print '<a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.$st.'" class="'.$active.'">';
+    print '<a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.$st.$typeQs.'" class="'.$active.'">';
     print $def['label'].$badge;
     print '</a>';
 }
 print '</div>';
 
+// Active type filter hint (with link to clear it)
+if ($filterType) {
+    $typeNames = array('maintenance' => $langs->trans('MaintenanceWork'), 'service' => $langs->trans('ServiceWork'), 'montage' => $langs->trans('MontageWork'));
+    print '<div class="opacitymedium" style="margin:6px 0;">'.$langs->trans('FilteredByType', $typeNames[$filterType]);
+    print ' <a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.'">['.$langs->trans('RemoveFilter').']</a></div>';
+}
+
 // ─── Search bar ──────────────────────────────────────────────────────────────
 print '<form method="GET" action="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'" style="margin:10px 0 8px;">';
 print '<input type="hidden" name="status" value="'.(int)$status.'">';
+if ($filterType) {
+    print '<input type="hidden" name="type" value="'.dol_escape_htmltag($filterType).'">';
+}
 print '<input type="text" name="search_ref" value="'.dol_escape_htmltag($search_ref).'" placeholder="'.$langs->trans('Ref').'" class="flat" style="width:130px; margin-right:6px;">';
 print '<input type="text" name="search_societe" value="'.dol_escape_htmltag($search_societe).'" placeholder="'.$langs->trans('Company').'" class="flat" style="width:180px; margin-right:6px;">';
 print '<button type="submit" class="button small">'.img_picto('', 'search').'</button>';
 if ($search_ref || $search_societe) {
-    print ' <a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.'" class="button small">'.img_picto('', 'eraser').'</a>';
+    print ' <a href="'.dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.$typeQs.'" class="button small">'.img_picto('', 'eraser').'</a>';
 }
 print '</form>';
 
@@ -212,13 +237,13 @@ print '<table class="tagtable liste">';
 // Header
 $colspan = 3; // Ref + Company + Date + Status (always visible) = 4, but we count extras
 print '<thead><tr class="liste_titre">';
-print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.ref&sortorder='.($sortfield=='f.ref'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Ref').'</a></th>';
-print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=s.nom&sortorder='.($sortfield=='s.nom'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Company').'</a></th>';
+print '<th class="liste_titre"><a href="?status='.(int)$status.$typeQs.'&sortfield=f.ref&sortorder='.($sortfield=='f.ref'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Ref').'</a></th>';
+print '<th class="liste_titre"><a href="?status='.(int)$status.$typeQs.'&sortfield=s.nom&sortorder='.($sortfield=='s.nom'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Company').'</a></th>';
 if ($showObjAddress)  { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColObjAddress').'</th>'; }
 if ($showDescription) { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColDescription').'</th>'; }
 if ($showNbAnlagen)   { print '<th class="liste_titre center">'.$langs->trans('ServiceOrderColNbAnlagen').'</th>'; }
 if ($showTypes)       { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTypes').'</th>'; }
-if ($showTermin)      { print '<th class="liste_titre"><a href="?status='.(int)$status.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Termin').'</a></th>'; }
+if ($showTermin)      { print '<th class="liste_titre"><a href="?status='.(int)$status.$typeQs.'&sortfield=f.dateo&sortorder='.($sortfield=='f.dateo'&&$sortorder=='ASC'?'DESC':'ASC').'">'.$langs->trans('Termin').'</a></th>'; }
 if ($showTech)        { print '<th class="liste_titre">'.$langs->trans('ServiceOrderColTech').'</th>'; }
 print '<th class="liste_titre right">'.$langs->trans('Status').'</th>';
 print '</tr></thead>';
@@ -373,7 +398,7 @@ if ($resql) {
 print '</tbody></table></div>';
 
 // Pagination
-print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.'&search_ref='.urlencode($search_ref).'&search_societe='.urlencode($search_societe).'&sortfield='.$sortfield.'&sortorder='.$sortorder, '', $sortfield, $sortorder, '', $num, $nbtotalofrecords, '', 0, '', '', $limit);
+print_barre_liste('', $page, dol_buildpath('/equipmentmanager/service_order_list.php', 1).'?status='.(int)$status.$typeQs.'&search_ref='.urlencode($search_ref).'&search_societe='.urlencode($search_societe).'&sortfield='.$sortfield.'&sortorder='.$sortorder, '', $sortfield, $sortorder, '', $num, $nbtotalofrecords, '', 0, '', '', $limit);
 
 // ─── Schedule edit modal ─────────────────────────────────────────────────────
 ?>

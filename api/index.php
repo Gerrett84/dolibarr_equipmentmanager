@@ -58,6 +58,29 @@ dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
 dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
+// Full PWA reset/logout must work even when the session or token is already invalid,
+// so it is handled before the authentication gate. It only affects the caller's own
+// session and the single token the caller presents.
+if (($_GET['route'] ?? '') === 'pwa-logout' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $presented = $_SERVER['HTTP_X_PWA_TOKEN'] ?? '';
+    if (preg_match('/^[a-f0-9]{64}$/', $presented)) {
+        $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE token = '".$db->escape(hash('sha256', $presented))."'");
+    }
+
+    $_SESSION = array();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_destroy();
+    }
+    foreach (array_keys($_COOKIE) as $cookieName) {
+        if (strpos($cookieName, 'DOLSESS') === 0) {
+            setcookie($cookieName, '', time() - 42000, '/');
+        }
+    }
+
+    echo json_encode(array('status' => 'ok'));
+    exit;
+}
+
 // Check authentication - support both session and PWA token.
 // With NOLOGIN, main.inc.php does NOT load the user from session automatically,
 // so we must do it ourselves here.
@@ -147,7 +170,8 @@ try {
             break;
 
         case 'ping':
-            echo json_encode(['status' => 'ok']);
+            dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+            echo json_encode(['status' => 'ok', 'capabilities' => ['maintenance' => eqmUserCanSeeMaintenance($user), 'prices' => !empty($user->admin), 'backend' => !empty($user->admin)]]);
             break;
 
         case 'interventions':
@@ -188,6 +212,12 @@ try {
 
         case 'pwa-token':
             handlePwaToken($method, $input);
+            break;
+
+        case 'view-ticket':
+            // Short-lived ticket for opening PDFs/documents by URL (instead of the PWA token)
+            dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+            echo json_encode(['status' => 'ok', 'ticket' => eqmCreateViewTicket($user->id, 300), 'expires_in' => 300]);
             break;
 
         case 'checklist':
@@ -249,23 +279,13 @@ try {
  */
 function userCanAccessIntervention($intervention_id) {
     global $db, $user;
-    if ($user->admin) return true;
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
 
-    $sql  = "SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
-    $sql .= " WHERE f.rowid = ".(int)$intervention_id;
-    $sql .= " AND (f.fk_user_author = ".(int)$user->id;
-    if (!empty($user->contact_id)) {
-        $sql .= " OR EXISTS (";
-        $sql .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec";
-        $sql .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc ON tc.rowid = ec.fk_c_type_contact";
-        $sql .= "  WHERE ec.element_id = f.rowid AND ec.fk_socpeople = ".(int)$user->contact_id;
-        $sql .= "  AND tc.element = 'fichinter' AND tc.code = 'TECH'";
-        $sql .= " )";
+    // Read-only requests may also see history orders (same Objektadresse); writes need full access
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        return eqmUserCanReadIntervention($db, $user, (int)$intervention_id);
     }
-    $sql .= ")";
-
-    $resql = $db->query($sql);
-    return ($resql && $db->num_rows($resql) > 0);
+    return eqmUserCanAccessIntervention($db, $user, (int)$intervention_id);
 }
 
 /** Send 403 and terminate. */
@@ -293,7 +313,7 @@ function handleInterventions($method, $parts, $input) {
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town,";
-    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' ELSE 'service' END) as primary_type,";
+    $sql .= " (SELECT CASE WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il WHERE il.fk_intervention = f.rowid AND il.link_type = 'maintenance') THEN 'maintenance' WHEN EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il3 WHERE il3.fk_intervention = f.rowid AND il3.link_type = 'montage') THEN 'montage' ELSE 'service' END) as primary_type,";
     $sql .= " (SELECT CASE";
     $sql .= "   WHEN MIN(e.next_maintenance_date) IS NULL THEN 'none'";
     $sql .= "   WHEN MIN(e.next_maintenance_date) < CURDATE() THEN 'overdue'";
@@ -306,19 +326,10 @@ function handleInterventions($method, $parts, $input) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
     $sql .= " WHERE 1=1";
 
-    // Non-admins only see interventions they authored or are assigned to as TECH contact
-    if (!$user->admin) {
-        $sql .= " AND (f.fk_user_author = ".(int)$user->id;
-        if (!empty($user->contact_id)) {
-            $sql .= " OR EXISTS (";
-            $sql .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec2";
-            $sql .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc2 ON tc2.rowid = ec2.fk_c_type_contact";
-            $sql .= "  WHERE ec2.element_id = f.rowid AND ec2.fk_socpeople = ".(int)$user->contact_id;
-            $sql .= "  AND tc2.element = 'fichinter' AND tc2.code = 'TECH'";
-            $sql .= " )";
-        }
-        $sql .= ")";
-    }
+    // The PWA list only shows orders the user is assigned to ("Beteiligter am Serviceauftrag"),
+    // for admins too - authoring orders in the backend does not put them in one's PWA
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $sql .= " AND ".eqmInterventionAccessSql($user, 'f');
 
     // Filter by status (draft=0, validated=1, closed=3)
     if (isset($_GET['status'])) {
@@ -1083,6 +1094,8 @@ function handleChangePassword($method, $input) {
     $langs->load('other');
 
     // Keep the other sessions of this user alive: only the password changes
+    // Changing the password revokes the user's other devices; this device stays logged in
+    $GLOBALS['eqm_keep_pwa_token_hash'] = hash('sha256', (string) ($_SERVER['HTTP_X_PWA_TOKEN'] ?? ''));
     $result = $user->setPassword($user, $new, 0, 0, 0, 0, 0);
     if (is_int($result) && $result < 0) {
         http_response_code(400);
@@ -1108,7 +1121,7 @@ function handleTotp2fa($method, $input) {
     }
 
     $user->getrights();
-    if (!$user->hasRight('user', 'self', 'creer') && !$user->admin) {
+    if (!$user->hasRight('totp2fa', 'self', 'manage') && !$user->hasRight('user', 'self', 'creer') && !$user->admin) {
         echo json_encode(['available' => false]);
         return;
     }
@@ -1602,7 +1615,9 @@ function handleDetail($method, $parts, $input) {
             $detail->work_duration = (int)($input['work_duration'] ?? 0);
         }
 
-        // Commissioning and acceptance fields (v4.5)
+        // Commissioning and acceptance fields (v4.5) - only Montage entries send them;
+        // saving a Service/Wartung entry must not wipe values stored on an existing entry
+        if ($entry_id <= 0 || array_key_exists('commissioning_done', $input) || array_key_exists('acceptance_done', $input)) {
         $detail->commissioning_done = (int)($input['commissioning_done'] ?? 0);
         $detail->commissioning_date = !empty($input['commissioning_date']) ? strtotime($input['commissioning_date']) : null;
         $detail->commissioning_note = $input['commissioning_note'] ?? '';
@@ -1612,6 +1627,7 @@ function handleDetail($method, $parts, $input) {
         $detail->acceptance_note = $input['acceptance_note'] ?? '';
         $detail->instruction_done = (int)($input['instruction_done'] ?? 0);
         $detail->testbook_handed = (int)($input['testbook_handed'] ?? 0);
+        }
 
         // Get intervention ref for photo directory
         dol_include_once('/fichinter/class/fichinter.class.php');
@@ -1785,7 +1801,7 @@ function handleSync($method, $input) {
                     $material->material_name = $data['material_name'] ?? '';
                     $material->quantity = (float)($data['quantity'] ?? 0);
                     $material->unit = $data['unit'] ?? '';
-                    $material->unit_price = (float)($data['unit_price'] ?? 0);
+                    $material->unit_price = $user->admin ? (float)($data['unit_price'] ?? 0) : 0;
                     $material->notes = $data['notes'] ?? '';
 
                     if (!empty($data['id'])) {
@@ -1981,7 +1997,7 @@ function handleTechnicianSignature($method, $parts, $input) {
  * rotation stays an admin-only action in admin/setup.php.
  */
 function handleCalendarSubscription($method, $parts, $input) {
-    global $db, $conf;
+    global $db, $conf, $user;
 
     require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 
@@ -1991,13 +2007,9 @@ function handleCalendarSubscription($method, $parts, $input) {
         return;
     }
 
-    $calSecret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
-    if (empty($calSecret)) {
-        $calSecret = bin2hex(random_bytes(24));
-        dolibarr_set_const($db, 'EQUIPMENTMANAGER_CAL_SECRET', $calSecret, 'chaine', 0, '', $conf->entity);
-    }
-
-    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode($calSecret);
+    // Personal feed: only the orders this user is assigned to
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode(eqmCalendarToken($db, $user->id));
     echo json_encode([
         'status' => 'ok',
         'url' => $calUrl,
@@ -2031,8 +2043,8 @@ function handleMaterial($method, $parts, $input) {
         $sql .= ($input['material_description'] ? "'".$db->escape($input['material_description'])."'" : "NULL").",";
         $sql .= (float)($input['quantity'] ?? 1).",";
         $sql .= "'".$db->escape($input['unit'] ?? 'Stk')."',";
-        $sql .= (float)($input['unit_price'] ?? 0).",";
-        $sql .= (float)($input['total_price'] ?? 0).",";
+        $sql .= ($user->admin ? (float)($input['unit_price'] ?? 0) : 0).",";
+        $sql .= ($user->admin ? (float)($input['total_price'] ?? 0) : 0).",";
         $sql .= ($input['serial_number'] ? "'".$db->escape($input['serial_number'])."'" : "NULL").",";
         $sql .= ($input['notes'] ? "'".$db->escape($input['notes'])."'" : "NULL").",";
         $sql .= "'".$db->idate(dol_now())."',";
@@ -2104,6 +2116,8 @@ function handleProducts($method, $parts, $input) {
     $search = $_GET['search'] ?? '';
     $limit = (int)($_GET['limit'] ?? 50);
 
+    // Prices only for admins; everybody else just needs to identify the article
+    $withPrices = !empty($user->admin);
     $sql = "SELECT p.rowid, p.ref, p.label, p.price, p.tva_tx";
     $sql .= " FROM ".MAIN_DB_PREFIX."product p";
     $sql .= " WHERE p.tosell = 1"; // Only products for sale
@@ -2121,13 +2135,16 @@ function handleProducts($method, $parts, $input) {
 
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
-            $products[] = [
+            $item = [
                 'id' => (int)$obj->rowid,
                 'ref' => $obj->ref,
-                'label' => $obj->label,
-                'price' => (float)$obj->price,
-                'vat_rate' => (float)$obj->tva_tx
+                'label' => $obj->label
             ];
+            if ($withPrices) {
+                $item['price'] = (float)$obj->price;
+                $item['vat_rate'] = (float)$obj->tva_tx;
+            }
+            $products[] = $item;
         }
     }
 
@@ -2156,6 +2173,10 @@ function handleAvailableEquipment($method, $parts, $input) {
         echo json_encode(['error' => 'Intervention ID required']);
         return;
     }
+
+    // Equipment can only be offered for orders the user has full access to
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    if (!eqmUserCanAccessIntervention($db, $user, $intervention_id)) denyAccess();
 
     // Get the thirdparty (customer) and OBJ contact of this intervention
     $sql_inter = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$intervention_id;
@@ -2196,6 +2217,9 @@ function handleAvailableEquipment($method, $parts, $input) {
     $sql .= " WHERE e.fk_soc = ".(int)$socid;
     if ($current_address_id > 0) {
         $sql .= " AND e.fk_address = ".(int)$current_address_id;
+    } elseif (!$user->admin) {
+        // No Objektadresse anchored yet: non-admins get no suggestions (instead of all customer equipment)
+        $sql .= " AND 1 = 0";
     }
     $sql .= " AND e.rowid NOT IN (";
     $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -2309,7 +2333,7 @@ function handleLinkEquipment($method, $parts, $input) {
     }
 
     // Validate link_type
-    if (!in_array($link_type, ['maintenance', 'service'])) {
+    if (!in_array($link_type, ['maintenance', 'service', 'montage'])) {
         $link_type = 'service';
     }
 
@@ -2595,7 +2619,7 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $outputlangs = $langs;
     $outputlangs->loadLangs(array("main", "interventions", "companies", "equipmentmanager@equipmentmanager"));
 
-    // Check if there are service equipment
+    // Check if there is Montage equipment (or legacy Service equipment with stored acceptance data)
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.serial_number,";
     $sql .= " e.location_note, e.manufacturer,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
@@ -2606,7 +2630,9 @@ function generateAcceptanceProtocol($fichinter, $user) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$fichinter->id;
-    $sql .= " AND l.link_type = 'service'";
+    // Service rows only match if acceptance data was stored before it became Montage-only:
+    // existing protocols must stay reproducible
+    $sql .= " AND l.link_type IN ('service', 'montage')";
     $sql .= " AND (d.commissioning_done = 1 OR d.acceptance_done = 1)";
     $sql .= " ORDER BY e.equipment_number";
 
@@ -3227,7 +3253,7 @@ function processSignature($intervention_id, $signatureData, $signerName) {
             // Continue without checklists PDF
         }
 
-        // Generate acceptance protocol PDF if there are service equipment
+        // Generate acceptance protocol PDF if there is Montage equipment (or legacy Service equipment with stored acceptance data)
         $acceptanceProtocolFile = null;
         try {
             $acceptanceFile = generateAcceptanceProtocol($fichinter, $user);
@@ -3333,42 +3359,13 @@ function handlePwaToken($method, $input) {
  * Validate PWA token and set up user context
  */
 function validatePwaToken($token, $db, &$user) {
-    if (empty($token)) {
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $tokenUser = eqmResolvePwaTokenUser($db, (string) $token, true);
+    if ($tokenUser === null) {
         return false;
     }
-
-    // Hash the provided token for comparison
-    $hashedToken = hash('sha256', $token);
-
-    // Look up token in database
-    $sql = "SELECT fk_user, valid_until FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
-    $sql .= " WHERE token = '".$db->escape($hashedToken)."'";
-    $sql .= " AND valid_until > '".$db->idate(dol_now())."'";
-
-    $resql = $db->query($sql);
-
-    if ($resql && $db->num_rows($resql) > 0) {
-        $obj = $db->fetch_object($resql);
-        $userId = (int)$obj->fk_user;
-
-        // Load the user
-        require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
-        $user = new User($db);
-        $user->fetch($userId);
-
-        if ($user->id > 0) {
-            // Update last use and extend validity (rolling 90-day window)
-            $newValidUntil = dol_now() + (90 * 24 * 3600);
-            $sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."equipmentmanager_pwa_token";
-            $sqlUpdate .= " SET last_use = '".$db->idate(dol_now())."', valid_until = '".$db->idate($newValidUntil)."'";
-            $sqlUpdate .= " WHERE token = '".$db->escape($hashedToken)."'";
-            $db->query($sqlUpdate);
-
-            return true;
-        }
-    }
-
-    return false;
+    $user = $tokenUser;
+    return true;
 }
 
 /**
@@ -3709,6 +3706,9 @@ function handleEquipment($method, $parts, $input) {
     }
 
     if ($method === 'GET') {
+        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+        if (!eqmUserCanReadEquipment($db, $user, $equipment_id)) denyAccess();
+
         // Return equipment details
         // Get equipment type labels
         $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
@@ -3740,18 +3740,11 @@ function handleEquipment($method, $parts, $input) {
     } elseif ($method === 'PUT' || $method === 'POST') {
         // Non-admins may only edit equipment linked to one of their own interventions
         if (!$user->admin) {
+            dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
             $sqlEqOwn  = "SELECT f.rowid FROM ".MAIN_DB_PREFIX."fichinter f";
             $sqlEqOwn .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il ON il.fk_intervention = f.rowid";
             $sqlEqOwn .= " WHERE il.fk_equipment = ".(int)$equipment_id;
-            $sqlEqOwn .= " AND f.fk_user_author = ".(int)$user->id;
-            if (!empty($user->contact_id)) {
-                $sqlEqOwn .= " OR EXISTS (";
-                $sqlEqOwn .= "  SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec3";
-                $sqlEqOwn .= "  JOIN ".MAIN_DB_PREFIX."c_type_contact tc3 ON tc3.rowid = ec3.fk_c_type_contact";
-                $sqlEqOwn .= "  WHERE ec3.element_id = f.rowid AND ec3.fk_socpeople = ".(int)$user->contact_id;
-                $sqlEqOwn .= "  AND tc3.element = 'fichinter' AND tc3.code = 'TECH'";
-                $sqlEqOwn .= " )";
-            }
+            $sqlEqOwn .= " AND ".eqmInterventionAccessSql($user, 'f');
             $sqlEqOwn .= " LIMIT 1";
             $resEqOwn = $db->query($sqlEqOwn);
             if (!$resEqOwn || $db->num_rows($resEqOwn) == 0) denyAccess();
@@ -3767,7 +3760,8 @@ function handleEquipment($method, $parts, $input) {
             if (array_key_exists($field, $input)) {
                 $val = $input[$field];
                 if (in_array($field, ['label', 'location_note', 'equipment_type', 'manufacturer', 'door_wings', 'serial_number'])) {
-                    $equipment->$field = $val;
+                    // Plain text only: these values end up in HTML lists of other users' PWAs
+                    $equipment->$field = trim(strip_tags((string) $val));
                 } else {
                     // Integer or null fields
                     $equipment->$field = ($val !== null && $val !== '') ? (int)$val : null;
@@ -3785,7 +3779,8 @@ function handleEquipment($method, $parts, $input) {
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to update equipment', 'details' => $equipment->error]);
+            dol_syslog('API equipment update failed: '.$equipment->error, LOG_ERR);
+            echo json_encode(['error' => 'Failed to update equipment']);
         }
 
     } else {
@@ -4273,7 +4268,11 @@ function handleDefectMaterial($method, $parts, $input) {
  * GET /maintenance-overview - Equipment grouped by object address with maintenance status
  */
 function handleMaintenanceOverview($method, $parts, $input) {
-    global $db, $langs;
+    global $db, $langs, $user;
+
+    // Company-wide overview: not for technician accounts
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    if (!eqmUserCanSeeMaintenance($user)) denyAccess();
 
     if ($method !== 'GET' && $method !== 'POST') {
         http_response_code(405);

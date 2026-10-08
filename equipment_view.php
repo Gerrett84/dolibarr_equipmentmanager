@@ -413,6 +413,8 @@ if ($object->id > 0) {
                 print '<td>';
                 if ($obj->link_type == 'maintenance') {
                     print '<span class="badge" style="background: #4caf50; color: white;">'.ucfirst($obj->link_type).'</span>';
+                } elseif ($obj->link_type == 'montage') {
+                    print '<span class="badge" style="background: #fdd835; color: #333;">'.ucfirst($obj->link_type).'</span>';
                 } else {
                     print '<span class="badge" style="background: #ff9800; color: white;">'.ucfirst($obj->link_type).'</span>';
                 }

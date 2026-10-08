@@ -1,0 +1,15 @@
+# Equipment Manager - hardening for direct web access
+Options -Indexes
+
+# Internal documentation/dev files must not be downloadable
+<FilesMatch "(?i)\.(md|sql|lock|log|bak|orig|dist|ini|sh|zip|tgz|gz)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>

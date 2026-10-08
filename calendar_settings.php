@@ -70,9 +70,11 @@ print '<td colspan="2"><span class="fa fa-calendar paddingright"></span>'.$langs
 print "</tr>\n";
 print '<tr class="oddeven">';
 print '<td>';
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
 $calSecret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
 if ($calSecret) {
-    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode($calSecret);
+    // Personal feed: only the orders assigned to the logged-in user
+    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode(eqmCalendarToken($db, $user->id));
     $webcalUrl = str_replace(array('https://', 'http://'), 'webcal://', $calUrl);
     print '<strong>'.$langs->trans("CalendarFeedUrl").'</strong><br>';
     print '<code style="word-break:break-all;">'.$calUrl.'</code>';
