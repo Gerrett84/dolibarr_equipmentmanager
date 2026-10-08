@@ -634,6 +634,16 @@ if (isModEnabled('totp2fa')) {
             </p>
         </div>
 
+        <div class="card">
+            <h2>Abmelden &amp; alles zurücksetzen</h2>
+            <p class="help-text" style="margin-top:0;">
+                Meldet dich auf dem Server ab und löscht <strong>alles</strong> auf diesem Gerät: Login-Daten, Offline-Daten, Cache, Einstellungen und App-Zwischenspeicher. Danach startet die PWA wie neu auf der Anmeldeseite. Nicht synchronisierte Änderungen gehen verloren.
+            </p>
+            <button type="button" class="btn btn-danger" id="btnHardReset">
+                Abmelden &amp; alles zurücksetzen
+            </button>
+        </div>
+
     </div>
 
     <script src="db.js"></script>
@@ -956,6 +966,87 @@ if (isModEnabled('totp2fa')) {
                 btn.textContent = 'Fehler – bitte erneut versuchen';
                 btn.disabled = false;
             }
+        });
+
+        document.getElementById('btnHardReset').addEventListener('click', async () => {
+            const btn = document.getElementById('btnHardReset');
+
+            // Count changes that were not synced yet - they would be lost
+            let pending = 0;
+            try {
+                await offlineDB.init();
+                for (const store of ['sync_queue', 'pending_uploads']) {
+                    pending += await new Promise(resolve => {
+                        try {
+                            const req = offlineDB.db.transaction(store).objectStore(store).count();
+                            req.onsuccess = () => resolve(req.result || 0);
+                            req.onerror = () => resolve(0);
+                        } catch (e) { resolve(0); }
+                    });
+                }
+            } catch (e) { /* DB unavailable - nothing to lose */ }
+
+            let message = 'Wirklich abmelden und ALLES auf diesem Gerät löschen?\n\nDanach musst du dich neu anmelden.';
+            if (pending > 0) {
+                message = '⚠️ ' + pending + ' Änderung(en) sind noch NICHT synchronisiert und gehen verloren!\n\n' + message;
+            }
+            if (!confirm(message)) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Setze zurück...';
+
+            // 1. Server: revoke this device's token and destroy the session
+            let token = null;
+            try { token = await offlineDB.getMeta('pwa_token'); } catch (e) { /* ignore */ }
+            let serverDone = false;
+            try {
+                const res = await fetch(CONFIG.apiBase + '?route=pwa-logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: token ? { 'X-PWA-Token': token } : {}
+                });
+                serverDone = res.ok;
+            } catch (e) { /* offline */ }
+            if (!serverDone && !confirm('Der Server ist nicht erreichbar, die Server-Sitzung bleibt deshalb bestehen. Trotzdem alles auf diesem Gerät löschen?')) {
+                btn.disabled = false;
+                btn.textContent = 'Abmelden & alles zurücksetzen';
+                return;
+            }
+
+            try {
+                // 2. Service workers
+                if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map(r => r.unregister()));
+                }
+                // 3. Cache storage
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                // 4. All IndexedDB databases
+                try { if (offlineDB.db) offlineDB.db.close(); } catch (e) { /* ignore */ }
+                let dbNames = [DB_NAME];
+                if (indexedDB.databases) {
+                    dbNames = Array.from(new Set(dbNames.concat((await indexedDB.databases()).map(d => d.name).filter(Boolean))));
+                }
+                await Promise.all(dbNames.map(name => new Promise(resolve => {
+                    const req = indexedDB.deleteDatabase(name);
+                    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+                })));
+                // 5. Web storage and cookies readable by the page
+                try { localStorage.clear(); } catch (e) { /* ignore */ }
+                try { sessionStorage.clear(); } catch (e) { /* ignore */ }
+                document.cookie.split(';').forEach(c => {
+                    const name = c.split('=')[0].trim();
+                    if (name) document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+                });
+            } catch (err) {
+                console.error('Hard reset error:', err);
+            }
+
+            // 6. Start over on the login view
+            window.location.replace('index.php?_=' + Date.now());
         });
 
         function showTrustedDeviceInfo(trusted) {

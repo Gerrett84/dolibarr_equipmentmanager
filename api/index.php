@@ -58,6 +58,29 @@ dol_include_once('/equipmentmanager/class/checklisttemplate.class.php');
 dol_include_once('/equipmentmanager/class/checklistresult.class.php');
 dol_include_once('/equipmentmanager/class/defectmaterial.class.php');
 
+// Full PWA reset/logout must work even when the session or token is already invalid,
+// so it is handled before the authentication gate. It only affects the caller's own
+// session and the single token the caller presents.
+if (($_GET['route'] ?? '') === 'pwa-logout' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $presented = $_SERVER['HTTP_X_PWA_TOKEN'] ?? '';
+    if (preg_match('/^[a-f0-9]{64}$/', $presented)) {
+        $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE token = '".$db->escape(hash('sha256', $presented))."'");
+    }
+
+    $_SESSION = array();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_destroy();
+    }
+    foreach (array_keys($_COOKIE) as $cookieName) {
+        if (strpos($cookieName, 'DOLSESS') === 0) {
+            setcookie($cookieName, '', time() - 42000, '/');
+        }
+    }
+
+    echo json_encode(array('status' => 'ok'));
+    exit;
+}
+
 // Check authentication - support both session and PWA token.
 // With NOLOGIN, main.inc.php does NOT load the user from session automatically,
 // so we must do it ourselves here.
