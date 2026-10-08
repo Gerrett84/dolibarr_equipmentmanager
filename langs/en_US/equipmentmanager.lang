@@ -276,7 +276,7 @@ ScheduleSaveError=Error saving schedule
 # iOS Calendar feed
 CalendarFeed=iOS Calendar Subscription
 CalendarFeedUrl=Calendar URL (for iOS Calendar app)
-CalendarFeedHelp=Subscribe to this URL in iOS Calendar: Calendar → + → Add Calendar Subscription
+CalendarFeedHelp=Subscribe to this URL in iOS Calendar: Calendar → + → Add Calendar Subscription - personal calendar: only the service orders you are assigned to (do not share).
 SubscribeInCalendar=Subscribe in Calendar (webcal://)
 CalendarFeedNoToken=No token generated. Please create a token first.
 GenerateToken=Generate token

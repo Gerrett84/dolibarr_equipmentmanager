@@ -803,7 +803,7 @@ ScheduleSaveError=Fehler beim Speichern des Termins
 # iOS Calendar feed
 CalendarFeed=iOS Kalender-Abo
 CalendarFeedUrl=Kalender-URL (für iOS Kalender-App)
-CalendarFeedHelp=Diese URL in der iOS Kalender-App abonnieren: Kalender → + → Kalenderabo hinzufügen
+CalendarFeedHelp=Diese URL in der iOS Kalender-App abonnieren: Kalender → + → Kalenderabo hinzufügen – persönlicher Kalender: enthält nur die Serviceaufträge, bei denen Sie „Beteiligter“ sind (nicht weitergeben).
 SubscribeInCalendar=In Kalender abonnieren (webcal://)
 CalendarFeedNoToken=Kein Token generiert. Bitte zuerst einen Token erstellen.
 GenerateToken=Token generieren

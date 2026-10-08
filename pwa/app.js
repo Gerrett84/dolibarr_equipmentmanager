@@ -107,7 +107,10 @@ class ServiceReportApp {
 
     _applyCapabilities(caps) {
         if (!caps) return;
-        try { localStorage.setItem('pwa_cap_prices', caps.prices ? '1' : '0'); } catch (e) { /* ignore */ }
+        try {
+            localStorage.setItem('pwa_cap_prices', caps.prices ? '1' : '0');
+            localStorage.setItem('pwa_cap_backend', caps.backend ? '1' : '0');
+        } catch (e) { /* ignore */ }
         try { localStorage.setItem('pwa_cap_maintenance', caps.maintenance ? '1' : '0'); } catch (e) { /* ignore */ }
         const nav = document.getElementById('navMaintenance');
         if (nav && ['viewInterventions', 'viewMap', 'viewMaintenance'].includes(this.currentView)) {

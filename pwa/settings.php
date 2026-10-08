@@ -467,7 +467,7 @@ if (isModEnabled('totp2fa')) {
     <div class="header">
         <a href="index.php" class="header-btn" title="Zurück">&#8592;</a>
         <h1><?php echo $title; ?></h1>
-        <button class="header-btn" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';">&#127968;</button>
+        <button class="header-btn" id="btnBackend" style="display:none;" title="Dolibarr Backend" onclick="if(confirm('Zum Dolibarr-Backend wechseln?')) window.location.href='<?php echo $dolibarrUrl; ?>';">&#127968;</button>
     </div>
 
     <div class="content">
@@ -648,6 +648,10 @@ if (isModEnabled('totp2fa')) {
     </div>
 
     <script src="db.js"></script>
+    <script>
+        // Backend shortcut only for admins (capability is stored by the app via ping)
+        try { if (localStorage.getItem('pwa_cap_backend') === '1') document.getElementById('btnBackend').style.display = ''; } catch (e) { /* ignore */ }
+    </script>
     <script>
         const CONFIG = { apiBase: '<?php echo $apiBase; ?>' };
         let savedCredentials = null;

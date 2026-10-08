@@ -171,7 +171,7 @@ try {
 
         case 'ping':
             dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
-            echo json_encode(['status' => 'ok', 'capabilities' => ['maintenance' => eqmUserCanSeeMaintenance($user), 'prices' => !empty($user->admin)]]);
+            echo json_encode(['status' => 'ok', 'capabilities' => ['maintenance' => eqmUserCanSeeMaintenance($user), 'prices' => !empty($user->admin), 'backend' => !empty($user->admin)]]);
             break;
 
         case 'interventions':
@@ -1997,7 +1997,7 @@ function handleTechnicianSignature($method, $parts, $input) {
  * rotation stays an admin-only action in admin/setup.php.
  */
 function handleCalendarSubscription($method, $parts, $input) {
-    global $db, $conf;
+    global $db, $conf, $user;
 
     require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 
@@ -2007,13 +2007,9 @@ function handleCalendarSubscription($method, $parts, $input) {
         return;
     }
 
-    $calSecret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
-    if (empty($calSecret)) {
-        $calSecret = bin2hex(random_bytes(24));
-        dolibarr_set_const($db, 'EQUIPMENTMANAGER_CAL_SECRET', $calSecret, 'chaine', 0, '', $conf->entity);
-    }
-
-    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode($calSecret);
+    // Personal feed: only the orders this user is assigned to
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $calUrl = DOL_MAIN_URL_ROOT.'/custom/equipmentmanager/calendar.php?token='.urlencode(eqmCalendarToken($db, $user->id));
     echo json_encode([
         'status' => 'ok',
         'url' => $calUrl,

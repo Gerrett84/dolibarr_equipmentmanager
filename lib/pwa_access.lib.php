@@ -266,3 +266,59 @@ function eqmUserCanReadEquipment($db, $user, $equipmentId)
     return ($res && $db->num_rows($res) > 0);
 }
 
+/**
+ * Secret behind the calendar feed tokens (created on demand). Rotating it (admin action)
+ * invalidates every feed link.
+ *
+ * @param DoliDB $db Database handler
+ * @return string
+ */
+function eqmCalendarSecret($db)
+{
+    global $conf;
+    $secret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
+    if ($secret === '') {
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+        $secret = bin2hex(random_bytes(24));
+        dolibarr_set_const($db, 'EQUIPMENTMANAGER_CAL_SECRET', $secret, 'chaine', 0, '', $conf->entity);
+    }
+    return $secret;
+}
+
+/**
+ * Personal calendar feed token of a user: "<userid>.<hmac>". The feed only contains the
+ * orders this user is assigned to as "Beteiligter am Serviceauftrag".
+ *
+ * @param DoliDB $db     Database handler
+ * @param int    $userId User id
+ * @return string
+ */
+function eqmCalendarToken($db, $userId)
+{
+    return ((int) $userId).'.'.hash_hmac('sha256', 'calendar-user-'.((int) $userId), eqmCalendarSecret($db));
+}
+
+/**
+ * Resolve a personal calendar token to its (active) user.
+ *
+ * @param DoliDB $db    Database handler
+ * @param string $token Token from the feed URL
+ * @return User|null
+ */
+function eqmCalendarUserFromToken($db, $token)
+{
+    if (!is_string($token) || !preg_match('/^(\d+)\.([a-f0-9]{64})$/', $token, $m)) {
+        return null;
+    }
+    $secret = getDolGlobalString('EQUIPMENTMANAGER_CAL_SECRET');
+    if ($secret === '' || !hash_equals(hash_hmac('sha256', 'calendar-user-'.((int) $m[1]), $secret), $m[2])) {
+        return null;
+    }
+    require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+    $calUser = new User($db);
+    if ($calUser->fetch((int) $m[1]) <= 0 || (int) $calUser->statut !== 1 || $calUser->isNotIntoValidityDateRange()) {
+        return null;
+    }
+    return $calUser;
+}
+
