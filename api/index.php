@@ -319,11 +319,10 @@ function handleInterventions($method, $parts, $input) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe s ON s.rowid = f.fk_soc";
     $sql .= " WHERE 1=1";
 
-    // Non-admins only see interventions they authored or are involved in ("Beteiligter am Serviceauftrag")
-    if (!$user->admin) {
-        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
-        $sql .= " AND ".eqmInterventionAccessSql($user, 'f');
-    }
+    // The PWA list only shows orders the user is assigned to ("Beteiligter am Serviceauftrag"),
+    // for admins too - authoring orders in the backend does not put them in one's PWA
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $sql .= " AND ".eqmInterventionAccessSql($user, 'f');
 
     // Filter by status (draft=0, validated=1, closed=3)
     if (isset($_GET['status'])) {

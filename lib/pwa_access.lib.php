@@ -4,13 +4,17 @@
  * \ingroup    equipmentmanager
  * \brief      Who may see/edit which service order (fichinter) in the PWA and its PDF endpoints.
  *
- * Full access (read + write): admin, the author of the order, or an internal contact
- * with the role "Beteiligter am Serviceauftrag" (INTERVENING).
+ * Full access (read + write): admin, or an internal contact with the role
+ * "Beteiligter am Serviceauftrag" (INTERVENING). Being the author of an order does NOT
+ * grant PWA access - whoever creates orders in the backend only sees in the PWA those
+ * he is assigned to. The PWA order list is limited to assigned orders for everybody,
+ * admins included.
  * Read-only access (history): orders sharing the Objektadresse with an order the user has full access to.
  */
 
 /**
- * SQL condition: user is author of, or internal contact (role INTERVENING) of, the order.
+ * SQL condition: user is internal contact with the role INTERVENING ("Beteiligter am
+ * Serviceauftrag") of the order.
  *
  * @param User   $user  User
  * @param string $alias Alias of the fichinter table in the query
@@ -19,8 +23,7 @@
 function eqmInterventionAccessSql($user, $alias = 'f')
 {
     $uid = (int) $user->id;
-    $sql = "(".$alias.".fk_user_author = ".$uid;
-    $sql .= " OR EXISTS (";
+    $sql = "(EXISTS (";
     $sql .= "SELECT 1 FROM ".MAIN_DB_PREFIX."element_contact ec_acc";
     $sql .= " JOIN ".MAIN_DB_PREFIX."c_type_contact tc_acc ON tc_acc.rowid = ec_acc.fk_c_type_contact";
     $sql .= " WHERE ec_acc.element_id = ".$alias.".rowid AND ec_acc.fk_socpeople = ".$uid;
