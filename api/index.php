@@ -1112,7 +1112,7 @@ function handleTotp2fa($method, $input) {
     }
 
     $user->getrights();
-    if (!$user->hasRight('user', 'self', 'creer') && !$user->admin) {
+    if (!$user->hasRight('totp2fa', 'self', 'manage') && !$user->hasRight('user', 'self', 'creer') && !$user->admin) {
         echo json_encode(['available' => false]);
         return;
     }

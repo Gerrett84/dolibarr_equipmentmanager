@@ -73,8 +73,8 @@ if ($action == 'create_technician_group') {
 
     $wantedRights = array(
         array('equipmentmanager', 'pwa', 'use'),
-        array('user', 'self', 'creer'),
         array('user', 'self', 'password'),
+        array('totp2fa', 'self', 'manage'),
         array('agenda', 'myactions', 'read'),
         array('agenda', 'myactions', 'create'),
     );
