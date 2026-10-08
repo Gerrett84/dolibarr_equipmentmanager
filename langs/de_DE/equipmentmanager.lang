@@ -896,4 +896,4 @@ TechnicianNewUser=Neuen Benutzer anlegen
 TechnicianGroupReadyMsg=Gruppe „%s“ bereit (%s von %s Berechtigungen gesetzt).
 ParticipantOnOrders=Beteiligter am Serviceauftrag
 ParticipantNone=– niemand (Aufträge erscheinen in keiner PWA) –
-ParticipantHelp=Der Techniker wird bei den neuen Aufträgen als „Beteiligter am Serviceauftrag“ eingetragen und sieht sie dadurch in seiner PWA. Die Auswahl wird für das nächste Mal gemerkt.
+ParticipantHelp=Mehrere Techniker mit Strg/Cmd-Klick auswählen; ohne Auswahl erscheinen die neuen Aufträge in keiner PWA. Die gewählten Techniker werden bei den neuen Aufträgen als „Beteiligter am Serviceauftrag“ eingetragen und sehen sie dadurch in ihrer PWA. Die Auswahl wird für das nächste Mal gemerkt.

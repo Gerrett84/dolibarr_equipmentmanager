@@ -345,4 +345,4 @@ TechnicianNewUser=Create new user
 TechnicianGroupReadyMsg=Group "%s" ready (%s of %s permissions set).
 ParticipantOnOrders=Participant on the service order
 ParticipantNone=– nobody (orders appear in no PWA) –
-ParticipantHelp=The technician is added as "Beteiligter am Serviceauftrag" on the new orders, so they show up in their PWA. The choice is remembered for next time.
+ParticipantHelp=Select several technicians with Ctrl/Cmd-click; without a selection the new orders appear in no PWA. The selected technicians are added as "Beteiligter am Serviceauftrag" on the new orders, so they show up in their PWA. The choice is remembered for next time.
