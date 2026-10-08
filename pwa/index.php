@@ -207,15 +207,9 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
 
 // Company name and logo (Setup -> Company), shown in the header and on the login view
 $pwaCompanyName = !empty($mysoc->name) ? $mysoc->name : '';
-$pwaLogoUrl = '';
-if (!empty($mysoc->logo)) {
-    foreach (array($conf->mycompany->dir_output.'/logos/thumbs/'.basename((string) $mysoc->logo_small), $conf->mycompany->dir_output.'/logos/'.basename($mysoc->logo)) as $logoFile) {
-        if (is_file($logoFile)) {
-            $pwaLogoUrl = 'logo.php?v='.filemtime($logoFile);
-            break;
-        }
-    }
-}
+$pwaLogo = eqmCompanyLogo();
+$pwaLogoUrl = $pwaLogo ? 'logo.php?v='.filemtime($pwaLogo['file']) : '';
+$pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -341,6 +335,11 @@ if (!empty($mysoc->logo)) {
             display: flex;
             align-items: center;
             flex-shrink: 0;
+        }
+
+        .header-logo.light {
+            background: none;
+            padding: 0;
         }
 
         .header-logo img {
@@ -2314,7 +2313,7 @@ if (!empty($mysoc->logo)) {
     <div class="header">
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
         <?php if ($pwaLogoUrl): ?>
-        <span class="header-logo"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
+        <span class="header-logo<?php echo $pwaLogoLight ? ' light' : ''; ?>"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
         <?php endif; ?>
         <div class="header-titles">
             <h1 id="headerTitle"><?php echo $title; ?></h1>
@@ -2889,6 +2888,7 @@ if (!empty($mysoc->logo)) {
             apiBase: '<?php echo $apiBase; ?>',
             companyName: <?php echo json_encode($pwaCompanyName); ?>,
             logoUrl: <?php echo json_encode($pwaLogoUrl); ?>,
+            logoLight: <?php echo $pwaLogoLight ? 'true' : 'false'; ?>,
             moduleUrl: '<?php echo dol_buildpath('/custom/equipmentmanager/', 1); ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
             authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,
