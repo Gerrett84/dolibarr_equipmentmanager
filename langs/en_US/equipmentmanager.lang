@@ -343,3 +343,6 @@ TechnicianGroupCreate=Create group
 TechnicianGroupUpdate=Update group
 TechnicianNewUser=Create new user
 TechnicianGroupReadyMsg=Group "%s" ready (%s of %s permissions set).
+ParticipantOnOrders=Participant on the service order
+ParticipantNone=– nobody (orders appear in no PWA) –
+ParticipantHelp=The technician is added as "Beteiligter am Serviceauftrag" on the new orders, so they show up in their PWA. The choice is remembered for next time.

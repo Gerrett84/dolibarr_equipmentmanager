@@ -20,6 +20,7 @@ if (!$res) {
 
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 dol_include_once('/equipmentmanager/class/equipment.class.php');
 
 $langs->loadLangs(array("equipmentmanager@equipmentmanager", "companies", "interventions"));
@@ -41,6 +42,19 @@ $form = new Form($db);
 
 $created_orders = array();
 $errors = array();
+
+// Internal users that can be assigned as "Beteiligter am Serviceauftrag" so the new orders
+// show up in their PWA (the PWA only lists orders the user is assigned to)
+$participants = array();
+$resUsers = $db->query("SELECT rowid, login, lastname, firstname FROM ".MAIN_DB_PREFIX."user WHERE statut = 1 AND entity IN (0, ".(int) $conf->entity.") ORDER BY lastname, firstname, login");
+while ($resUsers && ($uo = $db->fetch_object($resUsers))) {
+    $participants[(int) $uo->rowid] = trim($uo->firstname.' '.$uo->lastname) ?: $uo->login;
+}
+$defaultParticipant = getDolGlobalInt('EQUIPMENTMANAGER_DEFAULT_PARTICIPANT');
+$participantId = GETPOSTISSET('participant') ? GETPOSTINT('participant') : $defaultParticipant;
+if (!isset($participants[$participantId])) {
+    $participantId = 0;
+}
 
 if ($action == 'create_orders' && $confirm == 'yes') {
     $db->begin();
@@ -152,6 +166,11 @@ if ($action == 'create_orders' && $confirm == 'yes') {
                     $fichinter->add_object_linked('contrat', $first_contract_id);
                 }
 
+                // Assign the chosen technician as "Beteiligter am Serviceauftrag"
+                if ($participantId > 0) {
+                    $fichinter->add_contact($participantId, 'INTERVENING', 'internal');
+                }
+
                 // Link equipment to intervention
                 foreach ($data['equipment'] as $eq) {
                     $sql_link = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -177,6 +196,9 @@ if ($action == 'create_orders' && $confirm == 'yes') {
 
     if (count($errors) == 0) {
         $db->commit();
+        if ($participantId != $defaultParticipant) {
+            dolibarr_set_const($db, 'EQUIPMENTMANAGER_DEFAULT_PARTICIPANT', $participantId, 'chaine', 0, '', $conf->entity);
+        }
         if (count($created_orders) > 0) {
             setEventMessages($langs->trans('ServiceOrdersCreated', count($created_orders)), null, 'mesgs');
         } else {
@@ -329,6 +351,16 @@ if ($resql) {
         print '<input type="hidden" name="token" value="'.newToken().'">';
         print '<input type="hidden" name="action" value="create_orders">';
         print '<input type="hidden" name="confirm" value="yes">';
+        print '<div class="center" style="margin-bottom:10px;">';
+        print '<label for="participant"><strong>'.$langs->trans('ParticipantOnOrders').'</strong></label> ';
+        print '<select name="participant" id="participant" class="minwidth200">';
+        print '<option value="0"'.($participantId == 0 ? ' selected' : '').'>'.$langs->trans('ParticipantNone').'</option>';
+        foreach ($participants as $pid => $pname) {
+            print '<option value="'.$pid.'"'.($pid == $participantId ? ' selected' : '').'>'.dol_escape_htmltag($pname).'</option>';
+        }
+        print '</select>';
+        print '<br><span class="opacitymedium">'.$langs->trans('ParticipantHelp').'</span>';
+        print '</div>';
         print '<div class="center">';
         print '<input type="submit" class="button button-save" value="'.$langs->trans('CreateServiceOrders').'" ';
         print 'onclick="return confirm(\''.$langs->trans('ConfirmCreateServiceOrders', $num).'\');">';
