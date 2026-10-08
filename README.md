@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.1** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,11 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.2 (2026-10-08)
+
+- **Fix: Rolle „Beteiligter am Serviceauftrag“ fehlte** – In frischen Dolibarr-Installationen ist der interne Kontakttyp *Beteiligter am Serviceauftrag* (`INTERVENING`) deaktiviert, wodurch sich Techniker nicht am Auftrag eintragen ließen (und damit keine Aufträge in der PWA sahen). Das Modul aktiviert die Rolle beim Einschalten jetzt selbst (Modul einmal aus-/einschalten)
+- **Fix: Logo mit eigenem Hintergrund** – Logos mit deckendem Hintergrund (z. B. weiß auf schwarz) werden unverändert angezeigt, ohne weiße Fläche drumherum
 
 ### v6.1.1 (2026-10-08)
 
@@ -846,6 +851,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.1
+**Current Version:** 6.1.2
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)

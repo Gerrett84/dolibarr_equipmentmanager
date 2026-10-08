@@ -210,6 +210,8 @@ $pwaCompanyName = !empty($mysoc->name) ? $mysoc->name : '';
 $pwaLogo = eqmCompanyLogo();
 $pwaLogoUrl = $pwaLogo ? 'logo.php?v='.filemtime($pwaLogo['file']) : '';
 $pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
+// Logo with its own opaque background: show it as is, no white chip around it
+$pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -340,6 +342,10 @@ $pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
         .header-logo.light {
             background: none;
             padding: 0;
+        }
+
+        .header-logo.opaque img {
+            border-radius: 6px;
         }
 
         .header-logo img {
@@ -2313,7 +2319,7 @@ $pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
     <div class="header">
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
         <?php if ($pwaLogoUrl): ?>
-        <span class="header-logo<?php echo $pwaLogoLight ? ' light' : ''; ?>"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
+        <span class="header-logo<?php echo ($pwaLogoLight || $pwaLogoOpaque) ? ' light' : ''; ?><?php echo $pwaLogoOpaque ? ' opaque' : ''; ?>"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
         <?php endif; ?>
         <div class="header-titles">
             <h1 id="headerTitle"><?php echo $title; ?></h1>
@@ -2889,6 +2895,7 @@ $pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
             companyName: <?php echo json_encode($pwaCompanyName); ?>,
             logoUrl: <?php echo json_encode($pwaLogoUrl); ?>,
             logoLight: <?php echo $pwaLogoLight ? 'true' : 'false'; ?>,
+            logoOpaque: <?php echo $pwaLogoOpaque ? 'true' : 'false'; ?>,
             moduleUrl: '<?php echo dol_buildpath('/custom/equipmentmanager/', 1); ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
             authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,
