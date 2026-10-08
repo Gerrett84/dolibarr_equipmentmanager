@@ -160,10 +160,37 @@ function eqmLogoIsLight($file)
 }
 
 /**
+ * Whether the logo has its own opaque background (all four corners opaque), e.g. a white-on-black
+ * tile: it is shown as is, without an extra chip around it.
+ *
+ * @param string $file Image file
+ * @return bool
+ */
+function eqmLogoIsOpaque($file)
+{
+    if (!function_exists('imagecreatefromstring')) {
+        return false;
+    }
+    $data = @file_get_contents($file);
+    $im = $data ? @imagecreatefromstring($data) : false;
+    if (!$im) {
+        return false;
+    }
+    $w = imagesx($im);
+    $h = imagesy($im);
+    foreach (array(array(0, 0), array($w - 1, 0), array(0, $h - 1), array($w - 1, $h - 1)) as $pt) {
+        if ((((imagecolorat($im, $pt[0], $pt[1])) >> 24) & 127) > 20) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * The company logo configured in Dolibarr (small thumbnail preferred), only formats browsers
  * can show as an image.
  *
- * @return array|null array(file, mime, light) or null
+ * @return array|null array(file, mime, light, opaque) or null
  */
 function eqmCompanyLogo()
 {
@@ -188,7 +215,7 @@ function eqmCompanyLogo()
     foreach ($candidates as $file) {
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         if (isset($mimes[$ext]) && is_file($file)) {
-            $cache = array('file' => $file, 'mime' => $mimes[$ext], 'light' => eqmLogoIsLight($file));
+            $cache = array('file' => $file, 'mime' => $mimes[$ext], 'light' => eqmLogoIsLight($file), 'opaque' => eqmLogoIsOpaque($file));
             break;
         }
     }

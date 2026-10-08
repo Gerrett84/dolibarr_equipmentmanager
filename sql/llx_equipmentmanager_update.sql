@@ -197,3 +197,9 @@ ALTER TABLE llx_societe_extrafields ADD COLUMN IF NOT EXISTS equipmentmanager_ob
 -- just hides "Objektadresse" from the "linked contacts" role dropdown going forward.
 UPDATE llx_c_type_contact SET active = 0
 WHERE code = 'OBJ' AND element IN ('propal', 'fichinter', 'commande', 'facture', 'contrat', 'order_supplier');
+
+-- v6.1.2: The PWA shows a service order to the users assigned as internal contact "Beteiligter am
+-- Serviceauftrag" (INTERVENING). Fresh Dolibarr installs ship that role inactive, so it could not
+-- be selected on the order - make sure it is active.
+UPDATE llx_c_type_contact SET active = 1
+WHERE element = 'fichinter' AND source = 'internal' AND code = 'INTERVENING';
