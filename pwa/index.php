@@ -1480,6 +1480,11 @@ if (!empty($mysoc->logo)) {
             border-radius: 10px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
+        /* Dark map: darken the standard OSM tiles (no key-based dark basemap needed) */
+        .em-dark-tiles {
+            filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.7);
+        }
+
         [data-theme="dark"] .leaflet-popup-content-wrapper {
             background: #2d2d2d;
             color: #e0e0e0;

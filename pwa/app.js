@@ -4633,17 +4633,13 @@ class ServiceReportApp {
 
         const dark = this.isDarkMode();
 
+        // Dark mode: the same OpenStreetMap tiles, darkened with a CSS filter (class em-dark-tiles).
+        // CARTO's dark basemap now answers every tile with "API KEY REQUIRED".
         const getTileLayer = (isDark) => {
-            if (isDark) {
-                return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
-                    subdomains: 'abcd',
-                    maxZoom: 19
-                });
-            }
             return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
+                maxZoom: 19,
+                className: isDark ? 'em-dark-tiles' : ''
             });
         };
 
