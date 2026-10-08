@@ -363,6 +363,10 @@ chmod -R 755 equipmentmanager
 
 ## Changelog
 
+### Unreleased
+
+- **PWA: Kopfzeile „Auftragsübersicht“** statt „Serviceberichte“ (App-Name auf dem Home-Bildschirm bleibt unverändert)
+
 ### v6.1.2 (2026-10-08)
 
 - **Fix: Rolle „Beteiligter am Serviceauftrag“ fehlte** – In frischen Dolibarr-Installationen ist der interne Kontakttyp *Beteiligter am Serviceauftrag* (`INTERVENING`) deaktiviert, wodurch sich Techniker nicht am Auftrag eintragen ließen (und damit keine Aufträge in der PWA sahen). Das Modul aktiviert die Rolle beim Einschalten jetzt selbst (Modul einmal aus-/einschalten)

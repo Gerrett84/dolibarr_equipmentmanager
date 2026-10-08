@@ -2322,7 +2322,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
         <span class="header-logo<?php echo ($pwaLogoLight || $pwaLogoOpaque) ? ' light' : ''; ?><?php echo $pwaLogoOpaque ? ' opaque' : ''; ?>"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
         <?php endif; ?>
         <div class="header-titles">
-            <h1 id="headerTitle"><?php echo $title; ?></h1>
+            <h1 id="headerTitle">Auftragsübersicht</h1>
             <?php if ($pwaCompanyName): ?><div class="header-company"><?php echo dol_escape_htmltag($pwaCompanyName); ?></div><?php endif; ?>
         </div>
         <span class="sync-status" id="syncStatus" title="Tippen zum Synchronisieren" style="cursor:pointer;">Offline</span>

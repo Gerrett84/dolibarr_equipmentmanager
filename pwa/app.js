@@ -725,8 +725,8 @@ class ServiceReportApp {
 
         if (viewId === 'viewInterventions' || viewId === 'viewMap' || viewId === 'viewMaintenance') {
             backBtn.style.display = 'none';
-            const titles = { viewMap: 'Karte', viewMaintenance: 'Wartungsübersicht', viewInterventions: 'Serviceberichte' };
-            headerTitle.textContent = titles[viewId] || 'Serviceberichte';
+            const titles = { viewMap: 'Karte', viewMaintenance: 'Wartungsübersicht', viewInterventions: 'Auftragsübersicht' };
+            headerTitle.textContent = titles[viewId] || 'Auftragsübersicht';
             document.getElementById('navRelease').style.display = 'none';
             document.getElementById('navDocuments').style.display = 'none';
             document.getElementById('navPdfPreview').style.display = 'none';

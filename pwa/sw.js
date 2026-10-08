@@ -2,8 +2,8 @@
  * Service Worker for Offline PWA
  */
 
-const CACHE_NAME = 'equipmentmanager-pwa-v50';
-const STATIC_CACHE = 'equipmentmanager-static-v50';
+const CACHE_NAME = 'equipmentmanager-pwa-v51';
+const STATIC_CACHE = 'equipmentmanager-static-v51';
 
 // Files to cache for offline use
 const STATIC_FILES = [
