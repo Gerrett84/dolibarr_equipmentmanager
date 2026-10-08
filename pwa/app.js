@@ -157,7 +157,11 @@ class ServiceReportApp {
         document.getElementById('interventionsList').innerHTML = `
             <div class="login-form" style="padding: 20px;">
                 <div style="text-align:center;margin-bottom:20px;">
-                    <div style="font-size:48px;">🔐</div>
+                    ${CONFIG.logoUrl ? `
+                    <div style="display:inline-block;background:#fff;border-radius:10px;padding:10px 16px;margin-bottom:6px;">
+                        <img src="${CONFIG.logoUrl}" alt="" style="display:block;max-width:220px;max-height:110px;object-fit:contain;">
+                    </div>` : '<div style="font-size:48px;">🔐</div>'}
+                    ${CONFIG.companyName ? `<div style="font-size:17px;font-weight:600;margin:6px 0 2px;">${this.escapeHtml(CONFIG.companyName)}</div>` : ''}
                     <h3 style="margin:10px 0;">${hasCredentials ? 'Sitzung abgelaufen' : 'Anmeldung erforderlich'}</h3>
                     <p style="color:#666;font-size:14px;">
                         ${hasCredentials ? 'Bitte erneut anmelden oder Passwort prüfen.' : 'Bitte speichern Sie Ihre Login-Daten in den Einstellungen.'}

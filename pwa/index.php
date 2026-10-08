@@ -204,6 +204,18 @@ if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
 $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
 dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
 $pwaDark = eqmPwaDarkColors('#1e3a8a');
+
+// Company name and logo (Setup -> Company), shown in the header and on the login view
+$pwaCompanyName = !empty($mysoc->name) ? $mysoc->name : '';
+$pwaLogoUrl = '';
+if (!empty($mysoc->logo)) {
+    foreach (array($conf->mycompany->dir_output.'/logos/thumbs/'.basename((string) $mysoc->logo_small), $conf->mycompany->dir_output.'/logos/'.basename($mysoc->logo)) as $logoFile) {
+        if (is_file($logoFile)) {
+            $pwaLogoUrl = 'logo.php?v='.filemtime($logoFile);
+            break;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -307,7 +319,35 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
             margin: 0;
             font-size: 18px;
             font-weight: 500;
+        }
+
+        .header-titles {
             flex: 1;
+            min-width: 0;
+        }
+
+        .header-company {
+            font-size: 11px;
+            opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-logo {
+            background: #ffffff;
+            border-radius: 6px;
+            padding: 3px 6px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header-logo img {
+            height: 32px;
+            max-width: 72px;
+            object-fit: contain;
+            display: block;
         }
 
         .header-btn {
@@ -2268,7 +2308,13 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
     <!-- Header -->
     <div class="header">
         <button class="header-btn" id="btnBack" style="display:none;">&#8592;</button>
-        <h1 id="headerTitle"><?php echo $title; ?></h1>
+        <?php if ($pwaLogoUrl): ?>
+        <span class="header-logo"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
+        <?php endif; ?>
+        <div class="header-titles">
+            <h1 id="headerTitle"><?php echo $title; ?></h1>
+            <?php if ($pwaCompanyName): ?><div class="header-company"><?php echo dol_escape_htmltag($pwaCompanyName); ?></div><?php endif; ?>
+        </div>
         <span class="sync-status" id="syncStatus" title="Tippen zum Synchronisieren" style="cursor:pointer;">Offline</span>
         <a href="settings.php" class="header-btn" id="btnSettings" title="Einstellungen" style="text-decoration:none;color:white;">&#9881;</a>
     </div>
@@ -2836,6 +2882,8 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
         // Configuration
         const CONFIG = {
             apiBase: '<?php echo $apiBase; ?>',
+            companyName: <?php echo json_encode($pwaCompanyName); ?>,
+            logoUrl: <?php echo json_encode($pwaLogoUrl); ?>,
             moduleUrl: '<?php echo dol_buildpath('/custom/equipmentmanager/', 1); ?>',
             isAuthenticated: <?php echo $isAuthenticated ? 'true' : 'false'; ?>,
             authData: <?php echo $authData ? json_encode($authData) : 'null'; ?>,
