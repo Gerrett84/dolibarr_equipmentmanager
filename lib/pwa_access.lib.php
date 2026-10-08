@@ -159,3 +159,74 @@ function eqmResolvePwaTokenUser($db, $token, $touch = false)
     return $tokenUser;
 }
 
+/**
+ * Secret used to sign short-lived view tickets.
+ *
+ * @return string
+ */
+function eqmViewTicketSecret()
+{
+    global $conf;
+    $base = !empty($conf->file->instance_unique_id) ? $conf->file->instance_unique_id : DOL_DOCUMENT_ROOT;
+    return hash('sha256', 'eqm-view-ticket|'.$base);
+}
+
+/**
+ * Create a short-lived ticket that lets the browser open a PDF/document URL
+ * (iframe, new tab) without putting the long-lived PWA token into the URL and
+ * from there into access logs and the browser history.
+ *
+ * @param int $userId User id
+ * @param int $ttl    Lifetime in seconds
+ * @return string URL-safe ticket
+ */
+function eqmCreateViewTicket($userId, $ttl = 300)
+{
+    $payload = ((int) $userId).'.'.(time() + (int) $ttl);
+    return $payload.'.'.hash_hmac('sha256', $payload, eqmViewTicketSecret());
+}
+
+/**
+ * Resolve a view ticket to an active user.
+ *
+ * @param DoliDB $db     Database handler
+ * @param string $ticket Ticket from eqmCreateViewTicket()
+ * @return User|null
+ */
+function eqmResolveViewTicket($db, $ticket)
+{
+    if (!is_string($ticket) || !preg_match('/^(\d+)\.(\d+)\.([a-f0-9]{64})$/', $ticket, $m)) {
+        return null;
+    }
+    $payload = $m[1].'.'.$m[2];
+    if (!hash_equals(hash_hmac('sha256', $payload, eqmViewTicketSecret()), $m[3]) || (int) $m[2] < time()) {
+        return null;
+    }
+
+    require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+    $ticketUser = new User($db);
+    if ($ticketUser->fetch((int) $m[1]) <= 0 || (int) $ticketUser->statut !== 1 || $ticketUser->isNotIntoValidityDateRange()) {
+        return null;
+    }
+    $ticketUser->getrights();
+    return $ticketUser;
+}
+
+/**
+ * Authenticate a PDF/document request: the X-PWA-Token header, or a short-lived
+ * view ticket in the "t" parameter. The long-lived token is deliberately not
+ * accepted in the URL.
+ *
+ * @param DoliDB $db Database handler
+ * @return User|null
+ */
+function eqmResolveViewRequestUser($db)
+{
+    $header = isset($_SERVER['HTTP_X_PWA_TOKEN']) ? (string) $_SERVER['HTTP_X_PWA_TOKEN'] : '';
+    if ($header !== '') {
+        return eqmResolvePwaTokenUser($db, $header, false);
+    }
+    $ticket = isset($_GET['t']) ? (string) $_GET['t'] : '';
+    return $ticket !== '' ? eqmResolveViewTicket($db, $ticket) : null;
+}
+

@@ -23,13 +23,10 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 
 // Authenticate: session or PWA token (query param for iframe/tab contexts)
 if (!$user->id) {
-    $pwaToken = GETPOST('pwa_token', 'alpha') ?: ($_SERVER['HTTP_X_PWA_TOKEN'] ?? '');
-    if (!empty($pwaToken)) {
-        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
-        $tokenUser = eqmResolvePwaTokenUser($db, (string) $pwaToken, false);
-        if ($tokenUser !== null) {
-            $user = $tokenUser;
-        }
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    $tokenUser = eqmResolveViewRequestUser($db);
+    if ($tokenUser !== null) {
+        $user = $tokenUser;
     }
 }
 if (!$user->id) {

@@ -159,7 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
 }
 
 $title = 'Einstellungen';
-$dolibarrUrl = dol_buildpath('/', 1);
+// Backend lives on the main Dolibarr domain (the PWA domain may only expose the PWA paths)
+$dolibarrUrl = DOL_MAIN_URL_ROOT.'/';
 $apiBase = dol_buildpath('/custom/equipmentmanager/api/index.php', 1);
 
 // Brand color (Setup -> Equipment Manager -> Brand color). Empty by default,

@@ -213,6 +213,12 @@ try {
             handlePwaToken($method, $input);
             break;
 
+        case 'view-ticket':
+            // Short-lived ticket for opening PDFs/documents by URL (instead of the PWA token)
+            dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+            echo json_encode(['status' => 'ok', 'ticket' => eqmCreateViewTicket($user->id, 300), 'expires_in' => 300]);
+            break;
+
         case 'checklist':
             handleChecklist($method, $parts, $input);
             break;

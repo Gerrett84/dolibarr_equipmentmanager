@@ -14,8 +14,12 @@ if (!$res && file_exists("../../../main.inc.php"))    $res = @include "../../../
 if (!$res) { http_response_code(503); exit('Environment not found'); }
 
 // Authenticate via PWA token (query param or header)
-$pwaToken = GETPOST('pwa_token', 'alpha') ?: ($_SERVER['HTTP_X_PWA_TOKEN'] ?? '');
-if (empty($pwaToken) || !validateProxyPwaToken($pwaToken, $db)) {
+dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+$viewUser = eqmResolveViewRequestUser($db);
+if ($viewUser !== null) {
+    $user = $viewUser;
+}
+if ($viewUser === null) {
     http_response_code(401);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Authentication required']);
@@ -85,12 +89,3 @@ header('Content-Length: ' . filesize($fullPath));
 header('Cache-Control: private, max-age=300');
 readfile($fullPath);
 exit;
-
-function validateProxyPwaToken($token, $db) {
-    global $user;
-    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
-    $tokenUser = eqmResolvePwaTokenUser($db, (string) $token, false);
-    if ($tokenUser === null) return false;
-    $user = $tokenUser;
-    return true;
-}

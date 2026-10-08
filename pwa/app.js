@@ -3992,6 +3992,7 @@ class ServiceReportApp {
             }
 
             // Render server documents
+            const viewTicket = await this.getViewTicket().catch(() => '');
             documents.forEach(doc => {
                 const item = document.createElement('div');
                 item.className = 'document-item';
@@ -4002,7 +4003,7 @@ class ServiceReportApp {
                 const fileParam = docUrlObj.searchParams.get('file') || '';
                 const modulePart = docUrlObj.searchParams.get('modulepart') || '';
                 const proxyUrl = fileParam
-                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&modulepart=${encodeURIComponent(modulePart)}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`
+                    ? `${proxyBase}?file=${encodeURIComponent(fileParam)}&modulepart=${encodeURIComponent(modulePart)}&t=${encodeURIComponent(viewTicket)}`
                     : doc.url;
                 const previewUrl = proxyUrl + '&attachment=0';
 
@@ -4123,7 +4124,7 @@ class ServiceReportApp {
     }
 
     // Show PDF preview in in-app viewer
-    showPdfPreview() {
+    async showPdfPreview() {
         if (!this.currentIntervention) {
             this.showToast('Keine Intervention ausgewählt');
             return;
@@ -4134,8 +4135,20 @@ class ServiceReportApp {
             return;
         }
 
-        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        const previewUrl = `pdf_preview.php?id=${this.currentIntervention.id}&t=${encodeURIComponent(await this.getViewTicket())}`;
         this.openPdfViewerFresh(previewUrl, 'Servicebericht');
+    }
+
+    // Short-lived ticket for PDF/document URLs (iframe, new tab) - keeps the long-lived
+    // PWA token out of URLs, access logs and browser history
+    async getViewTicket() {
+        if (this._viewTicket && this._viewTicketExp > Date.now() + 15000) {
+            return this._viewTicket;
+        }
+        const res = await this.apiCall('view-ticket', { method: 'POST', body: '{}' });
+        this._viewTicket = res.ticket;
+        this._viewTicketExp = Date.now() + ((res.expires_in || 300) * 1000);
+        return this._viewTicket;
     }
 
     // Fetch PDF fresh (no-store) and display via Blob URL to bypass iOS WebKit PDF cache
@@ -4158,7 +4171,7 @@ class ServiceReportApp {
     }
 
     // Show acceptance protocol PDF in new tab (v4.5)
-    showAcceptanceProtocol() {
+    async showAcceptanceProtocol() {
         if (!this.currentIntervention) {
             this.showToast('Keine Intervention ausgewählt');
             return;
@@ -4170,7 +4183,7 @@ class ServiceReportApp {
         }
 
         // Pass current equipment ID so only that one appears in the protocol
-        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        let protocolUrl = `acceptance_protocol.php?id=${this.currentIntervention.id}&t=${encodeURIComponent(await this.getViewTicket())}`;
         if (this.currentEquipment && this.currentEquipment.id) {
             protocolUrl += `&equipment_id=${this.currentEquipment.id}`;
         }
@@ -6199,7 +6212,7 @@ class ServiceReportApp {
     }
 
     // Open checklist PDF in new tab (preview = true for preview only, not saved)
-    openChecklistPdf(preview = false) {
+    async openChecklistPdf(preview = false) {
         if (!this.currentIntervention || !this.currentEquipment || !this.currentChecklist) {
             this.showToast('Fehler: Keine Checkliste verfügbar');
             return;
@@ -6219,7 +6232,7 @@ class ServiceReportApp {
         // Build URL to generate PDF using module URL from config
         // preview=1 means PDF is just displayed, not saved to documents
         const previewParam = preview ? '&preview=1' : '';
-        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&pwa_token=${encodeURIComponent(this.pwaToken || '')}`;
+        const pdfUrl = `${CONFIG.moduleUrl}intervention_equipment_details.php?id=${this.currentIntervention.id}&equipment_id=${this.currentEquipment.id}&action=pdf_checklist&checklist_id=${checklistId}${previewParam}&t=${encodeURIComponent(await this.getViewTicket())}`;
 
         this.openPdfViewer(pdfUrl, 'Checkliste');
     }
