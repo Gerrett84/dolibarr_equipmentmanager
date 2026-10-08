@@ -171,7 +171,7 @@ try {
 
         case 'ping':
             dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
-            echo json_encode(['status' => 'ok', 'capabilities' => ['maintenance' => eqmUserCanSeeMaintenance($user)]]);
+            echo json_encode(['status' => 'ok', 'capabilities' => ['maintenance' => eqmUserCanSeeMaintenance($user), 'prices' => !empty($user->admin)]]);
             break;
 
         case 'interventions':
@@ -1801,7 +1801,7 @@ function handleSync($method, $input) {
                     $material->material_name = $data['material_name'] ?? '';
                     $material->quantity = (float)($data['quantity'] ?? 0);
                     $material->unit = $data['unit'] ?? '';
-                    $material->unit_price = (float)($data['unit_price'] ?? 0);
+                    $material->unit_price = $user->admin ? (float)($data['unit_price'] ?? 0) : 0;
                     $material->notes = $data['notes'] ?? '';
 
                     if (!empty($data['id'])) {
@@ -2047,8 +2047,8 @@ function handleMaterial($method, $parts, $input) {
         $sql .= ($input['material_description'] ? "'".$db->escape($input['material_description'])."'" : "NULL").",";
         $sql .= (float)($input['quantity'] ?? 1).",";
         $sql .= "'".$db->escape($input['unit'] ?? 'Stk')."',";
-        $sql .= (float)($input['unit_price'] ?? 0).",";
-        $sql .= (float)($input['total_price'] ?? 0).",";
+        $sql .= ($user->admin ? (float)($input['unit_price'] ?? 0) : 0).",";
+        $sql .= ($user->admin ? (float)($input['total_price'] ?? 0) : 0).",";
         $sql .= ($input['serial_number'] ? "'".$db->escape($input['serial_number'])."'" : "NULL").",";
         $sql .= ($input['notes'] ? "'".$db->escape($input['notes'])."'" : "NULL").",";
         $sql .= "'".$db->idate(dol_now())."',";
@@ -2120,8 +2120,9 @@ function handleProducts($method, $parts, $input) {
     $search = $_GET['search'] ?? '';
     $limit = (int)($_GET['limit'] ?? 50);
 
-    // No prices: the PWA only needs to identify the article
-    $sql = "SELECT p.rowid, p.ref, p.label";
+    // Prices only for admins; everybody else just needs to identify the article
+    $withPrices = !empty($user->admin);
+    $sql = "SELECT p.rowid, p.ref, p.label, p.price, p.tva_tx";
     $sql .= " FROM ".MAIN_DB_PREFIX."product p";
     $sql .= " WHERE p.tosell = 1"; // Only products for sale
 
@@ -2138,11 +2139,16 @@ function handleProducts($method, $parts, $input) {
 
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
-            $products[] = [
+            $item = [
                 'id' => (int)$obj->rowid,
                 'ref' => $obj->ref,
                 'label' => $obj->label
             ];
+            if ($withPrices) {
+                $item['price'] = (float)$obj->price;
+                $item['vat_rate'] = (float)$obj->tva_tx;
+            }
+            $products[] = $item;
         }
     }
 

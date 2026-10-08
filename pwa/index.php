@@ -2750,6 +2750,10 @@ if (!empty($mysoc->logo)) {
                     </div>
                 </div>
                 <div style="display: flex; gap: 12px;">
+                    <div class="form-group" id="materialPriceGroup" style="flex: 1; display: none;">
+                        <label class="form-label">Einzelpreis (€)</label>
+                        <input type="number" class="form-input" id="materialPrice" min="0" step="0.01">
+                    </div>
                     <div class="form-group" style="flex: 1;">
                         <label class="form-label">Seriennummer</label>
                         <input type="text" class="form-input" id="materialSerial">

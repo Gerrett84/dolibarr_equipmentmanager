@@ -100,8 +100,14 @@ class ServiceReportApp {
         try { return localStorage.getItem('pwa_cap_maintenance') !== '0'; } catch (e) { return true; }
     }
 
+    // Prices are only shown to admins
+    canSeePrices() {
+        try { return localStorage.getItem('pwa_cap_prices') === '1'; } catch (e) { return false; }
+    }
+
     _applyCapabilities(caps) {
         if (!caps) return;
+        try { localStorage.setItem('pwa_cap_prices', caps.prices ? '1' : '0'); } catch (e) { /* ignore */ }
         try { localStorage.setItem('pwa_cap_maintenance', caps.maintenance ? '1' : '0'); } catch (e) { /* ignore */ }
         const nav = document.getElementById('navMaintenance');
         if (nav && ['viewInterventions', 'viewMap', 'viewMaintenance'].includes(this.currentView)) {
@@ -3309,6 +3315,7 @@ class ServiceReportApp {
                         ${material.description ? ' - ' + this.escapeHtml(material.description) : ''}
                     </div>
                 </div>
+                ${this.canSeePrices() ? `<div class="material-price">${this.formatPrice(material.total_price || (material.quantity * material.unit_price))} €</div>` : ''}
                 <button type="button" class="material-delete" data-index="${index}" title="Löschen">🗑</button>
             `;
 
@@ -3332,6 +3339,8 @@ class ServiceReportApp {
         document.getElementById('materialUnit').value = 'Stk';
         document.getElementById('materialSerial').value = '';
         document.getElementById('materialNotes').value = '';
+        document.getElementById('materialPrice').value = '';
+        document.getElementById('materialPriceGroup').style.display = this.canSeePrices() ? '' : 'none';
 
         document.getElementById('materialModal').classList.add('show');
     }
@@ -3348,7 +3357,7 @@ class ServiceReportApp {
         }
 
         const quantity = parseFloat(document.getElementById('materialQty').value) || 1;
-        const unitPrice = 0; // prices are not handled in the PWA
+        const unitPrice = this.canSeePrices() ? (parseFloat(document.getElementById('materialPrice').value) || 0) : 0;
 
         const material = {
             intervention_id: this.currentIntervention.id,
@@ -3444,9 +3453,10 @@ class ServiceReportApp {
                 resultsEl.innerHTML = '<div class="product-item"><em>Keine Produkte gefunden</em></div>';
             } else {
                 resultsEl.innerHTML = products.map(p => `
-                    <div class="product-item" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}">
+                    <div class="product-item" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}" data-price="${this.escapeHtml(p.price ?? '')}">
                         <div class="product-ref">${this.escapeHtml(p.ref)}</div>
                         <div class="product-label">${this.escapeHtml(p.label)}</div>
+                        ${this.canSeePrices() && p.price !== undefined ? `<div class="product-price">${this.formatPrice(p.price)} €</div>` : ''}
                     </div>
                 `).join('');
 
@@ -3469,6 +3479,9 @@ class ServiceReportApp {
         const label = item.dataset.label;
 
         document.getElementById('materialName').value = label;
+        if (this.canSeePrices() && item.dataset.price !== '') {
+            document.getElementById('materialPrice').value = item.dataset.price;
+        }
         document.getElementById('productSearch').value = ref + ' - ' + label;
         document.getElementById('productResults').classList.remove('show');
     }
