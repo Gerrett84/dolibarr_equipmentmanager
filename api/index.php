@@ -170,7 +170,8 @@ try {
             break;
 
         case 'ping':
-            echo json_encode(['status' => 'ok']);
+            dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+            echo json_encode(['status' => 'ok', 'capabilities' => ['maintenance' => eqmUserCanSeeMaintenance($user)]]);
             break;
 
         case 'interventions':
@@ -2119,7 +2120,8 @@ function handleProducts($method, $parts, $input) {
     $search = $_GET['search'] ?? '';
     $limit = (int)($_GET['limit'] ?? 50);
 
-    $sql = "SELECT p.rowid, p.ref, p.label, p.price, p.tva_tx";
+    // No prices: the PWA only needs to identify the article
+    $sql = "SELECT p.rowid, p.ref, p.label";
     $sql .= " FROM ".MAIN_DB_PREFIX."product p";
     $sql .= " WHERE p.tosell = 1"; // Only products for sale
 
@@ -2139,9 +2141,7 @@ function handleProducts($method, $parts, $input) {
             $products[] = [
                 'id' => (int)$obj->rowid,
                 'ref' => $obj->ref,
-                'label' => $obj->label,
-                'price' => (float)$obj->price,
-                'vat_rate' => (float)$obj->tva_tx
+                'label' => $obj->label
             ];
         }
     }
@@ -2171,6 +2171,10 @@ function handleAvailableEquipment($method, $parts, $input) {
         echo json_encode(['error' => 'Intervention ID required']);
         return;
     }
+
+    // Equipment can only be offered for orders the user has full access to
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    if (!eqmUserCanAccessIntervention($db, $user, $intervention_id)) denyAccess();
 
     // Get the thirdparty (customer) and OBJ contact of this intervention
     $sql_inter = "SELECT fk_soc FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$intervention_id;
@@ -2211,6 +2215,9 @@ function handleAvailableEquipment($method, $parts, $input) {
     $sql .= " WHERE e.fk_soc = ".(int)$socid;
     if ($current_address_id > 0) {
         $sql .= " AND e.fk_address = ".(int)$current_address_id;
+    } elseif (!$user->admin) {
+        // No Objektadresse anchored yet: non-admins get no suggestions (instead of all customer equipment)
+        $sql .= " AND 1 = 0";
     }
     $sql .= " AND e.rowid NOT IN (";
     $sql .= "   SELECT fk_equipment FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -3697,6 +3704,9 @@ function handleEquipment($method, $parts, $input) {
     }
 
     if ($method === 'GET') {
+        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+        if (!eqmUserCanReadEquipment($db, $user, $equipment_id)) denyAccess();
+
         // Return equipment details
         // Get equipment type labels
         $type_labels = Equipment::getEquipmentTypesTranslated($db, $langs);
@@ -4256,7 +4266,11 @@ function handleDefectMaterial($method, $parts, $input) {
  * GET /maintenance-overview - Equipment grouped by object address with maintenance status
  */
 function handleMaintenanceOverview($method, $parts, $input) {
-    global $db, $langs;
+    global $db, $langs, $user;
+
+    // Company-wide overview: not for technician accounts
+    dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+    if (!eqmUserCanSeeMaintenance($user)) denyAccess();
 
     if ($method !== 'GET' && $method !== 'POST') {
         http_response_code(405);

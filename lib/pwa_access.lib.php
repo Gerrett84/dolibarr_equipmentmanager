@@ -230,3 +230,39 @@ function eqmResolveViewRequestUser($db)
     return $ticket !== '' ? eqmResolveViewTicket($db, $ticket) : null;
 }
 
+/**
+ * May the user see the company-wide maintenance overview (all equipment with due dates)?
+ * Technician accounts (module right "pwa use" only) may not.
+ *
+ * @param User $user User (rights loaded)
+ * @return bool
+ */
+function eqmUserCanSeeMaintenance($user)
+{
+    return !empty($user->admin) || $user->hasRight('equipmentmanager', 'equipment', 'read');
+}
+
+/**
+ * May the user read this equipment? Yes if it is linked to one of the user's orders, or sits
+ * at an Objektadresse of equipment linked to one of the user's orders (the equipment list the
+ * PWA offers for an order and the history of that address).
+ *
+ * @param DoliDB $db          Database handler
+ * @param User   $user        User
+ * @param int    $equipmentId Equipment id
+ * @return bool
+ */
+function eqmUserCanReadEquipment($db, $user, $equipmentId)
+{
+    if (!empty($user->admin) || $user->hasRight('equipmentmanager', 'equipment', 'read')) {
+        return true;
+    }
+    $sql = "SELECT 1 FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e2 ON (e2.rowid = e.rowid OR (e.fk_address > 0 AND e2.fk_address = e.fk_address))";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l ON l.fk_equipment = e2.rowid";
+    $sql .= " JOIN ".MAIN_DB_PREFIX."fichinter f ON f.rowid = l.fk_intervention";
+    $sql .= " WHERE e.rowid = ".(int) $equipmentId." AND ".eqmInterventionAccessSql($user, 'f')." LIMIT 1";
+    $res = $db->query($sql);
+    return ($res && $db->num_rows($res) > 0);
+}
+

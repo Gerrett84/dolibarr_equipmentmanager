@@ -95,6 +95,20 @@ class ServiceReportApp {
         this.updateSyncBadge();
     }
 
+    // The maintenance overview is company-wide; technician accounts do not get it
+    canSeeMaintenance() {
+        try { return localStorage.getItem('pwa_cap_maintenance') !== '0'; } catch (e) { return true; }
+    }
+
+    _applyCapabilities(caps) {
+        if (!caps) return;
+        try { localStorage.setItem('pwa_cap_maintenance', caps.maintenance ? '1' : '0'); } catch (e) { /* ignore */ }
+        const nav = document.getElementById('navMaintenance');
+        if (nav && ['viewInterventions', 'viewMap', 'viewMaintenance'].includes(this.currentView)) {
+            nav.style.display = this.canSeeMaintenance() ? 'flex' : 'none';
+        }
+    }
+
     async checkAuth() {
         // Load saved PWA token into memory on every startup
         const savedToken = await offlineDB.getMeta('pwa_token');
@@ -616,6 +630,7 @@ class ServiceReportApp {
                     if (data.offline === true) continue; // SW fallback — retry
 
                     // Real 200 — authenticated and online
+                    this._applyCapabilities(data.capabilities);
                     await this._goOnline(silent, skipAutoSync);
                     return true;
                 }
@@ -709,7 +724,7 @@ class ServiceReportApp {
             document.getElementById('navAcceptanceProtocol').style.display = 'none';
             document.getElementById('navSignature').style.display = 'none';
             document.getElementById('navMap').style.display = 'flex';
-            document.getElementById('navMaintenance').style.display = 'flex';
+            document.getElementById('navMaintenance').style.display = this.canSeeMaintenance() ? 'flex' : 'none';
             // Set correct nav item active
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             const navIds = { viewMap: 'navMap', viewMaintenance: 'navMaintenance' };
@@ -3294,7 +3309,6 @@ class ServiceReportApp {
                         ${material.description ? ' - ' + this.escapeHtml(material.description) : ''}
                     </div>
                 </div>
-                <div class="material-price">${this.formatPrice(material.total_price || (material.quantity * material.unit_price))} €</div>
                 <button type="button" class="material-delete" data-index="${index}" title="Löschen">🗑</button>
             `;
 
@@ -3316,7 +3330,6 @@ class ServiceReportApp {
         document.getElementById('materialDescription').value = '';
         document.getElementById('materialQty').value = '1';
         document.getElementById('materialUnit').value = 'Stk';
-        document.getElementById('materialPrice').value = '';
         document.getElementById('materialSerial').value = '';
         document.getElementById('materialNotes').value = '';
 
@@ -3335,7 +3348,7 @@ class ServiceReportApp {
         }
 
         const quantity = parseFloat(document.getElementById('materialQty').value) || 1;
-        const unitPrice = parseFloat(document.getElementById('materialPrice').value) || 0;
+        const unitPrice = 0; // prices are not handled in the PWA
 
         const material = {
             intervention_id: this.currentIntervention.id,
@@ -3431,10 +3444,9 @@ class ServiceReportApp {
                 resultsEl.innerHTML = '<div class="product-item"><em>Keine Produkte gefunden</em></div>';
             } else {
                 resultsEl.innerHTML = products.map(p => `
-                    <div class="product-item" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}" data-price="${this.escapeHtml(p.price)}">
+                    <div class="product-item" data-id="${Number(p.id) || 0}" data-ref="${this.escapeHtml(p.ref)}" data-label="${this.escapeHtml(p.label)}">
                         <div class="product-ref">${this.escapeHtml(p.ref)}</div>
                         <div class="product-label">${this.escapeHtml(p.label)}</div>
-                        <div class="product-price">${this.formatPrice(p.price)} €</div>
                     </div>
                 `).join('');
 
@@ -3455,10 +3467,8 @@ class ServiceReportApp {
     selectProduct(item) {
         const ref = item.dataset.ref;
         const label = item.dataset.label;
-        const price = item.dataset.price;
 
         document.getElementById('materialName').value = label;
-        document.getElementById('materialPrice').value = price;
         document.getElementById('productSearch').value = ref + ' - ' + label;
         document.getElementById('productResults').classList.remove('show');
     }
