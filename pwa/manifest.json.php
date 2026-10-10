@@ -41,9 +41,12 @@ if ($res) {
 header('Content-Type: application/manifest+json');
 header('Cache-Control: max-age=86400');
 
+// App name from the backend setting (PDF & design); defaults as before
+$appName = ($res && function_exists('getDolGlobalString')) ? trim(getDolGlobalString('EQUIPMENTMANAGER_PWA_APP_NAME')) : '';
+
 $manifest = [
-    'name' => 'Serviceberichte',
-    'short_name' => 'Service',
+    'name' => $appName !== '' ? $appName : 'Serviceberichte',
+    'short_name' => $appName !== '' ? $appName : 'Service',
     'description' => 'Offline Serviceberichte für Techniker',
     'start_url' => './index.php',
     'scope' => './',

@@ -894,3 +894,5 @@ TechnicianGroupCreate=Gruppe anlegen
 TechnicianGroupUpdate=Gruppe aktualisieren
 TechnicianNewUser=Neuen Benutzer anlegen
 TechnicianGroupReadyMsg=Gruppe „%s“ bereit (%s von %s Berechtigungen gesetzt).
+PwaAppName=App-Name (PWA)
+PwaAppNameHelp=Name unter dem Symbol auf dem Startbildschirm (max. 30 Zeichen, besser kurz: iPhone/Android kürzen ab ca. 12 Zeichen). Leer/Zurücksetzen = „Service“. Bereits installierte Apps behalten ihren Namen, bis sie neu hinzugefügt werden.

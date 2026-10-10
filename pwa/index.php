@@ -207,6 +207,7 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
 
 // Company name and logo (Setup -> Company), shown in the header and on the login view
 $pwaCompanyName = !empty($mysoc->name) ? $mysoc->name : '';
+$pwaAppName = trim(getDolGlobalString('EQUIPMENTMANAGER_PWA_APP_NAME'));
 $pwaLogo = eqmCompanyLogo();
 $pwaLogoUrl = $pwaLogo ? 'logo.php?v='.filemtime($pwaLogo['file']) : '';
 $pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
@@ -220,11 +221,11 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="<?php echo $title; ?>">
+    <meta name="apple-mobile-web-app-title" content="<?php echo dol_escape_htmltag($pwaAppName !== '' ? $pwaAppName : $title); ?>">
     <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
 
-    <title><?php echo $title; ?></title>
+    <title><?php echo dol_escape_htmltag($pwaAppName !== '' ? $pwaAppName : $title); ?></title>
 
     <!-- Theme initialization (prevent flash) -->
     <script>
