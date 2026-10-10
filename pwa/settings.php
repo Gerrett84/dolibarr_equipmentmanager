@@ -174,6 +174,8 @@ if (preg_match('/^#[0-9a-fA-F]{6}$/', $brandColorSetting)) {
 $pwaBrandColorRgb = sprintf('%d, %d, %d', hexdec(substr($pwaBrandColor, 1, 2)), hexdec(substr($pwaBrandColor, 3, 2)), hexdec(substr($pwaBrandColor, 5, 2)));
 dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
 $pwaDark = eqmPwaDarkColors('#1e2d3d');
+$pwaLogoFull = eqmCompanyLogo(true);
+$pwaIconUrl = $pwaLogoFull ? 'icon.php?size=180&v='.substr(md5(filemtime($pwaLogoFull['file']).$brandColorSetting), 0, 8) : '../img/object_equipment.png';
 
 // Get trusted device info
 $trustedDeviceInfo = null;
@@ -189,6 +191,8 @@ if (isModEnabled('totp2fa')) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
+    <link rel="manifest" href="manifest.json.php">
+    <link rel="apple-touch-icon" href="<?php echo $pwaIconUrl; ?>">
     <title><?php echo $title; ?></title>
 
     <!-- Theme initialization -->
@@ -620,6 +624,14 @@ if (isModEnabled('totp2fa')) {
             <div id="emailSettingsList"></div>
         </div>
 
+        <div class="section-title">App</div>
+
+        <div class="card" id="installCard">
+            <h2>📲 Auf den Startbildschirm</h2>
+            <p class="help-text" id="installHelp" style="margin-top:0;"></p>
+            <button type="button" class="btn btn-primary" id="btnInstall" style="display:none;">Zum Startbildschirm hinzufügen</button>
+        </div>
+
         <div class="section-title">Daten</div>
 
         <div class="card">
@@ -647,6 +659,42 @@ if (isModEnabled('totp2fa')) {
 
     </div>
 
+    <script src="install.js?v=6.1.3"></script>
+    <script>
+        (function () {
+            const help = document.getElementById('installHelp');
+            const btn = document.getElementById('btnInstall');
+            const iconUrl = <?php echo json_encode($pwaIconUrl); ?>;
+            function render() {
+                const em = window.emInstall;
+                btn.style.display = 'none';
+                if (em.isStandalone()) {
+                    help.textContent = '✅ Die App ist bereits auf dem Startbildschirm installiert.';
+                } else if (em.canPrompt()) {
+                    help.textContent = 'Legt die App mit dem Firmenlogo als Symbol auf den Startbildschirm.';
+                    btn.style.display = '';
+                } else if (em.isIOS()) {
+                    help.textContent = em.isIOSSafari()
+                        ? 'Auf dem iPhone/iPad geht das nur über das Teilen-Menü von Safari – die Anleitung zeigt die drei Schritte.'
+                        : 'Auf dem iPhone/iPad geht das nur in Safari (über das Teilen-Menü). Bitte diese Seite in Safari öffnen.';
+                    btn.style.display = '';
+                } else {
+                    help.textContent = 'Im Browser-Menü „App installieren“ bzw. „Zum Startbildschirm hinzufügen“ wählen. Sobald der Browser die Installation anbietet, erscheint hier ein Knopf.';
+                }
+            }
+            btn.addEventListener('click', async () => {
+                const em = window.emInstall;
+                if (em.canPrompt()) {
+                    await em.prompt();
+                } else if (em.isIOS()) {
+                    // Saving must happen on the start page, not on this settings page
+                    window.location.href = 'index.php?install=ios';
+                }
+            });
+            window.emInstall.onChange(render);
+            render();
+        })();
+    </script>
     <script src="db.js"></script>
     <script>
         // Backend shortcut only for admins (capability is stored by the app via ping)

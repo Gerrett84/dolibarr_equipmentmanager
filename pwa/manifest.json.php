@@ -3,12 +3,50 @@
  * PWA Manifest for Equipment Manager Service Reports
  */
 
+// Public (the browser/OS fetches the manifest without a session), so no login redirect
+define('NOLOGIN', 1);
+define('NOCSRFCHECK', 1);
+define('NOREQUIREMENU', 1);
+define('NOREQUIREHTML', 1);
+
+// Home screen icons from the company logo (icon.php); module icon if there is no usable logo
+$res = 0;
+if (!$res && file_exists("../../../main.inc.php")) {
+    $res = @include "../../../main.inc.php";
+}
+if (!$res && file_exists("../../../../main.inc.php")) {
+    $res = @include "../../../../main.inc.php";
+}
+$icons = [
+    [
+        'src' => '../img/object_equipment.png',
+        'sizes' => '32x32',
+        'type' => 'image/png'
+    ],
+];
+if ($res) {
+    dol_include_once('/equipmentmanager/lib/pwa_theme.lib.php');
+    $logo = function_exists('eqmCompanyLogo') ? eqmCompanyLogo(true) : null;
+    if ($logo && function_exists('imagecreatefromstring')) {
+        $v = substr(md5(filemtime($logo['file']).getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR')), 0, 8);
+        $icons = [
+            ['src' => 'icon.php?size=192&v='.$v, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => 'icon.php?size=512&v='.$v, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => 'icon.php?size=192&maskable=1&v='.$v, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'maskable'],
+            ['src' => 'icon.php?size=512&maskable=1&v='.$v, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+        ];
+    }
+}
+
 header('Content-Type: application/manifest+json');
-header('Cache-Control: max-age=86400');
+header('Cache-Control: no-cache');
+
+// App name from the backend setting (PDF & design); defaults as before
+$appName = ($res && function_exists('getDolGlobalString')) ? trim(getDolGlobalString('EQUIPMENTMANAGER_PWA_APP_NAME')) : '';
 
 $manifest = [
-    'name' => 'Serviceberichte',
-    'short_name' => 'Service',
+    'name' => $appName !== '' ? $appName : 'Serviceberichte',
+    'short_name' => $appName !== '' ? $appName : 'Service',
     'description' => 'Offline Serviceberichte für Techniker',
     'start_url' => './index.php',
     'scope' => './',
@@ -16,19 +54,7 @@ $manifest = [
     'orientation' => 'portrait',
     'background_color' => '#ffffff',
     'theme_color' => '#263c5c',
-    'icons' => [
-        [
-            'src' => '../img/object_equipment.png',
-            'sizes' => '32x32',
-            'type' => 'image/png'
-        ],
-        [
-            'src' => 'data:image/svg+xml,' . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect fill="#263c5c" width="192" height="192" rx="20"/><text x="96" y="130" font-size="100" text-anchor="middle" fill="white">S</text></svg>'),
-            'sizes' => '192x192',
-            'type' => 'image/svg+xml',
-            'purpose' => 'any maskable'
-        ]
-    ],
+    'icons' => $icons,
     'categories' => ['business', 'productivity'],
     'lang' => 'de',
     'dir' => 'ltr'

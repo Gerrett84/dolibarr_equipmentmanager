@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.2** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.3** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,14 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.3 (2026-10-10)
+
+> **Update-Hinweis:** Modulordner ersetzen. Ein Aus-/Einschalten des Moduls ist für dieses Release nicht nötig. Auf den Geräten die PWA einmal online öffnen und schließen (neuer Service Worker); für neuen **App-Namen** und **Symbol** die App vom Startbildschirm entfernen und neu hinzufügen.
+
+- **App-Name der PWA einstellbar** – Neue Einstellung „App-Name (PWA)“ unter Moduleinstellungen → PDF & Design (max. 30 Zeichen, HTML wird entfernt, leer/Zurücksetzen = „Service“). Sie bestimmt den Namen unter dem Symbol auf dem Startbildschirm (Manifest `name`/`short_name`, `apple-mobile-web-app-title`, Seitentitel). Bereits installierte Apps behalten den alten Namen, bis sie neu hinzugefügt werden. Manifest und Symbole werden vom Service Worker jetzt „Netzwerk zuerst“ geladen (und nicht mehr aus dem Cache), damit Änderungen am Namen oder Logo sofort ankommen; der Browser-Cache des Manifests ist abgeschaltet (vorher 1 Tag)
+- **PWA: „Auf den Startbildschirm“ mit Firmenlogo als App-Symbol** – Neue Karte „App“ in den PWA-Einstellungen. **Android/Chrome/Edge:** ein Klick auf „Zum Startbildschirm hinzufügen“ öffnet den Installationsdialog des Browsers. **iPhone/iPad:** Apple bietet keine Installationsfunktion für Webseiten; der Knopf führt zur Startseite und zeigt eine 3-Schritte-Anleitung (Teilen → „Zum Home-Bildschirm“ → „Hinzufügen“), mit Hinweis, falls nicht Safari benutzt wird. Das **App-Symbol wird aus dem Firmenlogo erzeugt** (`pwa/icon.php`: quadratisch, passender Hintergrund – eigene Logo-Farbe, Markenfarbe hinter hellen Logos, weiß hinter dunklen; zusätzlich „maskable“-Varianten für Android) und gilt für Manifest und `apple-touch-icon`; ohne Logo bleibt das bisherige Symbol. Bereits installierte Apps behalten ihr altes Symbol, bis sie neu hinzugefügt werden
+- **PWA: Kopfzeile „Auftragsübersicht“** statt „Serviceberichte“ (der App-Name auf dem Home-Bildschirm ist separat einstellbar, s. o.)
 
 ### v6.1.2 (2026-10-08)
 
@@ -851,6 +859,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.2
+**Current Version:** 6.1.3
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)

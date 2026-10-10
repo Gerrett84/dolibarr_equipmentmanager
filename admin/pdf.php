@@ -85,6 +85,18 @@ if ($action == 'save_brand_color') {
     exit;
 }
 
+// Save or reset the PWA app name (home screen / install name)
+if ($action == 'save_pwa_app_name') {
+    $appName = GETPOSTISSET('reset_btn') ? '' : trim(strip_tags(GETPOST('pwa_app_name', 'alphanohtml')));
+    $appName = function_exists('mb_substr') ? mb_substr($appName, 0, 30) : substr($appName, 0, 30);
+
+    dolibarr_set_const($db, 'EQUIPMENTMANAGER_PWA_APP_NAME', $appName, 'chaine', 0, '', $conf->entity);
+    setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+
+    header("Location: ".$_SERVER["PHP_SELF"]);
+    exit;
+}
+
 // Save or reset the PWA dark mode color
 if ($action == 'save_brand_color_dark') {
     $darkColor = GETPOSTISSET('reset_btn') ? '' : GETPOST('brand_color_dark', 'alpha');
@@ -249,6 +261,29 @@ print '<td>';
 $currentBrandColorDark = getDolGlobalString('EQUIPMENTMANAGER_BRAND_COLOR_DARK');
 print '<input type="color" name="brand_color_dark" value="'.dol_escape_htmltag($currentBrandColorDark ?: '#1e3a8a').'">';
 print ' <span class="opacitymedium">'.$langs->trans("BrandColorDarkHelp").'</span>';
+print '</td>';
+print '<td class="right nowraponall">';
+print '<input type="submit" name="reset_btn" value="'.$langs->trans("ResetToDefault").'" class="button button-cancel" formnovalidate style="margin-right:5px;">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</td>';
+print '</tr>';
+print '</table>';
+print '</div>';
+print '</form>';
+print '<br>';
+
+// PWA app name (name below the home screen icon)
+print load_fiche_titre($langs->trans("PwaAppName"), '', '');
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_pwa_app_name">';
+print '<div class="div-table-responsive-no-min">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans("PwaAppName").'</td>';
+print '<td>';
+print '<input type="text" name="pwa_app_name" maxlength="30" class="minwidth200" placeholder="Service" value="'.dol_escape_htmltag(getDolGlobalString('EQUIPMENTMANAGER_PWA_APP_NAME')).'">';
+print ' <span class="opacitymedium">'.$langs->trans("PwaAppNameHelp").'</span>';
 print '</td>';
 print '<td class="right nowraponall">';
 print '<input type="submit" name="reset_btn" value="'.$langs->trans("ResetToDefault").'" class="button button-cancel" formnovalidate style="margin-right:5px;">';

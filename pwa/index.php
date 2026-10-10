@@ -207,6 +207,7 @@ $pwaDark = eqmPwaDarkColors('#1e3a8a');
 
 // Company name and logo (Setup -> Company), shown in the header and on the login view
 $pwaCompanyName = !empty($mysoc->name) ? $mysoc->name : '';
+$pwaAppName = trim(getDolGlobalString('EQUIPMENTMANAGER_PWA_APP_NAME'));
 $pwaLogo = eqmCompanyLogo();
 $pwaLogoUrl = $pwaLogo ? 'logo.php?v='.filemtime($pwaLogo['file']) : '';
 $pwaLogoLight = ($pwaLogo && $pwaLogo['light']);
@@ -220,11 +221,11 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="<?php echo $title; ?>">
+    <meta name="apple-mobile-web-app-title" content="<?php echo dol_escape_htmltag($pwaAppName !== '' ? $pwaAppName : $title); ?>">
     <meta name="theme-color" content="<?php echo $pwaBrandColor; ?>" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="<?php echo $pwaDark['header']; ?>" media="(prefers-color-scheme: dark)">
 
-    <title><?php echo $title; ?></title>
+    <title><?php echo dol_escape_htmltag($pwaAppName !== '' ? $pwaAppName : $title); ?></title>
 
     <!-- Theme initialization (prevent flash) -->
     <script>
@@ -241,7 +242,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
     </script>
 
     <link rel="manifest" href="manifest.json.php">
-    <link rel="apple-touch-icon" href="../img/object_equipment.png">
+    <link rel="apple-touch-icon" href="<?php echo $pwaLogo ? 'icon.php?size=180&v='.substr(md5(filemtime($pwaLogo['file']).$brandColorSetting), 0, 8) : '../img/object_equipment.png'; ?>">
 
     <style>
         /* Theme Variables */
@@ -2322,7 +2323,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
         <span class="header-logo<?php echo ($pwaLogoLight || $pwaLogoOpaque) ? ' light' : ''; ?><?php echo $pwaLogoOpaque ? ' opaque' : ''; ?>"><img src="<?php echo dol_escape_htmltag($pwaLogoUrl); ?>" alt=""></span>
         <?php endif; ?>
         <div class="header-titles">
-            <h1 id="headerTitle"><?php echo $title; ?></h1>
+            <h1 id="headerTitle">Auftragsübersicht</h1>
             <?php if ($pwaCompanyName): ?><div class="header-company"><?php echo dol_escape_htmltag($pwaCompanyName); ?></div><?php endif; ?>
         </div>
         <span class="sync-status" id="syncStatus" title="Tippen zum Synchronisieren" style="cursor:pointer;">Offline</span>
@@ -2902,8 +2903,20 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
+    <script src="install.js?v=6.1.3"></script>
     <script src="db.js?v=5.5.0"></script>
     <script src="app.js?v=6.0.1"></script>
+
+    <script>
+        // Opened from the settings page on iOS: show the add-to-home-screen guide on this (start) page
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('install') === 'ios' && window.emInstall && !window.emInstall.isStandalone()) {
+                history.replaceState(null, '', window.location.pathname);
+                setTimeout(() => window.emInstall.showIosHelp(<?php echo json_encode($pwaLogo ? 'icon.php?size=180&v='.substr(md5(filemtime($pwaLogo['file']).$brandColorSetting), 0, 8) : '../img/object_equipment.png'); ?>), 600);
+            }
+        })();
+    </script>
 
     <?php if (file_exists('sw.js')): ?>
     <script>

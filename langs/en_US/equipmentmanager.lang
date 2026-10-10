@@ -343,3 +343,5 @@ TechnicianGroupCreate=Create group
 TechnicianGroupUpdate=Update group
 TechnicianNewUser=Create new user
 TechnicianGroupReadyMsg=Group "%s" ready (%s of %s permissions set).
+PwaAppName=App name (PWA)
+PwaAppNameHelp=Name below the icon on the home screen (max. 30 characters, keep it short: iPhone/Android truncate at about 12). Empty/reset = "Service". Already installed apps keep their name until they are added again.

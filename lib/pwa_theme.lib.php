@@ -192,14 +192,15 @@ function eqmLogoIsOpaque($file)
  *
  * @return array|null array(file, mime, light, opaque) or null
  */
-function eqmCompanyLogo()
+function eqmCompanyLogo($full = false)
 {
     global $conf, $mysoc;
-    static $cache = false;
-    if ($cache !== false) {
-        return $cache;
+    static $caches = array();
+    $cacheKey = $full ? 'full' : 'small';
+    if (array_key_exists($cacheKey, $caches)) {
+        return $caches[$cacheKey];
     }
-    $cache = null;
+    $caches[$cacheKey] = null;
     if (empty($mysoc->logo)) {
         return null;
     }
@@ -207,18 +208,21 @@ function eqmCompanyLogo()
     $mimes = array('png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif');
     $dir = $conf->mycompany->dir_output.'/logos/';
     $candidates = array();
-    if (!empty($mysoc->logo_small)) {
+    if (!$full && !empty($mysoc->logo_small)) {
         $candidates[] = $dir.'thumbs/'.basename($mysoc->logo_small);
     }
     $candidates[] = $dir.basename($mysoc->logo);
+    if ($full && !empty($mysoc->logo_small)) {
+        $candidates[] = $dir.'thumbs/'.basename($mysoc->logo_small);
+    }
 
     foreach ($candidates as $file) {
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         if (isset($mimes[$ext]) && is_file($file)) {
-            $cache = array('file' => $file, 'mime' => $mimes[$ext], 'light' => eqmLogoIsLight($file), 'opaque' => eqmLogoIsOpaque($file));
+            $caches[$cacheKey] = array('file' => $file, 'mime' => $mimes[$ext], 'light' => eqmLogoIsLight($file), 'opaque' => eqmLogoIsOpaque($file));
             break;
         }
     }
-    return $cache;
+    return $caches[$cacheKey];
 }
 
