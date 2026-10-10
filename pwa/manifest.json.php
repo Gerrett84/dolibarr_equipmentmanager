@@ -39,7 +39,7 @@ if ($res) {
 }
 
 header('Content-Type: application/manifest+json');
-header('Cache-Control: max-age=86400');
+header('Cache-Control: no-cache');
 
 // App name from the backend setting (PDF & design); defaults as before
 $appName = ($res && function_exists('getDolGlobalString')) ? trim(getDolGlobalString('EQUIPMENTMANAGER_PWA_APP_NAME')) : '';

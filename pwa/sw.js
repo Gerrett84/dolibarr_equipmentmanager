@@ -2,8 +2,8 @@
  * Service Worker for Offline PWA
  */
 
-const CACHE_NAME = 'equipmentmanager-pwa-v53';
-const STATIC_CACHE = 'equipmentmanager-static-v53';
+const CACHE_NAME = 'equipmentmanager-pwa-v54';
+const STATIC_CACHE = 'equipmentmanager-static-v54';
 
 // Files to cache for offline use
 const STATIC_FILES = [
@@ -77,6 +77,23 @@ self.addEventListener('fetch', (event) => {
                         { headers: { 'Content-Type': 'application/json' } }
                     );
                 })
+        );
+        return;
+    }
+
+    // Install metadata (app name, icons) must show backend changes immediately: network first,
+    // the cached copy is only the offline fallback
+    if (url.pathname.endsWith('manifest.json.php') || url.pathname.endsWith('icon.php')) {
+        event.respondWith(
+            fetch(event.request, { cache: 'no-store' })
+                .then(response => {
+                    if (response.ok) {
+                        const clone = response.clone();
+                        caches.open(STATIC_CACHE).then(cache => cache.put(event.request, clone));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request))
         );
         return;
     }
