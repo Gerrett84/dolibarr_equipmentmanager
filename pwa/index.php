@@ -241,7 +241,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
     </script>
 
     <link rel="manifest" href="manifest.json.php">
-    <link rel="apple-touch-icon" href="../img/object_equipment.png">
+    <link rel="apple-touch-icon" href="<?php echo $pwaLogo ? 'icon.php?size=180&v='.substr(md5(filemtime($pwaLogo['file']).$brandColorSetting), 0, 8) : '../img/object_equipment.png'; ?>">
 
     <style>
         /* Theme Variables */
@@ -2902,8 +2902,20 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
+    <script src="install.js?v=6.1.3"></script>
     <script src="db.js?v=5.5.0"></script>
     <script src="app.js?v=6.0.1"></script>
+
+    <script>
+        // Opened from the settings page on iOS: show the add-to-home-screen guide on this (start) page
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('install') === 'ios' && window.emInstall && !window.emInstall.isStandalone()) {
+                history.replaceState(null, '', window.location.pathname);
+                setTimeout(() => window.emInstall.showIosHelp(<?php echo json_encode($pwaLogo ? 'icon.php?size=180&v='.substr(md5(filemtime($pwaLogo['file']).$brandColorSetting), 0, 8) : '../img/object_equipment.png'); ?>), 600);
+            }
+        })();
+    </script>
 
     <?php if (file_exists('sw.js')): ?>
     <script>

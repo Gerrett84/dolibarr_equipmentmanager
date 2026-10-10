@@ -365,6 +365,7 @@ chmod -R 755 equipmentmanager
 
 ### Unreleased
 
+- **PWA: „Auf den Startbildschirm“ mit Firmenlogo als App-Symbol** – Neue Karte „App“ in den PWA-Einstellungen. **Android/Chrome/Edge:** ein Klick auf „Zum Startbildschirm hinzufügen“ öffnet den Installationsdialog des Browsers. **iPhone/iPad:** Apple bietet keine Installationsfunktion für Webseiten; der Knopf führt zur Startseite und zeigt eine 3-Schritte-Anleitung (Teilen → „Zum Home-Bildschirm“ → „Hinzufügen“), mit Hinweis, falls nicht Safari benutzt wird. Das **App-Symbol wird aus dem Firmenlogo erzeugt** (`pwa/icon.php`: quadratisch, passender Hintergrund – eigene Logo-Farbe, Markenfarbe hinter hellen Logos, weiß hinter dunklen; zusätzlich „maskable“-Varianten für Android) und gilt für Manifest und `apple-touch-icon`; ohne Logo bleibt das bisherige Symbol. Bereits installierte Apps behalten ihr altes Symbol, bis sie neu hinzugefügt werden
 - **PWA: Kopfzeile „Auftragsübersicht“** statt „Serviceberichte“ (App-Name auf dem Home-Bildschirm bleibt unverändert)
 
 ### v6.1.2 (2026-10-08)
