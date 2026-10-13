@@ -231,7 +231,7 @@ if ($action == 'add_defect_material' && $permissiontoadd && $entry_id > 0) {
         setEventMessages($langs->trans('ProductOrFreetextRequired'), null, 'errors');
     }
 
-    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id);
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id."&token=".newToken());
     exit;
 }
 
@@ -248,7 +248,7 @@ if ($action == 'delete_defect_material' && $permissiontoadd) {
         }
     }
 
-    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id);
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id."&equipment_id=".$equipment_id."&action=edit_entry&entry_id=".$entry_id."&token=".newToken());
     exit;
 }
 
@@ -868,7 +868,7 @@ if ($object->id > 0) {
     print '<th colspan="5">';
     print '<span class="fa fa-file-text-o paddingright"></span>'.$langs->trans('WorkEntries');
     if ($permissiontoadd) {
-        print ' <a class="button buttongen button-add" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=new_entry">';
+        print ' <a class="button buttongen button-add" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=new_entry&token='.newToken().'">';
         print '<span class="fa fa-plus"></span> '.$langs->trans('AddEntry');
         print '</a>';
     }
@@ -1115,7 +1115,7 @@ document.getElementById("work_end_time") && document.getElementById("work_end_ti
             // Actions
             print '<td class="center nowraponall">';
             if ($permissiontoadd) {
-                print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=edit_entry&entry_id='.$entry->id.'">';
+                print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=edit_entry&entry_id='.$entry->id.'&token='.newToken().'">';
                 print img_edit();
                 print '</a> ';
                 print '<a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=delete_entry&entry_id='.$entry->id.'&token='.newToken().'" onclick="return confirm(\''.$langs->trans('ConfirmDelete').'\');">';
@@ -1130,7 +1130,7 @@ document.getElementById("work_end_time") && document.getElementById("work_end_ti
         print '<tr><td colspan="5" class="opacitymedium center">';
         print $langs->trans('NoEntries');
         if ($permissiontoadd) {
-            print ' - <a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=new_entry">'.$langs->trans('AddEntry').'</a>';
+            print ' - <a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&equipment_id='.$equipment_id.'&action=new_entry&token='.newToken().'">'.$langs->trans('AddEntry').'</a>';
         }
         print '</td></tr>';
     }
