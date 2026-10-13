@@ -320,7 +320,8 @@ class ServiceReportApp {
         if (!this.pwaToken) return false;
         // No try-catch here — let network errors propagate to caller
         const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 10000);
+        const timeoutMs = options.timeout || 10000;
+        const tid = setTimeout(() => controller.abort(), timeoutMs);
         let response;
         try {
             response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
@@ -458,6 +459,12 @@ class ServiceReportApp {
             await this.syncData();
             badge.textContent = prev;
         });
+
+        // Keep unsaved entry input as a local draft
+        let draftTimer = null;
+        const onEntryInput = () => { clearTimeout(draftTimer); draftTimer = setTimeout(() => this._saveEntryDraft(), 400); };
+        document.getElementById('entryForm').addEventListener('input', onEntryInput);
+        document.getElementById('entryForm').addEventListener('change', onEntryInput);
 
         // Entry form submit (v1.7)
         document.getElementById('entryForm').addEventListener('submit', (e) => {
@@ -861,6 +868,9 @@ class ServiceReportApp {
                 this.loadEquipment(this.currentIntervention);
                 break;
             case 'viewEntry':
+                if (this._isEntryDirty() && !confirm('Dieser Eintrag ist noch nicht gespeichert.\n\nTrotzdem verlassen? Der Entwurf bleibt auf diesem Gerät erhalten.')) {
+                    return;
+                }
                 this.loadEntries(this.currentEquipment);
                 break;
             case 'viewSignature':
@@ -902,11 +912,12 @@ class ServiceReportApp {
         const tid = setTimeout(() => controller.abort(), 10000);
 
         try {
+            const { timeout: _t, ...fetchOptions } = options;
             const response = await fetch(url, {
                 credentials: 'same-origin',
                 headers,
                 signal: controller.signal,
-                ...options
+                ...fetchOptions
             });
             clearTimeout(tid);
 
@@ -1367,6 +1378,7 @@ class ServiceReportApp {
             }
 
             loadingEl.style.display = 'none';
+            this.currentEquipmentList = equipment;
 
             // Show release button and update text based on signed_status
             const releaseBtn = document.getElementById('navRelease');
@@ -1758,6 +1770,7 @@ class ServiceReportApp {
         // Show delete button for existing entries
         document.getElementById('btnDeleteEntry').style.display = 'block';
 
+        this._initEntryDraft();
         this._applyEntryLockState();
     }
 
@@ -1891,6 +1904,7 @@ class ServiceReportApp {
         // Hide delete button for new entries
         document.getElementById('btnDeleteEntry').style.display = 'none';
 
+        this._initEntryDraft();
         this._applyEntryLockState();
     }
 
@@ -1916,6 +1930,80 @@ class ServiceReportApp {
         const diff = endMin - startMin;
         const h = Math.floor(diff / 60), m = diff % 60;
         el.textContent = `= ${h}h${m > 0 ? ` ${m}min` : ''}`;
+    }
+
+    // ---- Entry drafts: keep unsaved input on this device so it is never lost silently ----
+    _draftKey() {
+        const i = this.currentIntervention?.id;
+        const e = this.currentEquipment?.id ?? 0;
+        const n = this.currentEntry?.id || 'new';
+        return `eqm_draft_${i}_${e}_${n}`;
+    }
+
+    _readEntryFormFields() {
+        const v = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+        return {
+            mode: this._timeMode || 'duration',
+            date: v('entryDate'), hours: v('entryHours'), minutes: v('entryMinutes'),
+            start: v('entryTimeStart'), end: v('entryTimeEnd'),
+            work_done: v('entryWorkDone'), issues: v('entryIssuesFound')
+        };
+    }
+
+    _initEntryDraft() {
+        this._entrySnapshot = JSON.stringify(this._readEntryFormFields());
+        try {
+            const raw = localStorage.getItem(this._draftKey());
+            if (!raw) return;
+            const d = JSON.parse(raw);
+            if (!d || !d.f || JSON.stringify(d.f) === this._entrySnapshot || this.isInterventionLocked()) return;
+            const f = d.f;
+            this.setTimeMode(f.mode || 'duration');
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+            set('entryDate', f.date); set('entryHours', f.hours); set('entryMinutes', f.minutes);
+            set('entryTimeStart', f.start); set('entryTimeEnd', f.end);
+            set('entryWorkDone', f.work_done); set('entryIssuesFound', f.issues);
+            this.onTimeRangeChange();
+            this.showToast('Ungespeicherter Entwurf wiederhergestellt', 4000);
+        } catch (e) { /* storage unavailable */ }
+    }
+
+    _isEntryDirty() {
+        if (this.currentView !== 'viewEntry' || this._entrySnapshot == null) return false;
+        return JSON.stringify(this._readEntryFormFields()) !== this._entrySnapshot;
+    }
+
+    _saveEntryDraft() {
+        if (this.currentView !== 'viewEntry' || this._entrySnapshot == null || this.isInterventionLocked()) return;
+        try {
+            if (this._isEntryDirty()) {
+                localStorage.setItem(this._draftKey(), JSON.stringify({ ts: Date.now(), f: this._readEntryFormFields() }));
+            } else {
+                localStorage.removeItem(this._draftKey());
+            }
+        } catch (e) { /* storage unavailable */ }
+    }
+
+    _clearEntryDraft() {
+        try { localStorage.removeItem(this._draftKey()); } catch (e) {}
+        this._entrySnapshot = JSON.stringify(this._readEntryFormFields());
+    }
+
+    _pendingDraftKeys(interventionId) {
+        const keys = [];
+        try {
+            const prefix = `eqm_draft_${interventionId}_`;
+            const maxAge = 14 * 24 * 3600 * 1000;
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith('eqm_draft_')) continue;
+                let ts = 0;
+                try { ts = JSON.parse(localStorage.getItem(k)).ts || 0; } catch (e) {}
+                if (Date.now() - ts > maxAge) { localStorage.removeItem(k); i--; continue; }
+                if (k.startsWith(prefix)) keys.push(k);
+            }
+        } catch (e) {}
+        return keys;
     }
 
     // Save entry (v1.7)
@@ -2030,6 +2118,7 @@ class ServiceReportApp {
                     }
                 }
 
+                this._clearEntryDraft();
                 this.showToast('Gespeichert');
 
                 // Go back to entries list and refresh
@@ -2757,7 +2846,8 @@ class ServiceReportApp {
                     body: JSON.stringify({
                         signature: base64,
                         signer_name: signerName
-                    })
+                    }),
+                    timeout: 60000
                 });
                 this.currentIntervention.signed_status = 3;
                 this.currentIntervention.status = 3; // Closed
@@ -2848,7 +2938,8 @@ class ServiceReportApp {
 
                     const result = await this.apiCall('sync', {
                         method: 'POST',
-                        body: JSON.stringify({ changes })
+                        body: JSON.stringify({ changes }),
+                        timeout: 60000
                     });
 
                     if (result.status === 'ok' || result.status === 'partial') {
@@ -3849,6 +3940,22 @@ class ServiceReportApp {
         const confirmMsg = isReleased
             ? 'Auftrag zur Bearbeitung wieder öffnen?'
             : 'Auftrag zur Unterschrift freigeben? Dies generiert auch die PDF.';
+
+        if (!isReleased) {
+            // Never release while unsaved entries exist on this device
+            if (this._pendingDraftKeys(this.currentIntervention.id).length > 0) {
+                this.showToast('⚠️ Es gibt noch einen ungespeicherten Eintrag – bitte erst speichern', 7000);
+                return;
+            }
+            // Warn about linked equipment without any entry
+            const missing = (this.currentEquipmentList || [])
+                .filter(eq => !eq.detail && !(eq.details && eq.details.length))
+                .map(eq => eq.ref);
+            if (missing.length > 0 &&
+                !confirm('Für folgende Anlagen gibt es noch keinen Eintrag:\n' + missing.join(', ') + '\n\nTrotzdem freigeben?')) {
+                return;
+            }
+        }
 
         if (!confirm(confirmMsg)) {
             return;
@@ -5227,6 +5334,8 @@ class ServiceReportApp {
             this.showToast('Bitte E-Mail-Adresse eingeben');
             return;
         }
+        if (this._emailSending) return; // already in flight – never send twice
+        this._emailSending = true;
 
         const sendBtn = document.getElementById('btnEmailModalSend');
         sendBtn.disabled = true;
@@ -5239,7 +5348,8 @@ class ServiceReportApp {
             if (body) payload.body = body;
             const result = await this.apiCall(`intervention/${this.currentIntervention.id}/send-email`, {
                 method: 'POST',
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                timeout: 60000
             });
 
             document.getElementById('emailModal').style.display = 'none';
@@ -5249,8 +5359,14 @@ class ServiceReportApp {
                 this.showToast('Fehler beim Senden');
             }
         } catch (err) {
-            this.showToast('Fehler: ' + err.message);
+            if (err.name === 'AbortError') {
+                document.getElementById('emailModal').style.display = 'none';
+                this.showToast('Der Versand dauert ungewöhnlich lange – bitte NICHT erneut senden, sondern in ca. 1 Minute im Postfach prüfen', 9000);
+            } else {
+                this.showToast('Fehler: ' + err.message);
+            }
         } finally {
+            this._emailSending = false;
             sendBtn.disabled = false;
             sendBtn.textContent = 'Senden';
         }
