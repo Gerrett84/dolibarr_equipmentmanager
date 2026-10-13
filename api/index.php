@@ -511,7 +511,7 @@ function handleIntervention($method, $parts, $input) {
             'subject'        => $subject,
             'body'           => $body,
             'body_html'      => isset($rawBody) ? $rawBody : '',
-            'bcc'            => $user->email ?: '',
+            'bcc'            => eqmDefaultBcc($user),
             'attachments'    => $attachments
         ]);
         return;
@@ -603,6 +603,32 @@ function handleIntervention($method, $parts, $input) {
         $fromName  = getDolGlobalString('MAIN_MAIL_EMAIL_FROM_NAME') ?: $user->getFullName($langs);
         $from      = $fromName ? '"' . $fromName . '" <' . $fromEmail . '>' : $fromEmail;
 
+        // Drop BCC addresses that Dolibarr's global auto-copy already covers (would arrive twice)
+        if ($bccEmail !== '') {
+            $autoCopy = array_filter(preg_split('/[,;\s]+/', strtolower(getDolGlobalString('MAIN_MAIL_AUTOCOPY_TO'))));
+            if (in_array(strtolower($bccEmail), $autoCopy, true)) $bccEmail = '';
+        }
+
+        // Guard against double sending (client timeout + retry): same mail within 2 minutes is not sent again
+        $guardDir = DOL_DATA_ROOT . '/equipmentmanager/mail_guard';
+        if (!is_dir($guardDir)) dol_mkdir($guardDir);
+        $sortedAtt = $attachNames; sort($sortedAtt);
+        $guardFile = $guardDir . '/' . sha1(implode('|', [(int)$id, strtolower($recipientEmail), strtolower($ccEmail), strtolower($bccEmail), $subject, implode(',', $sortedAtt)])) . '.lock';
+        if (file_exists($guardFile) && (time() - filemtime($guardFile)) < 120) {
+            echo json_encode([
+                'status'    => 'ok',
+                'message'   => 'E-Mail wurde bereits gesendet',
+                'recipient' => $recipientEmail,
+                'attached'  => !empty($attachPaths),
+                'duplicate' => true
+            ]);
+            return;
+        }
+        @file_put_contents($guardFile, (string)time());
+        foreach (glob($guardDir . '/*.lock') ?: [] as $oldLock) {
+            if (time() - filemtime($oldLock) > 3600) @unlink($oldLock);
+        }
+
         require_once DOL_DOCUMENT_ROOT . '/core/class/CMailFile.class.php';
         $mailfile = new CMailFile(
             $subject,
@@ -625,6 +651,7 @@ function handleIntervention($method, $parts, $input) {
                 'attached'  => !empty($attachPaths)
             ]);
         } else {
+            @unlink($guardFile); // failed: allow a retry
             http_response_code(500);
             echo json_encode(['error' => 'E-Mail konnte nicht gesendet werden', 'details' => $mailfile->error]);
         }
@@ -1304,6 +1331,27 @@ function handleSchedule($method, $parts, $input) {
         http_response_code(500);
         echo json_encode(['error' => 'Database error']);
     }
+}
+
+/**
+ * Default BCC for the PWA e-mail modal: the technician's own address, but only if
+ * it does not land in a mailbox that already receives a copy (Dolibarr's global
+ * auto-copy, the sender address, or addresses listed in EQUIPMENTMANAGER_PWA_SAME_MAILBOX).
+ *
+ * @param User $u
+ * @return string
+ */
+function eqmDefaultBcc($u)
+{
+    $addr = strtolower(trim((string)$u->email));
+    if ($addr === '') return '';
+    $known = [];
+    foreach (['MAIN_MAIL_AUTOCOPY_TO', 'MAIN_MAIL_EMAIL_FROM', 'EQUIPMENTMANAGER_PWA_SAME_MAILBOX'] as $c) {
+        foreach (preg_split('/[,;\s]+/', strtolower(getDolGlobalString($c))) as $a) {
+            if ($a !== '') $known[] = $a;
+        }
+    }
+    return in_array($addr, $known, true) ? '' : trim((string)$u->email);
 }
 
 /**

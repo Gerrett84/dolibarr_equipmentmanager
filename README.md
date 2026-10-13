@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.3** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.4** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,14 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.4 (2026-10-13)
+
+> **Update-Hinweis:** Modulordner ersetzen. Ein Aus-/Einschalten des Moduls ist nicht nötig. Auf den Geräten die PWA einmal online öffnen und schließen (neuer Service Worker, Cache v55).
+
+- **PWA: Eintragsentwürfe gegen Datenverlust** – Was im Eintragsformular getippt wird, wird als Entwurf auf dem Gerät gespeichert und beim erneuten Öffnen wiederhergestellt. Beim Verlassen mit ungespeicherten Eingaben erscheint eine Rückfrage. Solange ein Entwurf existiert, lässt sich der Auftrag nicht freigeben; bei verknüpften Anlagen ohne Eintrag kommt vor der Freigabe eine Rückfrage.
+- **PWA: E-Mail wird nicht mehr doppelt verschickt** – Versand, Unterschrift und Sync haben ein Timeout von 60 s statt 10 s (vorher brach die App ab, während der Server weiterarbeitete, und ein zweiter Versuch sendete erneut). Der Server verschickt dieselbe Mail innerhalb von 2 Minuten nicht ein zweites Mal; der Senden-Button bleibt bis zur Antwort gesperrt.
+- **PWA: BCC an den Techniker nur noch, wenn nötig** – Die Adresse des Technikers wird nur vorbelegt, wenn sie nicht schon über die Dolibarr-Autokopie (`MAIN_MAIL_AUTOCOPY_TO`), die Absenderadresse oder die optionale Konstante `EQUIPMENTMANAGER_PWA_SAME_MAILBOX` (kommagetrennte Adressen desselben Postfachs) abgedeckt ist. Eine BCC-Adresse, die der Autokopie entspricht, wird serverseitig entfernt.
 
 ### v6.1.3 (2026-10-10)
 
@@ -859,6 +867,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.3
+**Current Version:** 6.1.4
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)

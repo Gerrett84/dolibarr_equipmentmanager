@@ -659,7 +659,7 @@ if (isModEnabled('totp2fa')) {
 
     </div>
 
-    <script src="install.js?v=6.1.3"></script>
+    <script src="install.js?v=6.1.4"></script>
     <script>
         (function () {
             const help = document.getElementById('installHelp');
