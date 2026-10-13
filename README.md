@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.4** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.5** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,12 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.5 (2026-10-13)
+
+> **Update-Hinweis:** Modulordner ersetzen. Ein Aus-/Einschalten des Moduls ist nicht nötig.
+
+- **Fix: Servicebericht zur Anlage im Backend (Dolibarr 24)** – Die Links „Neuer Eintrag“ und „Bearbeiten“ sowie die Weiterleitung nach dem Speichern trugen kein CSRF-Token und wurden von Dolibarr 24 mit „Access to this page this way … is refused by CSRF protection“ abgewiesen. Ebenso die Vorschau-Verknüpfung in den PDF-Einstellungen.
 
 ### v6.1.4 (2026-10-13)
 
@@ -867,6 +873,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.4
+**Current Version:** 6.1.5
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
