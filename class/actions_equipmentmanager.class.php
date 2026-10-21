@@ -35,14 +35,9 @@ class ActionsEquipmentManager
     public $resprints;
 
     /**
-     * @var string Leistungsdatum calculated in beforePDFCreation, consumed in printUnderHeaderPDFline
+     * @var string Leistungsdatum calculated in beforePDFCreation, consumed in pdf_getLinkedObjects
      */
     public $leistungsdatum = '';
-
-    /**
-     * @var int Number of linked fichinter objects, used to calculate Y offset for Leistungsdatum
-     */
-    public $leistungsdatumLinkedCount = 0;
 
     /**
      * Constructor
@@ -297,7 +292,7 @@ class ActionsEquipmentManager
 
     /**
      * Hook beforePDFCreation — calculates Leistungsdatum from linked intervention work dates.
-     * Stores result in $this->leistungsdatum to be consumed by printUnderHeaderPDFline.
+     * Stores result in $this->leistungsdatum to be consumed by pdf_getLinkedObjects.
      * No extrafield or DB write — completely invisible to Dolibarr UI.
      */
     public function beforePDFCreation($parameters, &$object, &$action, $hookmanager)
@@ -343,6 +338,7 @@ class ActionsEquipmentManager
             return 0;
         }
 
+        require_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
         $langs->load('main');
         $minDate = dol_stringtotime($obj->min_date);
         $maxDate = dol_stringtotime($obj->max_date);
@@ -355,103 +351,44 @@ class ActionsEquipmentManager
                                   . dol_print_date($maxDate, 'day', 'tzserver', $langs);
         }
 
-        // Count ALL linked objects on the invoice (fichinter + commande + propal etc.)
-        // pdf_writeLinkedObjects renders one line per linked object, so the Y offset
-        // must account for the total, not just fichinter links.
-        $sqlAllLinked = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."element_element"
-            . " WHERE (sourcetype = 'facture' AND fk_source = ".(int)$object->id.")"
-            . " OR (targettype = 'facture' AND fk_target = ".(int)$object->id.")";
-        $resAllLinked = $this->db->query($sqlAllLinked);
-        $totalLinked = 0;
-        if ($resAllLinked) {
-            $objLinked = $this->db->fetch_object($resAllLinked);
-            $totalLinked = (int)$objLinked->nb;
-        }
-        $this->leistungsdatumLinkedCount = $totalLinked ?: count($fichinterIds);
-
         return 0;
     }
 
     /**
-     * Hook printUnderHeaderPDFline — draws Leistungsdatum below the address blocks,
-     * before the line items. Value comes from $this->leistungsdatum set by beforePDFCreation.
+     * Hook pdf_getLinkedObjects — adds the Leistungsdatum as one more line of the
+     * invoice header's linked-objects block. Dolibarr positions and prints that block
+     * itself (right-aligned, below the last linked object), so the line can never
+     * overlap the other header lines. Value comes from $this->leistungsdatum set by
+     * beforePDFCreation.
      *
-     * @param array $parameters Parameters ('pdf' = TCPDF, 'object' = Facture, 'outputlangs')
-     * @param CommonObject $object PDF module instance (pdf_sponge etc.)
-     * @param string $action Action triggered
+     * @param array $parameters Parameters ('linkedobjects', 'outputlangs')
+     * @param CommonObject $object Invoice
+     * @param string $action Action
      * @param HookManager $hookmanager Hook manager
-     * @return int 0
+     * @return int 0 (results are merged into the linked objects list)
      */
-    public function printUnderHeaderPDFline($parameters, &$object, &$action, $hookmanager)
+    public function pdf_getLinkedObjects($parameters, &$object, &$action, $hookmanager)
     {
         global $langs;
 
-        if (empty($this->leistungsdatum)) {
+        if (empty($this->leistungsdatum) || !is_object($object) || get_class($object) !== 'Facture') {
             return 0;
         }
 
-        // Only for invoice PDF
-        $facture = isset($parameters['object']) ? $parameters['object'] : null;
-        if (!is_object($facture) || get_class($facture) !== 'Facture') {
-            return 0;
-        }
-
-        $pdf         = $parameters['pdf'];
-        $outputlangs = $parameters['outputlangs'];
         $langs->load('equipmentmanager@equipmentmanager');
-
-        $default_font_size = pdf_getPDFFontSize($outputlangs);
-
-        // Right-side ref block column — same as pdf_sponge _pagehead
-        $w    = 110;
-        $posx = $object->page_largeur - $object->marge_droite - $w;
-
-        // Mirror pdf_sponge _pagehead $posy increments up to and including linked objects,
-        // so we draw directly below the last linked object ("Serviceauftrag Ref.") line.
-        $posy = $object->marge_haute + 3; // after title
-        if (!empty($facture->ref_customer)) {
-            $posy += 4;
-        }
-        $posy += 4; // DateInvoice
-        if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
-            $posy += 4;
-        }
-        if ($facture->type != 2) {
-            $posy += 3; // DateDue
-        }
-        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && !empty($facture->thirdparty->code_client)) {
-            $posy += 3;
-        }
-        if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_ACCOUNTING_CODE') && !empty($facture->thirdparty->code_compta_client)) {
-            $posy += 3;
-        }
-        if (getDolGlobalString('DOC_SHOW_FIRST_SALES_REP')) {
-            $arrayidcontact = $facture->getIdContact('internal', 'SALESREPFOLL');
-            if (count($arrayidcontact) > 0) {
-                $posy += 4;
-            }
-        }
-        $posy += 1; // _pagehead final increment before pdf_writeLinkedObjects
-
-        // Add height consumed by linked objects.
-        // pdf_writeLinkedObjects does: $posy+=3 (gap) then MultiCell(h=3) per item.
-        // Bottom of last item = input_posy + 3*(N+1), so we need 3*(N+1) total.
-        if (!getDolGlobalString('INVOICE_HIDE_LINKED_OBJECT') && $this->leistungsdatumLinkedCount > 0) {
-            $posy += 3 * ($this->leistungsdatumLinkedCount + 1);
+        $outputlangs = isset($parameters['outputlangs']) ? $parameters['outputlangs'] : $langs;
+        if (is_object($outputlangs) && method_exists($outputlangs, 'load')) {
+            $outputlangs->load('equipmentmanager@equipmentmanager');
         }
 
-        // Save and restore PDF cursor — we are drawing back in the header area
-        $saved_x = $pdf->GetX();
-        $saved_y = $pdf->GetY();
-
-        dol_include_once('/equipmentmanager/class/equipment.class.php');
-
-        $pdf->SetFont('', '', $default_font_size - 2);
-        $pdf->SetTextColor(...Equipment::getBrandColorRgb(0, 0, 60));
-        $pdf->SetXY($posx, $posy);
-        $pdf->MultiCell($w, 3, $outputlangs->transnoentities('Leistungsdatum').' : '.$this->leistungsdatum, '', 'R');
-
-        $pdf->SetXY($saved_x, $saved_y);
+        $this->results = array(
+            'eqm_leistungsdatum' => array(
+                'ref_title'  => $outputlangs->transnoentities('Leistungsdatum'),
+                'ref_value'  => $this->leistungsdatum,
+                'date_title' => '',
+                'date_value' => ''
+            )
+        );
 
         return 0;
     }
