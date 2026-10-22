@@ -133,6 +133,8 @@ class ServiceReportApp {
             // Show trusted device banner if available
             this.showTrustedDeviceBanner();
 
+            await this._ensureTokenFromSession();
+
             return true;
         }
 
@@ -148,6 +150,9 @@ class ServiceReportApp {
                 await offlineDB.removeMeta('pwa_token');
                 this.pwaToken = null;
             } catch (e) {
+                if (e && e.name !== 'TypeError' && e.name !== 'AbortError') {
+                    console.error('Auto-login failed:', e);
+                }
                 // Network error → device is offline → use cached auth
                 const cachedAuth = await offlineDB.getMeta('auth');
                 if (cachedAuth) {
@@ -320,8 +325,7 @@ class ServiceReportApp {
         if (!this.pwaToken) return false;
         // No try-catch here — let network errors propagate to caller
         const controller = new AbortController();
-        const timeoutMs = options.timeout || 10000;
-        const tid = setTimeout(() => controller.abort(), timeoutMs);
+        const tid = setTimeout(() => controller.abort(), 10000);
         let response;
         try {
             response = await fetch(CONFIG.apiBase + '?route=pwa-token', {
@@ -710,8 +714,47 @@ class ServiceReportApp {
         banner.id = 'authExpiredBanner';
         banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#d32f2f;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
         banner.innerHTML = '<span>⚠️ Sitzung abgelaufen – bitte neu anmelden</span>' +
-            '<a href="index.php" style="color:#fff;font-weight:bold;text-decoration:underline;white-space:nowrap;margin-left:12px;">Anmelden</a>';
+            '<button type="button" id="authExpiredLogin" style="background:none;border:0;color:#fff;font-weight:bold;text-decoration:underline;white-space:nowrap;margin-left:12px;font-size:14px;cursor:pointer;">Anmelden</button>';
         document.body.prepend(banner);
+        document.getElementById('authExpiredLogin').addEventListener('click', () => this._reauthFromBanner());
+    }
+
+    // Banner "Anmelden": retry the saved token once; if the server still refuses it,
+    // drop it and show the in-app login form (with 2FA field) instead of reloading
+    // into the same state.
+    async _reauthFromBanner() {
+        const banner = document.getElementById('authExpiredBanner');
+        try {
+            if (await this._trySessionRefresh()) {
+                if (banner) banner.remove();
+                this.isOnline = false; // force _goOnline to refresh status, sync and list
+                await this._goOnline(false, false);
+                return;
+            }
+        } catch (e) { /* fall through to login form */ }
+        if (banner) banner.remove();
+        try { await offlineDB.removeMeta('pwa_token'); } catch (e) {}
+        this.pwaToken = null;
+        this.showView('viewInterventions');
+        const savedCredentials = await offlineDB.getMeta('credentials');
+        this.showLoginForm(savedCredentials || { username: this.user?.login || '' });
+    }
+
+    // Logged in through the normal Dolibarr login page (e.g. a fresh/private browser):
+    // create a PWA token for this device so the app stays signed in after the
+    // browser session ends - same as saving the login in the settings.
+    async _ensureTokenFromSession() {
+        if (this.pwaToken) return;
+        try {
+            const res = await this.apiCall('pwa-token', { method: 'POST', body: '{}' });
+            if (res && res.status === 'ok' && res.token) {
+                await offlineDB.setMeta('pwa_token', res.token);
+                this.pwaToken = res.token;
+                if (res.user_login) {
+                    await offlineDB.setMeta('credentials', { username: res.user_login, saved_at: Date.now() });
+                }
+            }
+        } catch (e) { /* best effort: session login still works */ }
     }
 
     showView(viewId, title = null) {
@@ -909,7 +952,7 @@ class ServiceReportApp {
         }
 
         const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 10000);
+        const tid = setTimeout(() => controller.abort(), options.timeout || 10000);
 
         try {
             const { timeout: _t, ...fetchOptions } = options;
