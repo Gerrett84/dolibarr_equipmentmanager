@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.6** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.7** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,15 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.7 (2026-10-22)
+
+> **Update-Hinweis:** Modulordner ersetzen. Ein Aus-/Einschalten des Moduls ist nicht nötig. Auf den Geräten die PWA einmal online öffnen und schließen (neuer Service Worker, Cache v56).
+
+- **Fix: PWA meldete „Sitzung abgelaufen“ und ging offline** – Seit 6.1.4 schlug das automatische Erneuern der Anmeldung über das gespeicherte Geräte-Token immer fehl; „Anmelden“ im roten Banner lud nur die Seite neu. Die Erneuerung funktioniert wieder; die 60-Sekunden-Zeitgrenze für Versand, Unterschrift und Sync ist jetzt tatsächlich aktiv.
+- **PWA: „Anmelden“ im Banner** versucht das Token erneut und öffnet sonst direkt das Anmeldeformular (mit 2FA-Feld und Hinweis „2FA-Code erforderlich“).
+- **PWA: Anmeldung über die Dolibarr-Loginseite wird übernommen** – Nach einem normalen Login (z. B. im privaten Browserfenster) legt die PWA automatisch ein Geräte-Token an, so als wären die Login-Daten in den Einstellungen gespeichert.
+- **PWA: andere Geräte bleiben angemeldet** – Das Speichern der Login-Daten in den Einstellungen löschte bisher die Tokens aller Geräte des Benutzers; jetzt werden nur abgelaufene entfernt.
 
 ### v6.1.6 (2026-10-22)
 
@@ -880,6 +889,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.6
+**Current Version:** 6.1.7
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
