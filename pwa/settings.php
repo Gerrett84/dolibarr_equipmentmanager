@@ -133,7 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_login'])) {
     $plainToken = bin2hex(random_bytes(32));
     $validUntil = dol_now() + (90 * 24 * 3600);
 
-    $sqlDel = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$tmpuser->id;
+    // Only drop expired tokens - other devices of the same user stay signed in
+    $sqlDel = "DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_pwa_token WHERE fk_user = ".(int)$tmpuser->id." AND valid_until < '".$db->idate(dol_now())."'";
     $db->query($sqlDel);
     $sqlIns = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_pwa_token"
         ." (fk_user, token, valid_until, date_creation, last_use)"
@@ -659,7 +660,7 @@ if (isModEnabled('totp2fa')) {
 
     </div>
 
-    <script src="install.js?v=6.1.6"></script>
+    <script src="install.js?v=6.1.7"></script>
     <script>
         (function () {
             const help = document.getElementById('installHelp');
