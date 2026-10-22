@@ -1376,13 +1376,21 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_detail d";
     $sql .= "   ON d.fk_intervention = l.fk_intervention AND d.fk_equipment = l.fk_equipment";
     $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql .= " ORDER BY e.equipment_number";
+    $sql .= " ORDER BY e.equipment_number, d.rowid";
 
     $resql = $db->query($sql);
     $equipment = [];
+    $seenEquipment = [];
 
     if ($resql) {
         while ($obj = $db->fetch_object($resql)) {
+            // One row per equipment: the LEFT JOIN yields one row per report entry,
+            // but the list must show each equipment once (first entry = 'detail')
+            if (isset($seenEquipment[$obj->rowid])) {
+                continue;
+            }
+            $seenEquipment[$obj->rowid] = true;
+
             $eq = [
                 'id' => (int)$obj->rowid,
                 'ref' => $obj->equipment_number,
