@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.5** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.1.6** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -362,6 +362,13 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.1.6 (2026-10-22)
+
+> **Update-Hinweis:** Modulordner ersetzen. Ein Aus-/Einschalten des Moduls ist nicht nötig. Auf den Geräten die PWA einmal online öffnen und schließen. Bereits erzeugte Rechnungs-PDFs bleiben unverändert – bei Bedarf die Rechnung einmal neu erzeugen.
+
+- **Fix: Leistungsdatum überlagerte Zeilen auf der Rechnung** – Das Leistungsdatum/der Leistungszeitraum wurde an eine nachgerechnete Position gezeichnet und konnte über „Auftragsnr.“/„Serviceauftrag Ref.“ liegen. Es wird jetzt als weitere Zeile im Block der verknüpften Dokumente ausgegeben und von Dolibarr selbst positioniert.
+- **Fix: Anlage erschien in der PWA mehrfach** – Hatte eine Anlage mehrere Berichtseinträge, wurde sie in der Anlagenliste des Serviceauftrags entsprechend oft aufgeführt. Jede Anlage erscheint jetzt einmal; alle Einträge bleiben erhalten.
 
 ### v6.1.5 (2026-10-13)
 
@@ -873,6 +880,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.5
+**Current Version:** 6.1.6
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
