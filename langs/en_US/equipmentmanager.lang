@@ -345,3 +345,6 @@ TechnicianNewUser=Create new user
 TechnicianGroupReadyMsg=Group "%s" ready (%s of %s permissions set).
 PwaAppName=App name (PWA)
 PwaAppNameHelp=Name below the icon on the home screen (max. 30 characters, keep it short: iPhone/Android truncate at about 12). Empty/reset = "Service". Already installed apps keep their name until they are added again.
+
+# v6.1.8: one technician per intervention
+ErrorOnlyOneTechnicianPerIntervention = Only one "Intervening" technician can currently be assigned per intervention. Please remove the existing one first.
