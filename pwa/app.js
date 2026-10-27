@@ -479,6 +479,9 @@ class ServiceReportApp {
         // Add entry button (v1.7)
         document.getElementById('btnAddEntry').addEventListener('click', () => this.addNewEntry());
 
+        // Checklist page
+        document.getElementById('btnOpenChecklist').addEventListener('click', () => this.openChecklist());
+
         // Delete entry button (v1.7)
         document.getElementById('btnDeleteEntry').addEventListener('click', () => this.deleteEntry());
 
@@ -910,6 +913,9 @@ class ServiceReportApp {
             case 'viewEntries':
                 this.loadEquipment(this.currentIntervention);
                 break;
+            case 'viewChecklist':
+                this.loadEntries(this.currentEquipment);
+                break;
             case 'viewEntry':
                 if (this._isEntryDirty() && !confirm('Dieser Eintrag ist noch nicht gespeichert.\n\nTrotzdem verlassen? Der Entwurf bleibt auf diesem Gerät erhalten.')) {
                     return;
@@ -1018,15 +1024,22 @@ class ServiceReportApp {
     isWithinDays(intervention, days) {
         if (days === 0) return true; // No limit
 
-        // Use date_intervention or datec (creation date) as fallback
-        const dateStr = intervention.date_intervention || intervention.datec || '';
-        if (!dateStr) return true; // If no date, include it
+        const t = this._interventionTime(intervention);
+        if (t === null) return true; // If no date, include it
 
-        const interventionDate = new Date(dateStr);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - days);
 
-        return interventionDate >= cutoffDate;
+        return t >= cutoffDate.getTime();
+    }
+
+    // Order date in ms: planned end, else planned start, else creation date.
+    // The API sends "YYYY-MM-DD HH:MM:SS", which Safari cannot parse without the "T".
+    _interventionTime(intervention) {
+        const raw = intervention.date_end || intervention.date_start || intervention.date_creation || '';
+        if (!raw) return null;
+        const t = Date.parse(String(raw).replace(' ', 'T'));
+        return isNaN(t) ? null : t;
     }
 
     // Count interventions by status (apply time range to signed)
@@ -1142,9 +1155,7 @@ class ServiceReportApp {
                 return order[statusA] - order[statusB];
             }
             // Same status - sort by date desc
-            const dateA = a.date_intervention || a.datec || '';
-            const dateB = b.date_intervention || b.datec || '';
-            return dateB.localeCompare(dateA);
+            return (this._interventionTime(b) || 0) - (this._interventionTime(a) || 0);
         });
 
         // Build HTML
@@ -1765,13 +1776,14 @@ class ServiceReportApp {
                 document.getElementById('materialsCard').style.display = 'none';
             }
 
-            // Load checklist if maintenance equipment (not for general entries)
-            const checklistCard = document.getElementById('checklistCard');
+            // Checklist launcher for maintenance equipment (not for general entries);
+            // the checklist itself opens on its own page
+            const launcher = document.getElementById('checklistLauncher');
             if (equipment.id > 0 && equipment.link_type === 'maintenance') {
-                checklistCard.style.display = 'block';
-                await this.loadChecklist(this.currentIntervention.id, equipment.id);
+                launcher.style.display = 'block';
+                this._updateChecklistLauncher(equipment.checklist_status);
             } else {
-                checklistCard.style.display = 'none';
+                launcher.style.display = 'none';
                 this.currentChecklist = null;
             }
 
@@ -3111,8 +3123,8 @@ class ServiceReportApp {
             const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
             const toPrefetch = interventions.filter(i => {
                 if (this.getInterventionStatus(i) !== 'signed') return true;
-                const d = Date.parse(i.date_end || i.date_start || i.date_creation || '');
-                return isNaN(d) || d >= cutoff;
+                const d = this._interventionTime(i);
+                return d === null || d >= cutoff;
             });
             const total = toPrefetch.length;
             let current = 0;
@@ -4111,7 +4123,7 @@ class ServiceReportApp {
         const el = document.createElement('div');
         el.className = 'busy-overlay';
         el.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px;';
-        el.innerHTML = `<div style="background:var(--card-bg,#fff);color:var(--text-primary,#222);border-radius:12px;padding:22px 20px;max-width:340px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,0.3);">
+        el.innerHTML = `<div style="background:var(--bg-card,#fff);color:var(--text-primary,#222);border-radius:12px;padding:22px 20px;max-width:340px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,0.3);">
                 <div class="busy-spinner" style="width:38px;height:38px;margin:0 auto 14px;border:4px solid rgba(128,128,128,0.25);border-top-color:var(--primary-color,#1a3f6e);border-radius:50%;animation:busyspin 0.9s linear infinite;"></div>
                 <div style="font-weight:600;font-size:16px;margin-bottom:6px;">${this.escapeHtml(title)}</div>
                 <div style="font-size:13px;opacity:0.8;">${this.escapeHtml(text)}</div>
@@ -5486,6 +5498,25 @@ class ServiceReportApp {
         }
     }
 
+    // Status text of the checklist launcher on the equipment page
+    _updateChecklistLauncher(status) {
+        const el = document.getElementById('checklistLauncherStatus');
+        if (!el) return;
+        el.innerHTML = status === 1
+            ? '<span style="color:#2e7d32;">✅ abgeschlossen</span>'
+            : (status === 0
+                ? '<span style="color:#ef6c00;">📝 begonnen, noch nicht abgeschlossen</span>'
+                : '<span style="color:#c62828;">⬜ noch nicht erstellt</span>');
+    }
+
+    // Open the checklist page for the current equipment
+    async openChecklist() {
+        if (!this.currentEquipment || !this.currentIntervention) return;
+        this.showView('viewChecklist', `Checkliste ${this.currentEquipment.ref || ''}`.trim());
+        window.scrollTo(0, 0);
+        await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);
+    }
+
     // Bar colour for maintenance equipment (null = no bar)
     _maintenanceBarColor(eq, hasReport) {
         const cs = eq.checklist_status; // null = none, 0 = open, 1 = completed
@@ -5804,6 +5835,9 @@ class ServiceReportApp {
             }
 
             this.currentChecklist = checklistData;
+            if (this.currentEquipment && this.currentEquipment.id === equipmentId && checklistData.checklist) {
+                this.currentEquipment.checklist_status = parseInt(checklistData.checklist.status, 10) === 1 ? 1 : 0;
+            }
             // Use template name without "Checkliste" prefix if it already starts with it
             let templateName = checklistData.template.label || 'Wartung';
             if (templateName.toLowerCase().startsWith('checkliste ')) {

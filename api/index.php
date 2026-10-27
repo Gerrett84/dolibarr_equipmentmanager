@@ -145,6 +145,13 @@ if (!empty($_GET['route'])) {
 
 $parts = explode('/', $endpoint);
 
+// The API never writes to the session after authentication. Release the session lock
+// now: otherwise a long request (release/signature of a large order) blocks every other
+// request of the same browser - the app's ping then times out and shows "Offline".
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 // Get JSON body for POST/PUT
 $input = json_decode(file_get_contents('php://input'), true);
 

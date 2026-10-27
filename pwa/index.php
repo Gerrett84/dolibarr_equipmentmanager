@@ -2439,8 +2439,32 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
                 </div>
             </div>
 
+            <!-- Checklist launcher (only for maintenance) - the checklist itself has its own page -->
+            <div class="card" style="margin-top:12px;display:none;" id="checklistLauncher">
+                <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <div>
+                        <div style="font-weight:600;">Checkliste</div>
+                        <div id="checklistLauncherStatus" style="font-size:13px;color:var(--text-secondary);">–</div>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="btnOpenChecklist" style="white-space:nowrap;">Checkliste öffnen ›</button>
+                </div>
+            </div>
+
+            <!-- Materials Section -->
+            <div class="card" style="margin-top:12px;" id="materialsCard">
+                <div class="card-header">
+                    <h3 class="card-title">Material</h3>
+                    <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
+                </div>
+                <div class="card-body" id="materialsList">
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <p style="margin: 0; color: #666;">Kein Material erfasst</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Recommendations & Notes (Summary) -->
-            <div class="card">
+            <div class="card" style="margin-top:12px;">
                 <div class="card-header">
                     <h3 class="card-title">Empfehlungen & Notizen</h3>
                 </div>
@@ -2457,21 +2481,14 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
             </div>
             <button type="button" class="btn btn-primary btn-block" id="btnSaveSummary">Empfehlungen speichern</button>
 
-            <!-- Materials Section -->
-            <div class="card" style="margin-top:12px;" id="materialsCard">
-                <div class="card-header">
-                    <h3 class="card-title">Material</h3>
-                    <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
-                </div>
-                <div class="card-body" id="materialsList">
-                    <div class="empty-state" style="padding: 20px 0;">
-                        <p style="margin: 0; color: #666;">Kein Material erfasst</p>
-                    </div>
-                </div>
-            </div>
+        </div>
+    </div>
 
+    <!-- Checklist View (own page, opened from the equipment page) -->
+    <div class="view" id="viewChecklist">
+        <div class="content">
             <!-- Checklist Section (only for maintenance) -->
-            <div class="card" style="margin-top:12px;display:none;" id="checklistCard">
+            <div class="card" id="checklistCard">
                 <div class="card-header">
                     <h3 class="card-title" id="checklistTitle">Checkliste</h3>
                 </div>
