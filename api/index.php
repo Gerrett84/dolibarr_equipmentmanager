@@ -316,7 +316,7 @@ function handleInterventions($method, $parts, $input) {
     }
 
     // Get interventions
-    $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status,";
+    $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status, f.tms, f.date_valid,";
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town,";
@@ -355,8 +355,10 @@ function handleInterventions($method, $parts, $input) {
         $sql .= " AND f.dateo >= '".$db->escape($_GET['from'])."'";
     }
 
-    $sql .= " ORDER BY f.dateo DESC";
-    $sql .= " LIMIT 100";
+    // Open/released orders first so the limit can never cut them off, then newest first
+    $sql .= " ORDER BY CASE WHEN f.fk_statut < 3 AND COALESCE(f.signed_status, 0) < 3 THEN 0 ELSE 1 END,";
+    $sql .= " COALESCE(f.dateo, f.datec) DESC";
+    $sql .= " LIMIT 200";
 
     $resql = $db->query($sql);
 
@@ -380,6 +382,7 @@ function handleInterventions($method, $parts, $input) {
             'duration' => (int)$obj->duree,
             'status' => (int)$obj->status,
             'signed_status' => (int)$obj->signed_status,
+            'date_signed' => eqmInterventionSignedDate($obj),
             'description' => $obj->description,
             'note_public' => $obj->note_public,
             'primary_type' => $obj->primary_type,
@@ -2466,6 +2469,36 @@ function handleLinkEquipment($method, $parts, $input) {
 /**
  * Get the fichinter document output directory
  */
+/**
+ * Date an order was finished, for the "Erledigt" list: the customer signature time
+ * (newest signatures/YYYYmmddHHMMSS_signature.png in the order's document folder),
+ * otherwise - for orders closed in the backend without signature - the last change.
+ * Dolibarr itself does not store a signature date for interventions.
+ *
+ * @param object $obj Row of the intervention list query (ref, status, signed_status, tms, date_valid, datec)
+ * @return string|null 'YYYY-MM-DD HH:MM:SS' or null for unfinished orders
+ */
+function eqmInterventionSignedDate($obj)
+{
+    $finished = ((int) $obj->status >= 3) || ((int) $obj->signed_status >= 3);
+    if (!$finished) {
+        return null;
+    }
+    $dir = getFichinterDocDir().'/'.dol_sanitizeFileName($obj->ref).'/signatures';
+    $newest = '';
+    foreach (glob($dir.'/*_signature.png') ?: [] as $file) {
+        $name = basename($file);
+        if (preg_match('/^(\d{14})_signature\.png$/', $name, $m) && $m[1] > $newest) {
+            $newest = $m[1];
+        }
+    }
+    if ($newest !== '') {
+        return substr($newest, 0, 4).'-'.substr($newest, 4, 2).'-'.substr($newest, 6, 2).' '
+            .substr($newest, 8, 2).':'.substr($newest, 10, 2).':'.substr($newest, 12, 2);
+    }
+    return $obj->tms ?: ($obj->date_valid ?: $obj->datec);
+}
+
 function getFichinterDocDir() {
     global $conf, $dolibarr_main_data_root;
 

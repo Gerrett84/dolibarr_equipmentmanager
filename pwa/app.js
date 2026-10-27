@@ -1036,7 +1036,8 @@ class ServiceReportApp {
     // Order date in ms: planned end, else planned start, else creation date.
     // The API sends "YYYY-MM-DD HH:MM:SS", which Safari cannot parse without the "T".
     _interventionTime(intervention) {
-        const raw = intervention.date_end || intervention.date_start || intervention.date_creation || '';
+        // Finished orders: the signature date (when it moved to "Erledigt")
+        const raw = intervention.date_signed || intervention.date_end || intervention.date_start || intervention.date_creation || '';
         if (!raw) return null;
         const t = Date.parse(String(raw).replace(' ', 'T'));
         return isNaN(t) ? null : t;

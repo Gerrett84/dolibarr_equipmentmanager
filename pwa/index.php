@@ -387,7 +387,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
         /* Main Content */
         .content {
             padding: 16px;
-            padding-bottom: 80px;
+            padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); /* keep the last button above the bottom nav */
         }
 
         /* Cards */
