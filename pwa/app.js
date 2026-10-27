@@ -1538,6 +1538,16 @@ class ServiceReportApp {
             };
             const typeLabels = this.equipmentTypeLabels;
 
+            const maint = equipment.filter(eq => eq.link_type === 'maintenance');
+            if (maint.length > 0) {
+                const done = maint.filter(eq => eq.checklist_status === 1).length;
+                const withEntry = maint.filter(eq => eq.detail && eq.detail.work_done).length;
+                const summary = document.createElement('div');
+                summary.style.cssText = 'padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border-color,#e0e0e0);';
+                summary.innerHTML = `Wartung: <strong>${withEntry}/${maint.length}</strong> Berichte · <strong style="color:${done === maint.length ? '#2e7d32' : '#ef6c00'};">${done}/${maint.length}</strong> Checklisten abgeschlossen`;
+                card.appendChild(summary);
+            }
+
             equipment.forEach(eq => {
                 const item = document.createElement('div');
                 item.className = 'equipment-item card-clickable';
@@ -1578,6 +1588,7 @@ class ServiceReportApp {
                         <div class="equipment-ref">${this.escapeHtml(eq.ref)} - ${this.escapeHtml(typeName)}</div>
                         <div class="equipment-label">${eq.manufacturer ? this.escapeHtml(eq.manufacturer) + ', ' : ''}${this.escapeHtml(eq.label || '')}</div>
                         ${eq.location ? `<div class="equipment-label" style="color:#888;">${this.escapeHtml(eq.location)}</div>` : ''}
+                        ${eq.link_type === 'maintenance' ? this._checklistStatusHtml(eq) : ''}
                     </div>
                     ${linkTypeBadge}
                 `;
@@ -2890,7 +2901,7 @@ class ServiceReportApp {
                         signature: base64,
                         signer_name: signerName
                     }),
-                    timeout: 60000
+                    timeout: 180000
                 });
                 this.currentIntervention.signed_status = 3;
                 this.currentIntervention.status = 3; // Closed
@@ -2982,7 +2993,7 @@ class ServiceReportApp {
                     const result = await this.apiCall('sync', {
                         method: 'POST',
                         body: JSON.stringify({ changes }),
-                        timeout: 60000
+                        timeout: 180000
                     });
 
                     if (result.status === 'ok' || result.status === 'partial') {
@@ -3060,6 +3071,18 @@ class ServiceReportApp {
         await this.updateSyncBadge();
     }
 
+    // Run fn over items with at most `limit` calls in flight
+    async _runPool(items, limit, fn) {
+        let next = 0;
+        const worker = async () => {
+            while (next < items.length) {
+                const item = items[next++];
+                await fn(item);
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    }
+
     // Prefetch all data for offline use
     async prefetchAllData() {
         if (!this.isOnline) return;
@@ -3074,11 +3097,19 @@ class ServiceReportApp {
             const interventions = data.interventions || [];
             await offlineDB.saveInterventions(interventions);
 
-            // 2. For each intervention, fetch equipment, entries, available equipment, and documents
-            const total = interventions.length;
+            // 2. For each intervention, fetch equipment, entries, available equipment, and documents.
+            // Finished orders older than 30 days are not prefetched again (they only grow the
+            // sync time on mobile networks; they still load on demand when opened online).
+            const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+            const toPrefetch = interventions.filter(i => {
+                if (this.getInterventionStatus(i) !== 'signed') return true;
+                const d = Date.parse(i.date_end || i.date_start || i.date_creation || '');
+                return isNaN(d) || d >= cutoff;
+            });
+            const total = toPrefetch.length;
             let current = 0;
 
-            for (const intervention of interventions) {
+            for (const intervention of toPrefetch) {
                 current++;
                 statusEl.textContent = `Sync ${current}/${total}`;
 
@@ -3090,8 +3121,8 @@ class ServiceReportApp {
                     // Save equipment
                     await offlineDB.saveEquipment(intervention.id, equipment);
 
-                    // 3. For each equipment, fetch entries/details
-                    for (const eq of equipment) {
+                    // 3. For each equipment, fetch entries/details (4 requests in parallel)
+                    await this._runPool(equipment, 4, async (eq) => {
                         try {
                             const detailData = await this.apiCall(`detail/${intervention.id}/${eq.id}`);
 
@@ -3110,7 +3141,7 @@ class ServiceReportApp {
                         } catch (detailErr) {
                             console.warn(`Failed to fetch detail for equipment ${eq.id}:`, detailErr);
                         }
-                    }
+                    });
 
                     // 3b. Also fetch general entries (Allgemeine Arbeiten, equipment_id=0)
                     try {
@@ -4004,10 +4035,15 @@ class ServiceReportApp {
             return;
         }
 
+        const busy = !isReleased
+            ? this._showBusy('Wird freigegeben …', 'Servicebericht und Checklisten werden erstellt. Bei vielen Anlagen kann das bis zu einer Minute dauern – bitte die App geöffnet lassen.')
+            : null;
         try {
             const result = await this.apiCall(`intervention/${this.currentIntervention.id}/${action}`, {
-                method: 'POST'
+                method: 'POST',
+                timeout: 180000
             });
+            if (busy) busy.remove();
 
             // console.log('Release result:', result);
 
@@ -4056,9 +4092,36 @@ class ServiceReportApp {
                 this.showToast('Fehler: ' + (result.error || 'Unbekannt'));
             }
         } catch (err) {
+            if (busy) busy.remove();
             console.error('Failed to toggle release:', err);
             this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
         }
+    }
+
+    // Full-screen "please wait" overlay for long server operations; returns the element
+    _showBusy(title, text) {
+        const el = document.createElement('div');
+        el.className = 'busy-overlay';
+        el.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px;';
+        el.innerHTML = `<div style="background:var(--card-bg,#fff);color:var(--text-primary,#222);border-radius:12px;padding:22px 20px;max-width:340px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,0.3);">
+                <div class="busy-spinner" style="width:38px;height:38px;margin:0 auto 14px;border:4px solid rgba(128,128,128,0.25);border-top-color:var(--primary-color,#1a3f6e);border-radius:50%;animation:busyspin 0.9s linear infinite;"></div>
+                <div style="font-weight:600;font-size:16px;margin-bottom:6px;">${this.escapeHtml(title)}</div>
+                <div style="font-size:13px;opacity:0.8;">${this.escapeHtml(text)}</div>
+                <div class="busy-elapsed" style="font-size:12px;opacity:0.6;margin-top:10px;"></div>
+            </div>`;
+        if (!document.getElementById('busySpinStyle')) {
+            const st = document.createElement('style');
+            st.id = 'busySpinStyle';
+            st.textContent = '@keyframes busyspin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(st);
+        }
+        document.body.appendChild(el);
+        const t0 = Date.now();
+        const timer = setInterval(() => {
+            if (!el.isConnected) { clearInterval(timer); return; }
+            el.querySelector('.busy-elapsed').textContent = Math.round((Date.now() - t0) / 1000) + ' s';
+        }, 1000);
+        return el;
     }
 
     // Show documents modal
@@ -5413,6 +5476,21 @@ class ServiceReportApp {
             sendBtn.disabled = false;
             sendBtn.textContent = 'Senden';
         }
+    }
+
+    // Small status line for maintenance equipment: report entry and checklist state
+    _checklistStatusHtml(eq) {
+        const hasEntry = !!(eq.detail && eq.detail.work_done);
+        const cs = eq.checklist_status;
+        const cl = cs === 1
+            ? '<span style="color:#2e7d32;">✅ Checkliste abgeschlossen</span>'
+            : (cs === 0
+                ? '<span style="color:#ef6c00;">📝 Checkliste offen</span>'
+                : '<span style="color:#c62828;">⬜ Keine Checkliste</span>');
+        const en = hasEntry
+            ? '<span style="color:#2e7d32;">✅ Bericht</span>'
+            : '<span style="color:#9e9e9e;">⬜ Kein Bericht</span>';
+        return `<div class="equipment-label" style="font-size:12px;margin-top:2px;">${en} &nbsp;·&nbsp; ${cl}</div>`;
     }
 
     // Remove equipment link from current intervention

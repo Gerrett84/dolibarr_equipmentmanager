@@ -677,6 +677,10 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
+        // Large orders (100+ equipment) need well over PHP's default 30 s here:
+        // report PDF plus one regenerated PDF per completed checklist
+        @set_time_limit(300);
+
         // Use Dolibarr's setValid() method to properly validate the intervention
         // This generates the proper reference (FI...) and renames directories
         $fichinter->fetch_thirdparty();
@@ -1366,6 +1370,8 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " e.fire_protection,";
     $sql .= " e.smoke_detector_install_month, e.smoke_detector_install_year, e.smoke_detector_replacement_cycle,";
     $sql .= " l.link_type,";
+    $sql .= " (SELECT MAX(cr.status) FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr";
+    $sql .= "   WHERE cr.fk_equipment = l.fk_equipment AND cr.fk_equipment_intervention = l.rowid) as checklist_status,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_start_time, d.work_end_time, d.work_duration,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
@@ -1408,6 +1414,8 @@ function getInterventionEquipment($intervention_id) {
                 'smoke_detector_install_year' => $obj->smoke_detector_install_year !== null ? (int)$obj->smoke_detector_install_year : null,
                 'smoke_detector_replacement_cycle' => $obj->smoke_detector_replacement_cycle !== null ? (int)$obj->smoke_detector_replacement_cycle : null,
                 'link_type' => $obj->link_type,
+                // null = no checklist, 0 = started, 1 = completed
+                'checklist_status' => $obj->checklist_status !== null ? (int)$obj->checklist_status : null,
                 'detail' => null
             ];
 
@@ -1783,6 +1791,9 @@ function handleDetail($method, $parts, $input) {
 function handleSync($method, $input) {
     global $db, $user;
 
+    // A queued offline signature regenerates the PDFs of the whole order
+    @set_time_limit(300);
+
     if ($method !== 'POST') {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
@@ -1930,6 +1941,9 @@ function handleSignature($method, $parts, $input) {
         echo json_encode(['error' => 'Method not allowed']);
         return;
     }
+
+    // Signed report + combined checklist PDF can take long for large orders
+    @set_time_limit(300);
 
     $intervention_id = (int)($parts[1] ?? 0);
     if (!$intervention_id) {
