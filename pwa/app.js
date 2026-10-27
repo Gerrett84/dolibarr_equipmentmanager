@@ -1544,7 +1544,11 @@ class ServiceReportApp {
                 const withEntry = maint.filter(eq => eq.detail && eq.detail.work_done).length;
                 const summary = document.createElement('div');
                 summary.style.cssText = 'padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border-color,#e0e0e0);';
-                summary.innerHTML = `Wartung: <strong>${withEntry}/${maint.length}</strong> Berichte · <strong style="color:${done === maint.length ? '#2e7d32' : '#ef6c00'};">${done}/${maint.length}</strong> Checklisten abgeschlossen`;
+                summary.innerHTML = `Wartung: <strong>${withEntry}/${maint.length}</strong> Berichte · <strong style="color:${done === maint.length ? '#2e7d32' : '#ef6c00'};">${done}/${maint.length}</strong> Checklisten abgeschlossen`
+                    + `<div style="font-size:11px;opacity:0.75;margin-top:3px;">`
+                    + `<span style="display:inline-block;width:10px;height:10px;background:#4caf50;border-radius:2px;vertical-align:-1px;"></span> fertig &nbsp; `
+                    + `<span style="display:inline-block;width:10px;height:10px;background:#e53935;border-radius:2px;vertical-align:-1px;"></span> Checkliste fehlt &nbsp; `
+                    + `<span style="display:inline-block;width:10px;height:10px;background:#fb8c00;border-radius:2px;vertical-align:-1px;"></span> unvollständig</div>`;
                 card.appendChild(summary);
             }
 
@@ -1588,14 +1592,18 @@ class ServiceReportApp {
                         <div class="equipment-ref">${this.escapeHtml(eq.ref)} - ${this.escapeHtml(typeName)}</div>
                         <div class="equipment-label">${eq.manufacturer ? this.escapeHtml(eq.manufacturer) + ', ' : ''}${this.escapeHtml(eq.label || '')}</div>
                         ${eq.location ? `<div class="equipment-label" style="color:#888;">${this.escapeHtml(eq.location)}</div>` : ''}
-                        ${eq.link_type === 'maintenance' ? this._checklistStatusHtml(eq) : ''}
                     </div>
                     ${linkTypeBadge}
                 `;
                 item.appendChild(removeBtn);
 
-                if (isProcessed) {
-                    item.style.borderLeft = '3px solid #4caf50';
+                // Left bar: green = done. Maintenance additionally needs a completed checklist:
+                // red = report without checklist, orange = checklist open or checklist without report
+                const barColor = eq.link_type === 'maintenance'
+                    ? this._maintenanceBarColor(eq, isProcessed)
+                    : (isProcessed ? '#4caf50' : null);
+                if (barColor) {
+                    item.style.borderLeft = `4px solid ${barColor}`;
                 }
 
                 item.addEventListener('click', () => {
@@ -5478,19 +5486,13 @@ class ServiceReportApp {
         }
     }
 
-    // Small status line for maintenance equipment: report entry and checklist state
-    _checklistStatusHtml(eq) {
-        const hasEntry = !!(eq.detail && eq.detail.work_done);
-        const cs = eq.checklist_status;
-        const cl = cs === 1
-            ? '<span style="color:#2e7d32;">✅ Checkliste abgeschlossen</span>'
-            : (cs === 0
-                ? '<span style="color:#ef6c00;">📝 Checkliste offen</span>'
-                : '<span style="color:#c62828;">⬜ Keine Checkliste</span>');
-        const en = hasEntry
-            ? '<span style="color:#2e7d32;">✅ Bericht</span>'
-            : '<span style="color:#9e9e9e;">⬜ Kein Bericht</span>';
-        return `<div class="equipment-label" style="font-size:12px;margin-top:2px;">${en} &nbsp;·&nbsp; ${cl}</div>`;
+    // Bar colour for maintenance equipment (null = no bar)
+    _maintenanceBarColor(eq, hasReport) {
+        const cs = eq.checklist_status; // null = none, 0 = open, 1 = completed
+        if (hasReport && cs === 1) return '#4caf50';
+        if (hasReport && cs == null) return '#e53935';
+        if (cs === 0 || cs === 1) return '#fb8c00';
+        return null;
     }
 
     // Remove equipment link from current intervention
