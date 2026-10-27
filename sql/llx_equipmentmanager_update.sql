@@ -203,3 +203,22 @@ WHERE code = 'OBJ' AND element IN ('propal', 'fichinter', 'commande', 'facture',
 -- be selected on the order - make sure it is active.
 UPDATE llx_c_type_contact SET active = 1
 WHERE element = 'fichinter' AND source = 'internal' AND code = 'INTERVENING';
+
+-- v6.1.8: Objektadresse stored on the service order itself (no longer only derived from the
+-- first linked equipment). Existing orders get the address of their first linked equipment.
+CREATE TABLE IF NOT EXISTS llx_equipmentmanager_intervention_address (
+    fk_intervention integer NOT NULL PRIMARY KEY,
+    fk_address      integer NOT NULL,
+    date_creation   datetime NOT NULL,
+    fk_user_creat   integer,
+    tms             timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=innodb;
+
+INSERT IGNORE INTO llx_equipmentmanager_intervention_address (fk_intervention, fk_address, date_creation)
+SELECT l.fk_intervention, e.fk_address, NOW()
+FROM llx_equipmentmanager_intervention_link l
+INNER JOIN llx_equipmentmanager_equipment e ON e.rowid = l.fk_equipment
+WHERE e.fk_address > 0
+  AND l.rowid = (SELECT MIN(l2.rowid) FROM llx_equipmentmanager_intervention_link l2
+                 INNER JOIN llx_equipmentmanager_equipment e2 ON e2.rowid = l2.fk_equipment
+                 WHERE l2.fk_intervention = l.fk_intervention AND e2.fk_address > 0);

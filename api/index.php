@@ -797,14 +797,9 @@ function handleIntervention($method, $parts, $input) {
         $history = [];
         $no_object_address = true;
 
-        $sqlAddr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-        $sqlAddr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-        $sqlAddr .= " WHERE l.fk_intervention = ".(int)$id;
-        $sqlAddr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-        $sqlAddr .= " ORDER BY l.date_creation ASC LIMIT 1";
-        $resAddr = $db->query($sqlAddr);
-        if ($resAddr && ($addrRow = $db->fetch_object($resAddr))) {
-            $currentAddressId = (int)$addrRow->fk_address;
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+        $currentAddressId = Equipment::getInterventionAddressId($db, $id);
+        if ($currentAddressId > 0) {
             $no_object_address = false;
 
             $sqlHist  = "SELECT DISTINCT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
@@ -1503,12 +1498,12 @@ function getInterventionObjectAddresses($intervention_id) {
 
     $addresses = [];
 
-    $sql = "SELECT DISTINCT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
-    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
-    $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql .= " AND e.fk_address > 0";
+    // The order's own Objektadresse (fixed since v6.1.8, also without linked equipment)
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+    $addrId = Equipment::getInterventionAddressId($db, $intervention_id);
+    $sql = "SELECT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
+    $sql .= " FROM ".MAIN_DB_PREFIX."societe addr_s";
+    $sql .= " WHERE addr_s.rowid = ".(int)$addrId;
 
     $resql = $db->query($sql);
     if ($resql) {
@@ -2269,36 +2264,20 @@ function handleAvailableEquipment($method, $parts, $input) {
     $inter = $db->fetch_object($res_inter);
     $socid = (int)$inter->fk_soc;
 
-    // If equipment is already linked to this intervention, derive "its" Objektadresse
-    // from the first linked equipment's fk_address (same fallback pattern used by the
-    // PDF module and calendar.php) and restrict suggestions to that same address, so
-    // the PWA doesn't offer equipment from every Objektadresse of the customer.
-    // Previously this restriction went through an OBJ contact on the intervention
-    // itself, but that compared a socpeople id (OBJ contact, System B) against
-    // fk_address, which is now a societe id (System A) after the v6 migration - two
-    // different id spaces. If nothing is linked yet, there's no address to anchor to,
-    // so all of the customer's equipment is offered (picking the first one then
-    // anchors the address for subsequent additions).
-    $current_address_id = 0;
-    $sql_addr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-    $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql_addr .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-    $sql_addr .= " ORDER BY l.date_creation ASC LIMIT 1";
-    $res_addr = $db->query($sql_addr);
-    if ($res_addr && ($addr_row = $db->fetch_object($res_addr))) {
-        $current_address_id = (int)$addr_row->fk_address;
-    }
+    // The Objektadresse is fixed on the order (set in the backend, never in the PWA).
+    // Only equipment of that address is offered - nothing at all while the order has
+    // no Objektadresse, so the PWA never lists the customer's other addresses.
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+    $current_address_id = Equipment::getInterventionAddressId($db, $intervention_id);
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
     $sql .= " addr_s.nom as address_name, addr_s.address, addr_s.zip, addr_s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
-    $sql .= " WHERE e.fk_soc = ".(int)$socid;
-    if ($current_address_id > 0) {
-        $sql .= " AND e.fk_address = ".(int)$current_address_id;
-    } elseif (!$user->admin) {
-        // No Objektadresse anchored yet: non-admins get no suggestions (instead of all customer equipment)
+    // Filter by the address only (equipment of a property manager's order may belong to another customer)
+    $sql .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+    $sql .= " AND e.fk_address = ".(int)$current_address_id;
+    if ($current_address_id <= 0) {
         $sql .= " AND 1 = 0";
     }
     $sql .= " AND e.rowid NOT IN (";
@@ -2332,6 +2311,7 @@ function handleAvailableEquipment($method, $parts, $input) {
         'status' => 'ok',
         'intervention_id' => $intervention_id,
         'count' => count($equipment),
+        'no_object_address' => ($current_address_id <= 0),
         'equipment' => $equipment
     ]);
 }
@@ -2365,7 +2345,14 @@ function handleLinkEquipment($method, $parts, $input) {
         $db->begin();
 
         // Delete checklist results for this equipment/intervention
-        $sqlCl = "DELETE cr FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_result cr"
+        $sqlItems = "DELETE ir FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results ir"
+               . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr ON cr.rowid = ir.fk_checklist_result"
+               . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il"
+               . "   ON il.rowid = cr.fk_equipment_intervention"
+               . " WHERE il.fk_intervention = ".(int)$intervention_id
+               . " AND il.fk_equipment = ".(int)$equipment_id;
+        $db->query($sqlItems);
+        $sqlCl = "DELETE cr FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr"
                . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il"
                . "   ON il.rowid = cr.fk_equipment_intervention"
                . " WHERE il.fk_intervention = ".(int)$intervention_id
@@ -2420,16 +2407,14 @@ function handleLinkEquipment($method, $parts, $input) {
     // Enforce: all equipment on a service order must share the same Objektadresse
     // (see Equipment::getObjectAddressForDocument()) - mirrors the same guard in
     // intervention_equipment.php's backend 'link'/'bulk_link' actions.
+    // The order's Objektadresse is fixed (backend only); without one nothing can be added
     dol_include_once('/equipmentmanager/class/equipment.class.php');
-    $lockedAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $intervention_id);
-    if ($lockedAddress !== null) {
-        $candidate = new Equipment($db);
-        $candidate->fetch($equipment_id);
-        if ((int)$candidate->fk_address !== (int)$lockedAddress->id) {
-            http_response_code(409);
-            echo json_encode(['error' => 'Equipment belongs to a different Objektadresse than the equipment already linked to this service order']);
-            return;
-        }
+    $lockedAddressId = Equipment::getInterventionAddressId($db, $intervention_id);
+    $candidate = new Equipment($db);
+    if ($lockedAddressId <= 0 || $candidate->fetch($equipment_id) <= 0 || (int)$candidate->fk_address !== $lockedAddressId) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Equipment does not belong to the Objektadresse of this service order']);
+        return;
     }
 
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";

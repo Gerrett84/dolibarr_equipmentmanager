@@ -617,6 +617,83 @@ class Equipment extends CommonObject
      *
      * @return bool
      */
+    /**
+     * Make sure the intervention-address table exists (installs that were updated
+     * by replacing the module folder without switching the module off and on).
+     *
+     * @param DoliDB $db
+     * @return void
+     */
+    public static function ensureInterventionAddressTable($db)
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        $db->query("CREATE TABLE IF NOT EXISTS ".MAIN_DB_PREFIX."equipmentmanager_intervention_address ("
+            ." fk_intervention integer NOT NULL PRIMARY KEY,"
+            ." fk_address integer NOT NULL,"
+            ." date_creation datetime NOT NULL,"
+            ." fk_user_creat integer,"
+            ." tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+            .") ENGINE=innodb");
+    }
+
+    /**
+     * Objektadresse (societe id) of a service order. Stored on the order since v6.1.8;
+     * orders from before that are resolved from their first linked equipment once and
+     * the result is stored, so the address stays fixed even if all equipment is removed.
+     *
+     * @param DoliDB $db
+     * @param int $interventionId
+     * @return int 0 if the order has no Objektadresse yet
+     */
+    public static function getInterventionAddressId($db, $interventionId)
+    {
+        $interventionId = (int) $interventionId;
+        if ($interventionId <= 0) {
+            return 0;
+        }
+        self::ensureInterventionAddressTable($db);
+        $res = $db->query("SELECT fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_address WHERE fk_intervention = ".$interventionId);
+        if ($res && ($row = $db->fetch_object($res)) && (int) $row->fk_address > 0) {
+            return (int) $row->fk_address;
+        }
+        $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+        $sql .= " WHERE l.fk_intervention = ".$interventionId." AND e.fk_address > 0";
+        $sql .= " ORDER BY l.date_creation ASC, l.rowid ASC LIMIT 1";
+        $fk = self::fetchFirstFkAddress($db, $sql);
+        if ($fk > 0) {
+            self::setInterventionAddressId($db, $interventionId, $fk, null);
+        }
+        return $fk;
+    }
+
+    /**
+     * Store the Objektadresse of a service order (insert or replace).
+     *
+     * @param DoliDB $db
+     * @param int $interventionId
+     * @param int $addressId societe id; 0 removes the address
+     * @param User|null $user
+     * @return bool
+     */
+    public static function setInterventionAddressId($db, $interventionId, $addressId, $user = null)
+    {
+        self::ensureInterventionAddressTable($db);
+        $interventionId = (int) $interventionId;
+        $addressId = (int) $addressId;
+        if ($addressId <= 0) {
+            return (bool) $db->query("DELETE FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_address WHERE fk_intervention = ".$interventionId);
+        }
+        $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_address (fk_intervention, fk_address, date_creation, fk_user_creat)";
+        $sql .= " VALUES (".$interventionId.", ".$addressId.", '".$db->idate(dol_now())."', ".(is_object($user) ? (int) $user->id : "NULL").")";
+        $sql .= " ON DUPLICATE KEY UPDATE fk_address = VALUES(fk_address)";
+        return (bool) $db->query($sql);
+    }
+
     public static function isObjectAddressMigrated()
     {
         return getDolGlobalString('EQUIPMENTMANAGER_FK_ADDRESS_MIGRATED') !== '';
@@ -649,12 +726,7 @@ class Equipment extends CommonObject
         $fkAddress = 0;
 
         if ($element === 'fichinter') {
-            $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-            $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-            $sql .= " WHERE l.fk_intervention = ".$objectId;
-            $sql .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-            $sql .= " ORDER BY l.date_creation ASC LIMIT 1";
-            $fkAddress = self::fetchFirstFkAddress($db, $sql);
+            $fkAddress = self::getInterventionAddressId($db, $objectId);
         } elseif ($element === 'propal') {
             $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_propal_equipment l";
             $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";

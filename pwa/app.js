@@ -3705,11 +3705,13 @@ class ServiceReportApp {
         try {
             let equipment = [];
             let loadedFromCache = false;
+            let noObjectAddress = false;
 
             if (this.isOnline) {
                 try {
                     const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
                     equipment = data.equipment || [];
+                    noObjectAddress = !!data.no_object_address;
                     // Cache for offline use
                     await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
                 } catch (apiErr) {
@@ -3732,11 +3734,14 @@ class ServiceReportApp {
             }
 
             if (equipment.length === 0) {
-                listEl.innerHTML = `
-                    <div class="empty-state" style="padding: 20px 0;">
-                        <p>Keine weiteren Anlagen verfügbar</p>
-                    </div>
-                `;
+                listEl.innerHTML = noObjectAddress
+                    ? `<div class="empty-state" style="padding: 20px 0;">
+                        <p>Für diesen Auftrag ist keine Objektadresse hinterlegt.</p>
+                        <p style="font-size:12px;color:var(--text-muted);">Die Objektadresse wird im Backend festgelegt – danach können hier Anlagen dieser Adresse hinzugefügt werden.</p>
+                    </div>`
+                    : `<div class="empty-state" style="padding: 20px 0;">
+                        <p>Keine weiteren Anlagen an dieser Objektadresse verfügbar</p>
+                    </div>`;
                 return;
             }
 
