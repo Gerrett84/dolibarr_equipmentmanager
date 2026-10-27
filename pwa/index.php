@@ -2436,17 +2436,16 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
                     </div>
                     <!-- Entries List -->
                     <div id="entriesList"></div>
-                </div>
-            </div>
 
-            <!-- Checklist launcher (only for maintenance) - the checklist itself has its own page -->
-            <div class="card" style="margin-top:12px;display:none;" id="checklistLauncher">
-                <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <div>
-                        <div style="font-weight:600;">Checkliste</div>
-                        <div id="checklistLauncherStatus" style="font-size:13px;color:var(--text-secondary);">–</div>
+                    <!-- Checklist row (maintenance only) - opens the checklist on its own page -->
+                    <div class="entry-item checklist-row" id="checklistLauncher" style="display:none;border-top:1px solid var(--border-color);">
+                        <div style="font-size:22px;width:32px;text-align:center;">📋</div>
+                        <div class="entry-info">
+                            <div style="font-weight:600;font-size:14px;color:var(--text-primary);">Checkliste</div>
+                            <div id="checklistLauncherStatus" style="margin-top:4px;"></div>
+                        </div>
+                        <div class="entry-arrow">›</div>
                     </div>
-                    <button type="button" class="btn btn-primary" id="btnOpenChecklist" style="white-space:nowrap;">Checkliste öffnen ›</button>
                 </div>
             </div>
 

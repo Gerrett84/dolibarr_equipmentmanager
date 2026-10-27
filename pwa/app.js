@@ -480,7 +480,7 @@ class ServiceReportApp {
         document.getElementById('btnAddEntry').addEventListener('click', () => this.addNewEntry());
 
         // Checklist page
-        document.getElementById('btnOpenChecklist').addEventListener('click', () => this.openChecklist());
+        document.getElementById('checklistLauncher').addEventListener('click', () => this.openChecklist());
 
         // Delete entry button (v1.7)
         document.getElementById('btnDeleteEntry').addEventListener('click', () => this.deleteEntry());
@@ -1794,7 +1794,7 @@ class ServiceReportApp {
             // the checklist itself opens on its own page
             const launcher = document.getElementById('checklistLauncher');
             if (equipment.id > 0 && equipment.link_type === 'maintenance') {
-                launcher.style.display = 'block';
+                launcher.style.display = 'flex';
                 this._updateChecklistLauncher(equipment.checklist_status);
             } else {
                 launcher.style.display = 'none';
@@ -5515,11 +5515,13 @@ class ServiceReportApp {
     _updateChecklistLauncher(status) {
         const el = document.getElementById('checklistLauncherStatus');
         if (!el) return;
+        const chip = (bg, fg, text) =>
+            `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${bg};color:${fg};">${text}</span>`;
         el.innerHTML = status === 1
-            ? '<span style="color:#2e7d32;">✅ abgeschlossen</span>'
+            ? chip('rgba(76,175,80,0.15)', '#2e7d32', '✓ abgeschlossen')
             : (status === 0
-                ? '<span style="color:#ef6c00;">📝 begonnen, noch nicht abgeschlossen</span>'
-                : '<span style="color:#c62828;">⬜ noch nicht erstellt</span>');
+                ? chip('rgba(251,140,0,0.15)', '#ef6c00', 'begonnen')
+                : chip('rgba(229,57,53,0.12)', '#c62828', 'noch nicht erstellt'));
     }
 
     // Open the checklist page for the current equipment
