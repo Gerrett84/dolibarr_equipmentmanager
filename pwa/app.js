@@ -15,7 +15,7 @@ class ServiceReportApp {
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
         this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
-        this.signedTimeRange = 30; // v4.1 - time range in days for signed orders (0 = all)
+        this.signedTimeRange = 15; // time range in days for finished orders (0 = all); also limits the offline sync of finished orders
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
         this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
@@ -1089,6 +1089,7 @@ class ServiceReportApp {
             <div class="time-range-selector">
                 <span class="time-range-label">Zeitraum:</span>
                 <select id="timeRangeSelect" class="time-range-select">
+                    <option value="15" ${this.signedTimeRange === 15 ? 'selected' : ''}>15 Tage</option>
                     <option value="30" ${this.signedTimeRange === 30 ? 'selected' : ''}>30 Tage</option>
                     <option value="90" ${this.signedTimeRange === 90 ? 'selected' : ''}>3 Monate</option>
                     <option value="180" ${this.signedTimeRange === 180 ? 'selected' : ''}>6 Monate</option>
@@ -1122,8 +1123,20 @@ class ServiceReportApp {
 
     // Set time range for signed orders
     setTimeRange(days) {
+        const oldRange = this.signedTimeRange;
         this.signedTimeRange = parseInt(days, 10);
         this.renderInterventionsList();
+
+        // Range widened: sync the finished orders that are now visible in the background
+        const widened = this.signedTimeRange === 0 || (oldRange !== 0 && this.signedTimeRange > oldRange);
+        if (widened && this.isOnline) {
+            const ids = new Set((this.allInterventions || [])
+                .filter(i => this.getInterventionStatus(i) === 'signed'
+                    && this.isWithinDays(i, this.signedTimeRange)
+                    && !this.isWithinDays(i, oldRange))
+                .map(i => i.id));
+            if (ids.size > 0) this.prefetchAllData(ids).catch(err => console.warn("Prefetch of finished orders failed:", err));
+        }
     }
 
     // Render interventions list (uses cached data)
@@ -3105,7 +3118,7 @@ class ServiceReportApp {
     }
 
     // Prefetch all data for offline use
-    async prefetchAllData() {
+    async prefetchAllData(onlyIds = null) {
         if (!this.isOnline) return;
 
         const statusEl = document.getElementById('syncStatus');
@@ -3119,13 +3132,12 @@ class ServiceReportApp {
             await offlineDB.saveInterventions(interventions);
 
             // 2. For each intervention, fetch equipment, entries, available equipment, and documents.
-            // Finished orders older than 30 days are not prefetched again (they only grow the
-            // sync time on mobile networks; they still load on demand when opened online).
-            const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+            // Open and released orders always; finished orders only within the "Erledigt" time
+            // range (default 15 days) - older ones still load on demand when opened online.
             const toPrefetch = interventions.filter(i => {
+                if (onlyIds) return onlyIds.has(i.id);
                 if (this.getInterventionStatus(i) !== 'signed') return true;
-                const d = this._interventionTime(i);
-                return d === null || d >= cutoff;
+                return this.isWithinDays(i, this.signedTimeRange);
             });
             const total = toPrefetch.length;
             let current = 0;
