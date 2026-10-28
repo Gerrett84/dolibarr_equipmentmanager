@@ -381,7 +381,7 @@ function handleInterventions($method, $parts, $input) {
             'date_end' => $obj->datee,
             'duration' => (int)$obj->duree,
             'status' => (int)$obj->status,
-            'signed_status' => (int)$obj->signed_status,
+            'signed_status' => eqmEffectiveSignedStatus($obj->status, $obj->signed_status),
             'date_signed' => eqmInterventionSignedDate($obj),
             'description' => $obj->description,
             'note_public' => $obj->note_public,
@@ -692,9 +692,10 @@ function handleIntervention($method, $parts, $input) {
         @set_time_limit(300);
 
         // Use Dolibarr's setValid() method to properly validate the intervention
-        // This generates the proper reference (FI...) and renames directories
+        // This generates the proper reference (FI...) and renames directories.
+        // Already validated in the backend: just mark it released (no second validation).
         $fichinter->fetch_thirdparty();
-        $result = $fichinter->setValid($user);
+        $result = ((int)$fichinter->statut >= 1) ? 1 : $fichinter->setValid($user);
 
         if ($result > 0) {
             // Also set signed_status = 1 (released for signature)
@@ -737,7 +738,20 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set signed_status = 0 AND fk_statut = 0 (draft) to allow editing again
+        // A signed or closed order can never be reopened from the PWA
+        $resCur = $db->query("SELECT fk_statut, signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id);
+        $cur = $resCur ? $db->fetch_object($resCur) : null;
+        if (!$cur || (int)$cur->signed_status >= 3 || (int)$cur->fk_statut >= 3) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Signed or closed orders cannot be reopened', 'signed_status' => $cur ? (int)$cur->signed_status : null]);
+            return;
+        }
+
+        // Back to draft via Dolibarr (fires FICHINTER_UNVALIDATE like the backend "Ändern"),
+        // then clear the release flag
+        if ((int)$cur->fk_statut >= 1) {
+            $fichinter->setDraft($user);
+        }
         $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 0, fk_statut = 0 WHERE rowid = ".(int)$id;
         $resql = $db->query($sql);
         $affectedRows = $db->affected_rows($resql);
@@ -756,7 +770,7 @@ function handleIntervention($method, $parts, $input) {
                 'status' => 'ok',
                 'message' => 'Intervention reopened for editing',
                 'signed_status' => $actualSignedStatus,
-                'intervention_status' => (int)$fichinter->statut,
+                'intervention_status' => 0,
                 'affected_rows' => $affectedRows
             ]);
         } else {
@@ -1051,7 +1065,7 @@ function handleIntervention($method, $parts, $input) {
             'description' => $fichinter->description,
             'note_public' => $fichinter->note_public,
             'note_private' => $fichinter->note_private,
-            'signed_status' => $signedStatus
+            'signed_status' => eqmEffectiveSignedStatus($fichinter->statut, $signedStatus)
         ],
         'equipment' => $equipment
     ]);
@@ -2454,6 +2468,32 @@ function handleLinkEquipment($method, $parts, $input) {
 /**
  * Get the fichinter document output directory
  */
+/**
+ * Release state as the PWA uses it (signed_status 0 = editable, 1 = released for
+ * signature, 3 = signed), derived consistently from Dolibarr's own status: an order set
+ * back to draft in the backend ("Ändern") is editable again, an order validated in the
+ * backend is released. A signature is never discarded.
+ *
+ * @param int $fkStatut Dolibarr status (0 draft, 1 validated, 2 billed, 3 closed)
+ * @param int $signedStatus Stored signed_status
+ * @return int
+ */
+function eqmEffectiveSignedStatus($fkStatut, $signedStatus)
+{
+    $fkStatut = (int) $fkStatut;
+    $signedStatus = (int) $signedStatus;
+    if ($signedStatus >= 3) {
+        return 3;
+    }
+    if ($fkStatut === 0) {
+        return 0;
+    }
+    if ($fkStatut >= 1 && $fkStatut < 3) {
+        return max(1, $signedStatus);
+    }
+    return $signedStatus;
+}
+
 /**
  * Date an order was finished, for the "Erledigt" list: the customer signature time
  * (newest signatures/YYYYmmddHHMMSS_signature.png in the order's document folder),

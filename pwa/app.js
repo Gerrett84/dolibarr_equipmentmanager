@@ -1463,8 +1463,11 @@ class ServiceReportApp {
 
             // console.log('Equipment loaded, signedStatus:', signedStatus);
 
-            if (signedStatus >= 1) {
-                // Released or signed - show "Ändern" button
+            if (signedStatus >= 3 || (this.currentIntervention.status || 0) >= 3) {
+                // Signed or closed: can never be reopened from the PWA
+                releaseBtn.style.display = 'none';
+            } else if (signedStatus >= 1) {
+                // Released - show "Ändern" button
                 releaseIcon.textContent = '✏️';
                 releaseText.textContent = 'Ändern';
             } else {
@@ -4047,6 +4050,10 @@ class ServiceReportApp {
     // Toggle release/unreleased intervention
     async toggleRelease() {
         const signedStatus = this.currentIntervention.signed_status || 0;
+        if (signedStatus >= 3 || (this.currentIntervention.status || 0) >= 3) {
+            this.showToast('Unterschriebene Aufträge können nicht wieder geöffnet werden');
+            return;
+        }
         const isReleased = signedStatus >= 1;
         const action = isReleased ? 'unreleased' : 'release';
         const confirmMsg = isReleased
@@ -4132,7 +4139,12 @@ class ServiceReportApp {
         } catch (err) {
             if (busy) busy.remove();
             console.error('Failed to toggle release:', err);
-            this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
+            if (String(err.message || '').includes('409')) {
+                this.showToast('Unterschriebene Aufträge können nicht wieder geöffnet werden');
+                await this.loadEquipment(this.currentIntervention);
+            } else {
+                this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
+            }
         }
     }
 
