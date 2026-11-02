@@ -2919,7 +2919,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
-    <script src="install.js?v=6.1.7"></script>
+    <script src="install.js?v=6.2.0"></script>
     <script src="db.js?v=6.1.8b"></script>
     <script src="app.js?v=6.0.1"></script>
 
