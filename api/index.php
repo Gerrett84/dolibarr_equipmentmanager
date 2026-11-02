@@ -106,6 +106,20 @@ if (!$authenticated) {
     }
 }
 
+// Third: short-lived view ticket (?t=) - only for photo files shown via <img src>, which
+// cannot send the X-PWA-Token header. Access to the order is still checked in the handler.
+if (!$authenticated && $_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['t'])) {
+    $ticketRoute = !empty($_GET['route']) ? (string) $_GET['route'] : trim((string) ($_SERVER['PATH_INFO'] ?? ''), '/');
+    if (preg_match('#^(entry|defect)-photo/\d+/file/[^/]+$#', $ticketRoute)) {
+        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+        $ticketUser = eqmResolveViewTicket($db, (string) $_GET['t']);
+        if ($ticketUser !== null) {
+            $user = $ticketUser;
+            $authenticated = true;
+        }
+    }
+}
+
 if (!$authenticated) {
     http_response_code(401);
     echo json_encode(['error' => 'Not authenticated']);

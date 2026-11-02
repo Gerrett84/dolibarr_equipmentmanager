@@ -1697,6 +1697,7 @@ class ServiceReportApp {
 
     // Load entries list for equipment (v1.7)
     async loadEntries(equipment) {
+        this._refreshViewTicket(); // entry photos on the next screen need a fresh ticket
         try {
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
@@ -2294,7 +2295,19 @@ class ServiceReportApp {
     // Get URL for entry photo
     getEntryPhotoUrl(filename) {
         if (!filename || !this.currentIntervention) return '';
-        return `${CONFIG.apiBase}/entry-photo/${this.currentIntervention.id}/file/${filename}`;
+        return this._photoUrl(`entry-photo/${this.currentIntervention.id}/file/${encodeURIComponent(filename)}`);
+    }
+
+    // Photo URL for <img src>: images cannot send the PWA token header, so a short-lived
+    // view ticket goes along (kept fresh by _refreshViewTicket before photos are shown)
+    _photoUrl(route) {
+        const t = this._viewTicket ? `&t=${encodeURIComponent(this._viewTicket)}` : '';
+        return `${CONFIG.apiBase}?route=${route}${t}`;
+    }
+
+    async _refreshViewTicket() {
+        if (!this.isOnline) return;
+        try { await this.getViewTicket(); } catch (e) { /* photos then rely on the session cookie */ }
     }
 
     // Capture entry photo - let iOS/browser handle source selection
@@ -2505,7 +2518,8 @@ class ServiceReportApp {
     }
 
     // View entry photo fullscreen
-    viewEntryPhoto() {
+    async viewEntryPhoto() {
+        await this._refreshViewTicket();
         let url;
         if (this.currentEntryPhotoData) {
             url = this.currentEntryPhotoData;
@@ -4359,7 +4373,7 @@ class ServiceReportApp {
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
                         <div class="document-actions">
-                            <button type="button" class="doc-action doc-preview" data-url="${this.escapeHtml(previewUrl)}" data-name="${this.escapeHtml(doc.name)}" title="Vorschau">🔍</button>
+                            <button type="button" class="doc-action doc-preview" data-url="${this.escapeHtml(previewUrl)}" data-name="${this.escapeHtml(doc.name)}" data-image="${doc.type === 'image' || doc.type === 'signature' || /\.(jpe?g|png|gif|webp|heic)$/i.test(doc.name || '') ? '1' : ''}" title="Vorschau">🔍</button>
                             <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                         </div>
                     `;
@@ -4385,7 +4399,10 @@ class ServiceReportApp {
                     btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
                 });
                 listEl.querySelectorAll('.doc-preview').forEach(btn => {
-                    btn.addEventListener('click', (e) => this.openPdfViewer(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
+                    btn.addEventListener('click', (e) => {
+                        const d = e.currentTarget.dataset;
+                        this.openPdfViewer(d.url, d.name, false, d.image === '1');
+                    });
                 });
             }
         } catch (err) {
@@ -4416,7 +4433,7 @@ class ServiceReportApp {
     }
 
     // Open PDF in in-app viewer overlay (no new tab needed)
-    openPdfViewer(url, title = 'Dokument', isBlobUrl = false) {
+    openPdfViewer(url, title = 'Dokument', isBlobUrl = false, isImage = false) {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
         const frame = document.getElementById('pdfViewerFrame');
@@ -4432,6 +4449,23 @@ class ServiceReportApp {
         // <object type="application/pdf"> direkt im Overlay zeigt alle Seiten scrollbar.
         frame.style.display = 'none';
         frame.src = 'about:blank';
+
+        if (isImage) {
+            // Photos: plain <img> (an <object type="application/pdf"> stays blank on iOS)
+            const wrap = document.createElement('div');
+            wrap.id = 'pdfViewerObject';
+            wrap.style.cssText = 'flex:1;min-height:0;width:100%;overflow:auto;display:flex;align-items:flex-start;justify-content:center;background:#111;-webkit-overflow-scrolling:touch;';
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = title;
+            img.style.cssText = 'max-width:100%;height:auto;display:block;';
+            img.onerror = () => { wrap.innerHTML = '<div style="color:#ccc;padding:24px;text-align:center;">Foto konnte nicht geladen werden</div>'; };
+            wrap.appendChild(img);
+            overlay.appendChild(wrap);
+            overlay.classList.add('show');
+            return;
+        }
+
         const obj = document.createElement('object');
         obj.id = 'pdfViewerObject';
         obj.type = 'application/pdf';
@@ -5854,6 +5888,7 @@ class ServiceReportApp {
 
     // Load checklist for equipment
     async loadChecklist(interventionId, equipmentId) {
+        await this._refreshViewTicket(); // defect photos are rendered as <img src>
         const contentEl = document.getElementById('checklistContent');
         const titleEl = document.getElementById('checklistTitle');
 
@@ -6318,7 +6353,7 @@ class ServiceReportApp {
         const checklistId = this.currentChecklist?.checklist?.id;
         if (!checklistId) return '';
         // Photos are served via API endpoint with filename
-        return `${CONFIG.apiBase}/defect-photo/${checklistId}/file/${filename}`;
+        return this._photoUrl(`defect-photo/${checklistId}/file/${encodeURIComponent(filename)}`);
     }
 
     // Capture defect photo for an item
@@ -6442,7 +6477,8 @@ class ServiceReportApp {
     }
 
     // View defect photo in fullscreen
-    viewDefectPhoto(filename) {
+    async viewDefectPhoto(filename) {
+        await this._refreshViewTicket();
         const url = this.getDefectPhotoUrl(filename);
         if (!url) return;
 

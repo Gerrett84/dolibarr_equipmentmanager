@@ -81,6 +81,8 @@ $mime = [
     'jpg'  => 'image/jpeg',
     'jpeg' => 'image/jpeg',
     'gif'  => 'image/gif',
+    'webp' => 'image/webp',
+    'heic' => 'image/heic',
 ][$ext] ?? 'application/octet-stream';
 
 header('Content-Type: ' . $mime);
