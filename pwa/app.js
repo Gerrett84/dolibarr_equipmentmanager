@@ -420,10 +420,18 @@ class ServiceReportApp {
             this.checkConnectivity(true);
         }, 15000);
 
+        // Keep the order overview current while it is open (one small request per minute)
+        setInterval(() => {
+            if (!document.hidden && this.currentView === 'viewInterventions') {
+                this.refreshInterventionsSilently();
+            }
+        }, 60000);
+
         // Check connectivity when app comes back to foreground
         // Use 3 retries (× 1.5s) because network may not be immediately available after wakeup
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
+                if (this.isOnline) this.refreshInterventionsSilently();
                 const now = Date.now();
                 const lastSync = this._lastSyncTime || 0;
                 const minutesSinceSync = (now - lastSync) / 60000;
@@ -441,6 +449,7 @@ class ServiceReportApp {
             btn.addEventListener('click', (e) => {
                 const view = e.currentTarget.dataset.view;
                 if (view) this.showView(view);
+                if (view === 'viewInterventions') this.refreshInterventionsSilently();
             });
         });
 
@@ -691,8 +700,10 @@ class ServiceReportApp {
             this.updateOnlineStatus();
             if (!silent) this.showToast('Verbindung wiederhergestellt');
             if (!skipAutoSync) {
+                // Show the current list right away; the full offline sync can take a while
+                await this.refreshInterventionsSilently();
                 await this.syncData();
-                await this.loadInterventions();
+                await this.refreshInterventionsSilently();
             }
         }
     }
@@ -1215,6 +1226,38 @@ class ServiceReportApp {
         document.getElementById('btnStatusLegend').addEventListener('click', () => this.showStatusLegend());
     }
 
+    _interventionsSignature(list) {
+        return JSON.stringify((list || []).map(i => [i.id, i.ref, i.status, i.signed_status,
+            i.date_start, i.date_end, i.date_signed, i.description, i.primary_type, i.maintenance_status]));
+    }
+
+    // Refresh the order overview in the background (new orders, release/reopen done in
+    // the backend or on another device). Only re-renders when something changed and
+    // keeps the scroll position, so it can run often without disturbing.
+    async refreshInterventionsSilently() {
+        if (!this.isOnline || this._refreshingList) return;
+        this._refreshingList = true;
+        try {
+            const data = await this.apiCall('interventions?status=all');
+            const list = data.interventions || [];
+            await offlineDB.replaceInterventions(list);
+            const sig = this._interventionsSignature(list);
+            if (sig === this._interventionsSig) return;
+            this._interventionsSig = sig;
+            this.allInterventions = list;
+            if (this.currentView === 'viewInterventions') {
+                const y = window.scrollY;
+                document.getElementById('interventionsLoading').style.display = 'none';
+                this.renderInterventionsList();
+                window.scrollTo(0, y);
+            }
+        } catch (e) {
+            // offline or server busy - the next refresh will catch up
+        } finally {
+            this._refreshingList = false;
+        }
+    }
+
     // Load interventions
     async loadInterventions() {
         const loadingEl = document.getElementById('interventionsLoading');
@@ -1244,10 +1287,11 @@ class ServiceReportApp {
                     interventions = data.interventions || [];
 
                     // Save to IndexedDB
-                    await offlineDB.saveInterventions(interventions);
+                    await offlineDB.replaceInterventions(interventions);
 
                     loadingEl.style.display = 'none';
                     this.allInterventions = interventions;
+                    this._interventionsSig = this._interventionsSignature(interventions);
                     this.renderInterventionsList();
                 } catch (apiErr) {
                     // API failed - might be offline now
@@ -3132,7 +3176,7 @@ class ServiceReportApp {
             // 1. Fetch all interventions
             const data = await this.apiCall('interventions?status=all');
             const interventions = data.interventions || [];
-            await offlineDB.saveInterventions(interventions);
+            await offlineDB.replaceInterventions(interventions);
 
             // 2. For each intervention, fetch equipment, entries, available equipment, and documents.
             // Open and released orders always; finished orders only within the "Erledigt" time

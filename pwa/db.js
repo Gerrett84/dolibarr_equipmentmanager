@@ -227,6 +227,13 @@ class OfflineDB {
         }
     }
 
+    // Replace the cached order list with the server's list (drops orders that were
+    // deleted or are no longer assigned to this user)
+    async replaceInterventions(interventions) {
+        await this.clear('interventions');
+        await this.saveInterventions(interventions);
+    }
+
     // Save equipment for an intervention (v4: uses composite key [intervention_id, id])
     async saveEquipment(interventionId, equipmentList) {
         for (const eq of equipmentList) {
