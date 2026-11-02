@@ -55,6 +55,8 @@ if ($calUser === null) {
 }
 
 // Query open service orders with dates
+dol_include_once('/equipmentmanager/class/equipment.class.php');
+Equipment::ensureInterventionAddressTable($db);
 $sql  = "SELECT f.rowid, f.ref, f.dateo, f.datee, f.description,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.firstname as tech_firstname, u.lastname as tech_lastname,";
@@ -70,7 +72,9 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."user as u ON u.rowid = f.fk_user_author";
 // actual work/checklist entries exist and would leave the address empty on a fresh order.
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as lnk ON lnk.fk_intervention = f.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.rowid = lnk.fk_equipment";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = eq.fk_address";
+// Since v6.1.8 the order stores its own Objektadresse (also without equipment)
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_address as ia ON ia.fk_intervention = f.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = COALESCE(ia.fk_address, eq.fk_address)";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
 $sql .= " AND ".eqmInterventionAccessSql($calUser, 'f');   // only orders the user is assigned to
 $sql .= " AND f.fk_statut IN (0, 1)";   // open service orders only

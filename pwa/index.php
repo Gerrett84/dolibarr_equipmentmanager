@@ -387,7 +387,7 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
         /* Main Content */
         .content {
             padding: 16px;
-            padding-bottom: 80px;
+            padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); /* keep the last button above the bottom nav */
         }
 
         /* Cards */
@@ -2436,11 +2436,34 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
                     </div>
                     <!-- Entries List -->
                     <div id="entriesList"></div>
+
+                    <!-- Checklist row (maintenance only) - opens the checklist on its own page -->
+                    <div class="entry-item checklist-row" id="checklistLauncher" style="display:none;border-top:1px solid var(--border-color);">
+                        <div style="font-size:22px;width:32px;text-align:center;">📋</div>
+                        <div class="entry-info">
+                            <div style="font-weight:600;font-size:14px;color:var(--text-primary);">Checkliste</div>
+                            <div id="checklistLauncherStatus" style="margin-top:4px;"></div>
+                        </div>
+                        <div class="entry-arrow">›</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Materials Section -->
+            <div class="card" style="margin-top:12px;" id="materialsCard">
+                <div class="card-header">
+                    <h3 class="card-title">Material</h3>
+                    <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
+                </div>
+                <div class="card-body" id="materialsList">
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <p style="margin: 0; color: #666;">Kein Material erfasst</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Recommendations & Notes (Summary) -->
-            <div class="card">
+            <div class="card" style="margin-top:12px;">
                 <div class="card-header">
                     <h3 class="card-title">Empfehlungen & Notizen</h3>
                 </div>
@@ -2457,21 +2480,14 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
             </div>
             <button type="button" class="btn btn-primary btn-block" id="btnSaveSummary">Empfehlungen speichern</button>
 
-            <!-- Materials Section -->
-            <div class="card" style="margin-top:12px;" id="materialsCard">
-                <div class="card-header">
-                    <h3 class="card-title">Material</h3>
-                    <button type="button" class="btn btn-primary" id="btnAddMaterial" style="padding: 6px 12px; font-size: 14px;">+ Hinzufügen</button>
-                </div>
-                <div class="card-body" id="materialsList">
-                    <div class="empty-state" style="padding: 20px 0;">
-                        <p style="margin: 0; color: #666;">Kein Material erfasst</p>
-                    </div>
-                </div>
-            </div>
+        </div>
+    </div>
 
+    <!-- Checklist View (own page, opened from the equipment page) -->
+    <div class="view" id="viewChecklist">
+        <div class="content">
             <!-- Checklist Section (only for maintenance) -->
-            <div class="card" style="margin-top:12px;display:none;" id="checklistCard">
+            <div class="card" id="checklistCard">
                 <div class="card-header">
                     <h3 class="card-title" id="checklistTitle">Checkliste</h3>
                 </div>
@@ -2903,8 +2919,8 @@ $pwaLogoOpaque = ($pwaLogo && $pwaLogo['opaque']);
             trustedDevice: <?php echo $trustedDeviceInfo ? json_encode($trustedDeviceInfo) : 'null'; ?>
         };
     </script>
-    <script src="install.js?v=6.1.7"></script>
-    <script src="db.js?v=5.5.0"></script>
+    <script src="install.js?v=6.2.0"></script>
+    <script src="db.js?v=6.1.8b"></script>
     <script src="app.js?v=6.0.1"></script>
 
     <script>

@@ -345,3 +345,14 @@ TechnicianNewUser=Create new user
 TechnicianGroupReadyMsg=Group "%s" ready (%s of %s permissions set).
 PwaAppName=App name (PWA)
 PwaAppNameHelp=Name below the icon on the home screen (max. 30 characters, keep it short: iPhone/Android truncate at about 12). Empty/reset = "Service". Already installed apps keep their name until they are added again.
+
+# v6.1.8: one technician per intervention
+ErrorOnlyOneTechnicianPerIntervention = Only one "Intervening" technician can currently be assigned per intervention. Please remove the existing one first.
+
+# v6.1.8: Objektadresse fixed on the service order
+ObjectAddressSet = Object address set for this service order
+ObjectAddressChangeBlocked = The object address cannot be changed while equipment of another object address is linked. Please remove it first.
+ObjectAddressLockedHint = fixed for this order - can only be changed without linked equipment
+SetAsObjectAddress = Set as object address
+SetAsObjectAddressHint = The object address applies to the whole order and cannot be changed in the PWA. Equipment can also be selected later (e.g. on site).
+ChooseObjectAddressFirst = Please choose and set the object address first - equipment of that address can be added afterwards.

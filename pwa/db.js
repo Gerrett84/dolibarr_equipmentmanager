@@ -21,6 +21,10 @@ class OfflineDB {
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
+                this._everOpened = true;
+                // The browser may close the connection on its own (iOS when the app is
+                // backgrounded or under memory pressure) - reopen lazily on next use
+                this.db.onclose = () => { this.db = null; };
                 this.db.onversionchange = () => {
                     this.db.close();
                     this.db = null;
@@ -124,11 +128,33 @@ class OfflineDB {
         ]);
     }
 
+    // Open a transaction; if the connection was closed by the browser
+    // ("The database connection is closing"), reopen once and retry.
+    async _tx(storeName, mode) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            if (!this.db) {
+                if (!this._everOpened) return null; // IndexedDB never available (e.g. private mode)
+                try { await this.init(); } catch (e) { return null; }
+            }
+            try {
+                return this.db.transaction(storeName, mode);
+            } catch (e) {
+                if (attempt === 0 && e && e.name === 'InvalidStateError') {
+                    try { this.db.close(); } catch (_) {}
+                    this.db = null;
+                    continue;
+                }
+                throw e;
+            }
+        }
+        return null;
+    }
+
     // Generic CRUD operations
     async put(storeName, data) {
-        if (!this.db) return null;
+        const tx = await this._tx(storeName, 'readwrite');
+        if (!tx) return null;
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
             const request = store.put(data);
             request.onsuccess = () => resolve(request.result);
@@ -137,9 +163,9 @@ class OfflineDB {
     }
 
     async get(storeName, key) {
-        if (!this.db) return undefined;
+        const tx = await this._tx(storeName, 'readonly');
+        if (!tx) return undefined;
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
             const request = store.get(key);
             request.onsuccess = () => resolve(request.result);
@@ -148,9 +174,9 @@ class OfflineDB {
     }
 
     async getAll(storeName) {
-        if (!this.db) return [];
+        const tx = await this._tx(storeName, 'readonly');
+        if (!tx) return [];
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
             const request = store.getAll();
             request.onsuccess = () => resolve(request.result || []);
@@ -159,9 +185,9 @@ class OfflineDB {
     }
 
     async delete(storeName, key) {
-        if (!this.db) return;
+        const tx = await this._tx(storeName, 'readwrite');
+        if (!tx) return;
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
             const request = store.delete(key);
             request.onsuccess = () => resolve();
@@ -170,9 +196,9 @@ class OfflineDB {
     }
 
     async clear(storeName) {
-        if (!this.db) return;
+        const tx = await this._tx(storeName, 'readwrite');
+        if (!tx) return;
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readwrite');
             const store = tx.objectStore(storeName);
             const request = store.clear();
             request.onsuccess = () => resolve();
@@ -181,9 +207,9 @@ class OfflineDB {
     }
 
     async getByIndex(storeName, indexName, value) {
-        if (!this.db) return [];
+        const tx = await this._tx(storeName, 'readonly');
+        if (!tx) return [];
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readonly');
             const store = tx.objectStore(storeName);
             const index = store.index(indexName);
             const request = index.getAll(value);
@@ -199,6 +225,13 @@ class OfflineDB {
         for (const intervention of interventions) {
             await this.put('interventions', intervention);
         }
+    }
+
+    // Replace the cached order list with the server's list (drops orders that were
+    // deleted or are no longer assigned to this user)
+    async replaceInterventions(interventions) {
+        await this.clear('interventions');
+        await this.saveInterventions(interventions);
     }
 
     // Save equipment for an intervention (v4: uses composite key [intervention_id, id])
@@ -359,7 +392,7 @@ class OfflineDB {
     // v5: Save defect material (offline support)
     async saveDefectMaterial(entryId, material) {
         // Check if store exists
-        if (!this.db.objectStoreNames.contains('defect_materials')) {
+        if (this.db && !this.db.objectStoreNames.contains('defect_materials')) {
             throw new Error('DB upgrade needed - please clear browser data and reload');
         }
 

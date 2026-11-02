@@ -106,6 +106,20 @@ if (!$authenticated) {
     }
 }
 
+// Third: short-lived view ticket (?t=) - only for photo files shown via <img src>, which
+// cannot send the X-PWA-Token header. Access to the order is still checked in the handler.
+if (!$authenticated && $_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['t'])) {
+    $ticketRoute = !empty($_GET['route']) ? (string) $_GET['route'] : trim((string) ($_SERVER['PATH_INFO'] ?? ''), '/');
+    if (preg_match('#^(entry|defect)-photo/\d+/file/[^/]+$#', $ticketRoute)) {
+        dol_include_once('/equipmentmanager/lib/pwa_access.lib.php');
+        $ticketUser = eqmResolveViewTicket($db, (string) $_GET['t']);
+        if ($ticketUser !== null) {
+            $user = $ticketUser;
+            $authenticated = true;
+        }
+    }
+}
+
 if (!$authenticated) {
     http_response_code(401);
     echo json_encode(['error' => 'Not authenticated']);
@@ -144,6 +158,13 @@ if (!empty($_GET['route'])) {
 }
 
 $parts = explode('/', $endpoint);
+
+// The API never writes to the session after authentication. Release the session lock
+// now: otherwise a long request (release/signature of a large order) blocks every other
+// request of the same browser - the app's ping then times out and shows "Offline".
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 
 // Get JSON body for POST/PUT
 $input = json_decode(file_get_contents('php://input'), true);
@@ -309,7 +330,7 @@ function handleInterventions($method, $parts, $input) {
     }
 
     // Get interventions
-    $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status,";
+    $sql = "SELECT f.rowid, f.ref, f.datec, f.dateo, f.datee, f.duree, f.fk_statut as status, f.tms, f.date_valid,";
     $sql .= " f.description, f.note_public, f.note_private, f.entity as fichinter_entity,";
     $sql .= " f.signed_status,";
     $sql .= " s.rowid as socid, s.nom as customer_name, s.address, s.zip, s.town,";
@@ -348,8 +369,10 @@ function handleInterventions($method, $parts, $input) {
         $sql .= " AND f.dateo >= '".$db->escape($_GET['from'])."'";
     }
 
-    $sql .= " ORDER BY f.dateo DESC";
-    $sql .= " LIMIT 100";
+    // Open/released orders first so the limit can never cut them off, then newest first
+    $sql .= " ORDER BY CASE WHEN f.fk_statut < 3 AND COALESCE(f.signed_status, 0) < 3 THEN 0 ELSE 1 END,";
+    $sql .= " COALESCE(f.dateo, f.datec) DESC";
+    $sql .= " LIMIT 200";
 
     $resql = $db->query($sql);
 
@@ -372,7 +395,8 @@ function handleInterventions($method, $parts, $input) {
             'date_end' => $obj->datee,
             'duration' => (int)$obj->duree,
             'status' => (int)$obj->status,
-            'signed_status' => (int)$obj->signed_status,
+            'signed_status' => eqmEffectiveSignedStatus($obj->status, $obj->signed_status),
+            'date_signed' => eqmInterventionSignedDate($obj),
             'description' => $obj->description,
             'note_public' => $obj->note_public,
             'primary_type' => $obj->primary_type,
@@ -677,10 +701,15 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
+        // Large orders (100+ equipment) need well over PHP's default 30 s here:
+        // report PDF plus one regenerated PDF per completed checklist
+        @set_time_limit(300);
+
         // Use Dolibarr's setValid() method to properly validate the intervention
-        // This generates the proper reference (FI...) and renames directories
+        // This generates the proper reference (FI...) and renames directories.
+        // Already validated in the backend: just mark it released (no second validation).
         $fichinter->fetch_thirdparty();
-        $result = $fichinter->setValid($user);
+        $result = ((int)$fichinter->statut >= 1) ? 1 : $fichinter->setValid($user);
 
         if ($result > 0) {
             // Also set signed_status = 1 (released for signature)
@@ -723,7 +752,20 @@ function handleIntervention($method, $parts, $input) {
             return;
         }
 
-        // Set signed_status = 0 AND fk_statut = 0 (draft) to allow editing again
+        // A signed or closed order can never be reopened from the PWA
+        $resCur = $db->query("SELECT fk_statut, signed_status FROM ".MAIN_DB_PREFIX."fichinter WHERE rowid = ".(int)$id);
+        $cur = $resCur ? $db->fetch_object($resCur) : null;
+        if (!$cur || (int)$cur->signed_status >= 3 || (int)$cur->fk_statut >= 3) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Signed or closed orders cannot be reopened', 'signed_status' => $cur ? (int)$cur->signed_status : null]);
+            return;
+        }
+
+        // Back to draft via Dolibarr (fires FICHINTER_UNVALIDATE like the backend "Ändern"),
+        // then clear the release flag
+        if ((int)$cur->fk_statut >= 1) {
+            $fichinter->setDraft($user);
+        }
         $sql = "UPDATE ".MAIN_DB_PREFIX."fichinter SET signed_status = 0, fk_statut = 0 WHERE rowid = ".(int)$id;
         $resql = $db->query($sql);
         $affectedRows = $db->affected_rows($resql);
@@ -742,7 +784,7 @@ function handleIntervention($method, $parts, $input) {
                 'status' => 'ok',
                 'message' => 'Intervention reopened for editing',
                 'signed_status' => $actualSignedStatus,
-                'intervention_status' => (int)$fichinter->statut,
+                'intervention_status' => 0,
                 'affected_rows' => $affectedRows
             ]);
         } else {
@@ -783,14 +825,9 @@ function handleIntervention($method, $parts, $input) {
         $history = [];
         $no_object_address = true;
 
-        $sqlAddr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-        $sqlAddr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-        $sqlAddr .= " WHERE l.fk_intervention = ".(int)$id;
-        $sqlAddr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-        $sqlAddr .= " ORDER BY l.date_creation ASC LIMIT 1";
-        $resAddr = $db->query($sqlAddr);
-        if ($resAddr && ($addrRow = $db->fetch_object($resAddr))) {
-            $currentAddressId = (int)$addrRow->fk_address;
+        dol_include_once('/equipmentmanager/class/equipment.class.php');
+        $currentAddressId = Equipment::getInterventionAddressId($db, $id);
+        if ($currentAddressId > 0) {
             $no_object_address = false;
 
             $sqlHist  = "SELECT DISTINCT f.rowid, f.ref, f.dateo AS date_start, f.datee AS date_end,";
@@ -1042,7 +1079,7 @@ function handleIntervention($method, $parts, $input) {
             'description' => $fichinter->description,
             'note_public' => $fichinter->note_public,
             'note_private' => $fichinter->note_private,
-            'signed_status' => $signedStatus
+            'signed_status' => eqmEffectiveSignedStatus($fichinter->statut, $signedStatus)
         ],
         'equipment' => $equipment
     ]);
@@ -1366,6 +1403,8 @@ function getInterventionEquipment($intervention_id) {
     $sql .= " e.fire_protection,";
     $sql .= " e.smoke_detector_install_month, e.smoke_detector_install_year, e.smoke_detector_replacement_cycle,";
     $sql .= " l.link_type,";
+    $sql .= " (SELECT MAX(cr.status) FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr";
+    $sql .= "   WHERE cr.fk_equipment = l.fk_equipment AND cr.fk_equipment_intervention = l.rowid) as checklist_status,";
     $sql .= " d.rowid as detail_id, d.work_done, d.issues_found, d.recommendations,";
     $sql .= " d.notes, d.work_date, d.work_start_time, d.work_end_time, d.work_duration,";
     $sql .= " d.commissioning_done, d.commissioning_date, d.commissioning_note,";
@@ -1408,6 +1447,8 @@ function getInterventionEquipment($intervention_id) {
                 'smoke_detector_install_year' => $obj->smoke_detector_install_year !== null ? (int)$obj->smoke_detector_install_year : null,
                 'smoke_detector_replacement_cycle' => $obj->smoke_detector_replacement_cycle !== null ? (int)$obj->smoke_detector_replacement_cycle : null,
                 'link_type' => $obj->link_type,
+                // null = no checklist, 0 = started, 1 = completed
+                'checklist_status' => $obj->checklist_status !== null ? (int)$obj->checklist_status : null,
                 'detail' => null
             ];
 
@@ -1485,12 +1526,12 @@ function getInterventionObjectAddresses($intervention_id) {
 
     $addresses = [];
 
-    $sql = "SELECT DISTINCT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
-    $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql .= " JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
-    $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql .= " AND e.fk_address > 0";
+    // The order's own Objektadresse (fixed since v6.1.8, also without linked equipment)
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+    $addrId = Equipment::getInterventionAddressId($db, $intervention_id);
+    $sql = "SELECT addr_s.rowid, addr_s.nom, addr_s.address, addr_s.zip, addr_s.town, addr_s.phone, addr_s.email, addr_s.note_public";
+    $sql .= " FROM ".MAIN_DB_PREFIX."societe addr_s";
+    $sql .= " WHERE addr_s.rowid = ".(int)$addrId;
 
     $resql = $db->query($sql);
     if ($resql) {
@@ -1783,6 +1824,9 @@ function handleDetail($method, $parts, $input) {
 function handleSync($method, $input) {
     global $db, $user;
 
+    // A queued offline signature regenerates the PDFs of the whole order
+    @set_time_limit(300);
+
     if ($method !== 'POST') {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
@@ -1930,6 +1974,9 @@ function handleSignature($method, $parts, $input) {
         echo json_encode(['error' => 'Method not allowed']);
         return;
     }
+
+    // Signed report + combined checklist PDF can take long for large orders
+    @set_time_limit(300);
 
     $intervention_id = (int)($parts[1] ?? 0);
     if (!$intervention_id) {
@@ -2245,36 +2292,20 @@ function handleAvailableEquipment($method, $parts, $input) {
     $inter = $db->fetch_object($res_inter);
     $socid = (int)$inter->fk_soc;
 
-    // If equipment is already linked to this intervention, derive "its" Objektadresse
-    // from the first linked equipment's fk_address (same fallback pattern used by the
-    // PDF module and calendar.php) and restrict suggestions to that same address, so
-    // the PWA doesn't offer equipment from every Objektadresse of the customer.
-    // Previously this restriction went through an OBJ contact on the intervention
-    // itself, but that compared a socpeople id (OBJ contact, System B) against
-    // fk_address, which is now a societe id (System A) after the v6 migration - two
-    // different id spaces. If nothing is linked yet, there's no address to anchor to,
-    // so all of the customer's equipment is offered (picking the first one then
-    // anchors the address for subsequent additions).
-    $current_address_id = 0;
-    $sql_addr = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-    $sql_addr .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql_addr .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql_addr .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-    $sql_addr .= " ORDER BY l.date_creation ASC LIMIT 1";
-    $res_addr = $db->query($sql_addr);
-    if ($res_addr && ($addr_row = $db->fetch_object($res_addr))) {
-        $current_address_id = (int)$addr_row->fk_address;
-    }
+    // The Objektadresse is fixed on the order (set in the backend, never in the PWA).
+    // Only equipment of that address is offered - nothing at all while the order has
+    // no Objektadresse, so the PWA never lists the customer's other addresses.
+    dol_include_once('/equipmentmanager/class/equipment.class.php');
+    $current_address_id = Equipment::getInterventionAddressId($db, $intervention_id);
 
     $sql = "SELECT e.rowid, e.equipment_number, e.label, e.equipment_type, e.location_note,";
     $sql .= " addr_s.nom as address_name, addr_s.address, addr_s.zip, addr_s.town";
     $sql .= " FROM ".MAIN_DB_PREFIX."equipmentmanager_equipment e";
     $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe addr_s ON addr_s.rowid = e.fk_address";
-    $sql .= " WHERE e.fk_soc = ".(int)$socid;
-    if ($current_address_id > 0) {
-        $sql .= " AND e.fk_address = ".(int)$current_address_id;
-    } elseif (!$user->admin) {
-        // No Objektadresse anchored yet: non-admins get no suggestions (instead of all customer equipment)
+    // Filter by the address only (equipment of a property manager's order may belong to another customer)
+    $sql .= " WHERE e.entity IN (".getEntity('equipmentmanager').")";
+    $sql .= " AND e.fk_address = ".(int)$current_address_id;
+    if ($current_address_id <= 0) {
         $sql .= " AND 1 = 0";
     }
     $sql .= " AND e.rowid NOT IN (";
@@ -2308,6 +2339,7 @@ function handleAvailableEquipment($method, $parts, $input) {
         'status' => 'ok',
         'intervention_id' => $intervention_id,
         'count' => count($equipment),
+        'no_object_address' => ($current_address_id <= 0),
         'equipment' => $equipment
     ]);
 }
@@ -2341,7 +2373,14 @@ function handleLinkEquipment($method, $parts, $input) {
         $db->begin();
 
         // Delete checklist results for this equipment/intervention
-        $sqlCl = "DELETE cr FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_result cr"
+        $sqlItems = "DELETE ir FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_item_results ir"
+               . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr ON cr.rowid = ir.fk_checklist_result"
+               . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il"
+               . "   ON il.rowid = cr.fk_equipment_intervention"
+               . " WHERE il.fk_intervention = ".(int)$intervention_id
+               . " AND il.fk_equipment = ".(int)$equipment_id;
+        $db->query($sqlItems);
+        $sqlCl = "DELETE cr FROM ".MAIN_DB_PREFIX."equipmentmanager_checklist_results cr"
                . " JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link il"
                . "   ON il.rowid = cr.fk_equipment_intervention"
                . " WHERE il.fk_intervention = ".(int)$intervention_id
@@ -2396,16 +2435,14 @@ function handleLinkEquipment($method, $parts, $input) {
     // Enforce: all equipment on a service order must share the same Objektadresse
     // (see Equipment::getObjectAddressForDocument()) - mirrors the same guard in
     // intervention_equipment.php's backend 'link'/'bulk_link' actions.
+    // The order's Objektadresse is fixed (backend only); without one nothing can be added
     dol_include_once('/equipmentmanager/class/equipment.class.php');
-    $lockedAddress = Equipment::getObjectAddressForDocument($db, 'fichinter', $intervention_id);
-    if ($lockedAddress !== null) {
-        $candidate = new Equipment($db);
-        $candidate->fetch($equipment_id);
-        if ((int)$candidate->fk_address !== (int)$lockedAddress->id) {
-            http_response_code(409);
-            echo json_encode(['error' => 'Equipment belongs to a different Objektadresse than the equipment already linked to this service order']);
-            return;
-        }
+    $lockedAddressId = Equipment::getInterventionAddressId($db, $intervention_id);
+    $candidate = new Equipment($db);
+    if ($lockedAddressId <= 0 || $candidate->fetch($equipment_id) <= 0 || (int)$candidate->fk_address !== $lockedAddressId) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Equipment does not belong to the Objektadresse of this service order']);
+        return;
     }
 
     $sql = "INSERT INTO ".MAIN_DB_PREFIX."equipmentmanager_intervention_link";
@@ -2445,6 +2482,62 @@ function handleLinkEquipment($method, $parts, $input) {
 /**
  * Get the fichinter document output directory
  */
+/**
+ * Release state as the PWA uses it (signed_status 0 = editable, 1 = released for
+ * signature, 3 = signed), derived consistently from Dolibarr's own status: an order set
+ * back to draft in the backend ("Ändern") is editable again, an order validated in the
+ * backend is released. A signature is never discarded.
+ *
+ * @param int $fkStatut Dolibarr status (0 draft, 1 validated, 2 billed, 3 closed)
+ * @param int $signedStatus Stored signed_status
+ * @return int
+ */
+function eqmEffectiveSignedStatus($fkStatut, $signedStatus)
+{
+    $fkStatut = (int) $fkStatut;
+    $signedStatus = (int) $signedStatus;
+    if ($signedStatus >= 3) {
+        return 3;
+    }
+    if ($fkStatut === 0) {
+        return 0;
+    }
+    if ($fkStatut >= 1 && $fkStatut < 3) {
+        return max(1, $signedStatus);
+    }
+    return $signedStatus;
+}
+
+/**
+ * Date an order was finished, for the "Erledigt" list: the customer signature time
+ * (newest signatures/YYYYmmddHHMMSS_signature.png in the order's document folder),
+ * otherwise - for orders closed in the backend without signature - the last change.
+ * Dolibarr itself does not store a signature date for interventions.
+ *
+ * @param object $obj Row of the intervention list query (ref, status, signed_status, tms, date_valid, datec)
+ * @return string|null 'YYYY-MM-DD HH:MM:SS' or null for unfinished orders
+ */
+function eqmInterventionSignedDate($obj)
+{
+    $finished = ((int) $obj->status >= 3) || ((int) $obj->signed_status >= 3);
+    if (!$finished) {
+        return null;
+    }
+    $dir = getFichinterDocDir().'/'.dol_sanitizeFileName($obj->ref).'/signatures';
+    $newest = '';
+    foreach (glob($dir.'/*_signature.png') ?: [] as $file) {
+        $name = basename($file);
+        if (preg_match('/^(\d{14})_signature\.png$/', $name, $m) && $m[1] > $newest) {
+            $newest = $m[1];
+        }
+    }
+    if ($newest !== '') {
+        return substr($newest, 0, 4).'-'.substr($newest, 4, 2).'-'.substr($newest, 6, 2).' '
+            .substr($newest, 8, 2).':'.substr($newest, 10, 2).':'.substr($newest, 12, 2);
+    }
+    return $obj->tms ?: ($obj->date_valid ?: $obj->datec);
+}
+
 function getFichinterDocDir() {
     global $conf, $dolibarr_main_data_root;
 

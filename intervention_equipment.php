@@ -35,16 +35,9 @@ $langs->loadLangs(array('interventions', 'equipmentmanager@equipmentmanager'));
  */
 function getLockedObjectAddressId($db, $intervention_id)
 {
-    $sql = "SELECT e.fk_address FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
-    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
-    $sql .= " WHERE l.fk_intervention = ".(int)$intervention_id;
-    $sql .= " AND e.fk_address IS NOT NULL AND e.fk_address > 0";
-    $sql .= " ORDER BY l.date_creation ASC LIMIT 1";
-    $resql = $db->query($sql);
-    if ($resql && ($row = $db->fetch_object($resql))) {
-        return (int)$row->fk_address;
-    }
-    return 0;
+    // Since v6.1.8 the Objektadresse is stored on the order itself (falls back to the
+    // first linked equipment for older orders and stores that once)
+    return Equipment::getInterventionAddressId($db, $intervention_id);
 }
 
 $id = GETPOST('id', 'int');
@@ -89,6 +82,30 @@ if ($action == 'import_from_commande' && $permissiontoadd) {
     exit;
 }
 
+// Set / change the Objektadresse of the order (backend only - fixed for the PWA).
+// Changing it is only possible while no equipment of another address is linked.
+if ($action == 'set_address' && $permissiontoadd) {
+    $newAddress = GETPOSTINT('fk_address');
+    $resChk = $db->query("SELECT rowid FROM ".MAIN_DB_PREFIX."societe WHERE rowid = ".(int)$newAddress);
+    if ($newAddress <= 0 || !$resChk || !$db->num_rows($resChk)) {
+        setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentities('ObjectAddress')), null, 'errors');
+    } else {
+        $sqlMis = "SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."equipmentmanager_intervention_link l";
+        $sqlMis .= " INNER JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment e ON e.rowid = l.fk_equipment";
+        $sqlMis .= " WHERE l.fk_intervention = ".(int)$object->id." AND COALESCE(e.fk_address, 0) <> ".(int)$newAddress;
+        $mis = $db->fetch_object($db->query($sqlMis));
+        if ($mis && (int)$mis->nb > 0) {
+            setEventMessages($langs->trans('ObjectAddressChangeBlocked'), null, 'errors');
+        } elseif (Equipment::setInterventionAddressId($db, $object->id, $newAddress, $user)) {
+            setEventMessages($langs->trans('ObjectAddressSet'), null, 'mesgs');
+        } else {
+            setEventMessages($db->lasterror(), null, 'errors');
+        }
+    }
+    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
+    exit;
+}
+
 // Link equipment with type (single)
 if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link_type, array('maintenance', 'service', 'montage'))) {
     $lockedAddressId = getLockedObjectAddressId($db, $object->id);
@@ -110,6 +127,7 @@ if ($action == 'link' && $permissiontoadd && $equipment_id > 0 && in_array($link
     dol_syslog("Linking equipment ".$equipment_id." to intervention ".$object->id." as ".$link_type, LOG_DEBUG);
 
     if ($db->query($sql)) {
+        getLockedObjectAddressId($db, $object->id); // first equipment anchors the Objektadresse if none is set yet
         $msg = array('maintenance' => 'EquipmentLinkedMaintenance', 'montage' => 'EquipmentLinkedMontage')[$link_type] ?? 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg), null, 'mesgs');
     } else {
@@ -158,6 +176,7 @@ if ($action == 'bulk_link' && $permissiontoadd && !empty($toselect) && in_array(
     }
 
     if ($success_count > 0) {
+        getLockedObjectAddressId($db, $object->id); // anchor the Objektadresse if none is set yet
         $msg = array('maintenance' => 'EquipmentLinkedMaintenance', 'montage' => 'EquipmentLinkedMontage')[$link_type] ?? 'EquipmentLinkedService';
         setEventMessages($langs->trans($msg).' ('.$success_count.')', null, 'mesgs');
     }
@@ -388,10 +407,40 @@ if ($object->id > 0) {
         // Filter bar (GET, reloads the page with the chosen filters) - locked to a
         // single, fixed Objektadresse once equipment from one has been linked.
         if ($lockedAddressId > 0) {
+            $lockedLabel = $address_options[$lockedAddressId] ?? '';
+            if ($lockedLabel === '') {
+                $resLbl = $db->query("SELECT nom, town FROM ".MAIN_DB_PREFIX."societe WHERE rowid = ".(int)$lockedAddressId);
+                if ($resLbl && ($lbl = $db->fetch_object($resLbl))) {
+                    $lockedLabel = $lbl->nom.($lbl->town ? ' - '.$lbl->town : '');
+                }
+            }
             print '<div style="margin-bottom: 8px;">';
             print '<span class="fa fa-lock paddingright"></span>';
-            print $langs->trans('ObjectAddress').': <strong>'.dol_escape_htmltag($address_options[$lockedAddressId] ?? '').'</strong>';
-            print ' <span class="opacitymedium">('.$langs->trans('EquipmentAddressLockedHint').')</span>';
+            print $langs->trans('ObjectAddress').': <strong>'.dol_escape_htmltag($lockedLabel).'</strong>';
+            if (empty($linked_equipment_ids) && $permissiontoadd) {
+                // No equipment linked: the address may still be corrected here (never in the PWA)
+                $allAddr = array();
+                $resAll = $db->query("SELECT s.rowid, s.nom, s.town FROM ".MAIN_DB_PREFIX."societe s"
+                    ." INNER JOIN ".MAIN_DB_PREFIX."societe_extrafields se ON se.fk_object = s.rowid AND se.equipmentmanager_object_address = 1"
+                    ." WHERE s.entity IN (".getEntity('societe').") ORDER BY s.town, s.nom");
+                while ($resAll && ($oa = $db->fetch_object($resAll))) {
+                    $allAddr[$oa->rowid] = $oa->nom.($oa->town ? ' - '.$oa->town : '');
+                }
+                print ' &nbsp; <form method="POST" action="'.$_SERVER["PHP_SELF"].'" style="display:inline;">';
+                print '<input type="hidden" name="token" value="'.newToken().'">';
+                print '<input type="hidden" name="id" value="'.$object->id.'">';
+                print '<input type="hidden" name="action" value="set_address">';
+                print '<select name="fk_address" id="change_address_select" class="flat minwidth300">';
+                foreach ($allAddr as $aid => $alabel) {
+                    print '<option value="'.$aid.'"'.($aid == $lockedAddressId ? ' selected' : '').'>'.dol_escape_htmltag($alabel).'</option>';
+                }
+                print '</select>';
+                print ajax_combobox('change_address_select');
+                print ' <input type="submit" class="button smallpaddingimp" value="'.$langs->trans('Modify').'">';
+                print '</form>';
+            } else {
+                print ' <span class="opacitymedium">('.$langs->trans('ObjectAddressLockedHint').')</span>';
+            }
             print '</div>';
         } else {
             print '<form method="GET" action="'.$_SERVER["PHP_SELF"].'" style="margin-bottom: 8px;">';
@@ -408,6 +457,18 @@ if ($object->id > 0) {
             print '<label><input type="checkbox" name="show_all" value="1"'.($show_all ? ' checked' : '').' onchange="this.form.submit();"> '.$langs->trans('ShowAllObjectAddresses').'</label>';
             print '</div>';
             print '</form>';
+            if ($filter_address > 0 && $permissiontoadd) {
+                print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" style="margin-bottom: 8px;">';
+                print '<input type="hidden" name="token" value="'.newToken().'">';
+                print '<input type="hidden" name="id" value="'.$object->id.'">';
+                print '<input type="hidden" name="action" value="set_address">';
+                print '<input type="hidden" name="fk_address" value="'.(int)$filter_address.'">';
+                print '<input type="submit" class="button" value="'.dol_escape_htmltag($langs->trans('SetAsObjectAddress')).'">';
+                print ' <span class="opacitymedium">'.$langs->trans('SetAsObjectAddressHint').'</span>';
+                print '</form>';
+            } else {
+                print '<div class="opacitymedium" style="margin-bottom: 8px;">'.$langs->trans('ChooseObjectAddressFirst').'</div>';
+            }
         }
 
         // Start form for bulk actions

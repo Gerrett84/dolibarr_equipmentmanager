@@ -15,7 +15,7 @@ class ServiceReportApp {
         this.pwaToken = null; // v1.8 - PWA authentication token
         this.currentChecklist = null; // v2.0 - checklist data for maintenance equipment
         this.interventionFilter = 'open'; // v4.1 - current filter: 'open', 'released', 'signed'
-        this.signedTimeRange = 30; // v4.1 - time range in days for signed orders (0 = all)
+        this.signedTimeRange = 15; // time range in days for finished orders (0 = all); also limits the offline sync of finished orders
         this.allInterventions = []; // v4.1 - cache all interventions for filtering
         this.defectMaterialMode = 'product'; // v4.3 - 'product' or 'freetext'
 
@@ -420,10 +420,18 @@ class ServiceReportApp {
             this.checkConnectivity(true);
         }, 15000);
 
+        // Keep the order overview current while it is open (one small request per minute)
+        setInterval(() => {
+            if (!document.hidden && this.currentView === 'viewInterventions') {
+                this.refreshInterventionsSilently();
+            }
+        }, 60000);
+
         // Check connectivity when app comes back to foreground
         // Use 3 retries (× 1.5s) because network may not be immediately available after wakeup
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
+                if (this.isOnline) this.refreshInterventionsSilently();
                 const now = Date.now();
                 const lastSync = this._lastSyncTime || 0;
                 const minutesSinceSync = (now - lastSync) / 60000;
@@ -441,6 +449,7 @@ class ServiceReportApp {
             btn.addEventListener('click', (e) => {
                 const view = e.currentTarget.dataset.view;
                 if (view) this.showView(view);
+                if (view === 'viewInterventions') this.refreshInterventionsSilently();
             });
         });
 
@@ -478,6 +487,9 @@ class ServiceReportApp {
 
         // Add entry button (v1.7)
         document.getElementById('btnAddEntry').addEventListener('click', () => this.addNewEntry());
+
+        // Checklist page
+        document.getElementById('checklistLauncher').addEventListener('click', () => this.openChecklist());
 
         // Delete entry button (v1.7)
         document.getElementById('btnDeleteEntry').addEventListener('click', () => this.deleteEntry());
@@ -688,8 +700,10 @@ class ServiceReportApp {
             this.updateOnlineStatus();
             if (!silent) this.showToast('Verbindung wiederhergestellt');
             if (!skipAutoSync) {
+                // Show the current list right away; the full offline sync can take a while
+                await this.refreshInterventionsSilently();
                 await this.syncData();
-                await this.loadInterventions();
+                await this.refreshInterventionsSilently();
             }
         }
     }
@@ -910,6 +924,9 @@ class ServiceReportApp {
             case 'viewEntries':
                 this.loadEquipment(this.currentIntervention);
                 break;
+            case 'viewChecklist':
+                this.loadEntries(this.currentEquipment);
+                break;
             case 'viewEntry':
                 if (this._isEntryDirty() && !confirm('Dieser Eintrag ist noch nicht gespeichert.\n\nTrotzdem verlassen? Der Entwurf bleibt auf diesem Gerät erhalten.')) {
                     return;
@@ -1018,15 +1035,23 @@ class ServiceReportApp {
     isWithinDays(intervention, days) {
         if (days === 0) return true; // No limit
 
-        // Use date_intervention or datec (creation date) as fallback
-        const dateStr = intervention.date_intervention || intervention.datec || '';
-        if (!dateStr) return true; // If no date, include it
+        const t = this._interventionTime(intervention);
+        if (t === null) return true; // If no date, include it
 
-        const interventionDate = new Date(dateStr);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - days);
 
-        return interventionDate >= cutoffDate;
+        return t >= cutoffDate.getTime();
+    }
+
+    // Order date in ms: planned end, else planned start, else creation date.
+    // The API sends "YYYY-MM-DD HH:MM:SS", which Safari cannot parse without the "T".
+    _interventionTime(intervention) {
+        // Finished orders: the signature date (when it moved to "Erledigt")
+        const raw = intervention.date_signed || intervention.date_end || intervention.date_start || intervention.date_creation || '';
+        if (!raw) return null;
+        const t = Date.parse(String(raw).replace(' ', 'T'));
+        return isNaN(t) ? null : t;
     }
 
     // Count interventions by status (apply time range to signed)
@@ -1075,6 +1100,7 @@ class ServiceReportApp {
             <div class="time-range-selector">
                 <span class="time-range-label">Zeitraum:</span>
                 <select id="timeRangeSelect" class="time-range-select">
+                    <option value="15" ${this.signedTimeRange === 15 ? 'selected' : ''}>15 Tage</option>
                     <option value="30" ${this.signedTimeRange === 30 ? 'selected' : ''}>30 Tage</option>
                     <option value="90" ${this.signedTimeRange === 90 ? 'selected' : ''}>3 Monate</option>
                     <option value="180" ${this.signedTimeRange === 180 ? 'selected' : ''}>6 Monate</option>
@@ -1108,8 +1134,20 @@ class ServiceReportApp {
 
     // Set time range for signed orders
     setTimeRange(days) {
+        const oldRange = this.signedTimeRange;
         this.signedTimeRange = parseInt(days, 10);
         this.renderInterventionsList();
+
+        // Range widened: sync the finished orders that are now visible in the background
+        const widened = this.signedTimeRange === 0 || (oldRange !== 0 && this.signedTimeRange > oldRange);
+        if (widened && this.isOnline) {
+            const ids = new Set((this.allInterventions || [])
+                .filter(i => this.getInterventionStatus(i) === 'signed'
+                    && this.isWithinDays(i, this.signedTimeRange)
+                    && !this.isWithinDays(i, oldRange))
+                .map(i => i.id));
+            if (ids.size > 0) this.prefetchAllData(ids).catch(err => console.warn("Prefetch of finished orders failed:", err));
+        }
     }
 
     // Render interventions list (uses cached data)
@@ -1142,9 +1180,7 @@ class ServiceReportApp {
                 return order[statusA] - order[statusB];
             }
             // Same status - sort by date desc
-            const dateA = a.date_intervention || a.datec || '';
-            const dateB = b.date_intervention || b.datec || '';
-            return dateB.localeCompare(dateA);
+            return (this._interventionTime(b) || 0) - (this._interventionTime(a) || 0);
         });
 
         // Build HTML
@@ -1190,6 +1226,38 @@ class ServiceReportApp {
         document.getElementById('btnStatusLegend').addEventListener('click', () => this.showStatusLegend());
     }
 
+    _interventionsSignature(list) {
+        return JSON.stringify((list || []).map(i => [i.id, i.ref, i.status, i.signed_status,
+            i.date_start, i.date_end, i.date_signed, i.description, i.primary_type, i.maintenance_status]));
+    }
+
+    // Refresh the order overview in the background (new orders, release/reopen done in
+    // the backend or on another device). Only re-renders when something changed and
+    // keeps the scroll position, so it can run often without disturbing.
+    async refreshInterventionsSilently() {
+        if (!this.isOnline || this._refreshingList) return;
+        this._refreshingList = true;
+        try {
+            const data = await this.apiCall('interventions?status=all');
+            const list = data.interventions || [];
+            await offlineDB.replaceInterventions(list);
+            const sig = this._interventionsSignature(list);
+            if (sig === this._interventionsSig) return;
+            this._interventionsSig = sig;
+            this.allInterventions = list;
+            if (this.currentView === 'viewInterventions') {
+                const y = window.scrollY;
+                document.getElementById('interventionsLoading').style.display = 'none';
+                this.renderInterventionsList();
+                window.scrollTo(0, y);
+            }
+        } catch (e) {
+            // offline or server busy - the next refresh will catch up
+        } finally {
+            this._refreshingList = false;
+        }
+    }
+
     // Load interventions
     async loadInterventions() {
         const loadingEl = document.getElementById('interventionsLoading');
@@ -1219,10 +1287,11 @@ class ServiceReportApp {
                     interventions = data.interventions || [];
 
                     // Save to IndexedDB
-                    await offlineDB.saveInterventions(interventions);
+                    await offlineDB.replaceInterventions(interventions);
 
                     loadingEl.style.display = 'none';
                     this.allInterventions = interventions;
+                    this._interventionsSig = this._interventionsSignature(interventions);
                     this.renderInterventionsList();
                 } catch (apiErr) {
                     // API failed - might be offline now
@@ -1438,8 +1507,11 @@ class ServiceReportApp {
 
             // console.log('Equipment loaded, signedStatus:', signedStatus);
 
-            if (signedStatus >= 1) {
-                // Released or signed - show "Ändern" button
+            if (signedStatus >= 3 || (this.currentIntervention.status || 0) >= 3) {
+                // Signed or closed: can never be reopened from the PWA
+                releaseBtn.style.display = 'none';
+            } else if (signedStatus >= 1) {
+                // Released - show "Ändern" button
                 releaseIcon.textContent = '✏️';
                 releaseText.textContent = 'Ändern';
             } else {
@@ -1538,6 +1610,20 @@ class ServiceReportApp {
             };
             const typeLabels = this.equipmentTypeLabels;
 
+            const maint = equipment.filter(eq => eq.link_type === 'maintenance');
+            if (maint.length > 0) {
+                const done = maint.filter(eq => eq.checklist_status === 1).length;
+                const withEntry = maint.filter(eq => eq.detail && eq.detail.work_done).length;
+                const summary = document.createElement('div');
+                summary.style.cssText = 'padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border-color,#e0e0e0);';
+                summary.innerHTML = `Wartung: <strong>${withEntry}/${maint.length}</strong> Berichte · <strong style="color:${done === maint.length ? '#2e7d32' : '#ef6c00'};">${done}/${maint.length}</strong> Checklisten abgeschlossen`
+                    + `<div style="font-size:11px;opacity:0.75;margin-top:3px;">`
+                    + `<span style="display:inline-block;width:10px;height:10px;background:#4caf50;border-radius:2px;vertical-align:-1px;"></span> fertig &nbsp; `
+                    + `<span style="display:inline-block;width:10px;height:10px;background:#e53935;border-radius:2px;vertical-align:-1px;"></span> Checkliste fehlt &nbsp; `
+                    + `<span style="display:inline-block;width:10px;height:10px;background:#fb8c00;border-radius:2px;vertical-align:-1px;"></span> unvollständig</div>`;
+                card.appendChild(summary);
+            }
+
             equipment.forEach(eq => {
                 const item = document.createElement('div');
                 item.className = 'equipment-item card-clickable';
@@ -1583,8 +1669,13 @@ class ServiceReportApp {
                 `;
                 item.appendChild(removeBtn);
 
-                if (isProcessed) {
-                    item.style.borderLeft = '3px solid #4caf50';
+                // Left bar: green = done. Maintenance additionally needs a completed checklist:
+                // red = report without checklist, orange = checklist open or checklist without report
+                const barColor = eq.link_type === 'maintenance'
+                    ? this._maintenanceBarColor(eq, isProcessed)
+                    : (isProcessed ? '#4caf50' : null);
+                if (barColor) {
+                    item.style.borderLeft = `4px solid ${barColor}`;
                 }
 
                 item.addEventListener('click', () => {
@@ -1606,6 +1697,7 @@ class ServiceReportApp {
 
     // Load entries list for equipment (v1.7)
     async loadEntries(equipment) {
+        this._refreshViewTicket(); // entry photos on the next screen need a fresh ticket
         try {
             this.showView('viewEntries', equipment.ref);
             this.currentEquipment = equipment;
@@ -1746,13 +1838,14 @@ class ServiceReportApp {
                 document.getElementById('materialsCard').style.display = 'none';
             }
 
-            // Load checklist if maintenance equipment (not for general entries)
-            const checklistCard = document.getElementById('checklistCard');
+            // Checklist launcher for maintenance equipment (not for general entries);
+            // the checklist itself opens on its own page
+            const launcher = document.getElementById('checklistLauncher');
             if (equipment.id > 0 && equipment.link_type === 'maintenance') {
-                checklistCard.style.display = 'block';
-                await this.loadChecklist(this.currentIntervention.id, equipment.id);
+                launcher.style.display = 'flex';
+                this._updateChecklistLauncher(equipment.checklist_status);
             } else {
-                checklistCard.style.display = 'none';
+                launcher.style.display = 'none';
                 this.currentChecklist = null;
             }
 
@@ -2202,7 +2295,19 @@ class ServiceReportApp {
     // Get URL for entry photo
     getEntryPhotoUrl(filename) {
         if (!filename || !this.currentIntervention) return '';
-        return `${CONFIG.apiBase}/entry-photo/${this.currentIntervention.id}/file/${filename}`;
+        return this._photoUrl(`entry-photo/${this.currentIntervention.id}/file/${encodeURIComponent(filename)}`);
+    }
+
+    // Photo URL for <img src>: images cannot send the PWA token header, so a short-lived
+    // view ticket goes along (kept fresh by _refreshViewTicket before photos are shown)
+    _photoUrl(route) {
+        const t = this._viewTicket ? `&t=${encodeURIComponent(this._viewTicket)}` : '';
+        return `${CONFIG.apiBase}?route=${route}${t}`;
+    }
+
+    async _refreshViewTicket() {
+        if (!this.isOnline) return;
+        try { await this.getViewTicket(); } catch (e) { /* photos then rely on the session cookie */ }
     }
 
     // Capture entry photo - let iOS/browser handle source selection
@@ -2413,7 +2518,8 @@ class ServiceReportApp {
     }
 
     // View entry photo fullscreen
-    viewEntryPhoto() {
+    async viewEntryPhoto() {
+        await this._refreshViewTicket();
         let url;
         if (this.currentEntryPhotoData) {
             url = this.currentEntryPhotoData;
@@ -2890,7 +2996,7 @@ class ServiceReportApp {
                         signature: base64,
                         signer_name: signerName
                     }),
-                    timeout: 60000
+                    timeout: 180000
                 });
                 this.currentIntervention.signed_status = 3;
                 this.currentIntervention.status = 3; // Closed
@@ -2982,7 +3088,7 @@ class ServiceReportApp {
                     const result = await this.apiCall('sync', {
                         method: 'POST',
                         body: JSON.stringify({ changes }),
-                        timeout: 60000
+                        timeout: 180000
                     });
 
                     if (result.status === 'ok' || result.status === 'partial') {
@@ -3060,8 +3166,20 @@ class ServiceReportApp {
         await this.updateSyncBadge();
     }
 
+    // Run fn over items with at most `limit` calls in flight
+    async _runPool(items, limit, fn) {
+        let next = 0;
+        const worker = async () => {
+            while (next < items.length) {
+                const item = items[next++];
+                await fn(item);
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    }
+
     // Prefetch all data for offline use
-    async prefetchAllData() {
+    async prefetchAllData(onlyIds = null) {
         if (!this.isOnline) return;
 
         const statusEl = document.getElementById('syncStatus');
@@ -3072,13 +3190,20 @@ class ServiceReportApp {
             // 1. Fetch all interventions
             const data = await this.apiCall('interventions?status=all');
             const interventions = data.interventions || [];
-            await offlineDB.saveInterventions(interventions);
+            await offlineDB.replaceInterventions(interventions);
 
-            // 2. For each intervention, fetch equipment, entries, available equipment, and documents
-            const total = interventions.length;
+            // 2. For each intervention, fetch equipment, entries, available equipment, and documents.
+            // Open and released orders always; finished orders only within the "Erledigt" time
+            // range (default 15 days) - older ones still load on demand when opened online.
+            const toPrefetch = interventions.filter(i => {
+                if (onlyIds) return onlyIds.has(i.id);
+                if (this.getInterventionStatus(i) !== 'signed') return true;
+                return this.isWithinDays(i, this.signedTimeRange);
+            });
+            const total = toPrefetch.length;
             let current = 0;
 
-            for (const intervention of interventions) {
+            for (const intervention of toPrefetch) {
                 current++;
                 statusEl.textContent = `Sync ${current}/${total}`;
 
@@ -3090,8 +3215,8 @@ class ServiceReportApp {
                     // Save equipment
                     await offlineDB.saveEquipment(intervention.id, equipment);
 
-                    // 3. For each equipment, fetch entries/details
-                    for (const eq of equipment) {
+                    // 3. For each equipment, fetch entries/details (4 requests in parallel)
+                    await this._runPool(equipment, 4, async (eq) => {
                         try {
                             const detailData = await this.apiCall(`detail/${intervention.id}/${eq.id}`);
 
@@ -3110,7 +3235,7 @@ class ServiceReportApp {
                         } catch (detailErr) {
                             console.warn(`Failed to fetch detail for equipment ${eq.id}:`, detailErr);
                         }
-                    }
+                    });
 
                     // 3b. Also fetch general entries (Allgemeine Arbeiten, equipment_id=0)
                     try {
@@ -3641,11 +3766,13 @@ class ServiceReportApp {
         try {
             let equipment = [];
             let loadedFromCache = false;
+            let noObjectAddress = false;
 
             if (this.isOnline) {
                 try {
                     const data = await this.apiCall(`available-equipment/${this.currentIntervention.id}`);
                     equipment = data.equipment || [];
+                    noObjectAddress = !!data.no_object_address;
                     // Cache for offline use
                     await offlineDB.saveAvailableEquipment(this.currentIntervention.id, equipment);
                 } catch (apiErr) {
@@ -3668,11 +3795,14 @@ class ServiceReportApp {
             }
 
             if (equipment.length === 0) {
-                listEl.innerHTML = `
-                    <div class="empty-state" style="padding: 20px 0;">
-                        <p>Keine weiteren Anlagen verfügbar</p>
-                    </div>
-                `;
+                listEl.innerHTML = noObjectAddress
+                    ? `<div class="empty-state" style="padding: 20px 0;">
+                        <p>Für diesen Auftrag ist keine Objektadresse hinterlegt.</p>
+                        <p style="font-size:12px;color:var(--text-muted);">Die Objektadresse wird im Backend festgelegt – danach können hier Anlagen dieser Adresse hinzugefügt werden.</p>
+                    </div>`
+                    : `<div class="empty-state" style="padding: 20px 0;">
+                        <p>Keine weiteren Anlagen an dieser Objektadresse verfügbar</p>
+                    </div>`;
                 return;
             }
 
@@ -3978,6 +4108,10 @@ class ServiceReportApp {
     // Toggle release/unreleased intervention
     async toggleRelease() {
         const signedStatus = this.currentIntervention.signed_status || 0;
+        if (signedStatus >= 3 || (this.currentIntervention.status || 0) >= 3) {
+            this.showToast('Unterschriebene Aufträge können nicht wieder geöffnet werden');
+            return;
+        }
         const isReleased = signedStatus >= 1;
         const action = isReleased ? 'unreleased' : 'release';
         const confirmMsg = isReleased
@@ -4004,10 +4138,15 @@ class ServiceReportApp {
             return;
         }
 
+        const busy = !isReleased
+            ? this._showBusy('Wird freigegeben …', 'Servicebericht und Checklisten werden erstellt. Bei vielen Anlagen kann das bis zu einer Minute dauern – bitte die App geöffnet lassen.')
+            : null;
         try {
             const result = await this.apiCall(`intervention/${this.currentIntervention.id}/${action}`, {
-                method: 'POST'
+                method: 'POST',
+                timeout: 180000
             });
+            if (busy) busy.remove();
 
             // console.log('Release result:', result);
 
@@ -4056,9 +4195,41 @@ class ServiceReportApp {
                 this.showToast('Fehler: ' + (result.error || 'Unbekannt'));
             }
         } catch (err) {
+            if (busy) busy.remove();
             console.error('Failed to toggle release:', err);
-            this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
+            if (String(err.message || '').includes('409')) {
+                this.showToast('Unterschriebene Aufträge können nicht wieder geöffnet werden');
+                await this.loadEquipment(this.currentIntervention);
+            } else {
+                this.showToast('Fehler: ' + (err.message || 'Unbekannt'));
+            }
         }
+    }
+
+    // Full-screen "please wait" overlay for long server operations; returns the element
+    _showBusy(title, text) {
+        const el = document.createElement('div');
+        el.className = 'busy-overlay';
+        el.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px;';
+        el.innerHTML = `<div style="background:var(--bg-card,#fff);color:var(--text-primary,#222);border-radius:12px;padding:22px 20px;max-width:340px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,0.3);">
+                <div class="busy-spinner" style="width:38px;height:38px;margin:0 auto 14px;border:4px solid rgba(128,128,128,0.25);border-top-color:var(--primary-color,#1a3f6e);border-radius:50%;animation:busyspin 0.9s linear infinite;"></div>
+                <div style="font-weight:600;font-size:16px;margin-bottom:6px;">${this.escapeHtml(title)}</div>
+                <div style="font-size:13px;opacity:0.8;">${this.escapeHtml(text)}</div>
+                <div class="busy-elapsed" style="font-size:12px;opacity:0.6;margin-top:10px;"></div>
+            </div>`;
+        if (!document.getElementById('busySpinStyle')) {
+            const st = document.createElement('style');
+            st.id = 'busySpinStyle';
+            st.textContent = '@keyframes busyspin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(st);
+        }
+        document.body.appendChild(el);
+        const t0 = Date.now();
+        const timer = setInterval(() => {
+            if (!el.isConnected) { clearInterval(timer); return; }
+            el.querySelector('.busy-elapsed').textContent = Math.round((Date.now() - t0) / 1000) + ' s';
+        }, 1000);
+        return el;
     }
 
     // Show documents modal
@@ -4202,7 +4373,7 @@ class ServiceReportApp {
                             <div class="document-date">${this.formatDate(new Date(doc.date * 1000))}</div>
                         </a>
                         <div class="document-actions">
-                            <button type="button" class="doc-action doc-preview" data-url="${this.escapeHtml(previewUrl)}" data-name="${this.escapeHtml(doc.name)}" title="Vorschau">🔍</button>
+                            <button type="button" class="doc-action doc-preview" data-url="${this.escapeHtml(previewUrl)}" data-name="${this.escapeHtml(doc.name)}" data-image="${doc.type === 'image' || doc.type === 'signature' || /\.(jpe?g|png|gif|webp|heic)$/i.test(doc.name || '') ? '1' : ''}" title="Vorschau">🔍</button>
                             <button type="button" class="doc-action doc-delete" data-filename="${encodeURIComponent(deleteFilename)}" title="Löschen">🗑️</button>
                         </div>
                     `;
@@ -4228,7 +4399,10 @@ class ServiceReportApp {
                     btn.addEventListener('click', (e) => this.deleteDocument(e.target.dataset.filename));
                 });
                 listEl.querySelectorAll('.doc-preview').forEach(btn => {
-                    btn.addEventListener('click', (e) => this.openPdfViewer(e.currentTarget.dataset.url, e.currentTarget.dataset.name));
+                    btn.addEventListener('click', (e) => {
+                        const d = e.currentTarget.dataset;
+                        this.openPdfViewer(d.url, d.name, false, d.image === '1');
+                    });
                 });
             }
         } catch (err) {
@@ -4259,7 +4433,7 @@ class ServiceReportApp {
     }
 
     // Open PDF in in-app viewer overlay (no new tab needed)
-    openPdfViewer(url, title = 'Dokument', isBlobUrl = false) {
+    openPdfViewer(url, title = 'Dokument', isBlobUrl = false, isImage = false) {
         const overlay = document.getElementById('pdfViewerOverlay');
         document.getElementById('pdfViewerTitle').textContent = title;
         const frame = document.getElementById('pdfViewerFrame');
@@ -4275,6 +4449,23 @@ class ServiceReportApp {
         // <object type="application/pdf"> direkt im Overlay zeigt alle Seiten scrollbar.
         frame.style.display = 'none';
         frame.src = 'about:blank';
+
+        if (isImage) {
+            // Photos: plain <img> (an <object type="application/pdf"> stays blank on iOS)
+            const wrap = document.createElement('div');
+            wrap.id = 'pdfViewerObject';
+            wrap.style.cssText = 'flex:1;min-height:0;width:100%;overflow:auto;display:flex;align-items:flex-start;justify-content:center;background:#111;-webkit-overflow-scrolling:touch;';
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = title;
+            img.style.cssText = 'max-width:100%;height:auto;display:block;';
+            img.onerror = () => { wrap.innerHTML = '<div style="color:#ccc;padding:24px;text-align:center;">Foto konnte nicht geladen werden</div>'; };
+            wrap.appendChild(img);
+            overlay.appendChild(wrap);
+            overlay.classList.add('show');
+            return;
+        }
+
         const obj = document.createElement('object');
         obj.id = 'pdfViewerObject';
         obj.type = 'application/pdf';
@@ -5415,6 +5606,36 @@ class ServiceReportApp {
         }
     }
 
+    // Status text of the checklist launcher on the equipment page
+    _updateChecklistLauncher(status) {
+        const el = document.getElementById('checklistLauncherStatus');
+        if (!el) return;
+        const chip = (bg, fg, text) =>
+            `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${bg};color:${fg};">${text}</span>`;
+        el.innerHTML = status === 1
+            ? chip('rgba(76,175,80,0.15)', '#2e7d32', '✓ abgeschlossen')
+            : (status === 0
+                ? chip('rgba(251,140,0,0.15)', '#ef6c00', 'begonnen')
+                : chip('rgba(229,57,53,0.12)', '#c62828', 'noch nicht erstellt'));
+    }
+
+    // Open the checklist page for the current equipment
+    async openChecklist() {
+        if (!this.currentEquipment || !this.currentIntervention) return;
+        this.showView('viewChecklist', `Checkliste ${this.currentEquipment.ref || ''}`.trim());
+        window.scrollTo(0, 0);
+        await this.loadChecklist(this.currentIntervention.id, this.currentEquipment.id);
+    }
+
+    // Bar colour for maintenance equipment (null = no bar)
+    _maintenanceBarColor(eq, hasReport) {
+        const cs = eq.checklist_status; // null = none, 0 = open, 1 = completed
+        if (hasReport && cs === 1) return '#4caf50';
+        if (hasReport && cs == null) return '#e53935';
+        if (cs === 0 || cs === 1) return '#fb8c00';
+        return null;
+    }
+
     // Remove equipment link from current intervention
     async unlinkEquipment(eq) {
         if (!confirm(`Anlage "${eq.ref} – ${eq.label || ''}" aus diesem Serviceauftrag entfernen?`)) {
@@ -5667,6 +5888,7 @@ class ServiceReportApp {
 
     // Load checklist for equipment
     async loadChecklist(interventionId, equipmentId) {
+        await this._refreshViewTicket(); // defect photos are rendered as <img src>
         const contentEl = document.getElementById('checklistContent');
         const titleEl = document.getElementById('checklistTitle');
 
@@ -5724,6 +5946,9 @@ class ServiceReportApp {
             }
 
             this.currentChecklist = checklistData;
+            if (this.currentEquipment && this.currentEquipment.id === equipmentId && checklistData.checklist) {
+                this.currentEquipment.checklist_status = parseInt(checklistData.checklist.status, 10) === 1 ? 1 : 0;
+            }
             // Use template name without "Checkliste" prefix if it already starts with it
             let templateName = checklistData.template.label || 'Wartung';
             if (templateName.toLowerCase().startsWith('checkliste ')) {
@@ -6128,7 +6353,7 @@ class ServiceReportApp {
         const checklistId = this.currentChecklist?.checklist?.id;
         if (!checklistId) return '';
         // Photos are served via API endpoint with filename
-        return `${CONFIG.apiBase}/defect-photo/${checklistId}/file/${filename}`;
+        return this._photoUrl(`defect-photo/${checklistId}/file/${encodeURIComponent(filename)}`);
     }
 
     // Capture defect photo for an item
@@ -6252,7 +6477,8 @@ class ServiceReportApp {
     }
 
     // View defect photo in fullscreen
-    viewDefectPhoto(filename) {
+    async viewDefectPhoto(filename) {
+        await this._refreshViewTicket();
         const url = this.getDefectPhotoUrl(filename);
         if (!url) return;
 

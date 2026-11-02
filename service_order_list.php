@@ -94,6 +94,8 @@ $showTermin      = getDolGlobalString('EQUIPMENTMANAGER_SOL_COL_TERMIN',      '1
 // ─── Build SQL ───────────────────────────────────────────────────────────────
 // GROUP BY f.rowid avoids duplicates from multiple equipment/detail rows
 
+dol_include_once('/equipmentmanager/class/equipment.class.php');
+Equipment::ensureInterventionAddressTable($db);
 $sql  = "SELECT f.rowid, f.ref, f.fk_soc, f.fk_statut, f.dateo, f.datee, f.datec, f.description,";
 $sql .= " s.nom as societe_name,";
 $sql .= " u.login, u.lastname, u.firstname,";
@@ -112,7 +114,9 @@ $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq ON eq.row
 // work/checklist entries exist and would leave the address empty on a fresh order.
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_link as lnk ON lnk.fk_intervention = f.rowid";
 $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_equipment as eq_addr ON eq_addr.rowid = lnk.fk_equipment";
-$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = eq_addr.fk_address";
+// Since v6.1.8 the order stores its own Objektadresse (also without equipment)
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."equipmentmanager_intervention_address as ia ON ia.fk_intervention = f.rowid";
+$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."societe as addr_s ON addr_s.rowid = COALESCE(ia.fk_address, eq_addr.fk_address)";
 $sql .= " WHERE f.entity IN (".getEntity('intervention').")";
 $sql .= buildStatusFilter($status).$typeExists;
 if ($search_ref) {

@@ -1,6 +1,6 @@
 # Dolibarr Equipment Manager
 
-**Version 6.1.7** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
+**Version 6.2.0** | Professionelle Anlagenverwaltung mit PWA, Checklisten & Wartungsplanung
 
 [![Dolibarr](https://img.shields.io/badge/Dolibarr-16.0%2B-blue.svg)](https://www.dolibarr.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
@@ -11,6 +11,14 @@
 -----
 
 ## Features
+
+### NEU in v6.2.0: Feste Objektadresse, große Wartungsaufträge & PWA-Überarbeitung
+
+- **Objektadresse fest am Serviceauftrag** – Im Backend wird zuerst die Objektadresse festgelegt, danach können Anlagen dieser Adresse gewählt werden (auch erst später vor Ort). In der PWA ist die Adresse nicht änderbar, es werden nur Anlagen dieser Adresse angeboten – auch wenn alle Anlagen entfernt wurden, sind keine anderen Objektadressen des Auftraggebers sichtbar (wichtig für Subunternehmer)
+- **Große Wartungsaufträge** (getestet mit 120 Anlagen) – Freigabe ohne Abbruch und ohne „Offline“, Fortschrittsanzeige, schnellerer Offline-Abgleich
+- **Checkliste auf eigener Seite**, Checklisten-Status als Farbbalken in der Anlagenliste
+- **Freigabe/Ändern** konsistent mit dem Backend, unterschriebene Aufträge können nicht wieder geöffnet werden
+- **Nur ein Techniker pro Serviceauftrag** (bis mehrere Techniker unterstützt werden)
 
 ### NEU in v6.1.0: Montage, Techniker-Konten & Sicherheit
 
@@ -362,6 +370,36 @@ chmod -R 755 equipmentmanager
 -----
 
 ## Changelog
+
+### v6.2.0 (2026-11-02)
+
+> **Update-Hinweis:** Modulordner ersetzen und das Modul **einmal aus- und wieder einschalten** (legt die neue Tabelle `llx_equipmentmanager_intervention_address` an, übernimmt die Objektadresse bestehender Aufträge von ihrer ersten verknüpften Anlage und registriert zwei neue Trigger). Auf den Geräten die PWA einmal online öffnen und schließen (neuer Service Worker, Cache v67). Für Aufträge mit sehr vielen Anlagen setzt die API das PHP-Zeitlimit für Freigabe/Unterschrift/Sync selbst auf 5 Minuten.
+
+**Objektadresse**
+- **Objektadresse wird am Serviceauftrag gespeichert** statt aus der ersten Anlage abgeleitet. Backend-Reiter „Anlagen“: Adresse wählen → „Als Objektadresse festlegen“; ändern nur, solange keine Anlage einer anderen Adresse verknüpft ist. Das Verknüpfen einer Anlage legt die Adresse weiterhin fest, falls noch keine gesetzt ist
+- **PWA/API:** Es werden nur Anlagen der festgelegten Objektadresse angeboten und angenommen (auch für Admins); ohne Objektadresse nichts, mit Hinweis auf das Backend. Servicebericht, Kalender-Abo, Auftragsliste, Historie und Auftragskarte nutzen die gespeicherte Adresse – auch bei Aufträgen ohne Anlagen
+
+**Große Aufträge & Sync**
+- **Freigabe:** Wartezeit bis 3 Minuten mit Einblendung „Wird freigegeben …“ und Sekundenzähler (vorher Abbruch nach 10 s); die API gibt die PHP-Sitzung sofort frei, damit die Verbindungsprüfung während langer Vorgänge nicht in „Offline“ läuft
+- **Offline-Abgleich:** Offene und freigegebene Aufträge immer, erledigte nur im gewählten Zeitraum (Standard 15 Tage); Erweitern des Zeitraums lädt die zusätzlichen Aufträge im Hintergrund nach. Anlagendetails werden parallel geladen
+- **Auftragsübersicht aktualisiert sich selbst** – beim Zurückkehren in die App, beim Tippen auf „Aufträge“, jede Minute solange sie offen ist und direkt nach dem Online-Gehen; nur bei Änderungen, ohne Sprung der Scroll-Position. Gelöschte bzw. nicht mehr zugewiesene Aufträge verschwinden auch aus dem Offline-Speicher
+- **Fix:** „Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing“ – die PWA öffnet den Offline-Speicher automatisch neu, wenn iOS die Verbindung geschlossen hat
+
+**Anlagen & Checklisten**
+- **Neuer Aufbau der Anlagen-Seite:** Anlage mit Berichtseinträgen, darunter die Zeile „Checkliste“ (Status-Chip, öffnet die Checkliste auf eigener Seite), dann Material, ganz unten Empfehlungen & Notizen
+- **Wartungsanlagen in der Liste:** linker Farbbalken grün = Bericht + Checkliste abgeschlossen, rot = Bericht ohne Checkliste, orange = Checkliste offen bzw. ohne Bericht; Zusammenfassung „x/y Berichte · x/y Checklisten abgeschlossen“ mit Legende
+- **Entwürfe** gehen nicht mehr verloren (aus 6.1.4, weiter verbessert): Freigabe gesperrt, solange ein ungespeicherter Eintrag existiert
+- **Fix:** Beim Entfernen einer Anlage in der PWA blieben deren Checklisten-Ergebnisse in der Datenbank zurück
+
+**Freigabe / Ändern / Erledigt**
+- **Zustand aus dem Backend:** „Ändern“ im Backend zeigt den Auftrag in der PWA sofort wieder als offen, Validieren im Backend als freigegeben (neuer Trigger hält den Freigabe-Status synchron); „Freigeben“ funktioniert auch bei bereits im Backend validierten Aufträgen
+- **Unterschriebene Aufträge** können in der PWA nicht mehr wieder geöffnet werden (Button ausgeblendet, API lehnt ab)
+- **„Erledigt“ nach Unterschriftsdatum** gefiltert und sortiert (vorher wirkte der Zeitraum-Filter nicht; Safari konnte das Datumsformat nicht lesen). Offene/freigegebene Aufträge kommen in der Liste immer zuerst, Grenze 200 Einträge
+
+**Weitere Änderungen**
+- **Nur ein „Beteiligter am Serviceauftrag“** pro Auftrag – ein zweiter Techniker wird beim Hinzufügen abgewiesen (mehrere Techniker folgen in einer späteren Version)
+- **Fotos:** Vorschau in „Dokumente“ zeigt Fotos als Bild (vorher leere Seite); Berichts- und Mangelfotos laden auch ohne aktive Browser-Sitzung (kurzlebige Freigabe nur für Foto-Dateien)
+- „Empfehlungen speichern“ lag auf dem iPhone hinter der unteren Leiste; Einblendungen im dunklen Modus lesbar
 
 ### v6.1.7 (2026-10-22)
 
@@ -889,6 +927,6 @@ GPL v3 oder höher
 
 -----
 
-**Current Version:** 6.1.7
+**Current Version:** 6.2.0
 **Released:** Oktober 2026
 **Compatibility:** Dolibarr 16.0+ (getestet mit 22.x bis 24.0)
